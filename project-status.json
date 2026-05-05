@@ -1,38 +1,60 @@
 {
-  "projects": {
+  "project": "Coder Survival",
+  "status": "ready_for_deploy",
+  "last_updated": "2026-05-05T18:20:00+08:00",
+  "components": {
     "frontend": {
-      "path": "/root/.openclaw/workspace/frontend",
       "status": "ready",
-      "tech": ["Preact 10", "Phaser 3.60", "Vite"],
-      "bundle_size": "1.5MB",
-      "build_cmd": "npm run build"
+      "location": "frontend/",
+      "tech": "Preact + Phaser 3.60",
+      "build": "Vite → dist/",
+      "api": "Real API (api.js)",
+      "state": "Server-authority (useGameState.js)"
     },
     "backend": {
-      "path": "/root/.openclaw/workspace/coder-survival/backend",
       "status": "ready",
-      "tech": ["Node.js 20", "Express", "PostgreSQL"],
-      "deploy_cmd": "./deploy.sh"
+      "location": "backend/",
+      "tech": "Express + PostgreSQL",
+      "entry": "src/index.js (ESM)",
+      "security": "Password rotated, .env in .gitignore"
     },
-    "payments": {
-      "path": "/root/.openclaw/workspace/coder-survival/payments",
-      "status": "in_progress",
-      "tech": ["Telegram Stars", "Express"],
-      "files": ["stars-flow.md", "prices.json", "bot-webhook.js"]
+    "bot": {
+      "status": "ready",
+      "location": "bot/",
+      "features": ["/start", "WebApp button", "Stars payments", "Referral"]
+    },
+    "nginx": {
+      "status": "ready",
+      "config": "nginx/codersurvival.conf",
+      "ssl": "Let's Encrypt"
+    },
+    "deploy": {
+      "script": "scripts/deploy.sh",
+      "target": "VM 111.88.254.2",
+      "method": "Docker Compose"
     }
   },
+  "git": {
+    "remote": "https://github.com/timoshinoleg-eng/coder_survival.git",
+    "branch": "main",
+    "commit": "c5d3ce3",
+    "message": "Initial commit with all fixes"
+  },
   "infrastructure": {
-    "vm": {
+    "yc": {
+      "vm": "fhme7t5q5v3q2b1p8v1q (preemptible, 2CPU/4GB)",
       "ip": "111.88.254.2",
-      "status": "running",
-      "ssh_issue": "key_format_error"
-    },
-    "database": {
-      "cluster_id": "c9qsqk0qa49u3k6rbe5b",
-      "status": "creating"
-    },
-    "registry": {
-      "id": "crpduv7gci2puq300f38",
-      "status": "active"
+      "zone": "ru-central1-a",
+      "postgres": "c9qsqk0qa49u3k6rbe5b (managed, 2GB, 10%)",
+      "registry": "crpduv7gci2puq300f38"
     }
-  }
+  },
+  "next_steps": [
+    "1. Commit latest changes to GitHub",
+    "2. Run deploy.sh to build and push Docker images",
+    "3. SSH to VM and run docker-compose.prod.yml",
+    "4. Configure Telegram BotFather with WebApp URL",
+    "5. Test end-to-end: /start → tap → leaderboard"
+  ],
+  "blockers": []
 }
