@@ -30,11 +30,8 @@ const DATABASE_URL = process.env.DATABASE_URL ||
 // --- Пул соединений PostgreSQL ---
 export const pool = new Pool({
   connectionString: DATABASE_URL,
-  // Для production добавим SSL, пока local dev
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
-
-// Проверка соединения
 pool.on('error', (err) => {
   console.error('Unexpected DB error:', err);
   process.exit(-1);
