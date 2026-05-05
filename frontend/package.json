@@ -1,0 +1,21 @@
+{
+  "name": "coder-survival",
+  "version": "0.1.0",
+  "description": "Telegram Mini App — clicker game for programmers",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "analyze": "vite build --mode analyze"
+  },
+  "dependencies": {
+    "preact": "^10.19.3",
+    "phaser": "^3.60.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.8.1",
+    "vite": "^5.0.10",
+    "rollup-plugin-visualizer": "^5.12.0"
+  }
+}
