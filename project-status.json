@@ -1,0 +1,38 @@
+{
+  "projects": {
+    "frontend": {
+      "path": "/root/.openclaw/workspace/frontend",
+      "status": "ready",
+      "tech": ["Preact 10", "Phaser 3.60", "Vite"],
+      "bundle_size": "1.5MB",
+      "build_cmd": "npm run build"
+    },
+    "backend": {
+      "path": "/root/.openclaw/workspace/coder-survival/backend",
+      "status": "ready",
+      "tech": ["Node.js 20", "Express", "PostgreSQL"],
+      "deploy_cmd": "./deploy.sh"
+    },
+    "payments": {
+      "path": "/root/.openclaw/workspace/coder-survival/payments",
+      "status": "in_progress",
+      "tech": ["Telegram Stars", "Express"],
+      "files": ["stars-flow.md", "prices.json", "bot-webhook.js"]
+    }
+  },
+  "infrastructure": {
+    "vm": {
+      "ip": "111.88.254.2",
+      "status": "running",
+      "ssh_issue": "key_format_error"
+    },
+    "database": {
+      "cluster_id": "c9qsqk0qa49u3k6rbe5b",
+      "status": "creating"
+    },
+    "registry": {
+      "id": "crpduv7gci2puq300f38",
+      "status": "active"
+    }
+  }
+}
