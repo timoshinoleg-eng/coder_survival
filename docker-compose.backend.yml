@@ -1,0 +1,29 @@
+# BACKEND-ONLY PRODUCTION COMPOSE
+# This is the active production compose file. It runs only the backend container.
+# Frontend and bot production traffic are hosted on Vercel.
+# See HANDOFF.md and DEPLOY.md for topology details.
+version: "3.3"
+
+services:
+  backend:
+    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest
+    build: ./backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD}
+      BOT_TOKEN: ${BOT_TOKEN}
+      BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
+    expose:
+      - "3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -1,5 +1,13 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
+import { TAP_MECHANICS } from '../config/balance.js';
+import { checkTapRateLimit } from '../middleware/rateLimit.js';
+import { recoverProgression } from '../utils/progression.js';
+import { addTapXp, computeTapXp, ensureDailyQuests, ensurePlayerLevel, getDailyQuestSummary, getRankMeta, updateDailyQuestProgress } from '../utils/vnext.js';
+import { recordEventContribution } from '../utils/events.js';
+import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
+import { addPassXp } from '../utils/pass.js';
+import { updateTeamProgress } from '../utils/teams.js';
 
 const router = Router();
 
@@ -40,26 +48,47 @@ router.post('/', async (req, res, next) => {
       );
       const userId = userResult.rows[0].id;
 
+      const levelBefore = await ensurePlayerLevel(client, userId);
+      const rankMeta = getRankMeta(levelBefore.resolved.rank);
+
+      const rateLimit = await checkTapRateLimit(
+        client,
+        userId,
+        req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress
+      );
+      if (!rateLimit.allowed) {
+        await client.query('ROLLBACK');
+        console.warn('[Tap] Rate limited user:', userId, 'reason:', rateLimit.payload?.type);
+        return res.status(rateLimit.status).json(rateLimit.payload);
+      }
+
       // 2. Получаем или создаём прогресс
-      const progressResult = await client.query(
+      const progressInsertResult = await client.query(
         `INSERT INTO progression (user_id, tier, commits_total, commits_current, energy, depression_level, streak_days)
          VALUES ($1, 1, 0, 0, 100, 0, 0)
-         ON CONFLICT (user_id) DO UPDATE SET
-           updated_at = NOW()
+         ON CONFLICT (user_id) DO NOTHING
          RETURNING *`,
         [userId]
       );
-      let progress = progressResult.rows[0];
+
+      const progress = progressInsertResult.rows[0] || (
+        await client.query(
+          `SELECT * FROM progression WHERE user_id = $1 FOR UPDATE`,
+          [userId]
+        )
+      ).rows[0];
+
+      let recoveredProgress = await recoverProgression(client, progress, rankMeta.maxEnergy);
 
       // 3. Логика тапа
-      const tapResult = calculateTapDelta(progress);
-      
+      const tapResult = calculateTapDelta(recoveredProgress, rankMeta, levelBefore.resolved.rank);
+
       // 4. Обновляем прогресс
       const updatedProgress = await client.query(
         `UPDATE progression SET
            commits_total = commits_total + $2,
-           commits_current = commits_current + $2,
-           energy = GREATEST(0, LEAST(100, energy + $3)),
+           commits_current = $7,
+           energy = GREATEST(0, LEAST($8, energy + $3)),
            depression_level = GREATEST(0, LEAST(100, depression_level + $4)),
            tier = $5,
            streak_days = $6
@@ -71,12 +100,38 @@ router.post('/', async (req, res, next) => {
           tapResult.energyDelta,
           tapResult.depressionDelta,
           tapResult.newTier,
-          tapResult.newStreak
+          tapResult.newStreak,
+          tapResult.newCommitsCurrent,
+          rankMeta.maxEnergy
         ]
       );
-      progress = updatedProgress.rows[0];
+      recoveredProgress = updatedProgress.rows[0];
 
-      // 5. Обновляем сессию (если передана)
+      const xpDelta = computeTapXp(levelBefore.resolved.levelInRank);
+      const levelAfter = await addTapXp(client, userId, levelBefore.resolved.levelInRank);
+      await ensureDailyQuests(client, userId);
+      await updateDailyQuestProgress(client, userId, {
+        tapDelta: 1,
+        commitDelta: tapResult.commitsDelta
+      });
+      const daily = await getDailyQuestSummary(client, userId);
+
+      // 5. Stage 4: event / pass / team progress
+      const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
+      const passResult = await addPassXp(client, userId, levelAfter.xpDelta);
+      await updateTeamProgress(client, userId, tapResult.commitsDelta);
+      const contextOffer = await getContextOffer(client, userId, {
+        energy: recoveredProgress.energy,
+        maxEnergy: rankMeta.maxEnergy,
+        depression: recoveredProgress.depression_level,
+        xpProgress: levelAfter.record.resolved.progressInLevel,
+        xpRequiredForNext: levelAfter.record.resolved.requiredForNextLevel
+      });
+      if (contextOffer?.type) {
+        await recordOfferImpression(client, userId, contextOffer.type, 'tap');
+      }
+
+      // 6. Обновляем сессию (если передана)
       if (session_id) {
         await client.query(
           `UPDATE sessions 
@@ -99,14 +154,44 @@ router.post('/', async (req, res, next) => {
         state: {
           userId,
           telegramId,
-          tier: progress.tier,
-          commitsTotal: parseInt(progress.commits_total),
-          commitsCurrent: parseInt(progress.commits_current),
-          energy: progress.energy,
-          depressionLevel: progress.depression_level,
-          streakDays: progress.streak_days
+          tier: recoveredProgress.tier,
+          commitsTotal: parseInt(recoveredProgress.commits_total),
+          commitsCurrent: parseInt(recoveredProgress.commits_current),
+          energy: recoveredProgress.energy,
+          depressionLevel: recoveredProgress.depression_level,
+          streakDays: recoveredProgress.streak_days,
+          updatedAt: recoveredProgress.updated_at
         },
-        rateLimit: req.rateLimit || null
+        game: {
+          tier: recoveredProgress.tier,
+          commits_total: parseInt(recoveredProgress.commits_total),
+          commits_current: parseInt(recoveredProgress.commits_current),
+          energy: recoveredProgress.energy,
+          depression_level: recoveredProgress.depression_level,
+          streak_days: recoveredProgress.streak_days,
+          updated_at: recoveredProgress.updated_at
+        },
+        progressionUpdatedAt: recoveredProgress.updated_at,
+        serverNow: new Date().toISOString(),
+        level: levelAfter.record.resolved,
+        xpDelta: levelAfter.xpDelta,
+        recoveryIntervalSeconds: parseInt(process.env.ENERGY_RECOVERY_INTERVAL_SECONDS || '60', 10),
+        daily,
+        event: eventResult ? {
+          eventId: eventResult.event.id,
+          contributed: eventResult.contribution.commits_contributed,
+          target: eventResult.event.target_commits,
+          claimed: eventResult.contribution.claimed
+        } : null,
+        pass: passResult ? {
+          seasonNumber: passResult.pass.season_number,
+          currentLevel: passResult.playerPass.current_level,
+          currentXp: passResult.playerPass.current_xp,
+          isPremium: passResult.playerPass.is_premium,
+          leveledUp: passResult.leveledUp
+        } : null,
+        contextOffer,
+        rateLimit: rateLimit.info || null
       });
 
     } catch (err) {
@@ -123,14 +208,16 @@ router.post('/', async (req, res, next) => {
 /**
  * Расчёт эффекта от тапа
  */
-function calculateTapDelta(progress) {
-  const tier = progress.tier;
-  const energy = progress.energy;
-  const depression = progress.depression_level;
-  const streak = progress.streak_days;
+function calculateTapDelta(progress, rankMeta, resolvedRank) {
+  const progressionTier = Number(progress.tier ?? 1);
+  const commitsPerTap = Number(rankMeta?.commitsPerTap ?? progressionTier);
+  const energy = Number(progress.energy ?? 0);
+  const depression = Number(progress.depression_level ?? 0);
+  const streak = Number(progress.streak_days ?? 0);
+  const commitsCurrent = Number(progress.commits_current ?? 0);
 
   // Базовый доход коммитов зависит от tier
-  const baseCommits = tier; // Junior=1, Middle=2, etc.
+  const baseCommits = commitsPerTap; // Junior=1, Middle=2, etc.
   
   // Энергия влияет на эффективность
   const energyMultiplier = energy / 100;
@@ -139,9 +226,14 @@ function calculateTapDelta(progress) {
   const depressionPenalty = depression / 100;
   
   // Стрик даёт бонус
-  const streakBonus = Math.min(streak * 0.05, 0.5); // max 50% bonus
+  const streakBonus = Math.min(streak * TAP_MECHANICS.streakBonusPerDay, TAP_MECHANICS.streakBonusCap);
 
-  let commitsDelta = Math.round(baseCommits * energyMultiplier * (1 - depressionPenalty * 0.5) * (1 + streakBonus));
+  let commitsDelta = Math.round(
+    baseCommits
+    * energyMultiplier
+    * (1 - depressionPenalty * TAP_MECHANICS.depressionPenaltyMultiplier)
+    * (1 + streakBonus)
+  );
   if (commitsDelta < 1) commitsDelta = 1;
 
   // Энергия тратится на каждый тап
@@ -149,23 +241,19 @@ function calculateTapDelta(progress) {
   
   // Депрессия растёт если энергия низкая
   let depressionDelta = 0;
-  if (energy < 20) depressionDelta = 1;
-  if (energy < 10) depressionDelta = 2;
-
-  // Проверка повышения tier
-  const tierThresholds = (process.env.TIER_THRESHOLDS || '100,500,2000,10000')
-    .split(',').map(Number);
-  
-  let newTier = tier;
-  for (let i = 0; i < tierThresholds.length; i++) {
-    if (progress.commits_current >= tierThresholds[i]) {
-      newTier = i + 2; // +2 потому что tier 1 = Junior, а thresholds начинаются с перехода на Middle
-    }
+  if (energy < TAP_MECHANICS.lowEnergyStressThreshold) {
+    depressionDelta = TAP_MECHANICS.lowEnergyStressDelta;
+  }
+  if (energy < TAP_MECHANICS.criticalEnergyStressThreshold) {
+    depressionDelta = TAP_MECHANICS.criticalEnergyStressDelta;
   }
 
+  // Проверка повышения tier
+  const newTier = Math.max(progressionTier, Math.min(Number(resolvedRank || progressionTier), 5));
+
   // Сброс commits_current при повышении tier
-  let newCommitsCurrent = progress.commits_current + commitsDelta;
-  if (newTier > tier) {
+  let newCommitsCurrent = commitsCurrent + commitsDelta;
+  if (newTier > progressionTier) {
     newCommitsCurrent = 0; // Сброс для нового уровня
   }
 

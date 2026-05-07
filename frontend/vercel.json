@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://coder-survival-api.duckdns.org/api/$1"
+    },
+    {
+      "source": "/health",
+      "destination": "https://coder-survival-api.duckdns.org/health"
+    }
+  ]
+}

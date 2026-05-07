@@ -1,19 +1,20 @@
-version: '3.8'
+# Local development compose — PostgreSQL + backend app with hot-reload.
+# Not used in production; production uses docker-compose.backend.yml on the VM.
 
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: codersurvival
-      POSTGRES_USER: codersurvival
-      POSTGRES_PASSWORD: CSdb2026!
+      POSTGRES_DB: coder_survival
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U codersurvival"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,9 +26,9 @@ services:
       PORT: 3000
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: codersurvival
-      DB_USER: codersurvival
-      DB_PASSWORD: CSdb2026!
+      DB_NAME: coder_survival
+      DB_USER: postgres
+      DB_PASSWORD: postgres
       BOT_TOKEN: ${BOT_TOKEN}
     ports:
       - "3000:3000"
@@ -36,7 +37,7 @@ services:
         condition: service_healthy
     volumes:
       - ./src:/app/src
-    command: npm run dev
+    command: npm start
 
 volumes:
   postgres_data:
