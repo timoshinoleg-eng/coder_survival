@@ -1,0 +1,100 @@
+# Coder Survival — Manual Release Workflow
+# This is a CI wrapper draft around scripts/release-prod.ps1.
+# It is designed for workflow_dispatch (one-click manual run) and NOT for
+# automatic push-triggered deploys, because the production release path
+# requires SSH access to the VM and Vercel CLI auth that live outside this repo.
+#
+# Prerequisites (must be configured as repository secrets):
+#   VM_SSH_KEY        — private key for ubuntu@111.88.247.195
+#   VM_HOST           — optional override, default ubuntu@111.88.247.195
+#   VERCEL_TOKEN      — npx vercel --token value (if running Vercel deploy from CI)
+#   BOT_TOKEN         — optional, for smoke test init-data signing
+#
+# Current limitation:
+#   The hardened release path validates Docker health on the VM, so the runner
+#   must be able to reach 111.88.247.195:22. A self-hosted runner inside the
+#   operator environment is the safest path; GitHub-hosted runners work only
+#   if the VM SSH port is exposed and key-based auth is configured.
+
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_vercel:
+        description: 'Skip Vercel frontend + bot deploy'
+        type: boolean
+        default: false
+      skip_backend:
+        description: 'Skip VM backend deploy'
+        type: boolean
+        default: false
+      skip_smoke:
+        description: 'Skip post-deploy smoke tests'
+        type: boolean
+        default: false
+      allow_dirty:
+        description: 'Allow dirty git worktree (not recommended)'
+        type: boolean
+        default: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # TODO: switch to self-hosted runner in the operator LAN for SSH reliability
+    # runs-on: [self-hosted, cs-operator]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PowerShell
+        uses: pwsh-lang/pwsh@v1
+        # Fallback: Ubuntu images already have pwsh; this step is a no-op placeholder.
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup SSH
+        if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 111.88.247.195 >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Preflight checks
+        if: ${{ !inputs.allow_dirty }}
+        run: |
+          git_status=$(git status --porcelain)
+          if [ -n "$git_status" ]; then
+            echo "::error::Worktree is dirty. Commit or stash changes first."
+            exit 1
+          fi
+
+      - name: Validate backend compose syntax
+        run: |
+          docker compose -f docker-compose.backend.yml config > /dev/null
+
+      - name: Run release-prod.ps1
+        shell: pwsh
+        run: |
+          $params = @{
+            SkipVercel   = $${{ inputs.skip_vercel }}
+            SkipBackend  = $${{ inputs.skip_backend }}
+            SkipSmoke    = $${{ inputs.skip_smoke }}
+            AllowDirty   = $${{ inputs.allow_dirty }}
+          }
+          scripts/release-prod.ps1 @params
+
+      - name: Upload release manifest artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: |
+            backend/src/**
+            backend/migrations/**
+            docker-compose.backend.yml
