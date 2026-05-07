@@ -9,6 +9,7 @@ import DailyBattlePanel from './DailyBattlePanel.jsx';
 import EventPanel from './EventPanel.jsx';
 import SprintPassPanel from './SprintPassPanel.jsx';
 import TeamPanel from './TeamPanel.jsx';
+import AudioSettings from './AudioSettings.jsx';
 
 export default function StatsBar() {
   const {
@@ -248,7 +249,8 @@ export default function StatsBar() {
               cursor: 'pointer',
               fontWeight: 600
             }
-          }, '🏆')
+          }, '🏆'),
+          h('div', { style: { display: 'flex', alignItems: 'center', marginLeft: '2px' } }, h(AudioSettings))
         ])
       ])
     ]),
