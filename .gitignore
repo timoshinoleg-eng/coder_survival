@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+*/dist/
+
+# Environment files — keep only examples
+.env
+.env.local
+.env.*.local
+.env.production
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Local runtime / deploy artifacts
+.vercel
+.DS_Store
+*.local
+coverage/
+
+# Secrets / certs
+*.pem
+*.key
