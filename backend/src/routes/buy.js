@@ -1,11 +1,17 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
+import { ensurePlayerLevel } from '../utils/vnext.js';
+import { ensurePlayerPass, getActivePass, unlockPremiumPass } from '../utils/pass.js';
+import { applyReward } from '../utils/rewards.js';
+import { getProductById } from '../utils/shopCatalog.js';
+import { SHOP_ITEM_EFFECTS } from '../config/balance.js';
 
 const router = Router();
 
 /**
- * POST /api/buy — покупка предмета за Stars (mock)
- * Body: { item_type: string, stars_amount: number }
+ * POST /api/buy — регистрация намерения покупки.
+ * Реальная выдача предмета должна идти только после Telegram successful_payment.
+ * Body: { item_type: string }
  * item_type: 'energy_refill', 'depression_cure', 'tier_boost', 'streak_protect'
  */
 router.post('/', async (req, res, next) => {
@@ -14,16 +20,11 @@ router.post('/', async (req, res, next) => {
     return res.status(401).json({ error: 'No user in initData' });
   }
 
-  const { item_type, stars_amount } = req.body || {};
+  const { item_type } = req.body || {};
 
-  // Валидация
-  const validItems = ['energy_refill', 'depression_cure', 'tier_boost', 'streak_protect'];
-  if (!validItems.includes(item_type)) {
-    return res.status(400).json({ error: 'Invalid item_type', validItems });
-  }
-
-  if (!stars_amount || stars_amount < 1) {
-    return res.status(400).json({ error: 'Invalid stars_amount' });
+  const item = getProductById(item_type);
+  if (!item) {
+    return res.status(400).json({ error: 'Invalid item_type' });
   }
 
   try {
@@ -39,62 +40,56 @@ router.post('/', async (req, res, next) => {
       );
 
       if (userResult.rows.length === 0) {
+        await client.query('ROLLBACK');
         return res.status(404).json({ error: 'User not found' });
       }
 
       const userId = userResult.rows[0].id;
 
-      // Создаём запись о покупке (mock — статус pending)
+      if (item_type === 'premium_pass') {
+        const activePass = await getActivePass(client);
+        if (!activePass) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ error: 'No active sprint pass' });
+        }
+
+        const playerPass = await ensurePlayerPass(client, userId, activePass.id);
+        if (playerPass.is_premium) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ error: 'Premium pass already unlocked' });
+        }
+      }
+
       const purchaseResult = await client.query(
         `INSERT INTO purchases (user_id, item_type, stars_amount, status)
          VALUES ($1, $2, $3, 'pending')
          RETURNING *`,
-        [userId, item_type, stars_amount]
+        [userId, item_type, item.stars]
       );
       const purchase = purchaseResult.rows[0];
 
-      // TODO: Реальная интеграция с Telegram Payments API
-      // Пока auto-complete для dev
-      const mockSuccess = true;
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, context)
+         VALUES ($1, 'purchase_intent', $2::jsonb)`,
+        [userId, JSON.stringify({ purchaseId: purchase.id, itemType: item_type, starsAmount: item.stars })]
+      );
 
-      if (mockSuccess) {
-        await client.query(
-          `UPDATE purchases SET status = 'completed' WHERE id = $1`,
-          [purchase.id]
-        );
+      await client.query('COMMIT');
 
-        // Применяем эффект предмета
-        const effect = await applyItemEffect(client, userId, item_type);
-
-        await client.query('COMMIT');
-
-        res.json({
-          success: true,
-          purchase: {
-            id: purchase.id,
-            itemType: purchase.item_type,
-            starsAmount: purchase.stars_amount,
-            status: 'completed',
-            effect
-          },
-          message: 'Purchase completed (mock payment)'
-        });
-      } else {
-        await client.query(
-          `UPDATE purchases SET status = 'failed' WHERE id = $1`,
-          [purchase.id]
-        );
-        await client.query('COMMIT');
-
-        res.status(402).json({
-          success: false,
-          purchase: {
-            id: purchase.id,
-            status: 'failed'
-          },
-          error: 'Payment failed (mock)'
-        });
-      }
+      res.status(202).json({
+        success: true,
+        purchase: {
+          id: purchase.id,
+          itemType: purchase.item_type,
+          starsAmount: purchase.stars_amount,
+          status: purchase.status
+        },
+        payment: {
+          required: true,
+          currency: 'XTR',
+          payload: `purchase:${purchase.id}:${item_type}`
+        }
+      });
 
     } catch (err) {
       await client.query('ROLLBACK');
@@ -110,29 +105,42 @@ router.post('/', async (req, res, next) => {
 /**
  * Применяет эффект предмета к прогрессу
  */
-async function applyItemEffect(client, userId, itemType) {
+export async function applyItemEffect(client, userId, itemType) {
   switch (itemType) {
-    case 'energy_refill':
+    case 'energy_refill': {
+      const level = await ensurePlayerLevel(client, userId);
+      const maxEnergy = level.resolved.maxEnergy;
       await client.query(
-        `UPDATE progression SET energy = 100 WHERE user_id = $1`,
-        [userId]
+        `UPDATE progression SET energy = $2 WHERE user_id = $1`,
+        [userId, maxEnergy]
       );
-      return { energy: 100 };
+      return { energy: maxEnergy };
+    }
 
-    case 'depression_cure':
-      await client.query(
-        `UPDATE progression SET depression_level = GREATEST(0, depression_level - 50) WHERE user_id = $1`,
-        [userId]
-      );
-      return { depressionDelta: -50 };
+    case 'depression_cure': {
+      await applyReward(client, userId, SHOP_ITEM_EFFECTS.depression_cure);
+      return { depressionDelta: -SHOP_ITEM_EFFECTS.depression_cure.depressionRelief };
+    }
 
-    case 'tier_boost':
-      // Даёт 100 коммитов к текущему уровню
-      await client.query(
-        `UPDATE progression SET commits_current = commits_current + 100 WHERE user_id = $1`,
-        [userId]
-      );
-      return { commitsDelta: 100 };
+    case 'tier_boost': {
+      await applyReward(client, userId, SHOP_ITEM_EFFECTS.tier_boost);
+      return {
+        commitsDelta: SHOP_ITEM_EFFECTS.tier_boost.commitsCurrent,
+        xpDelta: SHOP_ITEM_EFFECTS.tier_boost.xpTotal
+      };
+    }
+
+    case 'premium_pass': {
+      const result = await unlockPremiumPass(client, userId);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      return {
+        premiumPass: true,
+        alreadyOwned: result.alreadyOwned || false,
+        seasonNumber: result.pass?.season_number || null
+      };
+    }
 
     case 'streak_protect':
       // TODO: логика защиты стрика

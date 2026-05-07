@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_progression_commits_total ON progression(commits_
 -- Игровые сессии (одна сессия = одно открытие Mini App)
 CREATE TABLE IF NOT EXISTS sessions (
     id              SERIAL PRIMARY KEY,
-    session_id      UUID NOT NULL DEFAULT gen_random_uuid(),
+    session_id      UUID NOT NULL,
     user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     started_at      TIMESTAMPTZ DEFAULT NOW(),
     ended_at        TIMESTAMPTZ,
@@ -60,6 +60,24 @@ CREATE TABLE IF NOT EXISTS purchases (
 );
 
 CREATE INDEX IF NOT EXISTS idx_purchases_user_id ON purchases(user_id);
+
+-- Идемпотентные Telegram Stars платежи
+CREATE TABLE IF NOT EXISTS star_payments (
+    id                          SERIAL PRIMARY KEY,
+    user_id                     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    purchase_id                 INTEGER REFERENCES purchases(id) ON DELETE SET NULL,
+    telegram_payment_charge_id  TEXT NOT NULL UNIQUE,
+    provider_payment_charge_id  TEXT,
+    invoice_payload             TEXT NOT NULL,
+    item_type                   VARCHAR(32) NOT NULL,
+    stars_amount                INTEGER NOT NULL,
+    currency                    VARCHAR(8) NOT NULL DEFAULT 'XTR',
+    status                      VARCHAR(16) NOT NULL DEFAULT 'completed',
+    raw_payload                 JSONB,
+    created_at                  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_star_payments_user_id ON star_payments(user_id);
 
 -- Реферальная система
 CREATE TABLE IF NOT EXISTS referrals (

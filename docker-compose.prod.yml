@@ -1,19 +1,24 @@
-version: '3.8'
+# LEGACY REFERENCE — not used by the current production release path.
+# Production backend deploy now uses docker-compose.backend.yml (backend-only).
+# The frontend and bot services below remain only for full-stack local reference.
+# Vercel hosts production frontend and bot webhook runtime.
+
+version: "3.3"
 
 services:
-  nginx:
-    build: ./nginx
+  frontend:
+    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-frontend:latest
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     ports:
       - "80:80"
-      - "443:443"
-    volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
-      - ./nginx/codersurvival.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - backend
     restart: unless-stopped
 
   backend:
+    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest
     build: ./backend
     environment:
       NODE_ENV: production
@@ -22,23 +27,27 @@ services:
       DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASSWORD}
       DB_PASSWORD: ${DB_PASSWORD}
       BOT_TOKEN: ${BOT_TOKEN}
+      BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
     expose:
       - "3000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   bot:
+    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-bot:latest
     build: ./bot
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       WEBAPP_URL: ${WEBAPP_URL}
       API_URL: http://backend:3000
+      BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
     depends_on:
       - backend
     restart: unless-stopped

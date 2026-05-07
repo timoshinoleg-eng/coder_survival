@@ -1,15 +1,19 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
+import { getRankXpBounds } from '../utils/vnext.js';
 
 const router = Router();
 
 /**
  * GET /api/leaderboard — топ игроков
- * Query: ?limit=50&period=all|week|today
+ * Query: ?limit=50&period=all|week|today&rank=1|2|3|4|5&aroundMe=1
  */
 router.get('/', async (req, res, next) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
   const period = req.query.period || 'all';
+  const rankFilter = req.query.rank ? parseInt(req.query.rank, 10) : null;
+  const aroundMe = req.query.aroundMe === '1';
+  const telegramUser = req.telegramUser?.user;
 
   try {
     const client = await pool.connect();
@@ -17,8 +21,21 @@ router.get('/', async (req, res, next) => {
       let query;
       let params = [limit];
 
+      // Build rank filter based on actual XP thresholds, not stale player_levels.rank column
+      let rankWhere = '';
+      if (rankFilter) {
+        const bounds = getRankXpBounds(rankFilter);
+        if (bounds) {
+          const maxClause = bounds.max !== null ? `AND pl.xp_total < ${bounds.max}` : '';
+          rankWhere = `pl.xp_total >= ${bounds.min} ${maxClause}`;
+        }
+      }
+
+      const rankJoin = rankFilter
+        ? `JOIN player_levels pl ON pl.user_id = u.id AND ${rankWhere}`
+        : '';
+
       if (period === 'today') {
-        // Лидерборд за сегодня по коммитам в сессиях
         query = `
           SELECT 
             u.id,
@@ -26,16 +43,19 @@ router.get('/', async (req, res, next) => {
             u.username,
             u.first_name,
             COALESCE(SUM(s.commits_earned), 0) as commits_today,
-            COALESCE(SUM(s.taps_count), 0) as taps_today
+            COALESCE(SUM(s.taps_count), 0) as taps_today,
+            p.tier,
+            p.streak_days
           FROM users u
           LEFT JOIN sessions s ON s.user_id = u.id AND s.started_at >= CURRENT_DATE
-          GROUP BY u.id, u.telegram_id, u.username, u.first_name
+          LEFT JOIN progression p ON p.user_id = u.id
+          ${rankJoin}
+          GROUP BY u.id, u.telegram_id, u.username, u.first_name, p.tier, p.streak_days
           HAVING COALESCE(SUM(s.commits_earned), 0) > 0
           ORDER BY commits_today DESC
           LIMIT $1
         `;
       } else if (period === 'week') {
-        // За неделю
         query = `
           SELECT 
             u.id,
@@ -48,13 +68,13 @@ router.get('/', async (req, res, next) => {
           FROM users u
           LEFT JOIN sessions s ON s.user_id = u.id AND s.started_at >= CURRENT_DATE - INTERVAL '7 days'
           LEFT JOIN progression p ON p.user_id = u.id
+          ${rankJoin}
           GROUP BY u.id, u.telegram_id, u.username, u.first_name, p.tier, p.streak_days
           HAVING COALESCE(SUM(s.commits_earned), 0) > 0
           ORDER BY commits_week DESC
           LIMIT $1
         `;
       } else {
-        // За всё время
         query = `
           SELECT 
             u.id,
@@ -66,6 +86,7 @@ router.get('/', async (req, res, next) => {
             p.streak_days
           FROM users u
           JOIN progression p ON p.user_id = u.id
+          ${rankJoin}
           ORDER BY p.commits_total DESC
           LIMIT $1
         `;
@@ -73,21 +94,59 @@ router.get('/', async (req, res, next) => {
 
       const result = await client.query(query, params);
 
+      const players = result.rows.map((row, index) => ({
+        rank: index + 1,
+        userId: row.id,
+        telegramId: row.telegram_id,
+        username: row.username,
+        firstName: row.first_name,
+        tier: row.tier,
+        tierName: getTierName(row.tier),
+        commits: parseInt(row.commits_total || row.commits_today || row.commits_week || 0),
+        streakDays: row.streak_days || 0
+      }));
+
+      let myPosition = null;
+      if (aroundMe && telegramUser) {
+        const userResult = await client.query(
+          `SELECT id FROM users WHERE telegram_id = $1`,
+          [telegramUser.id]
+        );
+        if (userResult.rows.length > 0) {
+          const myUserId = userResult.rows[0].id;
+          // Find player's rank in the same query context
+          const allQuery = query.replace('LIMIT $1', '');
+          const allResult = await client.query(allQuery, []);
+          const allPlayers = allResult.rows.map((row, index) => ({
+            rank: index + 1,
+            userId: row.id,
+            telegramId: row.telegram_id,
+            username: row.username,
+            firstName: row.first_name,
+            tier: row.tier,
+            tierName: getTierName(row.tier),
+            commits: parseInt(row.commits_total || row.commits_today || row.commits_week || 0),
+            streakDays: row.streak_days || 0
+          }));
+          const idx = allPlayers.findIndex(p => p.userId === myUserId);
+          if (idx >= 0) {
+            const around = 2;
+            const start = Math.max(0, idx - around);
+            const end = Math.min(allPlayers.length, idx + around + 1);
+            myPosition = {
+              rank: allPlayers[idx].rank,
+              players: allPlayers.slice(start, end)
+            };
+          }
+        }
+      }
+
       res.json({
         period,
         limit,
-        count: result.rows.length,
-        players: result.rows.map((row, index) => ({
-          rank: index + 1,
-          userId: row.id,
-          telegramId: row.telegram_id,
-          username: row.username,
-          firstName: row.first_name,
-          tier: row.tier,
-          tierName: getTierName(row.tier),
-          commits: parseInt(row.commits_total || row.commits_today || row.commits_week || 0),
-          streakDays: row.streak_days || 0
-        }))
+        count: players.length,
+        players,
+        myPosition
       });
 
     } finally {

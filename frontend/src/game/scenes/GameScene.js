@@ -16,19 +16,19 @@ export default class GameScene extends Phaser.Scene {
     // Desk setup
     const deskY = cy + 40;
     this.add.image(cx, deskY, 'desk').setScale(3);
-    
+
     // Monitor
-    this.add.image(cx, deskY - 45, 'monitor').setScale(3);
-    
+    this.monitor = this.add.image(cx, deskY - 45, 'monitor').setScale(3);
+
     // Keyboard
-    this.add.image(cx, deskY + 25, 'keyboard').setScale(2.5);
-    
+    this.keyboard = this.add.image(cx, deskY + 25, 'keyboard').setScale(2.5);
+
     // Coffee cup
     this.cup = this.add.image(cx + 70, deskY - 10, 'cup').setScale(2.5);
-    
+
     // Programmer avatar (floating above desk)
     this.avatar = this.add.image(cx, deskY - 90, 'avatar').setScale(3);
-    
+
     // Idle animation
     this.tweens.add({
       targets: this.avatar,
@@ -54,22 +54,40 @@ export default class GameScene extends Phaser.Scene {
 
     // Commit particles (spawned on tap)
     this.commitParticles = this.add.particles(0, 0, 'commit', {
-      speed: { min: 80, max: 200 },
-      angle: { min: -120, max: -60 },
-      scale: { start: 1.5, end: 0 },
-      lifespan: 800,
-      gravityY: 200,
+      speed: { min: 80, max: 220 },
+      angle: { min: -130, max: -50 },
+      scale: { start: 1.6, end: 0 },
+      lifespan: 900,
+      gravityY: 220,
       quantity: 1,
+      emitting: false
+    });
+
+    // Sparkle particles for big hits
+    this.sparkleParticles = this.add.particles(0, 0, 'orb', {
+      speed: { min: 60, max: 180 },
+      angle: { min: 0, max: 360 },
+      scale: { start: 0.6, end: 0 },
+      alpha: { start: 0.8, end: 0 },
+      lifespan: 700,
+      gravityY: 80,
+      quantity: 1,
+      tint: 0xfacc15,
       emitting: false
     });
 
     // Listen for tap events from DOM
     this.game.events.on('tap', this.onTap, this);
+    this.scale.on('resize', this.onResize, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('tap', this.onTap, this);
+      this.scale.off('resize', this.onResize, this);
+    });
 
     // Depression overlay (red vignette)
     this.depressionOverlay = this.add.graphics();
     this.depressionOverlay.setDepth(100);
-    
+
     // Screen glow effect
     this.glow = this.add.graphics();
     this.glow.setDepth(-1);
@@ -95,9 +113,16 @@ export default class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
+    const strength = data?.strength || 1;
 
     // Emit commit particles from monitor
-    this.commitParticles.emitParticleAt(cx, cy - 20, Phaser.Math.Between(3, 6));
+    const particleCount = Phaser.Math.Between(5, 8) + Math.min(4, Math.floor(strength / 2));
+    this.commitParticles.emitParticleAt(cx, cy - 20, particleCount);
+
+    // Sparkles for strong hits
+    if (strength >= 3) {
+      this.sparkleParticles.emitParticleAt(cx, cy - 20, Phaser.Math.Between(3, 6));
+    }
 
     // Avatar reaction
     this.tweens.add({
@@ -109,8 +134,30 @@ export default class GameScene extends Phaser.Scene {
       ease: 'Quad.easeOut'
     });
 
-    // Screen flash
-    this.cameras.main.flash(100, 74, 222, 128, 0.2);
+    // Keyboard press animation
+    this.tweens.add({
+      targets: this.keyboard,
+      y: '+=4',
+      duration: 50,
+      yoyo: true,
+      ease: 'Quad.easeOut'
+    });
+
+    // Monitor flash
+    this.monitor.setTint(0xaaffaa);
+    this.time.delayedCall(80, () => this.monitor.clearTint());
+
+    // Screen flash with intensity based on strength
+    const flashIntensity = Math.min(0.25, 0.12 + strength * 0.02);
+    this.cameras.main.flash(100, 74, 222, 128, flashIntensity);
+
+    // Screen shake intensity based on strength
+    const shakeIntensity = Math.min(0.012, 0.004 + strength * 0.001);
+    this.cameras.main.shake(120, shakeIntensity);
+  }
+
+  onResize() {
+    this.scene.restart();
   }
 
   updateGlow(depression) {
@@ -129,14 +176,15 @@ export default class GameScene extends Phaser.Scene {
     this.depressionOverlay.clear();
     if (depression > 50) {
       const alpha = (depression - 50) / 100;
-      // Vignette effect
-      const gradient = this.depressionOverlay.createRadialGradient(
-        width / 2, height / 2, height * 0.3,
-        width / 2, height / 2, height * 0.8
-      );
-      gradient.addColorStop(0, Phaser.Display.Color.GetColor(0, 0, 0));
-      gradient.addColorStop(1, Phaser.Display.Color.GetColor(139, 0, 0));
-      this.depressionOverlay.fillGradientStyle(gradient, alpha * 0.4);
+      this.depressionOverlay.fillStyle(0x8b0000, alpha * 0.35);
+      this.depressionOverlay.fillRect(0, 0, width, height);
+      this.depressionOverlay.lineStyle(Math.max(width, height) * 0.08, 0x2a0000, alpha * 0.5);
+      this.depressionOverlay.strokeCircle(width / 2, height / 2, Math.max(width, height) * 0.52);
+    }
+    // High stress heartbeat pulse
+    if (depression >= 80) {
+      const pulseAlpha = 0.05 + Math.sin(this.time.now / 200) * 0.03;
+      this.depressionOverlay.fillStyle(0x550000, pulseAlpha);
       this.depressionOverlay.fillRect(0, 0, width, height);
     }
     this.updateGlow(depression);

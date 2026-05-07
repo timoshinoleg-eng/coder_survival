@@ -36,9 +36,9 @@ X-Telegram-Init-Data: <initData из Telegram WebApp>
 | `PORT` | Порт сервера | 3000 |
 | `DB_HOST` | Хост PostgreSQL | localhost |
 | `DB_PORT` | Порт PostgreSQL | 5432 |
-| `DB_NAME` | Имя базы | codersurvival |
-| `DB_USER` | Пользователь | codersurvival |
-| `DB_PASSWORD` | Пароль | CSdb2026! |
+| `DB_NAME` | Имя базы | coder_survival |
+| `DB_USER` | Пользователь | postgres |
+| `DB_PASSWORD` | Пароль | задаётся локально |
 | `BOT_TOKEN` | Токен Telegram бота | — |
 
 ## Деплой

@@ -2,17 +2,22 @@
   "name": "coder-survival-backend",
   "version": "0.1.0",
   "description": "Coder Survival API — Telegram Mini App backend",
-  "main": "src/app.js",
+  "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "migrate": "node src/migrate.js",
     "test": "jest",
     "docker:build": "docker build -t cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest .",
     "docker:push": "docker push cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest",
     "deploy": "npm run docker:build && npm run docker:push"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^4.18.2",
+    "helmet": "^7.2.0",
     "pg": "^8.11.3"
   },
   "devDependencies": {
