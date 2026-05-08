@@ -11,7 +11,15 @@ import { getMyTeam } from '../utils/teams.js';
 
 const router = Router();
 
-async function ensureReferralFromStartParam(client, referredUserId, referredTelegramId, startParam) {
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || req.ip || null;
+}
+
+async function ensureReferralFromStartParam(client, referredUserId, referredTelegramId, startParam, clientIp) {
   if (!startParam || !startParam.startsWith('ref_')) {
     return;
   }
@@ -35,16 +43,38 @@ async function ensureReferralFromStartParam(client, referredUserId, referredTele
     return;
   }
 
-  await client.query(
-    `INSERT INTO referrals (referrer_id, referred_id, status)
-     SELECT $1, $2, 'pending'
-     WHERE NOT EXISTS (
-       SELECT 1
+  // P2-5: antifraud soft flag — log IP-rate signal without hard blocking
+  let fraudFlag = null;
+  if (clientIp) {
+    const ipCountResult = await client.query(
+      `SELECT COUNT(*) as cnt
        FROM referrals
-       WHERE referrer_id = $1 AND referred_id = $2
-     )`,
-    [referrerId, referredUserId]
+       WHERE bind_ip = $1::inet
+         AND created_at > NOW() - INTERVAL '1 day'`,
+      [clientIp]
+    );
+    const ipCount = parseInt(ipCountResult.rows[0].cnt, 10);
+    if (ipCount >= 3) {
+      fraudFlag = 'high_ip_volume';
+    }
+  }
+
+  const insertResult = await client.query(
+    `INSERT INTO referrals (referrer_id, referred_id, status, bind_ip)
+     VALUES ($1, $2, 'pending', $3::inet)
+     ON CONFLICT (referrer_id, referred_id) DO NOTHING
+     RETURNING id`,
+    [referrerId, referredUserId, clientIp || null]
   );
+
+  // Only log antifraud audit on actual new bindings, not on duplicate state checks
+  if (fraudFlag && insertResult.rows.length > 0) {
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, context)
+       VALUES ($1, 'referral_bind_flagged', $2::jsonb)`,
+      [referrerId, JSON.stringify({ referredId: referredUserId, flag: fraudFlag, bindIp: clientIp })]
+    );
+  }
 }
 
 /**
@@ -61,30 +91,46 @@ router.get('/', async (req, res, next) => {
     const client = await pool.connect();
     try {
       const userResult = await client.query(
-        `INSERT INTO users (telegram_id, username, first_name, last_name, photo_url)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO users (telegram_id, username, first_name, last_name, photo_url, feature_flags)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb)
          ON CONFLICT (telegram_id) DO UPDATE SET
            username = COALESCE(EXCLUDED.username, users.username),
            first_name = COALESCE(EXCLUDED.first_name, users.first_name),
            last_name = COALESCE(EXCLUDED.last_name, users.last_name),
            photo_url = COALESCE(EXCLUDED.photo_url, users.photo_url),
            last_active = NOW()
-         RETURNING id, telegram_id, username, first_name, last_name, photo_url, created_at, last_active`,
+         RETURNING id, telegram_id, username, first_name, last_name, photo_url, created_at, last_active, feature_flags`,
         [
           telegramUser.id,
           telegramUser.username || null,
           telegramUser.first_name || null,
           telegramUser.last_name || null,
-          telegramUser.photo_url || null
+          telegramUser.photo_url || null,
+          JSON.stringify({ stress_v2: (telegramUser.id % 100) < 50 })
         ]
       );
 
-      const user = userResult.rows[0];
+      let user = userResult.rows[0];
+
+      // Backfill A/B cohort for existing users who don't have feature_flags yet
+      if (!user.feature_flags || Object.keys(user.feature_flags).length === 0) {
+        const computedFlags = { stress_v2: (user.telegram_id % 100) < 50 };
+        const updateResult = await client.query(
+          `UPDATE users
+           SET feature_flags = $1::jsonb
+           WHERE id = $2
+           RETURNING feature_flags`,
+          [JSON.stringify(computedFlags), user.id]
+        );
+        user.feature_flags = updateResult.rows[0]?.feature_flags || computedFlags;
+      }
+
       await ensureReferralFromStartParam(
         client,
         user.id,
         user.telegram_id,
-        req.telegramUser?.startParam
+        req.telegramUser?.startParam,
+        getClientIp(req)
       );
 
       const progressInsertResult = await client.query(
@@ -104,7 +150,8 @@ router.get('/', async (req, res, next) => {
 
       const level = await ensurePlayerLevel(client, user.id);
       const rankMeta = level.resolved;
-      const progression = await recoverProgression(client, progressRow, rankMeta.maxEnergy);
+      const userFeatureFlags = user.feature_flags || {};
+      const progression = await recoverProgression(client, progressRow, rankMeta.maxEnergy, userFeatureFlags);
 
       const sessionResult = await client.query(
         `INSERT INTO sessions (session_id, user_id, ip_address)
@@ -153,7 +200,8 @@ router.get('/', async (req, res, next) => {
         maxEnergy: rankMeta.maxEnergy,
         depression: progression.depression_level,
         xpProgress: level.resolved.progressInLevel,
-        xpRequiredForNext: level.resolved.requiredForNextLevel
+        xpRequiredForNext: level.resolved.requiredForNextLevel,
+        featureFlags: userFeatureFlags
       });
       if (contextOffer?.type) {
         await recordOfferImpression(client, user.id, contextOffer.type, 'state');
@@ -169,6 +217,8 @@ router.get('/', async (req, res, next) => {
           createdAt: user.created_at,
           lastActive: user.last_active
         },
+        featureFlags: userFeatureFlags,
+        stressCohort: userFeatureFlags?.stress_v2 ? 'test' : 'control',
         progression: progression ? {
           tier: progression.tier,
           tierName: getTierName(progression.tier),

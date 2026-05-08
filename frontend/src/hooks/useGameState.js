@@ -122,6 +122,8 @@ export function GameProvider({ children }) {
       event: payload?.event ?? current.event ?? null,
       pass: payload?.pass ?? current.pass ?? null,
       team: payload?.team ?? current.team ?? null,
+      featureFlags: payload?.featureFlags ?? payload?.feature_flags ?? current.featureFlags ?? {},
+      stressCohort: payload?.stressCohort ?? payload?.stress_cohort ?? current.stressCohort ?? 'control',
       contextOffer: hasContextOffer ? payload.contextOffer : current.contextOffer,
       lastTapDelta: payload?.delta ? {
         commits: payload.delta.commits,

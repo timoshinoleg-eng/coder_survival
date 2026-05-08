@@ -24,6 +24,7 @@ import eventRouter from './routes/event.js';
 import passRouter from './routes/pass.js';
 import teamRouter from './routes/team.js';
 import offersRouter from './routes/offers.js';
+import rewardsRouter from './routes/rewards.js';
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -88,6 +89,7 @@ app.use('/api/event', initDataMiddleware, eventRouter);
 app.use('/api/pass', initDataMiddleware, passRouter);
 app.use('/api/team', initDataMiddleware, teamRouter);
 app.use('/api/offers', initDataMiddleware, offersRouter);
+app.use('/api/rewards', initDataMiddleware, rewardsRouter);
 
 // Error handler
 app.use(errorHandler);

@@ -1,6 +1,8 @@
 import { h } from 'preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState, useCallback } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import { useTelegram } from '../hooks/useTelegram.js';
+import { adsManager } from '../utils/AdsManager.js';
 import LeaderboardPanel from './LeaderboardPanel.jsx';
 import ShopPanel from './ShopPanel.jsx';
 import ReferralPanel from './ReferralPanel.jsx';
@@ -17,7 +19,8 @@ export default function StatsBar() {
     streakDays, todayTaps, daily, error: gameError,
     rankName, levelInRank, xpProgress, xpRequiredForNext,
     progressionUpdatedAt, serverClockOffsetMs,
-    toast, shopOpen, setShopOpen, closeShop
+    toast, shopOpen, setShopOpen, closeShop,
+    featureFlags
   } = useGameState();
 
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -28,6 +31,8 @@ export default function StatsBar() {
   const [passOpen, setPassOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
+  const [adLoading, setAdLoading] = useState(false);
+  const { initData } = useTelegram();
 
   const energyPercent = maxEnergy > 0 ? Math.round((energy / maxEnergy) * 100) : 0;
   const energyColor = energyPercent > 50 ? '#4ade80' : energyPercent > 20 ? '#facc15' : '#ef4444';
@@ -98,6 +103,21 @@ export default function StatsBar() {
 
     return `+1 энергия через ${formatted}, если не тапать`;
   }, [countdownNowMs, energy, maxEnergy, progressionUpdatedAt, recoveryIntervalSeconds, serverClockOffsetMs]);
+
+  const handleWatchAd = useCallback(async () => {
+    if (adLoading || energy >= maxEnergy) return;
+    setAdLoading(true);
+    try {
+      const session = await adsManager.requestSession(initData);
+      await adsManager.showRewardedAd(initData, session.nonce);
+      await adsManager.claimReward(initData, session.nonce);
+      window.location.reload();
+    } catch (err) {
+      console.error('Ad reward failed:', err);
+    } finally {
+      setAdLoading(false);
+    }
+  }, [adLoading, energy, maxEnergy, initData]);
 
   return h('div', {
     style: {
@@ -305,7 +325,16 @@ export default function StatsBar() {
     // Depression bar
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
       h('span', { style: { minWidth: '50px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' } }, [
-        '💀', 'Стресс'
+        '💀', 'Стресс',
+        featureFlags?.stress_v2 && energy < 60 && depression > 0 && h('span', {
+          title: 'Низкая энергия вызывает стресс. Отдохни или выпей кофе',
+          style: {
+            marginLeft: '4px',
+            fontSize: '10px',
+            cursor: 'help',
+            color: '#facc15'
+          }
+        }, '⚠️')
       ]),
       h('div', {
         style: {
@@ -353,12 +382,28 @@ export default function StatsBar() {
       }, '⚠️ Высокий стресс — эффективность снижена')
     ]),
 
-    // Recovery + today taps
+    // Recovery + today taps + ad button
     h('div', {
       style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#6b7f99', marginTop: '2px' }
     }, [
       h('span', null, energyCountdownLabel),
-      todayTaps > 0 && h('span', null, `Сегодня тапов: ${todayTaps}`)
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+        todayTaps > 0 && h('span', null, `Сегодня тапов: ${todayTaps}`),
+        adsManager.isAvailable() && energy < maxEnergy && h('button', {
+          onClick: handleWatchAd,
+          disabled: adLoading,
+          style: {
+            fontSize: '10px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            border: '1px solid #30527e',
+            background: adLoading ? '#1a3a5c' : '#0f3460',
+            color: '#60a5fa',
+            cursor: adLoading ? 'wait' : 'pointer',
+            opacity: adLoading ? 0.7 : 1
+          }
+        }, adLoading ? 'Загрузка...' : '▶️ +50% энергии')
+      ])
     ]),
 
     // Error banner

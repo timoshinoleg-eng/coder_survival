@@ -91,15 +91,20 @@ function matchesOfferSignals(offerType, signals) {
   const xpProgress = Number(signals?.xpProgress ?? 0);
   const xpRequiredForNext = Number(signals?.xpRequiredForNext ?? 0);
   const energyPercent = maxEnergy > 0 ? (energy / maxEnergy) * 100 : 0;
+  const stressV2 = signals?.featureFlags?.stress_v2 === true;
 
   switch (offerType) {
     case 'low_energy':
       return energyPercent <= CONTEXT_OFFER_RULES.low_energy.energyPercentThreshold;
-    case 'high_stress':
-      return depression >= CONTEXT_OFFER_RULES.high_stress.depressionThreshold;
+    case 'high_stress': {
+      const threshold = stressV2 ? 20 : CONTEXT_OFFER_RULES.high_stress.depressionThreshold;
+      return depression >= threshold;
+    }
     case 'near_rank':
-      return xpRequiredForNext > 0
-        && (xpProgress / xpRequiredForNext) >= CONTEXT_OFFER_RULES.near_rank.progressThreshold;
+      return (
+        xpRequiredForNext > 0
+        && xpProgress / xpRequiredForNext >= CONTEXT_OFFER_RULES.near_rank.progressThreshold
+      );
     default:
       return false;
   }

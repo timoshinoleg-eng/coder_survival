@@ -113,3 +113,24 @@ export const SHOP_ITEM_EFFECTS = {
   depression_cure: { depressionRelief: 60 },
   tier_boost: { xpTotal: 40, commitsCurrent: 50 }
 };
+
+// P0-2: Stress v2 A/B configuration
+export const STRESS_V2 = {
+  DEPRESSION_INCREASE_LOW_ENERGY: 60,
+  DEPRESSION_CRITICAL_LOW_ENERGY: 30,
+  DEPRESSION_PASSIVE_DECAY_PER_HOUR: 5,
+  STRESS_GAIN_PER_TAP_BELOW_50: 1,
+  STRESS_GAIN_PER_TAP_BELOW_30: 2,
+  AB_TEST_PERCENTAGE: 50
+};
+
+// P1-4: escalating streak bonus for daily login quest (applied ON TOP of base reward)
+export const LOGIN_STREAK_BONUS = {
+  1: { energy: 0 },
+  2: { energy: 5 },
+  3: { energy: 10 },
+  4: { energy: 15 },
+  5: { energy: 20 },
+  6: { energy: 25 },
+  7: { energy: 30, depressionRelief: 10 }
+};
