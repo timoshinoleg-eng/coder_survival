@@ -78,10 +78,21 @@ router.post('/ad-claim', async (req, res, next) => {
     return res.status(401).json({ error: 'No user in initData' });
   }
 
-  const { nonce, provider } = req.body || {};
+  const { nonce, provider, proof } = req.body || {};
   if (!nonce) {
     return res.status(400).json({ error: 'nonce is required' });
   }
+
+  // TODO (production SDK integration):
+  // Validate provider proof here before applying reward.
+  // Example for AdMob: verify SSV (Server-Side Verification) callback
+  //   - Check signature against Google's public key
+  //   - Verify nonce matches session.nonce
+  //   - Verify reward_amount / custom_data
+  // If proof is invalid: return 403 and do NOT mark nonce as used.
+  // if (provider !== 'mock' && !verifyAdProof(provider, proof, nonce)) {
+  //   return res.status(403).json({ error: 'Invalid ad proof' });
+  // }
 
   try {
     const client = await pool.connect();
