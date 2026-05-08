@@ -345,7 +345,7 @@ router.post('/claim-milestone', async (req, res, next) => {
       }
 
       await client.query(
-        `UPDATE progression SET energy = $1 WHERE user_id = $2`,
+        `UPDATE progression SET energy = $1, updated_at = NOW() WHERE user_id = $2`,
         [newEnergy, userId]
       );
 

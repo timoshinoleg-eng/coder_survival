@@ -32,7 +32,7 @@ Telegram client
 ├── frontend/            # Preact 10 + Phaser 3.60 (Mini App UI)
 ├── backend/             # Node.js 20 + Express + PostgreSQL (API)
 ├── bot/                 # Grammy bot (Vercel webhook runtime; local polling guarded)
-├── nginx/               # Reverse proxy config for container runtime
+├── nginx/               # Legacy container-level nginx reference (production uses host nginx + certbot)
 ├── observation/         # SELECT-only SQL snippets for manual economy observation
 ├── payments/            # Telegram Stars integration docs (legacy payment mocks removed)
 ├── analytics/           # Amplitude events
@@ -146,11 +146,15 @@ Manual SQL observation pack:
 
 ### Для команды / разработки
 - [HANDOFF.md](HANDOFF.md)
+- [ROADMAP.md](ROADMAP.md) — concrete 2–4 week execution plan after MVP stabilization
+- [TASK_BACKLOG.md](TASK_BACKLOG.md) — detailed backlog by backend / frontend / ops / analytics
 - [DEPLOY.md](DEPLOY.md)
 - [LAUNCH_NEXT_STEPS.md](LAUNCH_NEXT_STEPS.md)
 - [BOT_RUNTIME_PLAN.md](BOT_RUNTIME_PLAN.md)
 - [observation/README.md](observation/README.md)
 - [observation/OPERATOR_CHEATSHEET.md](observation/OPERATOR_CHEATSHEET.md)
+- [analytics/CANONICAL_EVENT_TAXONOMY.md](analytics/CANONICAL_EVENT_TAXONOMY.md)
+- [analytics/WEEKLY_BALANCE_REVIEW_TEMPLATE.md](analytics/WEEKLY_BALANCE_REVIEW_TEMPLATE.md)
 - [scripts/release-manual-checklist.md](scripts/release-manual-checklist.md)
 - [SMOKE_COVERAGE.md](SMOKE_COVERAGE.md) — live smoke test inventory and coverage gaps
 - [SUPPORT_KNOWN_ISSUES.md](SUPPORT_KNOWN_ISSUES.md)

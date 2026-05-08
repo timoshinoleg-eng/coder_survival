@@ -1,7 +1,10 @@
 import 'dotenv/config';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const API_URL = process.env.API_URL || 'https://frontend-ashy-alpha-77.vercel.app';
+const API_URL = process.env.API_URL;
+if (!API_URL) {
+  throw new Error('API_URL not set');
+}
 const BOT_BACKEND_SECRET = process.env.BOT_BACKEND_SECRET;
 
 function withCors(response, origin = '*') {

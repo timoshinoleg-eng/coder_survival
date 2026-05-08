@@ -4,6 +4,7 @@ import { apiRequest } from '../utils/api.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { useGameState } from '../hooks/useGameState.js';
+import { audioManager } from '../utils/AudioManager.js';
 
 const CATEGORY_LABELS = {
   energy: '⚡ Энергия',
@@ -50,6 +51,15 @@ export default function ShopPanel() {
     return () => { cancelled = true; };
   }, [shopOpen]);
 
+  useEffect(() => {
+    if (shopOpen) {
+      audioManager.play('modalOpen');
+      audioManager.duckForModal();
+    } else {
+      audioManager.resumeFromModal();
+    }
+  }, [shopOpen]);
+
   const handleBuy = async (productId) => {
     setBuying(productId);
     setBuyResult(null);
@@ -62,6 +72,7 @@ export default function ShopPanel() {
         invoiceStatus: result.status
       });
       if (result.success) {
+        audioManager.play('purchase');
         if (productId === 'premium_pass') {
           showToast('Premium Pass покупка создана. После оплаты откроется premium track.', 'success', 3000);
         } else if (result.status === 'opened') {

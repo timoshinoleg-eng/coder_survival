@@ -1,5 +1,8 @@
 # Coder Survival vNext Spec
 
+> **Status: implemented.** This spec was the original design document for the Stage 2–4 features that are now live in production.  
+> **Trust code first.** For current thresholds, rewards, and behavior, refer to `backend/src/config/balance.js` and `backend/src/utils/vnext.js` rather than the static numbers in this document.
+
 ## Goal
 
 Собрать следующий игровой пакет без расползания scope.

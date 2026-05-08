@@ -111,7 +111,7 @@ export async function applyItemEffect(client, userId, itemType) {
       const level = await ensurePlayerLevel(client, userId);
       const maxEnergy = level.resolved.maxEnergy;
       await client.query(
-        `UPDATE progression SET energy = $2 WHERE user_id = $1`,
+        `UPDATE progression SET energy = $2, updated_at = NOW() WHERE user_id = $1`,
         [userId, maxEnergy]
       );
       return { energy: maxEnergy };

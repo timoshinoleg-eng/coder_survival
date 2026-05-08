@@ -52,7 +52,7 @@
       "last_release_notes": [
         "VM backend source synced from current repo workspace",
         "Backend rebuilt with --no-cache and force-recreated to avoid stale image reuse",
-        "Migrations 003 through 007 applied on production PostgreSQL (latest: 007_minimum_economy_instrumentation.sql)",
+        "Migrations 003 through 007 applied on production PostgreSQL (latest: 007_minimum_economy_instrumentation.sql); migration 008_remove_progression_trigger.sql is prepared in repo and should be applied on next release",
         "Production API smoke passed through public Vercel /api route",
         "Frontend and bot were redeployed on Vercel and production aliases were refreshed",
         "DuckDNS hostname coder-survival-api.duckdns.org now fronts the backend VM upstream",
@@ -79,6 +79,9 @@
         "Hardened backend-only release path was production-validated end-to-end on 2026-05-07 without manual VM file sync; both smoke-prod and smoke-offers passed",
         "Operator scripts now target docker-compose.backend.yml as the backend-only production compose; docker-compose.prod.yml is retained only as a legacy reference",
         "State/tap payloads now expose progressionUpdatedAt and serverNow so the frontend can render a truthful idle energy countdown",
+        " progression.updated_at is now explicitly set by application code (tap, reward, recovery, buy, referral); migration 008_remove_progression_trigger.sql prepared in repo to remove the ambiguous trigger on next release",
+        " Bot API_URL fallback removed: createBot.js and invoice-link.js now throw on missing API_URL to prevent silent localhost fallback in production",
+        " Shop description drift fixed: depression_cure now reads '60 пунктов' instead of '60%' to match actual balance effect",
         "Frontend HUD now shows a production-verified idle-only countdown to the next +1 energy while preserving existing smoke coverage",
         "Support FAQ layer assembled: support/GAMEPLAY_FAQ.md covers triage for energy/stress/quests/pass/shop/team/referral; support/SUPPORT_TRIAGE_CHECKLIST.md provides step-by-step SQL/API checks for payment missing, quest not claimed, event reward missing, team join failed, and referral milestone issues"
       ]

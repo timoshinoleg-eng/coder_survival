@@ -22,7 +22,8 @@ export async function recoverProgression(client, progression, maxEnergy = 100) {
   const result = await client.query(
     `UPDATE progression
      SET energy = LEAST($3, energy + $2),
-         depression_level = GREATEST(0, depression_level - $4)
+         depression_level = GREATEST(0, depression_level - $4),
+         updated_at = NOW()
      WHERE user_id = $1
      RETURNING *`,
     [progression.user_id, recoveredEnergy, maxEnergy, depressionRecovery]

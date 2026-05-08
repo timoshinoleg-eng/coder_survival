@@ -34,6 +34,7 @@
     - `005_offer_cooldowns.sql`
     - `006_balance_tuning.sql`
     - `007_minimum_economy_instrumentation.sql`
+    - `008_remove_progression_trigger.sql` (prepared in repo; apply on next release)
   - production smoke через публичный `https://frontend-ashy-alpha-77.vercel.app/api/*` прошел для:
     - `health`
     - `state`
@@ -102,6 +103,11 @@
 
 Детальный план:
 - [BOT_RUNTIME_PLAN.md](BOT_RUNTIME_PLAN.md)
+
+## Bot runtime env requirements
+
+- `bot/src/createBot.js` and `bot/api/invoice-link.js` now fail-fast if `API_URL` is not set.  
+  Do not rely on implicit `http://localhost:3000` or hardcoded frontend URLs in production.
 
 ## Следующий этап
 

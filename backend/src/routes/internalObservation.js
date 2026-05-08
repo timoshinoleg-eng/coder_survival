@@ -1,20 +1,26 @@
-import { Router } from 'express';
-import { pool } from '../index.js';
-import { resolveLevelState } from '../utils/vnext.js';
+import { Router } from "express";
+import { pool } from "../index.js";
+import { PRODUCT_CATALOG } from "../utils/shopCatalog.js";
+import { resolveLevelState } from "../utils/vnext.js";
 
 const router = Router();
 
-const OBSERVATION_SECRET = process.env.OBSERVATION_SECRET || process.env.BOT_BACKEND_SECRET;
+const OBSERVATION_SECRET =
+  process.env.OBSERVATION_SECRET || process.env.BOT_BACKEND_SECRET;
 const MAX_DAYS = 30;
 const DEFAULT_DAYS = 7;
 
-router.get('/economy', async (req, res, next) => {
-  const headerSecret = req.get('X-Bot-Backend-Secret') || req.get('X-Observation-Secret');
+router.get("/economy", async (req, res, next) => {
+  const headerSecret =
+    req.get("X-Bot-Backend-Secret") || req.get("X-Observation-Secret");
   if (!OBSERVATION_SECRET || headerSecret !== OBSERVATION_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const parsedDays = Number.parseInt(String(req.query.days ?? DEFAULT_DAYS), 10);
+  const parsedDays = Number.parseInt(
+    String(req.query.days ?? DEFAULT_DAYS),
+    10,
+  );
   const days = Number.isFinite(parsedDays)
     ? Math.max(1, Math.min(parsedDays, MAX_DAYS))
     : DEFAULT_DAYS;
@@ -29,7 +35,7 @@ router.get('/economy', async (req, res, next) => {
         weeklyHackathon: await getWeeklyHackathonSlice(client),
         sprintPass: await getSprintPassSlice(client),
         shopPurchases: await getShopPurchasesSlice(client, days),
-        economyHealth: await getEconomyHealthSlice(client)
+        economyHealth: await getEconomyHealthSlice(client),
       };
 
       return res.json({
@@ -43,7 +49,7 @@ router.get('/economy', async (req, res, next) => {
         quests: buildQuestsLegacy(sqlSlices),
         pass: buildPassLegacy(sqlSlices),
         event: buildEventLegacy(sqlSlices),
-        retention: buildRetentionLegacy(sqlSlices)
+        retention: buildRetentionLegacy(sqlSlices),
       });
     } finally {
       client.release();
@@ -67,7 +73,7 @@ async function getDauRetentionSlice(client, days) {
        WHERE started_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
        GROUP BY DATE(started_at)
        ORDER BY day DESC`,
-      [days]
+      [days],
     ),
     client.query(
       `WITH cohorts AS (
@@ -91,14 +97,14 @@ async function getDauRetentionSlice(client, days) {
        FROM cohorts c
        GROUP BY c.cohort_date
        ORDER BY c.cohort_date DESC`,
-      [days]
+      [days],
     ),
     client.query(
       `SELECT
          COUNT(DISTINCT user_id) FILTER (WHERE DATE(started_at) = CURRENT_DATE - INTERVAL '1 day') AS yesterday_dau,
          (SELECT COUNT(*) FROM users) AS total_users
-       FROM sessions`
-    )
+       FROM sessions`,
+    ),
   ]);
 
   const stickyRow = stickyResult.rows[0] || {};
@@ -112,7 +118,7 @@ async function getDauRetentionSlice(client, days) {
       sessionCount: Number(row.session_count || 0),
       tapsTotal: Number(row.taps_total || 0),
       commitsTotal: Number(row.commits_total || 0),
-      avgTapsPerSession: Number(row.avg_taps_per_session || 0)
+      avgTapsPerSession: Number(row.avg_taps_per_session || 0),
     })),
     d1Retention: d1Result.rows.map((row) => {
       const cohortSize = Number(row.cohort_size || 0);
@@ -121,21 +127,22 @@ async function getDauRetentionSlice(client, days) {
         cohortDate: row.cohort_date,
         cohortSize,
         d1Returned: returned,
-        d1RetentionPct: ratioPct(returned, cohortSize)
+        d1RetentionPct: ratioPct(returned, cohortSize),
       };
     }),
     stickyFactor: {
       yesterdayDau,
       totalUsers,
-      stickyFactorPct: ratioPct(yesterdayDau, totalUsers)
-    }
+      stickyFactorPct: ratioPct(yesterdayDau, totalUsers),
+    },
   };
 }
 
 async function getDailyQuestsSlice(client, days) {
-  const [perQuestResult, fullClearResult, timingResult, bottleneckResult] = await Promise.all([
-    client.query(
-      `SELECT
+  const [perQuestResult, fullClearResult, timingResult, bottleneckResult] =
+    await Promise.all([
+      client.query(
+        `SELECT
          quest_type,
          target_value,
          COUNT(*) FILTER (WHERE completed) AS completed,
@@ -144,10 +151,10 @@ async function getDailyQuestsSlice(client, days) {
        FROM daily_quests
        WHERE quest_date = CURRENT_DATE
        GROUP BY quest_type, target_value
-       ORDER BY quest_type`
-    ),
-    client.query(
-      `WITH per_user_day AS (
+       ORDER BY quest_type`,
+      ),
+      client.query(
+        `WITH per_user_day AS (
          SELECT
            quest_date,
            user_id,
@@ -167,10 +174,10 @@ async function getDailyQuestsSlice(client, days) {
        FROM per_user_day
        GROUP BY quest_date
        ORDER BY quest_date DESC`,
-      [days]
-    ),
-    client.query(
-      `SELECT
+        [days],
+      ),
+      client.query(
+        `SELECT
          quest_type,
          COUNT(*) AS claimed_count,
          ROUND(AVG(EXTRACT(EPOCH FROM (claimed_at - completed_at)) / 60.0), 1) AS avg_minutes_to_claim
@@ -181,10 +188,10 @@ async function getDailyQuestsSlice(client, days) {
          AND quest_date >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
        GROUP BY quest_type
        ORDER BY quest_type`,
-      [days]
-    ),
-    client.query(
-      `WITH last_completion AS (
+        [days],
+      ),
+      client.query(
+        `WITH last_completion AS (
          SELECT
            user_id,
            quest_date,
@@ -204,9 +211,9 @@ async function getDailyQuestsSlice(client, days) {
         AND dq.quest_date = lc.quest_date
         AND dq.completed_at = lc.last_completed_at
        GROUP BY dq.quest_type
-       ORDER BY times_last DESC, dq.quest_type`
-    )
-  ]);
+       ORDER BY times_last DESC, dq.quest_type`,
+      ),
+    ]);
 
   return {
     perQuestToday: perQuestResult.rows.map((row) => {
@@ -220,7 +227,7 @@ async function getDailyQuestsSlice(client, days) {
         total,
         claimed,
         completionPct: ratioPct(completed, total),
-        claimPct: ratioPct(claimed, total)
+        claimPct: ratioPct(claimed, total),
       };
     }),
     fullClearByDate: fullClearResult.rows.map((row) => {
@@ -234,23 +241,30 @@ async function getDailyQuestsSlice(client, days) {
         fullClearUsers,
         fullClaimUsers,
         fullClearPct: ratioPct(fullClearUsers, usersWithQuests),
-        fullClaimPct: ratioPct(fullClaimUsers, usersWithQuests)
+        fullClaimPct: ratioPct(fullClaimUsers, usersWithQuests),
       };
     }),
     claimTiming: timingResult.rows.map((row) => ({
       questType: row.quest_type,
       claimedCount: Number(row.claimed_count || 0),
-      avgMinutesToClaim: Number(row.avg_minutes_to_claim || 0)
+      avgMinutesToClaim: Number(row.avg_minutes_to_claim || 0),
     })),
     bottleneckQuest: bottleneckResult.rows.map((row) => ({
       questType: row.quest_type,
-      timesLast: Number(row.times_last || 0)
-    }))
+      timesLast: Number(row.times_last || 0),
+    })),
   };
 }
 
 async function getContextOffersSlice(client, days) {
-  const [impressionsResult, dismissResult, conversionResult, fatigueResult] = await Promise.all([
+  const [
+    impressionsResult,
+    dismissResult,
+    conversionResult,
+    fatigueResult,
+    sourceBreakdownResult,
+    sourceConversionResult,
+  ] = await Promise.all([
     client.query(
       `SELECT
          offer_type,
@@ -260,7 +274,7 @@ async function getContextOffersSlice(client, days) {
        WHERE shown_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
        GROUP BY offer_type
        ORDER BY impressions DESC, offer_type`,
-      [days]
+      [days],
     ),
     client.query(
       `WITH impressions AS (
@@ -292,7 +306,7 @@ async function getContextOffersSlice(client, days) {
        FROM impressions i
        GROUP BY i.offer_type
        ORDER BY i.offer_type`,
-      [days]
+      [days],
     ),
     client.query(
       `WITH offer_map(offer_type, item_type) AS (
@@ -334,7 +348,7 @@ async function getContextOffersSlice(client, days) {
        LEFT JOIN impressions i ON i.offer_type = om.offer_type
        GROUP BY om.offer_type
        ORDER BY om.offer_type`,
-      [days]
+      [days],
     ),
     client.query(
       `SELECT
@@ -354,15 +368,69 @@ async function getContextOffersSlice(client, days) {
        ) sub
        GROUP BY DATE(shown_at), offer_type
        ORDER BY day DESC, offer_type`,
-      [days]
-    )
+      [days],
+    ),
+    client.query(
+      `SELECT
+         offer_type,
+         source,
+         COUNT(*) AS impressions,
+         COUNT(DISTINCT user_id) AS unique_users
+       FROM offer_impressions
+       WHERE shown_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       GROUP BY offer_type, source
+       ORDER BY offer_type, source`,
+      [days],
+    ),
+    client.query(
+      `WITH offer_map(offer_type, item_type) AS (
+         VALUES
+           ('low_energy', 'energy_refill'),
+           ('high_stress', 'depression_cure'),
+           ('near_rank', 'tier_boost')
+       ),
+       impressions AS (
+         SELECT user_id, offer_type, source, shown_at
+         FROM offer_impressions
+         WHERE shown_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       )
+       SELECT
+         i.offer_type,
+         i.source,
+         COUNT(DISTINCT i.user_id) AS impression_users,
+         COUNT(DISTINCT i.user_id) FILTER (
+           WHERE EXISTS (
+             SELECT 1
+             FROM audit_logs al
+             WHERE al.user_id = i.user_id
+               AND al.action = 'purchase_intent'
+               AND al.context->>'itemType' = om.item_type
+               AND al.created_at BETWEEN i.shown_at AND i.shown_at + INTERVAL '10 minutes'
+           )
+         ) AS purchase_intent_users,
+         COUNT(DISTINCT i.user_id) FILTER (
+           WHERE EXISTS (
+             SELECT 1
+             FROM purchases p
+             WHERE p.user_id = i.user_id
+               AND p.item_type = om.item_type
+               AND p.status = 'completed'
+               AND p.created_at BETWEEN i.shown_at AND i.shown_at + INTERVAL '10 minutes'
+           )
+         ) AS completed_purchase_users
+       FROM impressions i
+       JOIN offer_map om ON om.offer_type = i.offer_type
+       GROUP BY i.offer_type, i.source
+       ORDER BY i.offer_type, i.source`,
+      [days],
+    ),
   ]);
 
   return {
     impressionsByType: impressionsResult.rows.map((row) => ({
       offerType: row.offer_type,
       impressions: Number(row.impressions || 0),
-      uniqueUsers: Number(row.unique_users || 0)
+      uniqueUsers: Number(row.unique_users || 0),
     })),
     dismissRateByType: dismissResult.rows.map((row) => {
       const impressionUsers = Number(row.impression_users || 0);
@@ -371,7 +439,7 @@ async function getContextOffersSlice(client, days) {
         offerType: row.offer_type,
         impressionUsers,
         dismissUsers,
-        dismissRatePct: ratioPct(dismissUsers, impressionUsers)
+        dismissRatePct: ratioPct(dismissUsers, impressionUsers),
       };
     }),
     proxyConversionByType: conversionResult.rows.map((row) => {
@@ -384,22 +452,49 @@ async function getContextOffersSlice(client, days) {
         proxyConversions,
         completedPurchases,
         proxyCtrPct: ratioPct(proxyConversions, impressions),
-        completedCtrPct: ratioPct(completedPurchases, impressions)
+        completedCtrPct: ratioPct(completedPurchases, impressions),
       };
     }),
     fatigueByDay: fatigueResult.rows.map((row) => ({
       day: row.day,
       offerType: row.offer_type,
       avgImpressionsPerUser: Number(row.avg_impressions_per_user || 0),
-      maxImpressionsSingleUser: Number(row.max_impressions_single_user || 0)
-    }))
+      maxImpressionsSingleUser: Number(row.max_impressions_single_user || 0),
+    })),
+    sourceBreakdown: sourceBreakdownResult.rows.map((row) => ({
+      offerType: row.offer_type,
+      source: row.source,
+      impressions: Number(row.impressions || 0),
+      uniqueUsers: Number(row.unique_users || 0),
+    })),
+    sourceConversionByType: sourceConversionResult.rows.map((row) => {
+      const impressionUsers = Number(row.impression_users || 0);
+      const purchaseIntentUsers = Number(row.purchase_intent_users || 0);
+      const completedPurchaseUsers = Number(row.completed_purchase_users || 0);
+      return {
+        offerType: row.offer_type,
+        source: row.source,
+        impressionUsers,
+        purchaseIntentUsers,
+        completedPurchaseUsers,
+        purchaseIntentUserRatePct: ratioPct(
+          purchaseIntentUsers,
+          impressionUsers,
+        ),
+        completedPurchaseUserRatePct: ratioPct(
+          completedPurchaseUsers,
+          impressionUsers,
+        ),
+      };
+    }),
   };
 }
 
 async function getWeeklyHackathonSlice(client) {
-  const [currentResult, historicalResult, distributionResult, dropOffResult] = await Promise.all([
-    client.query(
-      `SELECT
+  const [currentResult, historicalResult, distributionResult, dropOffResult] =
+    await Promise.all([
+      client.query(
+        `SELECT
          e.id AS event_id,
          e.event_type,
          e.title,
@@ -420,10 +515,10 @@ async function getWeeklyHackathonSlice(client) {
        LEFT JOIN event_contributions ec ON ec.event_id = e.id
        WHERE e.end_date >= CURRENT_DATE
        GROUP BY e.id, e.event_type, e.title, e.target_commits, e.start_date, e.end_date
-       ORDER BY e.start_date DESC`
-    ),
-    client.query(
-      `SELECT
+       ORDER BY e.start_date DESC`,
+      ),
+      client.query(
+        `SELECT
          e.id AS event_id,
          e.event_type,
          e.title,
@@ -440,10 +535,10 @@ async function getWeeklyHackathonSlice(client) {
        LEFT JOIN event_contributions ec ON ec.event_id = e.id
        GROUP BY e.id, e.event_type, e.title, e.start_date, e.target_commits
        ORDER BY e.start_date DESC
-       LIMIT 10`
-    ),
-    client.query(
-      `SELECT
+       LIMIT 10`,
+      ),
+      client.query(
+        `SELECT
          CASE
            WHEN ec.commits_contributed >= e.target_commits THEN 'reached_target'
            WHEN ec.commits_contributed >= e.target_commits * 0.75 THEN '75_99_pct'
@@ -456,10 +551,10 @@ async function getWeeklyHackathonSlice(client) {
        JOIN events e ON e.id = ec.event_id
        WHERE e.end_date >= CURRENT_DATE
        GROUP BY 1
-       ORDER BY progress_bucket`
-    ),
-    client.query(
-      `SELECT
+       ORDER BY progress_bucket`,
+      ),
+      client.query(
+        `SELECT
          COUNT(DISTINCT ec.user_id) AS event_participants,
          COUNT(DISTINCT ec.user_id) FILTER (
            WHERE EXISTS (
@@ -479,9 +574,9 @@ async function getWeeklyHackathonSlice(client) {
          ) AS likely_dropped_off
        FROM event_contributions ec
        JOIN events e ON e.id = ec.event_id
-       WHERE e.end_date >= CURRENT_DATE`
-    )
-  ]);
+       WHERE e.end_date >= CURRENT_DATE`,
+      ),
+    ]);
 
   const dropOff = dropOffResult.rows[0] || {};
 
@@ -498,7 +593,7 @@ async function getWeeklyHackathonSlice(client) {
       claimed: Number(row.claimed || 0),
       completionPct: Number(row.completion_pct || 0),
       avgCommits: Number(row.avg_commits || 0),
-      maxCommits: Number(row.max_commits || 0)
+      maxCommits: Number(row.max_commits || 0),
     })),
     historicalCompletionRates: historicalResult.rows.map((row) => ({
       eventId: Number(row.event_id || 0),
@@ -508,22 +603,27 @@ async function getWeeklyHackathonSlice(client) {
       targetCommits: Number(row.target_commits || 0),
       participants: Number(row.participants || 0),
       completed: Number(row.completed || 0),
-      completionPct: Number(row.completion_pct || 0)
+      completionPct: Number(row.completion_pct || 0),
     })),
     commitDistribution: distributionResult.rows.map((row) => ({
       progressBucket: row.progress_bucket,
-      users: Number(row.users || 0)
+      users: Number(row.users || 0),
     })),
     dropOffProxy: {
       eventParticipants: Number(dropOff.event_participants || 0),
       stillActive: Number(dropOff.still_active || 0),
-      likelyDroppedOff: Number(dropOff.likely_dropped_off || 0)
-    }
+      likelyDroppedOff: Number(dropOff.likely_dropped_off || 0),
+    },
   };
 }
 
 async function getSprintPassSlice(client) {
-  const [distributionResult, velocityResult, unclaimedResult, premiumTimingResult] = await Promise.all([
+  const [
+    distributionResult,
+    velocityResult,
+    unclaimedResult,
+    premiumTimingResult,
+  ] = await Promise.all([
     client.query(
       `SELECT
          current_level,
@@ -536,7 +636,7 @@ async function getSprintPassSlice(client) {
          ) AS premium_pct
        FROM player_passes
        GROUP BY current_level
-       ORDER BY current_level`
+       ORDER BY current_level`,
     ),
     client.query(
       `WITH level_first_claim AS (
@@ -558,7 +658,7 @@ async function getSprintPassSlice(client) {
        FROM level_first_claim lfc
        CROSS JOIN global_first gf
        GROUP BY lfc.level
-       ORDER BY lfc.level`
+       ORDER BY lfc.level`,
     ),
     client.query(
       `WITH active_pass AS (
@@ -600,7 +700,7 @@ async function getSprintPassSlice(client) {
        JOIN pass_rewards pr ON pr.pass_id = ap.id
        JOIN player_passes pp ON pp.pass_id = ap.id
        GROUP BY pr.level, pr.required_xp
-       ORDER BY pr.level`
+       ORDER BY pr.level`,
     ),
     client.query(
       `SELECT
@@ -613,8 +713,8 @@ async function getSprintPassSlice(client) {
        LEFT JOIN player_passes pp ON pp.user_id = al.user_id
        WHERE al.action = 'pass_premium_unlock'
        ORDER BY al.created_at DESC
-       LIMIT 50`
-    )
+       LIMIT 50`,
+    ),
   ]);
 
   return {
@@ -623,31 +723,39 @@ async function getSprintPassSlice(client) {
       players: Number(row.players || 0),
       avgXp: Number(row.avg_xp || 0),
       premiumPlayers: Number(row.premium_players || 0),
-      premiumPct: Number(row.premium_pct || 0)
+      premiumPct: Number(row.premium_pct || 0),
     })),
     levelAdvancementVelocity: velocityResult.rows.map((row) => ({
       level: Number(row.level || 0),
       playersWhoReached: Number(row.players_who_reached || 0),
-      avgDaysFromFirst: Number(row.avg_days_from_first || 0)
+      avgDaysFromFirst: Number(row.avg_days_from_first || 0),
     })),
     unclaimedRewards: unclaimedResult.rows.map((row) => ({
       level: Number(row.level || 0),
       requiredXp: Number(row.required_xp || 0),
       freeUnclaimed: Number(row.free_unclaimed || 0),
-      premiumUnclaimed: Number(row.premium_unclaimed || 0)
+      premiumUnclaimed: Number(row.premium_unclaimed || 0),
     })),
     premiumPurchaseTiming: premiumTimingResult.rows.map((row) => ({
       userId: Number(row.user_id || 0),
       createdAt: row.created_at,
       levelAtUnlock: Number(row.level_at_unlock || 0),
       xpAtUnlock: Number(row.xp_at_unlock || 0),
-      seasonNumber: row.season_number === null ? null : Number(row.season_number)
-    }))
+      seasonNumber:
+        row.season_number === null ? null : Number(row.season_number),
+    })),
   };
 }
 
 async function getShopPurchasesSlice(client, days) {
-  const [funnelResult, completedByDayResult, revenuePerUserResult, conversionByDayResult, intentResult] = await Promise.all([
+  const [
+    funnelResult,
+    completedByDayResult,
+    revenuePerUserResult,
+    conversionByDayResult,
+    intentResult,
+    paymentResult,
+  ] = await Promise.all([
     client.query(
       `SELECT
          item_type,
@@ -658,7 +766,7 @@ async function getShopPurchasesSlice(client, days) {
        WHERE created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
        GROUP BY item_type, status
        ORDER BY item_type, status`,
-      [days]
+      [days],
     ),
     client.query(
       `SELECT
@@ -670,7 +778,7 @@ async function getShopPurchasesSlice(client, days) {
        WHERE status = 'completed'
          AND created_at >= CURRENT_DATE - INTERVAL '13 days'
        GROUP BY DATE(created_at), item_type
-       ORDER BY day DESC, item_type`
+       ORDER BY day DESC, item_type`,
     ),
     client.query(
       `WITH paying_users AS (
@@ -688,7 +796,7 @@ async function getShopPurchasesSlice(client, days) {
          ROUND(AVG(purchase_count), 1) AS avg_purchases,
          ROUND(AVG(lifetime_stars), 1) AS avg_lifetime_stars,
          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY lifetime_stars) AS median_lifetime_stars
-       FROM paying_users`
+       FROM paying_users`,
     ),
     client.query(
       `SELECT
@@ -705,7 +813,7 @@ async function getShopPurchasesSlice(client, days) {
        WHERE created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
        GROUP BY DATE(created_at)
        ORDER BY day DESC`,
-      [days]
+      [days],
     ),
     client.query(
       `SELECT
@@ -715,45 +823,173 @@ async function getShopPurchasesSlice(client, days) {
        WHERE action = 'purchase_intent'
          AND created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
        GROUP BY context->>'itemType'`,
-      [days]
-    )
+      [days],
+    ),
+    client.query(
+      `SELECT
+         item_type,
+         status,
+         COUNT(*) AS payment_count,
+         COALESCE(SUM(stars_amount), 0) AS total_stars
+       FROM star_payments
+       WHERE created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       GROUP BY item_type, status
+       ORDER BY item_type, status`,
+      [days],
+    ),
   ]);
 
   const revenuePerUser = revenuePerUserResult.rows[0] || {};
   const intentsByItem = new Map(
-    intentResult.rows.map((row) => [row.item_type, Number(row.intent_count || 0)])
+    intentResult.rows.map((row) => [
+      row.item_type,
+      Number(row.intent_count || 0),
+    ]),
   );
+  const purchaseStepsByItem = new Map();
+  const paymentStepsByItem = new Map();
+
+  for (const row of funnelResult.rows) {
+    const current = purchaseStepsByItem.get(row.item_type) || {
+      purchaseRows: 0,
+      purchasesPending: 0,
+      purchasesCompleted: 0,
+      purchasesFailed: 0,
+      starsCompleted: 0,
+    };
+
+    const count = Number(row.count || 0);
+    const totalStars = Number(row.total_stars || 0);
+    current.purchaseRows += count;
+    if (row.status === "pending") current.purchasesPending += count;
+    if (row.status === "completed") {
+      current.purchasesCompleted += count;
+      current.starsCompleted += totalStars;
+    }
+    if (row.status === "failed") current.purchasesFailed += count;
+    purchaseStepsByItem.set(row.item_type, current);
+  }
+
+  for (const row of paymentResult.rows) {
+    const current = paymentStepsByItem.get(row.item_type) || {
+      paymentRecordsTotal: 0,
+      paymentRecordsCompleted: 0,
+      starsCaptured: 0,
+    };
+
+    const count = Number(row.payment_count || 0);
+    const totalStars = Number(row.total_stars || 0);
+    current.paymentRecordsTotal += count;
+    if (row.status === "completed") {
+      current.paymentRecordsCompleted += count;
+      current.starsCaptured += totalStars;
+    }
+    paymentStepsByItem.set(row.item_type, current);
+  }
+
+  const itemTypes = new Set([
+    ...Object.keys(PRODUCT_CATALOG),
+    ...Array.from(intentsByItem.keys()),
+    ...Array.from(purchaseStepsByItem.keys()),
+    ...Array.from(paymentStepsByItem.keys()),
+  ]);
 
   return {
     purchaseStatusFunnel: funnelResult.rows.map((row) => ({
       itemType: row.item_type,
       status: row.status,
       count: Number(row.count || 0),
-      totalStars: Number(row.total_stars || 0)
+      totalStars: Number(row.total_stars || 0),
     })),
     completedByDay: completedByDayResult.rows.map((row) => ({
       day: row.day,
       itemType: row.item_type,
       completed: Number(row.completed || 0),
-      starsRevenue: Number(row.stars_revenue || 0)
+      starsRevenue: Number(row.stars_revenue || 0),
     })),
     revenuePerUser: {
       payingUsers: Number(revenuePerUser.paying_users || 0),
       avgPurchases: Number(revenuePerUser.avg_purchases || 0),
       avgLifetimeStars: Number(revenuePerUser.avg_lifetime_stars || 0),
-      medianLifetimeStars: Number(revenuePerUser.median_lifetime_stars || 0)
+      medianLifetimeStars: Number(revenuePerUser.median_lifetime_stars || 0),
     },
-    purchaseIntentsByItem: Array.from(intentsByItem.entries()).map(([itemType, intentCount]) => ({
-      itemType,
-      intentCount
+    purchaseIntentsByItem: Array.from(intentsByItem.entries()).map(
+      ([itemType, intentCount]) => ({
+        itemType,
+        intentCount,
+      }),
+    ),
+    paymentRecordsByItem: paymentResult.rows.map((row) => ({
+      itemType: row.item_type,
+      status: row.status,
+      paymentCount: Number(row.payment_count || 0),
+      totalStars: Number(row.total_stars || 0),
     })),
+    funnelByItem: Array.from(itemTypes)
+      .sort((a, b) => a.localeCompare(b))
+      .map((itemType) => {
+        const intentCount = intentsByItem.get(itemType) || 0;
+        const purchase = purchaseStepsByItem.get(itemType) || {
+          purchaseRows: 0,
+          purchasesPending: 0,
+          purchasesCompleted: 0,
+          purchasesFailed: 0,
+          starsCompleted: 0,
+        };
+        const payments = paymentStepsByItem.get(itemType) || {
+          paymentRecordsTotal: 0,
+          paymentRecordsCompleted: 0,
+          starsCaptured: 0,
+        };
+
+        return {
+          itemType,
+          buyRequestCount: intentCount,
+          purchaseRows: purchase.purchaseRows,
+          purchasesPending: purchase.purchasesPending,
+          purchasesCompleted: purchase.purchasesCompleted,
+          purchasesFailed: purchase.purchasesFailed,
+          paymentRecordsCompleted: payments.paymentRecordsCompleted,
+          starsCompleted: purchase.starsCompleted,
+          starsCaptured: payments.starsCaptured,
+          intentToPurchasePct: ratioPct(purchase.purchaseRows, intentCount),
+          intentToCompletedPct: ratioPct(
+            purchase.purchasesCompleted,
+            intentCount,
+          ),
+          purchaseToCompletedPct: ratioPct(
+            purchase.purchasesCompleted,
+            purchase.purchaseRows,
+          ),
+          completedToPaymentPct: ratioPct(
+            payments.paymentRecordsCompleted,
+            purchase.purchasesCompleted,
+          ),
+        };
+      }),
+    stepCoverage: {
+      trackedSteps: [
+        "purchase_intent",
+        "purchase_row_created",
+        "purchase_status_pending",
+        "purchase_status_completed",
+        "purchase_status_failed",
+        "payment_record_completed",
+      ],
+      missingSteps: [
+        "shop_open",
+        "invoice_link_created",
+        "payment_confirm_duplicate",
+        "payment_confirm_failure",
+      ],
+    },
     completionByDay: conversionByDayResult.rows.map((row) => ({
       day: row.day,
       pending: Number(row.pending || 0),
       completed: Number(row.completed || 0),
       failed: Number(row.failed || 0),
-      completionPct: Number(row.completion_pct || 0)
-    }))
+      completionPct: Number(row.completion_pct || 0),
+    })),
   };
 }
 
@@ -767,22 +1003,22 @@ async function getEconomyHealthSlice(client) {
          p.commits_total,
          COALESCE(pl.xp_total, 0) AS xp_total
        FROM progression p
-       LEFT JOIN player_levels pl ON pl.user_id = p.user_id`
+       LEFT JOIN player_levels pl ON pl.user_id = p.user_id`,
     ),
     client.query(
       `SELECT
          COUNT(*) AS yesterday_sessions,
          COUNT(DISTINCT user_id) AS yesterday_dau
        FROM sessions
-       WHERE DATE(started_at) = CURRENT_DATE - INTERVAL '1 day'`
+       WHERE DATE(started_at) = CURRENT_DATE - INTERVAL '1 day'`,
     ),
     client.query(
       `SELECT
          COUNT(DISTINCT user_id) FILTER (WHERE completed = TRUE) AS completed_any,
          COUNT(DISTINCT user_id) AS total_users
        FROM daily_quests
-       WHERE quest_date = CURRENT_DATE`
-    )
+       WHERE quest_date = CURRENT_DATE`,
+    ),
   ]);
 
   const players = playersResult.rows.map((row) => {
@@ -792,7 +1028,7 @@ async function getEconomyHealthSlice(client) {
       maxEnergy: Number(resolved.maxEnergy || 0),
       depressionLevel: Number(row.depression_level || 0),
       commitsTotal: Number(row.commits_total || 0),
-      rank: Number(resolved.rank || 1)
+      rank: Number(resolved.rank || 1),
     };
   });
 
@@ -840,32 +1076,36 @@ async function getEconomyHealthSlice(client) {
       maxTotalCommits,
       questAnyCompletionPct: ratioPct(
         Number(todayQuests.completed_any || 0),
-        Number(todayQuests.total_users || 0)
-      )
+        Number(todayQuests.total_users || 0),
+      ),
     },
     rankDistribution: Array.from(rankMap.entries())
       .sort((a, b) => a[0] - b[0])
       .map(([rank, playersCount]) => ({
         rank,
-        players: playersCount
-      }))
+        players: playersCount,
+      })),
   };
 }
 
 function buildOverviewLegacy(sqlSlices) {
   const byDay = sqlSlices.dauRetention.byDay;
   const today = byDay.find((row) => sameDay(row.day, new Date())) || null;
-  const yesterday = byDay.find((row) => sameDay(row.day, addDays(new Date(), -1))) || null;
+  const yesterday =
+    byDay.find((row) => sameDay(row.day, addDays(new Date(), -1))) || null;
 
   return {
-    newUsers: sum(sqlSlices.dauRetention.d1Retention.map((row) => row.cohortSize)),
+    newUsers: sum(
+      sqlSlices.dauRetention.d1Retention.map((row) => row.cohortSize),
+    ),
     totalUsers: sqlSlices.dauRetention.stickyFactor.totalUsers,
     dauToday: today?.dau || 0,
-    dauYesterday: yesterday?.dau || sqlSlices.dauRetention.stickyFactor.yesterdayDau,
+    dauYesterday:
+      yesterday?.dau || sqlSlices.dauRetention.stickyFactor.yesterdayDau,
     dauAvgWindow: average(sum(byDay.map((row) => row.dau)), byDay.length, 2),
     sessionsTotal: sum(byDay.map((row) => row.sessionCount)),
     tapsTotal: sum(byDay.map((row) => row.tapsTotal)),
-    commitsTotal: sum(byDay.map((row) => row.commitsTotal))
+    commitsTotal: sum(byDay.map((row) => row.commitsTotal)),
   };
 }
 
@@ -873,15 +1113,21 @@ function buildOffersLegacy(sqlSlices) {
   return {
     byType: sqlSlices.contextOffers.impressionsByType.map((row) => ({
       offerType: row.offerType,
-      source: 'all',
+      source: "all",
       impressions: row.impressions,
-      uniqueUsers: row.uniqueUsers
+      uniqueUsers: row.uniqueUsers,
+    })),
+    bySource: sqlSlices.contextOffers.sourceBreakdown.map((row) => ({
+      offerType: row.offerType,
+      source: row.source,
+      impressions: row.impressions,
+      uniqueUsers: row.uniqueUsers,
     })),
     dismiss: sqlSlices.contextOffers.dismissRateByType.map((row) => ({
       offerType: row.offerType,
       impressions: row.impressionUsers,
       dismissedImpressions: row.dismissUsers,
-      dismissRatePct: row.dismissRatePct
+      dismissRatePct: row.dismissRatePct,
     })),
     conversion: sqlSlices.contextOffers.proxyConversionByType.map((row) => ({
       offerType: row.offerType,
@@ -889,56 +1135,35 @@ function buildOffersLegacy(sqlSlices) {
       purchaseIntents: row.proxyConversions,
       completedPurchases: row.completedPurchases,
       intentRatePct: row.proxyCtrPct,
-      completedRatePct: row.completedCtrPct
-    }))
+      completedRatePct: row.completedCtrPct,
+    })),
+    conversionBySource: sqlSlices.contextOffers.sourceConversionByType.map(
+      (row) => ({
+        offerType: row.offerType,
+        source: row.source,
+        impressionUsers: row.impressionUsers,
+        purchaseIntentUsers: row.purchaseIntentUsers,
+        completedPurchaseUsers: row.completedPurchaseUsers,
+        purchaseIntentUserRatePct: row.purchaseIntentUserRatePct,
+        completedPurchaseUserRatePct: row.completedPurchaseUserRatePct,
+      }),
+    ),
   };
 }
 
 function buildShopLegacy(sqlSlices) {
-  const intentMap = new Map(
-    sqlSlices.shopPurchases.purchaseIntentsByItem.map((row) => [row.itemType, row.intentCount])
-  );
-  const grouped = new Map();
-  for (const row of sqlSlices.shopPurchases.purchaseStatusFunnel) {
-    const current = grouped.get(row.itemType) || {
-      itemType: row.itemType,
-      intentCount: intentMap.get(row.itemType) || 0,
-      purchasesTotal: 0,
-      purchasesCompleted: 0,
-      purchasesPending: 0,
-      starsCompleted: 0,
-      completionRatePct: 0
-    };
-
-    current.purchasesTotal += row.count;
-    if (row.status === 'completed') {
-      current.purchasesCompleted += row.count;
-      current.starsCompleted += row.totalStars;
-    }
-    if (row.status === 'pending') {
-      current.purchasesPending += row.count;
-    }
-
-    grouped.set(row.itemType, current);
-  }
-
-  for (const [itemType, intentCount] of intentMap.entries()) {
-    if (!grouped.has(itemType)) {
-      grouped.set(itemType, {
-        itemType,
-        intentCount,
-        purchasesTotal: 0,
-        purchasesCompleted: 0,
-        purchasesPending: 0,
-        starsCompleted: 0,
-        completionRatePct: 0
-      });
-    }
-  }
-
-  return Array.from(grouped.values()).map((row) => ({
-    ...row,
-    completionRatePct: ratioPct(row.purchasesCompleted, row.purchasesTotal)
+  return sqlSlices.shopPurchases.funnelByItem.map((row) => ({
+    itemType: row.itemType,
+    intentCount: row.buyRequestCount,
+    purchasesTotal: row.purchaseRows,
+    purchasesCompleted: row.purchasesCompleted,
+    purchasesPending: row.purchasesPending,
+    purchasesFailed: row.purchasesFailed,
+    paymentRecordsCompleted: row.paymentRecordsCompleted,
+    starsCompleted: row.starsCompleted,
+    starsCaptured: row.starsCaptured,
+    completionRatePct: row.purchaseToCompletedPct,
+    intentToCompletedRatePct: row.intentToCompletedPct,
   }));
 }
 
@@ -951,7 +1176,7 @@ function buildQuestsLegacy(sqlSlices) {
       completed: row.completed,
       claimed: row.claimed,
       completionRatePct: row.completionPct,
-      claimRatePct: row.claimPct
+      claimRatePct: row.claimPct,
     })),
     fullClear: sqlSlices.dailyQuests.fullClearByDate.map((row) => ({
       questDate: row.questDate,
@@ -959,9 +1184,9 @@ function buildQuestsLegacy(sqlSlices) {
       fullCompletedUsers: row.fullClearUsers,
       fullClaimedUsers: row.fullClaimUsers,
       fullCompletedRatePct: row.fullClearPct,
-      fullClaimedRatePct: row.fullClaimPct
+      fullClaimedRatePct: row.fullClaimPct,
     })),
-    claimTiming: sqlSlices.dailyQuests.claimTiming
+    claimTiming: sqlSlices.dailyQuests.claimTiming,
   };
 }
 
@@ -977,17 +1202,17 @@ function buildPassLegacy(sqlSlices) {
     avgLevel: average(
       sum(distribution.map((row) => row.currentLevel * row.players)),
       players,
-      2
+      2,
     ),
     avgXp: average(
       sum(distribution.map((row) => row.avgXp * row.players)),
       players,
-      2
+      2,
     ),
     levelDistribution: distribution.map((row) => ({
       currentLevel: row.currentLevel,
-      players: row.players
-    }))
+      players: row.players,
+    })),
   };
 }
 
@@ -1010,7 +1235,7 @@ function buildEventLegacy(sqlSlices) {
     completionRatePct: row.completionPct,
     claimRatePct: ratioPct(row.claimed, row.participants),
     avgCommitsContributed: row.avgCommits,
-    avgProgressPct: row.target ? ratioPct(row.avgCommits, row.target) : 0
+    avgProgressPct: row.target ? ratioPct(row.avgCommits, row.target) : 0,
   };
 }
 
@@ -1053,7 +1278,11 @@ function percentile(sortedValues, p) {
   }
 
   const weight = index - lower;
-  return Number((sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight).toFixed(1));
+  return Number(
+    (sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight).toFixed(
+      1,
+    ),
+  );
 }
 
 function sum(values) {
@@ -1066,9 +1295,11 @@ function sameDay(value, date) {
   }
 
   const left = new Date(value);
-  return left.getUTCFullYear() === date.getUTCFullYear()
-    && left.getUTCMonth() === date.getUTCMonth()
-    && left.getUTCDate() === date.getUTCDate();
+  return (
+    left.getUTCFullYear() === date.getUTCFullYear() &&
+    left.getUTCMonth() === date.getUTCMonth() &&
+    left.getUTCDate() === date.getUTCDate()
+  );
 }
 
 function addDays(date, days) {

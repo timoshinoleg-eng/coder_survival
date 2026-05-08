@@ -100,6 +100,21 @@ class AudioManager {
     } catch (_e) {
       // private browsing mode — ignore silently
     }
+
+    // Suspend/resume audio when app is backgrounded (Telegram WebView minimised).
+    if (typeof document !== 'undefined') {
+      this._visibilityHandler = () => {
+        if (!this.ctx) return;
+        if (document.hidden) {
+          this.ctx.suspend().catch(() => {});
+          this.pauseBGM();
+        } else {
+          this.ctx.resume().catch(() => {});
+          this.resumeBGMPlayback();
+        }
+      };
+      document.addEventListener('visibilitychange', this._visibilityHandler);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -210,20 +225,17 @@ class AudioManager {
       const source = this.ctx.createMediaElementSource(el);
       source.connect(this.sfxGain);
 
-      el.play().catch(() => { /* autoplay policy — ignore */ });
-
-      // Cleanup when done — disconnect to avoid node accumulation.
-      el.addEventListener('ended', () => {
+      const cleanup = () => {
         try { source.disconnect(); } catch (_e) { /* noop */ }
-      }, { once: true });
+        try { el.remove(); } catch (_e) { /* noop */ }
+      };
+
+      el.addEventListener('ended', cleanup, { once: true });
+      el.addEventListener('error', cleanup, { once: true });
+
+      el.play().catch(() => { /* autoplay policy — ignore */ });
     } catch (_e) {
-      // Fallback: direct play without Web Audio routing.
-      try {
-        const el = new Audio(`${AUDIO_BASE}sfx_coffee.ogg`);
-        el.play().catch(() => {});
-      } catch (_e2) {
-        /* total audio failure — ignore */
-      }
+      // Silently ignore total audio failure.
     }
   }
 
@@ -437,13 +449,13 @@ class AudioManager {
       if (this.bgmGain) {
         const bgmTarget = this.muted ? 0.001 : this.bgmVolume;
         this.bgmGain.gain.setValueAtTime(this.bgmGain.gain.value, now);
-        this.bgmGain.gain.exponentialRampToValueAtTime(bgmTarget, now + 0.05);
+        this.bgmGain.gain.exponentialRampToValueAtTime(bgmTarget, now + 0.1);
       }
 
       if (this.sfxGain) {
         const sfxTarget = this.muted ? 0.001 : this.sfxVolume;
         this.sfxGain.gain.setValueAtTime(this.sfxGain.gain.value, now);
-        this.sfxGain.gain.exponentialRampToValueAtTime(sfxTarget, now + 0.05);
+        this.sfxGain.gain.exponentialRampToValueAtTime(sfxTarget, now + 0.1);
       }
     }
 
@@ -515,6 +527,11 @@ class AudioManager {
   dispose() {
     this._stopBurnoutSFX();
     this._stopCurrentBGM();
+
+    if (typeof document !== 'undefined' && this._visibilityHandler) {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+      this._visibilityHandler = null;
+    }
 
     if (this.bgmGain) {
       try { this.bgmGain.disconnect(); } catch (_e) { /* noop */ }
