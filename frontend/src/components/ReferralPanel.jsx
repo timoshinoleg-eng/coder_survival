@@ -69,7 +69,7 @@ export default function ReferralPanel({ open, onClose }) {
 
   const handleShare = useCallback(() => {
     if (!state.referralLink) return;
-    shareUrl(state.referralLink, 'Присоединяйся к Coder Survival — карьерный кликер для программистов! Тапай, расти от Junior до CTO 🚀');
+    shareUrl(state.referralLink, 'Я выживаю в IT. Присоединяйся, вместе страдать веселее!');
   }, [state.referralLink, shareUrl]);
 
   const handleClaimMilestone = useCallback(async (milestone) => {

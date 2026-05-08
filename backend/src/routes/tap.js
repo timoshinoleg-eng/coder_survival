@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { TAP_MECHANICS } from '../config/balance.js';
+import { TAP_MECHANICS, STRESS_V2 } from '../config/balance.js';
 import { checkTapRateLimit } from '../middleware/rateLimit.js';
 import { recoverProgression } from '../utils/progression.js';
 import { addTapXp, computeTapXp, ensureDailyQuests, ensurePlayerLevel, getDailyQuestSummary, getRankMeta, updateDailyQuestProgress } from '../utils/vnext.js';
@@ -43,10 +43,11 @@ router.post('/', async (req, res, next) => {
            first_name = COALESCE(EXCLUDED.first_name, users.first_name),
            last_name = COALESCE(EXCLUDED.last_name, users.last_name),
            last_active = NOW()
-         RETURNING id`,
+         RETURNING id, feature_flags`,
         [telegramId, username, firstName, lastName]
       );
       const userId = userResult.rows[0].id;
+      const userFeatureFlags = userResult.rows[0].feature_flags || {};
 
       const levelBefore = await ensurePlayerLevel(client, userId);
       const rankMeta = getRankMeta(levelBefore.resolved.rank);
@@ -78,10 +79,10 @@ router.post('/', async (req, res, next) => {
         )
       ).rows[0];
 
-      let recoveredProgress = await recoverProgression(client, progress, rankMeta.maxEnergy);
+      let recoveredProgress = await recoverProgression(client, progress, rankMeta.maxEnergy, userFeatureFlags);
 
       // 3. Логика тапа
-      const tapResult = calculateTapDelta(recoveredProgress, rankMeta, levelBefore.resolved.rank);
+      const tapResult = calculateTapDelta(recoveredProgress, rankMeta, levelBefore.resolved.rank, userFeatureFlags);
 
       // 4. Обновляем прогресс
       const updatedProgress = await client.query(
@@ -92,7 +93,8 @@ router.post('/', async (req, res, next) => {
            depression_level = GREATEST(0, LEAST(100, depression_level + $4)),
            tier = $5,
            streak_days = $6,
-           updated_at = NOW()
+           updated_at = NOW(),
+           last_energy_activity_at = NOW()
          WHERE user_id = $1
          RETURNING *`,
         [
@@ -126,7 +128,8 @@ router.post('/', async (req, res, next) => {
         maxEnergy: rankMeta.maxEnergy,
         depression: recoveredProgress.depression_level,
         xpProgress: levelAfter.record.resolved.progressInLevel,
-        xpRequiredForNext: levelAfter.record.resolved.requiredForNextLevel
+        xpRequiredForNext: levelAfter.record.resolved.requiredForNextLevel,
+        featureFlags: userFeatureFlags
       });
       if (contextOffer?.type) {
         await recordOfferImpression(client, userId, contextOffer.type, 'tap');
@@ -209,7 +212,7 @@ router.post('/', async (req, res, next) => {
 /**
  * Расчёт эффекта от тапа
  */
-function calculateTapDelta(progress, rankMeta, resolvedRank) {
+function calculateTapDelta(progress, rankMeta, resolvedRank, featureFlags = {}) {
   const progressionTier = Number(progress.tier ?? 1);
   const commitsPerTap = Number(rankMeta?.commitsPerTap ?? progressionTier);
   const energy = Number(progress.energy ?? 0);
@@ -219,13 +222,13 @@ function calculateTapDelta(progress, rankMeta, resolvedRank) {
 
   // Базовый доход коммитов зависит от tier
   const baseCommits = commitsPerTap; // Junior=1, Middle=2, etc.
-  
+
   // Энергия влияет на эффективность
   const energyMultiplier = energy / 100;
-  
+
   // Депрессия снижает доход
   const depressionPenalty = depression / 100;
-  
+
   // Стрик даёт бонус
   const streakBonus = Math.min(streak * TAP_MECHANICS.streakBonusPerDay, TAP_MECHANICS.streakBonusCap);
 
@@ -239,14 +242,24 @@ function calculateTapDelta(progress, rankMeta, resolvedRank) {
 
   // Энергия тратится на каждый тап
   const energyDelta = -1;
-  
+
   // Депрессия растёт если энергия низкая
   let depressionDelta = 0;
-  if (energy < TAP_MECHANICS.lowEnergyStressThreshold) {
-    depressionDelta = TAP_MECHANICS.lowEnergyStressDelta;
-  }
-  if (energy < TAP_MECHANICS.criticalEnergyStressThreshold) {
-    depressionDelta = TAP_MECHANICS.criticalEnergyStressDelta;
+  const stressV2 = featureFlags?.stress_v2 === true;
+  if (stressV2) {
+    if (energy < STRESS_V2.DEPRESSION_INCREASE_LOW_ENERGY) {
+      depressionDelta += STRESS_V2.STRESS_GAIN_PER_TAP_BELOW_50;
+    }
+    if (energy < STRESS_V2.DEPRESSION_CRITICAL_LOW_ENERGY) {
+      depressionDelta += STRESS_V2.STRESS_GAIN_PER_TAP_BELOW_30;
+    }
+  } else {
+    if (energy < TAP_MECHANICS.lowEnergyStressThreshold) {
+      depressionDelta = TAP_MECHANICS.lowEnergyStressDelta;
+    }
+    if (energy < TAP_MECHANICS.criticalEnergyStressThreshold) {
+      depressionDelta = TAP_MECHANICS.criticalEnergyStressDelta;
+    }
   }
 
   // Проверка повышения tier

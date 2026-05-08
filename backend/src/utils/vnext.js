@@ -1,4 +1,4 @@
-import { DAILY_QUEST_ALL_CLAIMED_BONUS, DAILY_QUEST_DEFS } from '../config/balance.js';
+import { DAILY_QUEST_ALL_CLAIMED_BONUS, DAILY_QUEST_DEFS, LOGIN_STREAK_BONUS } from '../config/balance.js';
 import { applyReward } from './rewards.js';
 
 const RANK_ORDER = ['Junior', 'Middle', 'Senior', 'Lead', 'CTO'];
@@ -247,7 +247,19 @@ export async function claimDailyQuest(client, userId, questId) {
     return { error: 'Quest already claimed', status: 409 };
   }
 
-  const reward = quest.rewardPayload || {};
+  let reward = quest.rewardPayload || {};
+
+  // P1-4: escalating streak bonus for login quest (applied on top of base reward)
+  if (quest.questType === 'login') {
+    const fullStreak = await computeClaimedStreak(client, userId);
+    const effectiveStreak = Math.min(fullStreak + 1, 7);
+    const streakBonus = LOGIN_STREAK_BONUS[effectiveStreak] || {};
+    reward = { ...reward };
+    for (const [key, value] of Object.entries(streakBonus)) {
+      reward[key] = (reward[key] || 0) + value;
+    }
+  }
+
   await applyReward(client, userId, reward);
 
   await client.query(
@@ -272,14 +284,7 @@ export async function claimDailyQuest(client, userId, questId) {
   return { reward, bonusReward, summary, status: 200 };
 }
 
-async function refreshStreak(client, userId, summary = null) {
-  const currentSummary = summary || await getDailyQuestSummary(client, userId);
-  const allClaimedToday = currentSummary.total > 0 && currentSummary.claimed === currentSummary.total;
-
-  if (!allClaimedToday) {
-    return;
-  }
-
+async function computeClaimedStreak(client, userId) {
   const streakResult = await client.query(
     `WITH claimed_days AS (
        SELECT quest_date
@@ -311,6 +316,18 @@ async function refreshStreak(client, userId, summary = null) {
     streak += 1;
     expectedOffset += 1;
   }
+  return streak;
+}
+
+async function refreshStreak(client, userId, summary = null) {
+  const currentSummary = summary || await getDailyQuestSummary(client, userId);
+  const allClaimedToday = currentSummary.total > 0 && currentSummary.claimed === currentSummary.total;
+
+  if (!allClaimedToday) {
+    return;
+  }
+
+  const streak = await computeClaimedStreak(client, userId);
 
   await client.query(
     `UPDATE progression
