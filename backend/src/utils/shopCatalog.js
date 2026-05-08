@@ -10,7 +10,7 @@ export const PRODUCT_CATALOG = {
   depression_cure: {
     id: 'depression_cure',
     name: 'Терапия',
-    description: 'Снижает стресс на 60%',
+    description: 'Снижает стресс на 60 пунктов',
     stars: 40,
     icon: '🧘',
     category: 'stress'

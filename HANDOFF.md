@@ -4,7 +4,7 @@
 
 - Telegram Mini App MVP is live and playable.
 - Production backend was re-synced from the current repo on `2026-05-06`.
-- Production PostgreSQL latest applied migration is now `007_minimum_economy_instrumentation.sql` (migrations 001–007 are present in repo).
+- Production PostgreSQL latest applied migration is now `007_minimum_economy_instrumentation.sql` (migrations 001–008 are present in repo; migration `008_remove_progression_trigger.sql` is prepared and should be applied on the next release).
 - Vercel production redeploy was completed on `2026-05-06` for:
   - frontend
   - bot webhook runtime
@@ -39,6 +39,17 @@
   - backend `state` and `tap` responses now expose `progressionUpdatedAt` and `serverNow`
   - frontend HUD now shows `+1 энергия через MM:SS, если не тапать` when `energy < maxEnergy`
   - countdown resets on tap/state resync and is explicitly framed as idle-only regen
+- `2026-05-08` audio Phase 2 was released on the frontend:
+  - HUD now includes a compact mute/unmute toggle via `AudioSettings`
+  - mute state persists through `localStorage` key `cs_muted`
+  - Phase 1 SFX (tap / no-energy / error / level-up) are now user-controllable without enabling BGM
+  - this was a frontend-only Vercel deploy; backend/release/payment paths were unchanged
+- `2026-05-08` explicit `updated_at` contract and operator docs cleanup pass was completed in repo (deploy on next release):
+  - `progression.updated_at` is now set explicitly by application code in all mutation paths (tap, reward, recovery, buy, referral)
+  - migration `008_remove_progression_trigger.sql` is prepared in repo and removes the ambiguous `trg_progression_updated` trigger to prevent double-regen scenarios
+  - smoke now asserts that `progressionUpdatedAt` strictly advances after a tap
+  - bot `createBot.js` and `invoice-link.js` no longer silently fall back to `localhost:3000` or hardcoded URLs; missing `API_URL` is now a hard failure
+  - shop catalog description for `depression_cure` corrected from '60%' to '60 пунктов' to match the actual balance effect
 - `2026-05-07` bot invoice-link path was hardened in repo:
   - bot invoice creation now resolves title/description/amount from backend internal invoice context
   - invoice amount is now sourced from stored `purchases.stars_amount`
@@ -181,6 +192,10 @@
   - `GET /api/state` and `POST /api/tap` include `progressionUpdatedAt` + `serverNow`
   - production smoke still passes after the payload expansion
   - countdown is a truthful idle timer, not a promise of background energy mutation without sync
+- `2026-05-08` audio HUD controls verified:
+  - `StatsBar` renders `AudioSettings` in the top-right HUD action row
+  - mute toggle controls the shared `AudioManager`
+  - no `playBGM()` path is wired in production yet; background music remains disabled
 
 ## Product state by stage
 
@@ -337,9 +352,11 @@ No active P1 bugs. All previously identified corrective passes are resolved.
 - frontend-side referral sync should stay removed
 - frontend must not reintroduce local economy thresholds/reward maps when backend already returns the source-of-truth metadata
 - frontend energy countdown must stay derived from backend `progressionUpdatedAt` + `serverNow`; do not replace it with a guessed client-only timer
+- frontend audio Phase 2 must stay SFX-first and mute-only; do not enable autoplay music or implicit BGM start from the HUD toggle
 - shop state must live in `GameProvider` (`shopOpen`/`setShopOpen`); never reintroduce `window.__openShop` or prop-drilling seam
 - tap feedback must stay deferred to server response (`useEffect` on `lastTapDelta`); never reintroduce optimistic floating text / particles in `handlePointerDown`
 - audit logs must never be written on per-tap hot path; limit to significant actions (claims, purchases)
+- `progression.updated_at` must be updated explicitly in all code paths that mutate progression (tap, reward, recovery, buy, referral); do not rely on a DB trigger
 - release readiness for backend must check Docker container health, not `localhost:3000` on the VM, because backend is `expose`-only in `docker-compose.backend.yml`
 
 ## Infrastructure notes

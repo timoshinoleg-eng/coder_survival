@@ -12,22 +12,22 @@
 | # | Endpoint / Flow | What it asserts | Priority |
 |---|-----------------|-----------------|----------|
 | 1 | `GET /health` | Returns `status` and `db` fields | P0 |
-| 2 | `GET /api/state` | Energy, daily quests, event, pass level present | P0 |
-| 3 | `POST /api/tap` | `commitsDelta`, event target, pass XP present | P0 |
+| 2 | `GET /api/state` | Energy, daily quests, event, pass level present; contract fields `progressionUpdatedAt`, `serverNow`, `recoveryIntervalSeconds`, `premiumPassProduct` exist | P0 |
+| 3 | `POST /api/tap` | `commitsDelta`, event target, pass XP present; contract fields `progressionUpdatedAt`, `serverNow`, `recoveryIntervalSeconds` exist | P0 |
 | 4 | `GET /api/quests/daily` | 3 quests, targets `40 / 80 / 1`, full-clear bonus `+25` energy | P1 |
 | 5 | `GET /api/battle/today` | Reward preview `50 / 30 / 15` energy | P1 |
 | 6 | `GET /api/event/active` | Target `650` commits, reward `80 / 60 / 15` | P1 |
-| 7 | `GET /api/pass/status` | 20 rewards, first XP `20`, total `915`, premium price `200` Stars | P1 |
+| 7 | `GET /api/pass/status` | 20 rewards, first XP `20`, total `915`, premium price `200` Stars, season metadata present | P1 |
 | 8 | `GET /api/referral/link` | Referral code generated | P1 |
 | 9 | `GET /api/referral/stats` | Milestones `1/3/5`, rewards `30/60/100`, active threshold `20` | P1 |
-| 10 | `GET /api/shop/products` | Prices `10 / 40 / 75 / 200` Stars | P1 |
+| 10 | `GET /api/shop/products` | Prices `10 / 40 / 75 / 200` Stars and expected categories `energy/stress/boost/pass` | P1 |
 | 11 | `POST /api/buy` → `bot/api/invoice-link` | Purchase intent created, invoice URL returned | P1 |
-| 12 | `GET /api/internal/observation/economy` | 7 `sqlSlices` present (DAU, quests, offers, hackathon, pass, shop, health) | P1 |
+| 12 | `GET /api/internal/observation/economy` | 7 `sqlSlices` present plus source-aware offer slices and shop funnel coverage metadata | P1 |
 | 13 | `GET /api/team/my` | Team state readable | P1 |
 | 14 | `POST /api/team/create` | Team created with invite code | P1 |
 | 15 | `GET /api/team/leaderboard` | Leaderboard readable | P1 |
 | 16 | `POST /api/team/leave` | Leave succeeds | P1 |
-| 17 | `GET /bot/webhook` | Returns `401` or `405` (alive but unauthenticated) | P0 |
+| 17 | `GET /api/webhook` (bot runtime URL) | Returns `401` or `405` (alive but unauthenticated) | P0 |
 
 ### `smoke-offers.ps1` — Context offer lifecycle (3 checks)
 
@@ -43,8 +43,8 @@
 
 | Area | Missing Check | Risk if Broken | Suggested Priority |
 |------|---------------|----------------|-------------------|
-| **Energy countdown** | `state` / `tap` responses do not assert `progressionUpdatedAt` + `serverNow` | Frontend HUD may break silently | P1 |
-| **Daily quest claim** | No `POST /api/quests/daily/:id/claim` flow | Full-clear bonus logic untested end-to-end | P2 |
+| **Energy countdown** | Covered: `state` / `tap` now assert `progressionUpdatedAt` + `serverNow` + `recoveryIntervalSeconds` | Reduced silent HUD regression risk | — |
+| **Daily quest claim** | No `POST /api/quests/claim` flow (`questId` in body) | Full-clear bonus logic untested end-to-end | P2 |
 | **Event claim** | No `POST /api/event/claim` | Reward fulfillment path untested | P2 |
 | **Pass claim** | No `POST /api/pass/claim` | Sprint pass reward path untested | P2 |
 | **Shop purchase confirm** | No `POST /api/internal/payments/telegram/confirm` (needs real Stars payment) | Hard to automate; manual only | P2 (manual) |

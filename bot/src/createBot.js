@@ -2,7 +2,10 @@ import { Bot, InlineKeyboard } from 'grammy';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://frontend-ashy-alpha-77.vercel.app';
-const API_URL = process.env.API_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL;
+if (!API_URL) {
+  throw new Error('API_URL not set');
+}
 const BOT_BACKEND_SECRET = process.env.BOT_BACKEND_SECRET;
 
 if (!BOT_TOKEN) {

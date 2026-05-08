@@ -91,7 +91,8 @@ router.post('/', async (req, res, next) => {
            energy = GREATEST(0, LEAST($8, energy + $3)),
            depression_level = GREATEST(0, LEAST(100, depression_level + $4)),
            tier = $5,
-           streak_days = $6
+           streak_days = $6,
+           updated_at = NOW()
          WHERE user_id = $1
          RETURNING *`,
         [

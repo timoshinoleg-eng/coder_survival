@@ -63,6 +63,25 @@ foreach ($row in @($report.offers.conversion)) {
     $row.completedRatePct)
 }
 
+foreach ($row in @($report.offers.bySource)) {
+  Write-Output ("offers.by_source`t{0}; source={1}; impressions={2}; users={3}" -f `
+    $row.offerType,
+    $row.source,
+    $row.impressions,
+    $row.uniqueUsers)
+}
+
+foreach ($row in @($report.offers.conversionBySource)) {
+  Write-Output ("offers.conversion_by_source`t{0}; source={1}; impression_users={2}; intent_users={3}; completed_users={4}; intent_rate={5}%%; completed_rate={6}%%" -f `
+    $row.offerType,
+    $row.source,
+    $row.impressionUsers,
+    $row.purchaseIntentUsers,
+    $row.completedPurchaseUsers,
+    $row.purchaseIntentUserRatePct,
+    $row.completedPurchaseUserRatePct)
+}
+
 foreach ($row in @($report.shop)) {
   Write-Output ("shop`t{0}; intents={1}; completed={2}; pending={3}; stars={4}; completion_rate={5}%%" -f `
     $row.itemType,
@@ -72,6 +91,22 @@ foreach ($row in @($report.shop)) {
     $row.starsCompleted,
     $row.completionRatePct)
 }
+
+foreach ($row in @($report.sqlSlices.shopPurchases.funnelByItem)) {
+  Write-Output ("shop.funnel`t{0}; buy_requests={1}; rows={2}; completed={3}; failed={4}; payments={5}; intent_to_completed={6}%%; completed_to_payment={7}%%" -f `
+    $row.itemType,
+    $row.buyRequestCount,
+    $row.purchaseRows,
+    $row.purchasesCompleted,
+    $row.purchasesFailed,
+    $row.paymentRecordsCompleted,
+    $row.intentToCompletedPct,
+    $row.completedToPaymentPct)
+}
+
+Write-Output ("shop.coverage`ttracked={0}; missing={1}" -f `
+  ($report.sqlSlices.shopPurchases.stepCoverage.trackedSteps -join ','),
+  ($report.sqlSlices.shopPurchases.stepCoverage.missingSteps -join ','))
 
 foreach ($row in @($report.quests.fullClear)) {
   Write-Output ("quests.full_clear`t{0}; users={1}; completed={2}; claimed={3}; completed_rate={4}%%; claimed_rate={5}%%" -f `

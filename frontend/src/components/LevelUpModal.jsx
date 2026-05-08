@@ -43,10 +43,14 @@ export default function LevelUpModal() {
   useEffect(() => {
     if (levelUp) {
       haptic('heavy');
+      audioManager.duckForModal();
       audioManager.play('levelup');
       setShowConfetti(true);
       const t = setTimeout(() => setShowConfetti(false), 1500);
-      return () => clearTimeout(t);
+      return () => {
+        clearTimeout(t);
+        audioManager.resumeFromModal();
+      };
     }
   }, [levelUp, haptic]);
 

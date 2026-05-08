@@ -1,13 +1,23 @@
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { formatQuestTitle, formatRewardPayload } from '../utils/rewardFormatting.js';
+import { audioManager } from '../utils/AudioManager.js';
 
 export default function DailyQuestsPanel({ open, onClose }) {
   const { daily, claimDailyQuest, streakDays } = useGameState();
   const [claimingId, setClaimingId] = useState(null);
   const [localError, setLocalError] = useState(null);
   const [bonusToast, setBonusToast] = useState(null);
+
+  useEffect(() => {
+    if (open) {
+      audioManager.play('modalOpen');
+      audioManager.duckForModal();
+    } else {
+      audioManager.resumeFromModal();
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -20,6 +30,9 @@ export default function DailyQuestsPanel({ open, onClose }) {
     setBonusToast(null);
     try {
       const result = await claimDailyQuest?.(questId);
+      if (result?.reward || result?.bonusReward) {
+        audioManager.play('questDone');
+      }
       if (result?.bonusReward) {
         setBonusToast(`${formatRewardPayload(result.bonusReward)} (бонус за все квесты)`);
         setTimeout(() => setBonusToast(null), 3000);
