@@ -8,6 +8,7 @@ import { recordEventContribution } from '../utils/events.js';
 import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { addPassXp } from '../utils/pass.js';
 import { updateTeamProgress } from '../utils/teams.js';
+import { checkAchievement, isNightSession } from '../utils/achievements.js';
 
 const router = Router();
 
@@ -81,10 +82,23 @@ router.post('/', async (req, res, next) => {
 
       let recoveredProgress = await recoverProgression(client, progress, rankMeta.maxEnergy, userFeatureFlags);
 
+      // Death screen guard: cannot tap while dead
+      if (recoveredProgress.is_dead) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: 'burnout',
+          message: 'Вы перегорели. Нажмите «Воскреснуть», чтобы продолжить.',
+          isDead: true
+        });
+      }
+
       // 3. Логика тапа
       const tapResult = calculateTapDelta(recoveredProgress, rankMeta, levelBefore.resolved.rank, userFeatureFlags);
 
-      // 4. Обновляем прогресс
+      // 4. Обновляем прогресс (death check)
+      const newDepression = Math.min(100, Math.max(0, recoveredProgress.depression_level + tapResult.depressionDelta));
+      const newIsDead = newDepression >= 100;
+
       const updatedProgress = await client.query(
         `UPDATE progression SET
            commits_total = commits_total + $2,
@@ -94,7 +108,8 @@ router.post('/', async (req, res, next) => {
            tier = $5,
            streak_days = $6,
            updated_at = NOW(),
-           last_energy_activity_at = NOW()
+           last_energy_activity_at = NOW(),
+           is_dead = $9
          WHERE user_id = $1
          RETURNING *`,
         [
@@ -105,7 +120,8 @@ router.post('/', async (req, res, next) => {
           tapResult.newTier,
           tapResult.newStreak,
           tapResult.newCommitsCurrent,
-          rankMeta.maxEnergy
+          rankMeta.maxEnergy,
+          newIsDead
         ]
       );
       recoveredProgress = updatedProgress.rows[0];
@@ -124,6 +140,17 @@ router.post('/', async (req, res, next) => {
       const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
       const passResult = await addPassXp(client, userId, levelAfter.xpDelta);
       await updateTeamProgress(client, userId, tapResult.commitsDelta);
+
+      // Achievement engine
+      await checkAchievement(client, userId, 'tap');
+      await checkAchievement(client, userId, 'commit_total');
+      if (levelAfter.record.resolved.rank > levelBefore.resolved.rank) {
+        await checkAchievement(client, userId, 'rank_up', { rank: levelAfter.record.resolved.rank });
+      }
+      if (isNightSession()) {
+        await checkAchievement(client, userId, 'night_session');
+      }
+
       const contextOffer = await getContextOffer(client, userId, {
         energy: recoveredProgress.energy,
         maxEnergy: rankMeta.maxEnergy,

@@ -244,6 +244,21 @@ class AudioManager {
   // ═══════════════════════════════════════════════════════════════════
 
   /**
+   * Switch BGM by zone type (convenience wrapper for contextual BGM).
+   * @param {string} zoneType — 'main' | 'legacy' | 'hackathon' | 'coffee'
+   */
+  switchZoneBGM(zoneType) {
+    const map = {
+      main: 'bgm_main',
+      legacy: 'bgm_legacy',
+      hackathon: 'bgm_hackathon',
+      coffee: 'bgm_coffee',
+    };
+    const track = map[zoneType];
+    if (track) this.playBGM(track);
+  }
+
+  /**
    * Start playing a BGM track with crossfade support.
    *
    * Stops any previously playing BGM, creates a new HTMLAudioElement
