@@ -3,9 +3,43 @@
  * Provides: teamBattle, skins, achievements, crunchTime, referralChain, isDead
  */
 
+const SKIN_PRESENTATION = {
+  junior_default: {
+    color: '#60a5fa',
+    bgGradient: ['#30527e', '#1a3a5c'],
+    emoji: '🙂',
+  },
+  legacy_archaeologist: {
+    color: '#60a5fa',
+    bgGradient: ['#1a3a5c', '#0f1b30'],
+    emoji: '🏛️',
+  },
+  night_shift: {
+    color: '#c084fc',
+    bgGradient: ['#2d1a4a', '#1a0f2e'],
+    emoji: '🌙',
+  },
+};
+
+function mapSkinCatalogRow(row) {
+  const presentation = SKIN_PRESENTATION[row.skin_id] || {};
+  return {
+    skinId: row.skin_id,
+    name: row.name,
+    description: row.description,
+    rarity: row.rarity,
+    unlockType: row.unlock_type,
+    unlockPayload: row.unlock_payload || {},
+    color: presentation.color || '#9eb6d2',
+    bgGradient: presentation.bgGradient || ['#1f3552', '#10192d'],
+    emoji: presentation.emoji || '🎭',
+    isDefault: row.is_default === true,
+  };
+}
+
 export async function getTeamBattleStatus(client, userId, teamId) {
   const seasonResult = await client.query(
-    `SELECT id, season_number, target_commits, reward_payload
+    `SELECT id, season_number, end_date, target_commits, reward_payload
      FROM team_battle_seasons
      WHERE status = 'active'
      ORDER BY start_date DESC
@@ -20,6 +54,7 @@ export async function getTeamBattleStatus(client, userId, teamId) {
 
   let teamCommits = 0;
   let teamRank = null;
+  let claimed = false;
 
   if (teamId) {
     const contribResult = await client.query(
@@ -45,29 +80,84 @@ export async function getTeamBattleStatus(client, userId, teamId) {
     teamRank = idx >= 0 ? idx + 1 : null;
   }
 
+  const claimResult = await client.query(
+    `SELECT 1
+     FROM team_battle_reward_claims
+     WHERE season_id = $1 AND user_id = $2`,
+    [season.id, userId]
+  );
+  claimed = claimResult.rows.length > 0;
+
   return {
     active: true,
+    seasonId: season.id,
     seasonNumber: season.season_number,
+    endDate: season.end_date,
     teamCommits,
     targetCommits: season.target_commits,
     teamRank,
-    reward: season.reward_payload
+    reward: season.reward_payload,
+    claimed
   };
 }
 
 export async function getUserSkins(client, userId) {
+  const catalogResult = await client.query(
+    `SELECT
+       skin_id,
+       name,
+       description,
+       rarity,
+       unlock_type,
+       unlock_payload,
+       unlock_type = 'default' AS is_default
+     FROM skin_definitions
+     ORDER BY
+       CASE WHEN unlock_type = 'default' THEN 0 ELSE 1 END,
+       id ASC`,
+  );
+
+  const defaultSkinIds = catalogResult.rows
+    .filter((row) => row.is_default)
+    .map((row) => row.skin_id);
+
+  if (defaultSkinIds.length > 0) {
+    await client.query(
+      `INSERT INTO user_skins (user_id, skin_id, equipped)
+       SELECT $1, sd.skin_id, FALSE
+       FROM skin_definitions sd
+       WHERE sd.unlock_type = 'default'
+       ON CONFLICT (user_id, skin_id) DO NOTHING`,
+      [userId],
+    );
+  }
+
   const result = await client.query(
-    `SELECT us.skin_id, us.equipped, sd.name, sd.description, sd.rarity
+    `SELECT us.skin_id, us.equipped
      FROM user_skins us
-     JOIN skin_definitions sd ON sd.skin_id = us.skin_id
      WHERE us.user_id = $1`,
     [userId]
   );
 
   const equipped = result.rows.find(r => r.equipped)?.skin_id || null;
   const unlocked = result.rows.map(r => r.skin_id);
+  const resolvedEquipped =
+    equipped || defaultSkinIds[0] || unlocked[0] || null;
 
-  return { equipped, unlocked };
+  if (!equipped && resolvedEquipped) {
+    await client.query(
+      `UPDATE user_skins
+       SET equipped = (skin_id = $2)
+       WHERE user_id = $1`,
+      [userId, resolvedEquipped],
+    );
+  }
+
+  return {
+    equipped: resolvedEquipped,
+    unlocked,
+    catalog: catalogResult.rows.map(mapSkinCatalogRow),
+  };
 }
 
 export async function getUserAchievements(client, userId) {
@@ -145,8 +235,22 @@ export async function getReferralChain(client, userId) {
   };
 }
 
+export async function getMemeTemplates(client) {
+  const result = await client.query(
+    `SELECT template_id, title, unlock_condition, asset_path
+     FROM meme_templates
+     ORDER BY id ASC`
+  );
+  return result.rows.map(r => ({
+    id: r.template_id,
+    title: r.title,
+    unlockCondition: r.unlock_condition,
+    assetPath: r.asset_path
+  }));
+}
+
 export function getDeathState(progression) {
-  const isDead = progression?.depression_level >= 100;
+  const isDead = progression?.is_dead === true;
   if (!isDead) {
     return { isDead: false, death: null };
   }

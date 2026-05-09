@@ -69,8 +69,10 @@ export function GameProvider({ children }) {
   const stateRef = useRef(DEFAULT_STATE);
   const pendingTapsRef = useRef(0);
   const processingTapRef = useRef(false);
+  const equippingSkinRef = useRef(false);
   const prevLevelRef = useRef(null);
   const toastTimerRef = useRef(null);
+  const previousAchievementsRef = useRef(null);
 
   const showToast = useCallback((message, type = "info", duration = 2500) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -325,6 +327,34 @@ export function GameProvider({ children }) {
     }
   }, [state.loginReward?.claimed, state.loginReward?.streak]);
 
+  // Achievement toast notifications
+  useEffect(() => {
+    if (!state.achievements || state.achievements.length === 0) return;
+
+    if (!previousAchievementsRef.current) {
+      previousAchievementsRef.current = new Map(
+        state.achievements.map((ach) => [ach.id, ach.completed === true]),
+      );
+      return;
+    }
+
+    const previousAchievements = previousAchievementsRef.current;
+    state.achievements.forEach((ach) => {
+      const wasCompleted = previousAchievements.get(ach.id) === true;
+      if (ach.completed && !wasCompleted) {
+        showToast(
+          `🏆 Достижение: ${ach.name || ach.id}!`,
+          "success",
+          4000,
+        );
+      }
+    });
+
+    previousAchievementsRef.current = new Map(
+      state.achievements.map((ach) => [ach.id, ach.completed === true]),
+    );
+  }, [state.achievements]);
+
   const flushTapQueue = useCallback(async () => {
     if (processingTapRef.current) return;
     processingTapRef.current = true;
@@ -392,6 +422,19 @@ export function GameProvider({ children }) {
 
   const closeShop = useCallback(() => {
     setState((current) => ({ ...current, shopOpen: false }));
+  }, []);
+
+  const mergeSkinState = useCallback((nextSkins) => {
+    if (!nextSkins) return;
+    setState((current) => ({
+      ...current,
+      skins: {
+        ...current.skins,
+        ...nextSkins,
+        catalog: nextSkins.catalog ?? current.skins?.catalog ?? [],
+        unlocked: nextSkins.unlocked ?? current.skins?.unlocked ?? [],
+      },
+    }));
   }, []);
 
   const value = {
@@ -467,15 +510,26 @@ export function GameProvider({ children }) {
         return null;
       }
     },
-    equipSkin: (skinId) => {
-      setState((current) => ({
-        ...current,
-        skins: {
-          ...current.skins,
-          equipped: skinId
-        }
-      }));
-      showToast(`Скин экипирован`, "success", 1500);
+    equipSkin: async (skinId) => {
+      if (equippingSkinRef.current) {
+        return stateRef.current.skins ?? null;
+      }
+      equippingSkinRef.current = true;
+      try {
+        const payload = await apiRequest("/api/skins/equip", {
+          method: "POST",
+          initData: telegram?.initData,
+          body: { skinId },
+        });
+        mergeSkinState(payload?.skins);
+        showToast("Скин экипирован", "success", 1500);
+        return payload?.skins ?? null;
+      } catch (err) {
+        showToast(err?.message || "Не удалось экипировать скин", "error", 2000);
+        return null;
+      } finally {
+        equippingSkinRef.current = false;
+      }
     },
     reset: loadState,
   };

@@ -53,6 +53,20 @@ export default function TeamBattle({ open, onClose }) {
   const battle = useMemo(() => {
     if (stateBattle) return stateBattle;
     if (!remoteBattle) return null;
+    if (remoteBattle.myTeam) {
+      return {
+        active: remoteBattle.active,
+        seasonNumber: remoteBattle.season?.seasonNumber,
+        endDate: remoteBattle.season?.endDate,
+        reward: remoteBattle.season?.reward,
+        teamCommits: remoteBattle.myTeam.teamCommits,
+        targetCommits: remoteBattle.myTeam.targetCommits,
+        teamRank: remoteBattle.myTeam.teamRank,
+        personalContribution: remoteBattle.myTeam.personalContribution,
+        claimed: remoteBattle.myTeam.rewardClaimed,
+        progressPercent: remoteBattle.myTeam.progressPercent,
+      };
+    }
     return remoteBattle.teamBattle || remoteBattle;
   }, [remoteBattle, stateBattle]);
 
@@ -75,6 +89,9 @@ export default function TeamBattle({ open, onClose }) {
       showToast(`Награда команды: ${formatRewardPayload(payload?.reward)}`, 'success', 2500);
       setRemoteBattle((current) => current ? {
         ...current,
+        myTeam: current.myTeam
+          ? { ...current.myTeam, rewardClaimed: true, claimed: true }
+          : current.myTeam,
         teamBattle: current.teamBattle ? { ...current.teamBattle, claimed: true } : current
       } : current);
     } catch (err) {

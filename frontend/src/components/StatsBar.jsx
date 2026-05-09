@@ -459,24 +459,25 @@ export default function StatsBar() {
                   },
                   "🎭",
                 ),
-                h(
-                  "button",
-                  {
-                    onClick: () => setMiniGameOpen(true),
-                    style: {
-                      border: "1px solid #30527e",
-                      background: depression >= 30 ? '#1a3a5c' : '#122642',
-                      color: '#dce9f9',
-                      borderRadius: '8px',
-                      padding: '5px 8px',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      animation: depression >= 30 ? 'pulse 1.6s infinite' : 'none'
-                    }
-                  },
-                  '🐛'
-                ),
+                featureFlags?.minigameEnabled === true &&
+                  h(
+                    "button",
+                    {
+                      onClick: () => setMiniGameOpen(true),
+                      style: {
+                        border: "1px solid #30527e",
+                        background: depression >= 30 ? '#1a3a5c' : '#122642',
+                        color: '#dce9f9',
+                        borderRadius: '8px',
+                        padding: '5px 8px',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        animation: depression >= 30 ? 'pulse 1.6s infinite' : 'none'
+                      }
+                    },
+                    '🐛'
+                  ),
                 h(
                   "div",
                   {
@@ -870,10 +871,11 @@ export default function StatsBar() {
         open: skinOpen,
         onClose: () => setSkinOpen(false),
       }),
-      h(MiniGameDebug, {
-        open: miniGameOpen,
-        onClose: () => setMiniGameOpen(false),
-      }),
+      featureFlags?.minigameEnabled === true &&
+        h(MiniGameDebug, {
+          open: miniGameOpen,
+          onClose: () => setMiniGameOpen(false),
+        }),
     ],
   );
 }

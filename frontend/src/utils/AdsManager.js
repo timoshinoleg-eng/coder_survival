@@ -18,7 +18,16 @@ import { apiRequest } from './api.js';
  */
 class AdsManager {
   constructor() {
-    this.provider = import.meta.env?.VITE_ADS_PROVIDER || 'mock';
+    this.provider = this.detectProvider();
+    this.sessionProviders = new Map();
+  }
+
+  detectProvider() {
+    const configured = import.meta.env?.VITE_ADS_PROVIDER;
+    if (typeof configured === 'string' && configured.trim()) {
+      return configured.trim().toLowerCase();
+    }
+    return 'mock';
   }
 
   isAvailable() {
@@ -34,12 +43,20 @@ class AdsManager {
     // Example: window.adsSdk.init({ appId: import.meta.env.VITE_ADS_APP_ID })
   }
 
-  async requestSession(initData) {
+  async createAdSession(initData) {
     const payload = await apiRequest('/api/rewards/ad-session', {
       method: 'POST',
-      initData
+      initData,
+      body: { provider: this.provider }
     });
+    if (payload?.nonce && payload?.provider) {
+      this.sessionProviders.set(payload.nonce, payload.provider);
+    }
     return payload;
+  }
+
+  async requestSession(initData) {
+    return this.createAdSession(initData);
   }
 
   async showRewardedAd(initData, nonce) {
@@ -56,12 +73,32 @@ class AdsManager {
     throw new Error('Real ad SDK not integrated yet');
   }
 
-  async claimReward(initData, nonce, proof = null) {
-    return apiRequest('/api/rewards/ad-claim', {
+  async claimAdReward(initData, sessionOrNonce, proof = null) {
+    const session =
+      typeof sessionOrNonce === 'object' && sessionOrNonce !== null
+        ? sessionOrNonce
+        : {
+            nonce: sessionOrNonce,
+            provider: this.sessionProviders.get(sessionOrNonce) || this.provider
+          };
+
+    const payload = await apiRequest('/api/rewards/ad-claim', {
       method: 'POST',
       initData,
-      body: { nonce, provider: this.provider, proof }
+      body: {
+        nonce: session?.nonce,
+        provider: session?.provider,
+        proof
+      }
     });
+    if (session?.nonce) {
+      this.sessionProviders.delete(session.nonce);
+    }
+    return payload;
+  }
+
+  async claimReward(initData, sessionOrNonce, proof = null) {
+    return this.claimAdReward(initData, sessionOrNonce, proof);
   }
 }
 

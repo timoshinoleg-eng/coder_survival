@@ -74,12 +74,20 @@ router.post('/', async (req, res, next) => {
         [userId]
       );
 
+      const updatedProgressResult = await client.query(
+        `SELECT energy
+         FROM progression
+         WHERE user_id = $1`,
+        [userId]
+      );
+      const updatedEnergy = updatedProgressResult.rows[0]?.energy ?? prog.energy;
+
       await client.query('COMMIT');
 
       res.json({
         success: true,
         restored,
-        energy: prog.energy + restored,
+        energy: updatedEnergy,
         maxEnergy
       });
     } catch (err) {

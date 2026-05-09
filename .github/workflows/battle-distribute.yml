@@ -1,0 +1,31 @@
+name: Daily battle distribution
+
+on:
+  schedule:
+    - cron: '5 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  distribute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate required secrets
+        env:
+          BATTLE_DISTRIBUTE_URL: ${{ secrets.BATTLE_DISTRIBUTE_URL }}
+          BATTLE_DISTRIBUTE_SECRET: ${{ secrets.BATTLE_DISTRIBUTE_SECRET }}
+        run: |
+          test -n "$BATTLE_DISTRIBUTE_URL"
+          test -n "$BATTLE_DISTRIBUTE_SECRET"
+
+      - name: Trigger battle reward distribution
+        env:
+          BATTLE_DISTRIBUTE_URL: ${{ secrets.BATTLE_DISTRIBUTE_URL }}
+          BATTLE_DISTRIBUTE_SECRET: ${{ secrets.BATTLE_DISTRIBUTE_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Bot-Backend-Secret: $BATTLE_DISTRIBUTE_SECRET" \
+            -d '{}' \
+            "$BATTLE_DISTRIBUTE_URL"

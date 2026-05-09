@@ -25,10 +25,10 @@ export async function processLoginReward(client, userId) {
     // First time — create record
     await client.query(
       `INSERT INTO daily_login_claims (user_id, last_claimed_date, streak_days)
-       VALUES ($1, $2, 1)`,
-      [userId, today]
+       VALUES ($1, NULL, 0)`,
+      [userId]
     );
-    record = { last_claimed_date: today, streak_days: 1 };
+    record = { last_claimed_date: null, streak_days: 0 };
   }
 
   const lastClaimed = record.last_claimed_date ? new Date(record.last_claimed_date) : null;
