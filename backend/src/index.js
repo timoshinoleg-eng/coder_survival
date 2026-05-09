@@ -26,6 +26,8 @@ import teamRouter from './routes/team.js';
 import offersRouter from './routes/offers.js';
 import rewardsRouter from './routes/rewards.js';
 import coffeeRouter from './routes/coffee.js';
+import respawnRouter from './routes/respawn.js';
+import teamBattleRouter from './routes/teamBattle.js';
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -92,6 +94,8 @@ app.use('/api/team', initDataMiddleware, teamRouter);
 app.use('/api/offers', initDataMiddleware, offersRouter);
 app.use('/api/rewards', initDataMiddleware, rewardsRouter);
 app.use('/api/coffee', initDataMiddleware, coffeeRouter);
+app.use('/api/respawn', initDataMiddleware, respawnRouter);
+app.use('/api/team-battle', initDataMiddleware, teamBattleRouter);
 
 // Error handler
 app.use(errorHandler);

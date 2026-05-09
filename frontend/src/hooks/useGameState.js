@@ -1,7 +1,13 @@
-import { h, createContext } from 'preact';
-import { useState, useContext, useCallback, useEffect, useRef } from 'preact/hooks';
-import { useTelegram } from './useTelegram.js';
-import { apiRequest } from '../utils/api.js';
+import { h, createContext } from "preact";
+import {
+  useState,
+  useContext,
+  useCallback,
+  useEffect,
+  useRef,
+} from "preact/hooks";
+import { useTelegram } from "./useTelegram.js";
+import { apiRequest } from "../utils/api.js";
 
 const DEFAULT_STATE = {
   commits: 0,
@@ -17,7 +23,8 @@ const DEFAULT_STATE = {
   totalTaps: 0,
   coffeeCups: 0,
   streakDays: 0,
-  tierName: '',
+  tierName: "",
+  user: null,
   todayTaps: 0,
   sessionId: null,
   loading: true,
@@ -25,12 +32,13 @@ const DEFAULT_STATE = {
   error: null,
   // Career level fields
   rank: 1,
-  rankName: '',
+  rankName: "",
   levelInRank: 1,
   xpTotal: 0,
   xpProgress: 0,
   xpRequiredForNext: null,
   daily: null,
+  loginReward: null,
   lastTapDelta: null,
   levelUp: null,
   // Stage 3: toast + purchase feedback + shared UI state
@@ -41,7 +49,16 @@ const DEFAULT_STATE = {
   event: null,
   pass: null,
   team: null,
-  contextOffer: null
+  teamBattle: null,
+  crunchTime: null,
+  referralChain: null,
+  achievements: [],
+  skins: null,
+  featureFlags: {},
+  stressCohort: "control",
+  contextOffer: null,
+  isDead: false,
+  death: null,
 };
 
 const GameContext = createContext(null);
@@ -55,9 +72,12 @@ export function GameProvider({ children }) {
   const prevLevelRef = useRef(null);
   const toastTimerRef = useRef(null);
 
-  const showToast = useCallback((message, type = 'info', duration = 2500) => {
+  const showToast = useCallback((message, type = "info", duration = 2500) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setState((current) => ({ ...current, toast: { message, type, visible: true } }));
+    setState((current) => ({
+      ...current,
+      toast: { message, type, visible: true },
+    }));
     toastTimerRef.current = setTimeout(() => {
       setState((current) => ({ ...current, toast: null }));
     }, duration);
@@ -65,17 +85,27 @@ export function GameProvider({ children }) {
 
   // Merge minimal event object from /api/tap into full event state from /api/state
   function mergeMinimalEvent(currentEvent, minimalEvent) {
-    if (!minimalEvent || !currentEvent) return minimalEvent || currentEvent || null;
+    if (!minimalEvent || !currentEvent)
+      return minimalEvent || currentEvent || null;
     return {
       ...currentEvent,
       myContribution: {
         ...currentEvent.myContribution,
-        commitsContributed: minimalEvent.contributed ?? currentEvent.myContribution?.commitsContributed ?? 0,
-        claimed: minimalEvent.claimed ?? currentEvent.myContribution?.claimed ?? false,
+        commitsContributed:
+          minimalEvent.contributed ??
+          currentEvent.myContribution?.commitsContributed ??
+          0,
+        claimed:
+          minimalEvent.claimed ?? currentEvent.myContribution?.claimed ?? false,
         progressPercent: minimalEvent.target
-          ? Math.min(100, Math.round((minimalEvent.contributed / minimalEvent.target) * 100))
-          : currentEvent.myContribution?.progressPercent ?? 0
-      }
+          ? Math.min(
+              100,
+              Math.round(
+                (minimalEvent.contributed / minimalEvent.target) * 100,
+              ),
+            )
+          : (currentEvent.myContribution?.progressPercent ?? 0),
+      },
     };
   }
 
@@ -86,10 +116,15 @@ export function GameProvider({ children }) {
       ...currentPass,
       playerPass: {
         ...currentPass.playerPass,
-        current_level: minimalPass.currentLevel ?? currentPass.playerPass?.current_level ?? 1,
-        current_xp: minimalPass.currentXp ?? currentPass.playerPass?.current_xp ?? 0,
-        is_premium: minimalPass.isPremium ?? currentPass.playerPass?.is_premium ?? false
-      }
+        current_level:
+          minimalPass.currentLevel ??
+          currentPass.playerPass?.current_level ??
+          1,
+        current_xp:
+          minimalPass.currentXp ?? currentPass.playerPass?.current_xp ?? 0,
+        is_premium:
+          minimalPass.isPremium ?? currentPass.playerPass?.is_premium ?? false,
+      },
     };
     if (minimalPass.leveledUp) {
       merged.leveledUp = true;
@@ -97,100 +132,172 @@ export function GameProvider({ children }) {
     return merged;
   }
 
-  const applyServerState = useCallback((payload) => {
-    const game = payload?.game || payload?.state || payload?.progression;
-    const sessionId = payload?.activeSession?.sessionId || state.sessionId || null;
+  const applyServerState = useCallback(
+    (payload) => {
+      const game = payload?.game || payload?.state || payload?.progression;
+      const sessionId =
+        payload?.activeSession?.sessionId || state.sessionId || null;
 
-    if (!game) return;
+      if (!game) return;
 
-    const newRank = payload?.level?.rank ?? stateRef.current.rank ?? 1;
-    const newLevelInRank = payload?.level?.levelInRank ?? payload?.level?.level_in_rank ?? stateRef.current.levelInRank ?? 1;
-    const newRankName = payload?.level?.rankName || payload?.level?.rank_name || stateRef.current.rankName || '';
+      const newRank = payload?.level?.rank ?? stateRef.current.rank ?? 1;
+      const newLevelInRank =
+        payload?.level?.levelInRank ??
+        payload?.level?.level_in_rank ??
+        stateRef.current.levelInRank ??
+        1;
+      const newRankName =
+        payload?.level?.rankName ||
+        payload?.level?.rank_name ||
+        stateRef.current.rankName ||
+        "";
 
-    let levelUp = null;
-    const prev = prevLevelRef.current;
-    if (prev && (newRank > prev.rank || newLevelInRank > prev.levelInRank)) {
-      levelUp = {
+      let levelUp = null;
+      const prev = prevLevelRef.current;
+      if (prev && (newRank > prev.rank || newLevelInRank > prev.levelInRank)) {
+        levelUp = {
+          rank: newRank,
+          rankName: newRankName,
+          levelInRank: newLevelInRank,
+          rankMeta: {
+            commitsPerTap: payload?.level?.commitsPerTap ?? null,
+            maxEnergy:
+              payload?.level?.maxEnergy ?? stateRef.current.maxEnergy ?? null,
+          },
+          isRankUp: newRank > prev.rank,
+        };
+      }
+      prevLevelRef.current = { rank: newRank, levelInRank: newLevelInRank };
+
+      const hasContextOffer = Object.prototype.hasOwnProperty.call(
+        payload || {},
+        "contextOffer",
+      );
+
+      setState((current) => ({
+        ...current,
+        user: payload?.user ?? current.user ?? null,
+        commits: Number(
+          game.commits_total ?? game.commitsTotal ?? current.commits,
+        ),
+        energy: Number(game.energy ?? current.energy),
+        maxEnergy:
+          payload?.maxEnergy ?? payload?.level?.maxEnergy ?? current.maxEnergy,
+        recoveryIntervalSeconds:
+          payload?.recoveryIntervalSeconds ?? current.recoveryIntervalSeconds,
+        progressionUpdatedAt:
+          payload?.progressionUpdatedAt ??
+          game?.updated_at ??
+          game?.updatedAt ??
+          current.progressionUpdatedAt,
+        serverNow: payload?.serverNow ?? current.serverNow,
+        serverClockOffsetMs: payload?.serverNow
+          ? new Date(payload.serverNow).getTime() - Date.now()
+          : current.serverClockOffsetMs,
+        depression: Number(
+          game.depression_level ?? game.depressionLevel ?? current.depression,
+        ),
+        level: Number(game.tier ?? current.level),
+        exp: Number(game.commits_current ?? game.commitsCurrent ?? current.exp),
+        streakDays: Number(
+          game.streak_days ?? game.streakDays ?? current.streakDays,
+        ),
+        tierName: game.tierName || current.tierName || "",
+        todayTaps: Number(payload?.today?.taps ?? current.todayTaps ?? 0),
+        // Career ladder from payload.level — falls back to current state if absent
         rank: newRank,
         rankName: newRankName,
         levelInRank: newLevelInRank,
-        rankMeta: {
-          commitsPerTap: payload?.level?.commitsPerTap ?? null,
-          maxEnergy: payload?.level?.maxEnergy ?? stateRef.current.maxEnergy ?? null
-        },
-        isRankUp: newRank > prev.rank
-      };
-    }
-    prevLevelRef.current = { rank: newRank, levelInRank: newLevelInRank };
-
-    const hasContextOffer = Object.prototype.hasOwnProperty.call(payload || {}, 'contextOffer');
-
-    setState((current) => ({
-      ...current,
-      commits: Number(game.commits_total ?? game.commitsTotal ?? current.commits),
-      energy: Number(game.energy ?? current.energy),
-      maxEnergy: payload?.maxEnergy ?? payload?.level?.maxEnergy ?? current.maxEnergy,
-      recoveryIntervalSeconds: payload?.recoveryIntervalSeconds ?? current.recoveryIntervalSeconds,
-      progressionUpdatedAt: payload?.progressionUpdatedAt
-        ?? game?.updated_at
-        ?? game?.updatedAt
-        ?? current.progressionUpdatedAt,
-      serverNow: payload?.serverNow ?? current.serverNow,
-      serverClockOffsetMs: payload?.serverNow
-        ? (new Date(payload.serverNow).getTime() - Date.now())
-        : current.serverClockOffsetMs,
-      depression: Number(game.depression_level ?? game.depressionLevel ?? current.depression),
-      level: Number(game.tier ?? current.level),
-      exp: Number(game.commits_current ?? game.commitsCurrent ?? current.exp),
-      streakDays: Number(game.streak_days ?? game.streakDays ?? current.streakDays),
-      tierName: game.tierName || current.tierName || '',
-      todayTaps: Number(payload?.today?.taps ?? current.todayTaps ?? 0),
-      // Career ladder from payload.level — falls back to current state if absent
-      rank: newRank,
-      rankName: newRankName,
-      levelInRank: newLevelInRank,
-      xpTotal: payload?.level?.xpTotal ?? payload?.level?.xp_total ?? current.xpTotal ?? 0,
-      xpProgress: payload?.level?.progressInLevel ?? payload?.level?.progress_in_level ?? current.xpProgress ?? 0,
-      xpRequiredForNext: payload?.level?.requiredForNextLevel ?? payload?.level?.required_for_next_level ?? current.xpRequiredForNext ?? null,
-      daily: payload?.daily ?? current.daily ?? null,
-      loginReward: payload?.loginReward ?? current.loginReward ?? null,
-      event: payload?.event
-        ? mergeMinimalEvent(current.event, payload.event)
-        : current.event,
-      pass: payload?.pass
-        ? mergeMinimalPass(current.pass, payload.pass)
-        : current.pass,
-      team: payload?.team ?? current.team ?? null,
-      featureFlags: payload?.featureFlags ?? payload?.feature_flags ?? current.featureFlags ?? {},
-      stressCohort: payload?.stressCohort ?? payload?.stress_cohort ?? current.stressCohort ?? 'control',
-      contextOffer: hasContextOffer ? payload.contextOffer : current.contextOffer,
-      lastTapDelta: payload?.delta ? {
-        commits: payload.delta.commits,
-        energy: payload.delta.energy,
-        depression: payload.delta.depression,
-        xp: payload.xpDelta ?? null
-      } : current.lastTapDelta,
-      levelUp: levelUp ?? current.levelUp,
-      sessionId,
-      loading: false,
-      syncing: false,
-      error: null
-    }));
-  }, [state.sessionId]);
+        xpTotal:
+          payload?.level?.xpTotal ??
+          payload?.level?.xp_total ??
+          current.xpTotal ??
+          0,
+        xpProgress:
+          payload?.level?.progressInLevel ??
+          payload?.level?.progress_in_level ??
+          current.xpProgress ??
+          0,
+        xpRequiredForNext:
+          payload?.level?.requiredForNextLevel ??
+          payload?.level?.required_for_next_level ??
+          current.xpRequiredForNext ??
+          null,
+        daily: payload?.daily ?? current.daily ?? null,
+        loginReward: payload?.loginReward ?? current.loginReward ?? null,
+        event: payload?.event
+          ? mergeMinimalEvent(current.event, payload.event)
+          : current.event,
+        pass: payload?.pass
+          ? mergeMinimalPass(current.pass, payload.pass)
+          : current.pass,
+        team: payload?.team ?? current.team ?? null,
+        teamBattle:
+          payload?.teamBattle ??
+          payload?.team_battle ??
+          current.teamBattle ??
+          null,
+        crunchTime:
+          payload?.crunchTime ??
+          payload?.crunch_time ??
+          current.crunchTime ??
+          null,
+        referralChain:
+          payload?.referralChain ??
+          payload?.referral_chain ??
+          current.referralChain ??
+          null,
+        achievements: payload?.achievements ?? current.achievements ?? [],
+        skins: payload?.skins ?? current.skins ?? null,
+        featureFlags:
+          payload?.featureFlags ??
+          payload?.feature_flags ??
+          current.featureFlags ??
+          {},
+        stressCohort:
+          payload?.stressCohort ??
+          payload?.stress_cohort ??
+          current.stressCohort ??
+          "control",
+        contextOffer: hasContextOffer
+          ? payload.contextOffer
+          : current.contextOffer,
+        isDead: payload?.isDead ?? payload?.is_dead ?? current.isDead ?? false,
+        death: payload?.death ?? current.death ?? null,
+        lastTapDelta: payload?.delta
+          ? {
+              commits: payload.delta.commits,
+              energy: payload.delta.energy,
+              depression: payload.delta.depression,
+              xp: payload.xpDelta ?? null,
+            }
+          : current.lastTapDelta,
+        levelUp: levelUp ?? current.levelUp,
+        sessionId,
+        loading: false,
+        syncing: false,
+        error: null,
+      }));
+    },
+    [state.sessionId],
+  );
 
   const loadState = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
-      const payload = await apiRequest('/api/state', { initData: telegram?.initData });
+      const payload = await apiRequest("/api/state", {
+        initData: telegram?.initData,
+      });
       applyServerState(payload);
     } catch (err) {
       setState((current) => ({
         ...current,
         loading: false,
         syncing: false,
-        error: err.status === 401 || err.status === 403
-          ? 'Telegram авторизация не прошла'
-          : 'Сервер недоступен'
+        error:
+          err.status === 401 || err.status === 403
+            ? "Telegram авторизация не прошла"
+            : "Сервер недоступен",
       }));
     }
   }, [applyServerState, telegram?.initData]);
@@ -209,11 +316,11 @@ export function GameProvider({ children }) {
     if (state.loginReward?.claimed) {
       const rewardText = state.loginReward.reward
         ? `+${state.loginReward.reward.energy || 0} энергии`
-        : '';
+        : "";
       showToast(
         `День ${state.loginReward.streak} подряд! ${rewardText}`.trim(),
-        'success',
-        3000
+        "success",
+        3000,
       );
     }
   }, [state.loginReward?.claimed, state.loginReward?.streak]);
@@ -235,23 +342,26 @@ export function GameProvider({ children }) {
         pendingTapsRef.current -= 1;
 
         try {
-          const payload = await apiRequest('/api/tap', {
-            method: 'POST',
+          const payload = await apiRequest("/api/tap", {
+            method: "POST",
             initData: telegram?.initData,
-            body: { session_id: stateRef.current.sessionId }
+            body: { session_id: stateRef.current.sessionId },
           });
 
           applyServerState(payload);
           setState((current) => ({
             ...current,
-            totalTaps: current.totalTaps + 1
+            totalTaps: current.totalTaps + 1,
           }));
         } catch (err) {
           pendingTapsRef.current = 0;
           setState((current) => ({
             ...current,
             syncing: false,
-            error: err.status === 429 ? 'Слишком быстро. Подожди секунду.' : 'Не удалось сохранить тап'
+            error:
+              err.status === 429
+                ? "Слишком быстро. Подожди секунду."
+                : "Не удалось сохранить тап",
           }));
           break;
         }
@@ -293,28 +403,28 @@ export function GameProvider({ children }) {
     closeShop,
     dismissContextOffer: async (offerType) => {
       if (!offerType) return;
-      await apiRequest('/api/offers/dismiss', {
-        method: 'POST',
+      await apiRequest("/api/offers/dismiss", {
+        method: "POST",
         initData: telegram?.initData,
-        body: { offerType }
+        body: { offerType },
       });
       setState((current) => ({ ...current, contextOffer: null }));
     },
     claimDailyQuest: async (questId) => {
-      const payload = await apiRequest('/api/quests/claim', {
-        method: 'POST',
+      const payload = await apiRequest("/api/quests/claim", {
+        method: "POST",
         initData: telegram?.initData,
-        body: { questId }
+        body: { questId },
       });
 
       setState((current) => ({
         ...current,
-        daily: payload?.daily ?? current.daily
+        daily: payload?.daily ?? current.daily,
       }));
 
       if (
-        (payload?.reward && Object.keys(payload.reward).length > 0)
-        || (payload?.bonusReward && Object.keys(payload.bonusReward).length > 0)
+        (payload?.reward && Object.keys(payload.reward).length > 0) ||
+        (payload?.bonusReward && Object.keys(payload.bonusReward).length > 0)
       ) {
         await loadState();
       }
@@ -323,21 +433,41 @@ export function GameProvider({ children }) {
     },
     drinkCoffee: async () => {
       try {
-        const payload = await apiRequest('/api/coffee', {
-          method: 'POST',
-          initData: telegram?.initData
+        const payload = await apiRequest("/api/coffee", {
+          method: "POST",
+          initData: telegram?.initData,
         });
         if (payload?.success) {
-          showToast(`☕ Кофе восстановил ${payload.restored} энергии`, 'success', 2000);
+          showToast(
+            `☕ Кофе восстановил ${payload.restored} энергии`,
+            "success",
+            2000,
+          );
           await loadState();
         }
         return payload;
       } catch (err) {
-        showToast(err?.message || 'Кофе пока недоступен', 'error', 2000);
+        showToast(err?.message || "Кофе пока недоступен", "error", 2000);
         return null;
       }
     },
-    reset: loadState
+    respawn: async () => {
+      try {
+        const payload = await apiRequest("/api/respawn", {
+          method: "POST",
+          initData: telegram?.initData,
+        });
+        if (payload?.success) {
+          showToast("Воскрешение успешно! Береги себя.", "success", 2000);
+          await loadState();
+        }
+        return payload;
+      } catch (err) {
+        showToast(err?.message || "Воскрешение невозможно", "error", 2000);
+        return null;
+      }
+    },
+    reset: loadState,
   };
 
   return h(GameContext.Provider, { value }, children);

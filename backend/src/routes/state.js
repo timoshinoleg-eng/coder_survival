@@ -10,8 +10,18 @@ import { getProductById } from '../utils/shopCatalog.js';
 import { getMyTeam } from '../utils/teams.js';
 import { processLoginReward } from '../utils/loginReward.js';
 import { updateDailyQuestProgress } from '../utils/vnext.js';
+import {
+  getTeamBattleStatus,
+  getUserSkins,
+  getUserAchievements,
+  getActiveCrunchTime,
+  getReferralChain,
+  getDeathState
+} from '../utils/phase2State.js';
 
 const router = Router();
+
+import { createHash } from 'crypto';
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -19,6 +29,18 @@ function getClientIp(req) {
     return forwarded.split(',')[0].trim();
   }
   return req.socket?.remoteAddress || req.ip || null;
+}
+
+function hashDevice(req) {
+  try {
+    const initData = req.telegramUser?.raw || '';
+    const ua = req.headers['user-agent'] || '';
+    const platform = req.headers['sec-ch-ua-platform'] || '';
+    const data = `${initData}:${ua}:${platform}`;
+    return createHash('sha256').update(data).digest('hex').slice(0, 32);
+  } catch (_e) {
+    return null;
+  }
 }
 
 async function ensureReferralFromStartParam(client, referredUserId, referredTelegramId, startParam, clientIp) {
@@ -45,8 +67,11 @@ async function ensureReferralFromStartParam(client, referredUserId, referredTele
     return;
   }
 
-  // P2-5: antifraud soft flag — log IP-rate signal without hard blocking
+  // A-6: Enhanced antifraud
   let fraudFlag = null;
+  let hardReject = false;
+  let rejectReason = null;
+
   if (clientIp) {
     const ipCountResult = await client.query(
       `SELECT COUNT(*) as cnt
@@ -56,17 +81,49 @@ async function ensureReferralFromStartParam(client, referredUserId, referredTele
       [clientIp]
     );
     const ipCount = parseInt(ipCountResult.rows[0].cnt, 10);
-    if (ipCount >= 3) {
+    if (ipCount >= 5) {
+      hardReject = true;
+      rejectReason = 'ip_hard_limit';
+    } else if (ipCount >= 3) {
       fraudFlag = 'high_ip_volume';
     }
   }
 
+  // Device fingerprint: hash of initData + user-agent
+  const deviceFingerprint = hashDevice(req);
+  if (deviceFingerprint && !hardReject) {
+    const deviceResult = await client.query(
+      `SELECT referrer_id, COUNT(*) as cnt
+       FROM referrals
+       WHERE device_hash = $1
+         AND created_at > NOW() - INTERVAL '7 days'
+       GROUP BY referrer_id`,
+      [deviceFingerprint]
+    );
+    const uniqueReferrers = deviceResult.rows.length;
+    if (uniqueReferrers >= 3) {
+      hardReject = true;
+      rejectReason = 'device_multi_referrer';
+    } else if (uniqueReferrers >= 2) {
+      fraudFlag = fraudFlag || 'device_shared';
+    }
+  }
+
+  if (hardReject) {
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, context)
+       VALUES ($1, 'referral_bind_rejected', $2::jsonb)`,
+      [referrerId, JSON.stringify({ referredId: referredUserId, reason: rejectReason, bindIp: clientIp })]
+    );
+    return; // silently reject
+  }
+
   const insertResult = await client.query(
-    `INSERT INTO referrals (referrer_id, referred_id, status, bind_ip)
-     VALUES ($1, $2, 'pending', $3::inet)
+    `INSERT INTO referrals (referrer_id, referred_id, status, bind_ip, device_hash)
+     VALUES ($1, $2, 'pending', $3::inet, $4)
      ON CONFLICT (referrer_id, referred_id) DO NOTHING
      RETURNING id`,
-    [referrerId, referredUserId, clientIp || null]
+    [referrerId, referredUserId, clientIp || null, deviceFingerprint]
   );
 
   // Only log antifraud audit on actual new bindings, not on duplicate state checks
@@ -231,6 +288,14 @@ router.get('/', async (req, res, next) => {
         await recordOfferImpression(client, user.id, contextOffer.type, 'state');
       }
 
+      // Phase 2 state extensions
+      const teamBattle = await getTeamBattleStatus(client, user.id, myTeam?.id);
+      const skins = await getUserSkins(client, user.id);
+      const achievements = await getUserAchievements(client, user.id);
+      const crunchTime = await getActiveCrunchTime(client);
+      const referralChain = await getReferralChain(client, user.id);
+      const { isDead, death } = getDeathState(progression);
+
       res.json({
         user: {
           id: user.id,
@@ -300,7 +365,14 @@ router.get('/', async (req, res, next) => {
           premiumPassProduct: getProductById('premium_pass')
         } : null,
         team: myTeam,
-        contextOffer
+        contextOffer,
+        teamBattle,
+        skins,
+        achievements,
+        crunchTime,
+        referralChain,
+        isDead,
+        death
       });
 
     } finally {

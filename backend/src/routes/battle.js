@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { BATTLE_REWARD_PREVIEW } from '../config/balance.js';
+import { distributeBattleRewards } from '../utils/battleDistribution.js';
 
 const router = Router();
 
@@ -92,6 +93,37 @@ router.get('/today', async (req, res, next) => {
         myPosition,
         timeUntilReset,
         rewardPreview: BATTLE_REWARD_PREVIEW
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/battle/distribute
+ * Admin/cron-only: distribute yesterday's battle rewards.
+ * Protected by BOT_BACKEND_SECRET header.
+ */
+const BOT_BACKEND_SECRET = process.env.BOT_BACKEND_SECRET;
+
+router.post('/distribute', async (req, res, next) => {
+  const headerSecret = req.get('X-Bot-Backend-Secret');
+  if (!BOT_BACKEND_SECRET || headerSecret !== BOT_BACKEND_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { date } = req.body || {};
+
+  try {
+    const client = await pool.connect();
+    try {
+      const result = await distributeBattleRewards(client, date ? new Date(date) : null);
+      res.json({
+        success: true,
+        ...result
       });
     } finally {
       client.release();
