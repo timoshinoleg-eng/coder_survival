@@ -20,7 +20,7 @@ export default function StatsBar() {
     rankName, levelInRank, xpProgress, xpRequiredForNext,
     progressionUpdatedAt, serverClockOffsetMs,
     toast, shopOpen, setShopOpen, closeShop,
-    featureFlags
+    featureFlags, user, drinkCoffee
   } = useGameState();
 
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -140,6 +140,17 @@ export default function StatsBar() {
       style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
     }, [
       h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+        user?.photoUrl && h('img', {
+          src: user.photoUrl,
+          alt: '',
+          style: {
+            width: '24px',
+            height: '24px',
+            borderRadius: '50%',
+            border: '1px solid rgba(255,255,255,0.2)',
+            objectFit: 'cover'
+          }
+        }),
         h('span', {
           style: {
             background: rankBadgeGradient,
@@ -402,7 +413,19 @@ export default function StatsBar() {
             cursor: adLoading ? 'wait' : 'pointer',
             opacity: adLoading ? 0.7 : 1
           }
-        }, adLoading ? 'Загрузка...' : '▶️ +50% энергии')
+        }, adLoading ? 'Загрузка...' : '▶️ +50% энергии'),
+        energy < maxEnergy && h('button', {
+          onClick: drinkCoffee,
+          style: {
+            fontSize: '10px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            border: '1px solid #5a3e2d',
+            background: '#2d2a1a',
+            color: '#facc15',
+            cursor: 'pointer'
+          }
+        }, '☕ Кофе')
       ])
     ]),
 

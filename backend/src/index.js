@@ -25,6 +25,7 @@ import passRouter from './routes/pass.js';
 import teamRouter from './routes/team.js';
 import offersRouter from './routes/offers.js';
 import rewardsRouter from './routes/rewards.js';
+import coffeeRouter from './routes/coffee.js';
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -90,6 +91,7 @@ app.use('/api/pass', initDataMiddleware, passRouter);
 app.use('/api/team', initDataMiddleware, teamRouter);
 app.use('/api/offers', initDataMiddleware, offersRouter);
 app.use('/api/rewards', initDataMiddleware, rewardsRouter);
+app.use('/api/coffee', initDataMiddleware, coffeeRouter);
 
 // Error handler
 app.use(errorHandler);

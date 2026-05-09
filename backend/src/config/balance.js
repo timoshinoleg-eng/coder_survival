@@ -49,6 +49,16 @@ export const DAILY_QUEST_DEFS = [
     questType: 'login',
     targetValue: 1,
     rewardPayload: { energy: 10 }
+  },
+  {
+    questType: 'spend_energy',
+    targetValue: 150,
+    rewardPayload: { energy: 20, commitsCurrent: 15 }
+  },
+  {
+    questType: 'invite_friend',
+    targetValue: 1,
+    rewardPayload: { energy: 25 }
   }
 ];
 

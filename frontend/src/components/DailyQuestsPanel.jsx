@@ -5,7 +5,7 @@ import { formatQuestTitle, formatRewardPayload } from '../utils/rewardFormatting
 import { audioManager } from '../utils/AudioManager.js';
 
 export default function DailyQuestsPanel({ open, onClose }) {
-  const { daily, claimDailyQuest, streakDays } = useGameState();
+  const { daily, claimDailyQuest, streakDays, loginReward } = useGameState();
   const [claimingId, setClaimingId] = useState(null);
   const [localError, setLocalError] = useState(null);
   const [bonusToast, setBonusToast] = useState(null);
@@ -149,6 +149,38 @@ export default function DailyQuestsPanel({ open, onClose }) {
         fontSize: '12px'
       }
     }, localError),
+
+    // Login reward section
+    h('div', {
+      style: {
+        margin: '0 14px 12px',
+        padding: '12px',
+        borderRadius: '8px',
+        background: 'linear-gradient(90deg, #1a3a5c, #274267)',
+        border: '1px solid #30527e',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }
+    }, [
+      h('div', null, [
+        h('div', { style: { fontWeight: 700, fontSize: '13px', color: '#facc15' } },
+          loginReward?.claimed ? `🔥 День ${loginReward.streak} подряд!` : `🔥 ${streakDays || 0} дн. streak`
+        ),
+        h('div', { style: { fontSize: '11px', color: '#8ba1bb', marginTop: '2px' } },
+          loginReward?.claimed
+            ? `Получено: ${formatRewardPayload(loginReward.reward)}`
+            : 'Входи каждый день для бонуса'
+        )
+      ]),
+      h('span', {
+        style: {
+          fontSize: '11px',
+          color: loginReward?.claimed ? '#4ade80' : '#9eb6d2',
+          fontWeight: 700
+        }
+      }, loginReward?.claimed ? 'Получено' : 'Ожидает')
+    ]),
 
     h('div', {
       style: {

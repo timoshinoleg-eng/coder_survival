@@ -254,7 +254,7 @@ class AudioManager {
   playBGM(trackId) {
     if (!BGM_TRACK_IDS.has(trackId)) return;
 
-    // If same track already playing, no-op.
+    // Guard: don't restart if already playing this track.
     if (this.currentBGMTrack === trackId && this.currentBGM && !this.currentBGM.paused) {
       return;
     }

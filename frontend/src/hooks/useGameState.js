@@ -63,6 +63,40 @@ export function GameProvider({ children }) {
     }, duration);
   }, []);
 
+  // Merge minimal event object from /api/tap into full event state from /api/state
+  function mergeMinimalEvent(currentEvent, minimalEvent) {
+    if (!minimalEvent || !currentEvent) return minimalEvent || currentEvent || null;
+    return {
+      ...currentEvent,
+      myContribution: {
+        ...currentEvent.myContribution,
+        commitsContributed: minimalEvent.contributed ?? currentEvent.myContribution?.commitsContributed ?? 0,
+        claimed: minimalEvent.claimed ?? currentEvent.myContribution?.claimed ?? false,
+        progressPercent: minimalEvent.target
+          ? Math.min(100, Math.round((minimalEvent.contributed / minimalEvent.target) * 100))
+          : currentEvent.myContribution?.progressPercent ?? 0
+      }
+    };
+  }
+
+  // Merge minimal pass object from /api/tap into full pass state from /api/state
+  function mergeMinimalPass(currentPass, minimalPass) {
+    if (!minimalPass || !currentPass) return minimalPass || currentPass || null;
+    const merged = {
+      ...currentPass,
+      playerPass: {
+        ...currentPass.playerPass,
+        current_level: minimalPass.currentLevel ?? currentPass.playerPass?.current_level ?? 1,
+        current_xp: minimalPass.currentXp ?? currentPass.playerPass?.current_xp ?? 0,
+        is_premium: minimalPass.isPremium ?? currentPass.playerPass?.is_premium ?? false
+      }
+    };
+    if (minimalPass.leveledUp) {
+      merged.leveledUp = true;
+    }
+    return merged;
+  }
+
   const applyServerState = useCallback((payload) => {
     const game = payload?.game || payload?.state || payload?.progression;
     const sessionId = payload?.activeSession?.sessionId || state.sessionId || null;
@@ -119,8 +153,13 @@ export function GameProvider({ children }) {
       xpProgress: payload?.level?.progressInLevel ?? payload?.level?.progress_in_level ?? current.xpProgress ?? 0,
       xpRequiredForNext: payload?.level?.requiredForNextLevel ?? payload?.level?.required_for_next_level ?? current.xpRequiredForNext ?? null,
       daily: payload?.daily ?? current.daily ?? null,
-      event: payload?.event ?? current.event ?? null,
-      pass: payload?.pass ?? current.pass ?? null,
+      loginReward: payload?.loginReward ?? current.loginReward ?? null,
+      event: payload?.event
+        ? mergeMinimalEvent(current.event, payload.event)
+        : current.event,
+      pass: payload?.pass
+        ? mergeMinimalPass(current.pass, payload.pass)
+        : current.pass,
       team: payload?.team ?? current.team ?? null,
       featureFlags: payload?.featureFlags ?? payload?.feature_flags ?? current.featureFlags ?? {},
       stressCohort: payload?.stressCohort ?? payload?.stress_cohort ?? current.stressCohort ?? 'control',
@@ -164,6 +203,20 @@ export function GameProvider({ children }) {
     window.__GAME_STATE__ = state;
     stateRef.current = state;
   }, [state]);
+
+  // Show toast for daily login reward
+  useEffect(() => {
+    if (state.loginReward?.claimed) {
+      const rewardText = state.loginReward.reward
+        ? `+${state.loginReward.reward.energy || 0} энергии`
+        : '';
+      showToast(
+        `День ${state.loginReward.streak} подряд! ${rewardText}`.trim(),
+        'success',
+        3000
+      );
+    }
+  }, [state.loginReward?.claimed, state.loginReward?.streak]);
 
   const flushTapQueue = useCallback(async () => {
     if (processingTapRef.current) return;
@@ -268,7 +321,22 @@ export function GameProvider({ children }) {
 
       return payload;
     },
-    drinkCoffee: () => {},
+    drinkCoffee: async () => {
+      try {
+        const payload = await apiRequest('/api/coffee', {
+          method: 'POST',
+          initData: telegram?.initData
+        });
+        if (payload?.success) {
+          showToast(`☕ Кофе восстановил ${payload.restored} энергии`, 'success', 2000);
+          await loadState();
+        }
+        return payload;
+      } catch (err) {
+        showToast(err?.message || 'Кофе пока недоступен', 'error', 2000);
+        return null;
+      }
+    },
     reset: loadState
   };
 

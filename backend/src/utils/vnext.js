@@ -1,4 +1,4 @@
-import { DAILY_QUEST_ALL_CLAIMED_BONUS, DAILY_QUEST_DEFS, LOGIN_STREAK_BONUS } from '../config/balance.js';
+import { DAILY_QUEST_ALL_CLAIMED_BONUS, DAILY_QUEST_DEFS } from '../config/balance.js';
 import { applyReward } from './rewards.js';
 
 const RANK_ORDER = ['Junior', 'Middle', 'Senior', 'Lead', 'CTO'];
@@ -145,7 +145,7 @@ function normalizeQuestRow(row) {
   };
 }
 
-export async function updateDailyQuestProgress(client, userId, { tapDelta = 0, commitDelta = 0 }) {
+export async function updateDailyQuestProgress(client, userId, { tapDelta = 0, commitDelta = 0, energyDelta = 0 }) {
   await ensureDailyQuests(client, userId);
 
   if (tapDelta > 0) {
@@ -179,6 +179,25 @@ export async function updateDailyQuestProgress(client, userId, { tapDelta = 0, c
          AND quest_date = CURRENT_DATE
          AND quest_type = 'commit_count'`,
       [userId, commitDelta]
+    );
+  }
+
+  // Track energy spent (absolute value of negative energy delta)
+  const energySpent = Math.abs(Math.min(energyDelta, 0));
+  if (energySpent > 0) {
+    await client.query(
+      `UPDATE daily_quests
+       SET progress_value = LEAST(target_value, progress_value + $2),
+           completed = (progress_value + $2) >= target_value,
+           completed_at = CASE
+             WHEN completed THEN completed_at
+             WHEN (progress_value + $2) >= target_value THEN NOW()
+             ELSE completed_at
+           END
+       WHERE user_id = $1
+         AND quest_date = CURRENT_DATE
+         AND quest_type = 'spend_energy'`,
+      [userId, energySpent]
     );
   }
 
@@ -247,19 +266,7 @@ export async function claimDailyQuest(client, userId, questId) {
     return { error: 'Quest already claimed', status: 409 };
   }
 
-  let reward = quest.rewardPayload || {};
-
-  // P1-4: escalating streak bonus for login quest (applied on top of base reward)
-  if (quest.questType === 'login') {
-    const fullStreak = await computeClaimedStreak(client, userId);
-    const effectiveStreak = Math.min(fullStreak + 1, 7);
-    const streakBonus = LOGIN_STREAK_BONUS[effectiveStreak] || {};
-    reward = { ...reward };
-    for (const [key, value] of Object.entries(streakBonus)) {
-      reward[key] = (reward[key] || 0) + value;
-    }
-  }
-
+  const reward = quest.rewardPayload || {};
   await applyReward(client, userId, reward);
 
   await client.query(
@@ -279,61 +286,7 @@ export async function claimDailyQuest(client, userId, questId) {
     await applyReward(client, userId, bonusReward);
   }
 
-  await refreshStreak(client, userId, summary);
-
   return { reward, bonusReward, summary, status: 200 };
 }
 
-async function computeClaimedStreak(client, userId) {
-  const streakResult = await client.query(
-    `WITH claimed_days AS (
-       SELECT quest_date
-       FROM daily_quests
-       WHERE user_id = $1
-       GROUP BY quest_date
-       HAVING BOOL_AND(claimed) = TRUE
-     )
-     SELECT quest_date
-     FROM claimed_days
-     ORDER BY quest_date DESC`,
-    [userId]
-  );
 
-  let streak = 0;
-  let expectedOffset = 0;
-  for (const row of streakResult.rows) {
-    const expectedDate = new Date();
-    expectedDate.setUTCHours(0, 0, 0, 0);
-    expectedDate.setUTCDate(expectedDate.getUTCDate() - expectedOffset);
-
-    const actual = new Date(row.quest_date);
-    actual.setUTCHours(0, 0, 0, 0);
-
-    if (actual.getTime() !== expectedDate.getTime()) {
-      break;
-    }
-
-    streak += 1;
-    expectedOffset += 1;
-  }
-  return streak;
-}
-
-async function refreshStreak(client, userId, summary = null) {
-  const currentSummary = summary || await getDailyQuestSummary(client, userId);
-  const allClaimedToday = currentSummary.total > 0 && currentSummary.claimed === currentSummary.total;
-
-  if (!allClaimedToday) {
-    return;
-  }
-
-  const streak = await computeClaimedStreak(client, userId);
-
-  await client.query(
-    `UPDATE progression
-     SET streak_days = $2,
-         updated_at = NOW()
-     WHERE user_id = $1`,
-    [userId, streak]
-  );
-}
