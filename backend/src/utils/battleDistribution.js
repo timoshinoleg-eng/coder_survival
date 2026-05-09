@@ -1,6 +1,8 @@
 import { BATTLE_REWARD_PREVIEW } from '../config/balance.js';
 import { applyReward } from './rewards.js';
 
+const BATTLE_DISTRIBUTION_LOCK_NAMESPACE = 42001;
+
 /**
  * Distribute daily battle rewards for a given date.
  * Idempotent: safe to call multiple times for the same date.
@@ -12,10 +14,17 @@ import { applyReward } from './rewards.js';
 export async function distributeBattleRewards(client, date = null) {
   const targetDate = date || getYesterday();
   const dateStr = formatDate(targetDate);
+  const rangeStart = new Date(`${dateStr}T00:00:00.000Z`);
+  const rangeEnd = new Date(rangeStart.getTime() + 24 * 60 * 60 * 1000);
 
   await client.query('BEGIN');
 
   try {
+    await client.query(
+      `SELECT pg_advisory_xact_lock($1, hashtext($2))`,
+      [BATTLE_DISTRIBUTION_LOCK_NAMESPACE, dateStr]
+    );
+
     // Check if already distributed
     const existing = await client.query(
       `SELECT COUNT(*) as cnt FROM battle_reward_claims WHERE battle_date = $1`,
@@ -33,13 +42,13 @@ export async function distributeBattleRewards(client, date = null) {
          COALESCE(SUM(s.commits_earned), 0) as commits_today
        FROM users u
        LEFT JOIN sessions s ON s.user_id = u.id
-         AND s.started_at >= $1::date
-         AND s.started_at < ($1::date + INTERVAL '1 day')
+         AND s.started_at >= $1::timestamptz
+         AND s.started_at < $2::timestamptz
        GROUP BY u.id
        HAVING COALESCE(SUM(s.commits_earned), 0) > 0
        ORDER BY commits_today DESC
        LIMIT 3`,
-      [dateStr]
+      [rangeStart.toISOString(), rangeEnd.toISOString()]
     );
 
     const rewards = [];
@@ -51,14 +60,18 @@ export async function distributeBattleRewards(client, date = null) {
 
       if (!reward) continue;
 
-      await applyReward(client, row.user_id, reward);
-
-      await client.query(
+      const claimInsert = await client.query(
         `INSERT INTO battle_reward_claims (user_id, battle_date, rank, reward_payload)
          VALUES ($1, $2, $3, $4::jsonb)
-         ON CONFLICT (user_id, battle_date) DO NOTHING`,
+         ON CONFLICT (user_id, battle_date) DO NOTHING
+         RETURNING id`,
         [row.user_id, dateStr, rank, JSON.stringify(reward)]
       );
+      if (claimInsert.rows.length === 0) {
+        continue;
+      }
+
+      await applyReward(client, row.user_id, reward);
 
       rewards.push({
         userId: row.user_id,

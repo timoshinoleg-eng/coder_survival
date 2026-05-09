@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
+import { ensurePlayerLevel } from '../utils/vnext.js';
 
 const router = Router();
 
@@ -67,13 +68,29 @@ router.post('/', async (req, res, next) => {
         [userId, JSON.stringify({ oldEnergy: prog.energy, newEnergy, newDepression })]
       );
 
+      const updatedProgResult = await client.query(
+        `SELECT tier, commits_total, commits_current, energy, depression_level, is_dead, updated_at
+         FROM progression
+         WHERE user_id = $1`,
+        [userId]
+      );
+      const updatedProg = updatedProgResult.rows[0];
+      const level = await ensurePlayerLevel(client, userId);
+
       await client.query('COMMIT');
 
       res.json({
         success: true,
-        energy: newEnergy,
-        depression: newDepression,
-        isDead: false
+        // Client should still call /api/state after respawn for full hydration.
+        energy: updatedProg.energy,
+        depression: updatedProg.depression_level,
+        isDead: updatedProg.is_dead,
+        maxEnergy: level.resolved.maxEnergy,
+        tier: updatedProg.tier,
+        commitsTotal: parseInt(updatedProg.commits_total, 10),
+        commitsCurrent: parseInt(updatedProg.commits_current, 10),
+        progressionUpdatedAt: updatedProg.updated_at,
+        requiresStateReload: true
       });
     } catch (err) {
       await client.query('ROLLBACK');

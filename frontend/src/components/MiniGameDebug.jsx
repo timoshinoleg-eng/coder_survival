@@ -18,7 +18,7 @@ function randomPosition(containerWidth, containerHeight, bugSize) {
 
 export default function MiniGameDebug({ open, onClose }) {
   const { showToast, depression } = useGameState();
-  const { haptic } = useTelegram();
+  const { haptic, initData } = useTelegram();
   const [phase, setPhase] = useState('ready'); // ready | playing | result
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION_MS);
@@ -108,11 +108,10 @@ export default function MiniGameDebug({ open, onClose }) {
     if (claimed) return;
     setClaimed(true);
 
-    // Try backend API first; fallback to local toast if endpoint doesn't exist yet
     try {
       const payload = await apiRequest('/api/minigame/debug', {
         method: 'POST',
-        initData: window.Telegram?.WebApp?.initData || ''
+        initData
       });
       if (payload?.success) {
         showToast(`Отладка завершена! Награда получена`, 'success', 2000);
@@ -120,16 +119,11 @@ export default function MiniGameDebug({ open, onClose }) {
         return;
       }
     } catch (_e) {
-      // Backend endpoint not available yet — show local reward
+      showToast('Мини-игра недоступна в текущей сборке', 'error', 2000);
+      setClaimed(false);
+      return;
     }
-
-    // Local fallback reward
-    const rewardText = score >= 3
-      ? `−5 стресса, +10 коммитов (локально)`
-      : `+${score * 2} коммитов (локально)`;
-    showToast(`Отладка завершена! ${rewardText}`, 'success', 2000);
-    onClose();
-  }, [claimed, score, showToast, onClose]);
+  }, [claimed, initData, showToast, onClose]);
 
   if (!open) return null;
 

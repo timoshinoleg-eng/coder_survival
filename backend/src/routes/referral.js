@@ -195,27 +195,24 @@ router.post('/', async (req, res, next) => {
           return res.status(400).json({ error: 'Self-referral is not allowed' });
         }
 
-        // Проверяем, не существует ли уже связи
-        const existingResult = await client.query(
-          `SELECT * FROM referrals WHERE referrer_id = $1 AND referred_id = $2`,
-          [referrerId, referredId]
-        );
-
-        if (existingResult.rows.length > 0) {
-          await client.query('ROLLBACK');
-          return res.status(409).json({ 
-            error: 'Referral already exists',
-            referral: existingResult.rows[0]
-          });
-        }
-
-        // Создаём реферальную связь
-        const referralResult = await client.query(
+        // Создаём реферальную связь идемпотентно, без SELECT->INSERT race
+        const referralInsertResult = await client.query(
           `INSERT INTO referrals (referrer_id, referred_id, status)
            VALUES ($1, $2, 'pending')
+           ON CONFLICT (referrer_id, referred_id) DO NOTHING
            RETURNING *`,
           [referrerId, referredId]
         );
+
+        const referralResult =
+          referralInsertResult.rows[0]
+            ? referralInsertResult
+            : await client.query(
+                `SELECT *
+                 FROM referrals
+                 WHERE referrer_id = $1 AND referred_id = $2`,
+                [referrerId, referredId]
+              );
 
         await client.query('COMMIT');
 
@@ -225,10 +222,14 @@ router.post('/', async (req, res, next) => {
             id: referralResult.rows[0].id,
             referrerId,
             referredId,
-            status: 'pending',
-            rewardClaimed: false
+            status: referralResult.rows[0].status,
+            rewardClaimed: referralResult.rows[0].reward_claimed
           },
-          message: 'Referral tracked successfully'
+          existing: referralInsertResult.rows.length === 0,
+          message:
+            referralInsertResult.rows.length === 0
+              ? 'Referral already tracked'
+              : 'Referral tracked successfully'
         });
       } else {
         // Просто возвращаем реферальный код текущего пользователя

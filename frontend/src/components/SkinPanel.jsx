@@ -1,65 +1,8 @@
 import { h } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
-
-const SKIN_CATALOG = [
-  {
-    skinId: 'legacy_archaeologist',
-    name: 'Археолог legacy',
-    description: 'Переписал 1000 строк легаси без единого бага',
-    rarity: 'rare',
-    color: '#60a5fa',
-    bgGradient: ['#1a3a5c', '#0f1b30'],
-    emoji: '🏛️'
-  },
-  {
-    skinId: 'night_shift',
-    name: 'Ночная смена',
-    description: '7 дней подряд в игре',
-    rarity: 'epic',
-    color: '#c084fc',
-    bgGradient: ['#2d1a4a', '#1a0f2e'],
-    emoji: '🌙'
-  },
-  {
-    skinId: 'burnout_survivor',
-    name: 'Выживший после burnout',
-    description: 'Воскресил персонажа после 100% стресса',
-    rarity: 'legendary',
-    color: '#facc15',
-    bgGradient: ['#5a3e2d', '#3f2a1a'],
-    emoji: '🔥'
-  },
-  {
-    skinId: 'stack_overflow_guru',
-    name: 'Stack Overflow Guru',
-    description: 'Достиг ранга Senior',
-    rarity: 'common',
-    color: '#4ade80',
-    bgGradient: ['#1a3f25', '#0f2a1a'],
-    emoji: '📚'
-  },
-  {
-    skinId: 'deploy_hero',
-    name: 'Герой деплоя',
-    description: 'Сделал 10 000 коммитов',
-    rarity: 'legendary',
-    color: '#ef4444',
-    bgGradient: ['#5a2d2d', '#3f1a1a'],
-    emoji: '🚀'
-  },
-  {
-    skinId: 'coffee_addict',
-    name: 'Кофеман',
-    description: 'Выпил 50 чашек кофе',
-    rarity: 'common',
-    color: '#fb923c',
-    bgGradient: ['#3f2a1a', '#2a1a0f'],
-    emoji: '☕'
-  }
-];
 
 const RARITY_LABELS = {
   common: 'Обычный',
@@ -72,6 +15,17 @@ export default function SkinPanel({ open, onClose }) {
   const { skins, equipSkin } = useGameState();
   const { haptic } = useTelegram();
   const [selectedSkin, setSelectedSkin] = useState(null);
+  const [isEquipping, setIsEquipping] = useState(false);
+  const equipInFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+  const catalog = skins?.catalog || [];
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -86,6 +40,7 @@ export default function SkinPanel({ open, onClose }) {
 
   const unlockedSet = new Set(skins?.unlocked || []);
   const equippedId = skins?.equipped || null;
+  const equippedSkin = catalog.find((skin) => skin.skinId === equippedId) || null;
 
   const handleSelect = (skin) => {
     haptic('light');
@@ -159,7 +114,7 @@ export default function SkinPanel({ open, onClose }) {
     }, [
       'Экипировано: ',
       h('span', { style: { color: '#facc15', fontWeight: 'bold' } },
-        SKIN_CATALOG.find(s => s.skinId === equippedId)?.name || equippedId
+        equippedSkin?.name || equippedId
       )
     ]),
 
@@ -171,7 +126,7 @@ export default function SkinPanel({ open, onClose }) {
         gap: '10px',
         padding: '14px'
       }
-    }, SKIN_CATALOG.map((skin) => {
+    }, catalog.map((skin) => {
       const unlocked = isUnlocked(skin.skinId);
       const equipped = isEquipped(skin.skinId);
       return h('div', {
@@ -246,23 +201,37 @@ export default function SkinPanel({ open, onClose }) {
       h('div', { style: { fontSize: '13px', fontWeight: 'bold', color: selectedSkin.color, marginBottom: '4px' } }, selectedSkin.name),
       h('div', { style: { fontSize: '11px', color: '#9eb6d2', marginBottom: '10px' } }, selectedSkin.description),
       !isEquipped(selectedSkin.skinId) && h('button', {
-        onClick: () => {
+        disabled: isEquipping,
+        onClick: async () => {
+          if (equipInFlightRef.current) return;
+          equipInFlightRef.current = true;
+          setIsEquipping(true);
           haptic('success');
           audioManager.play('questDone');
-          equipSkin(selectedSkin.skinId);
+          const nextSkins = await equipSkin(selectedSkin.skinId);
+          if (nextSkins?.equipped) {
+            const nextSelectedSkin =
+              nextSkins.catalog?.find((skin) => skin.skinId === nextSkins.equipped) ||
+              selectedSkin;
+            setSelectedSkin(nextSelectedSkin);
+          }
+          equipInFlightRef.current = false;
+          if (mountedRef.current) {
+            setIsEquipping(false);
+          }
         },
         style: {
           width: '100%',
           padding: '8px 0',
           borderRadius: '6px',
           border: 'none',
-          background: selectedSkin.color,
+          background: isEquipping ? '#6b7f99' : selectedSkin.color,
           color: '#0a0a0a',
           fontWeight: 'bold',
           fontSize: '12px',
-          cursor: 'pointer'
+          cursor: isEquipping ? 'wait' : 'pointer'
         }
-      }, 'Экипировать')
+      }, isEquipping ? 'Сохраняем...' : 'Экипировать')
     ])
   ]));
 }

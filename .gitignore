@@ -27,3 +27,5 @@ coverage/
 # Secrets / certs
 *.pem
 *.key
+*.diff.txt
+diff.txt

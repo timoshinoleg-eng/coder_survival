@@ -8,7 +8,8 @@ import { recordEventContribution } from '../utils/events.js';
 import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { addPassXp } from '../utils/pass.js';
 import { updateTeamProgress } from '../utils/teams.js';
-import { checkAchievement, isNightSession } from '../utils/achievements.js';
+import { checkAchievement, ensureAchievementRows } from '../utils/achievements.js';
+import { getActiveCrunchTime } from '../utils/phase2State.js';
 
 const router = Router();
 
@@ -44,11 +45,16 @@ router.post('/', async (req, res, next) => {
            first_name = COALESCE(EXCLUDED.first_name, users.first_name),
            last_name = COALESCE(EXCLUDED.last_name, users.last_name),
            last_active = NOW()
-         RETURNING id, feature_flags`,
+         RETURNING id, feature_flags, (xmax = 0) AS inserted`,
         [telegramId, username, firstName, lastName]
       );
       const userId = userResult.rows[0].id;
       const userFeatureFlags = userResult.rows[0].feature_flags || {};
+      const insertedUser = userResult.rows[0].inserted === true;
+
+      if (insertedUser) {
+        await ensureAchievementRows(client, userId);
+      }
 
       const levelBefore = await ensurePlayerLevel(client, userId);
       const rankMeta = getRankMeta(levelBefore.resolved.rank);
@@ -92,8 +98,16 @@ router.post('/', async (req, res, next) => {
         });
       }
 
+      const crunchTime = await getActiveCrunchTime(client);
+
       // 3. Логика тапа
-      const tapResult = calculateTapDelta(recoveredProgress, rankMeta, levelBefore.resolved.rank, userFeatureFlags);
+      const tapResult = calculateTapDelta(
+        recoveredProgress,
+        rankMeta,
+        levelBefore.resolved.rank,
+        userFeatureFlags,
+        crunchTime,
+      );
 
       // 4. Обновляем прогресс (death check)
       const newDepression = Math.min(100, Math.max(0, recoveredProgress.depression_level + tapResult.depressionDelta));
@@ -147,10 +161,6 @@ router.post('/', async (req, res, next) => {
       if (levelAfter.record.resolved.rank > levelBefore.resolved.rank) {
         await checkAchievement(client, userId, 'rank_up', { rank: levelAfter.record.resolved.rank });
       }
-      if (isNightSession()) {
-        await checkAchievement(client, userId, 'night_session');
-      }
-
       const contextOffer = await getContextOffer(client, userId, {
         energy: recoveredProgress.energy,
         maxEnergy: rankMeta.maxEnergy,
@@ -224,6 +234,7 @@ router.post('/', async (req, res, next) => {
           isPremium: passResult.playerPass.is_premium,
           leveledUp: passResult.leveledUp
         } : null,
+        crunchTime,
         contextOffer,
         rateLimit: rateLimit.info || null
       });
@@ -242,13 +253,21 @@ router.post('/', async (req, res, next) => {
 /**
  * Расчёт эффекта от тапа
  */
-function calculateTapDelta(progress, rankMeta, resolvedRank, featureFlags = {}) {
+function calculateTapDelta(
+  progress,
+  rankMeta,
+  resolvedRank,
+  featureFlags = {},
+  crunchTime = null,
+) {
   const progressionTier = Number(progress.tier ?? 1);
   const commitsPerTap = Number(rankMeta?.commitsPerTap ?? progressionTier);
   const energy = Number(progress.energy ?? 0);
   const depression = Number(progress.depression_level ?? 0);
   const streak = Number(progress.streak_days ?? 0);
   const commitsCurrent = Number(progress.commits_current ?? 0);
+  const commitMultiplier = Number(crunchTime?.commitMultiplier ?? 1);
+  const depressionMultiplier = Number(crunchTime?.depressionMultiplier ?? 1);
 
   // Базовый доход коммитов зависит от tier
   const baseCommits = commitsPerTap; // Junior=1, Middle=2, etc.
@@ -267,6 +286,7 @@ function calculateTapDelta(progress, rankMeta, resolvedRank, featureFlags = {}) 
     * energyMultiplier
     * (1 - depressionPenalty * TAP_MECHANICS.depressionPenaltyMultiplier)
     * (1 + streakBonus)
+    * commitMultiplier
   );
   if (commitsDelta < 1) commitsDelta = 1;
 
@@ -291,6 +311,11 @@ function calculateTapDelta(progress, rankMeta, resolvedRank, featureFlags = {}) 
       depressionDelta = TAP_MECHANICS.criticalEnergyStressDelta;
     }
   }
+
+  depressionDelta = Math.max(
+    0,
+    Math.round(depressionDelta * depressionMultiplier),
+  );
 
   // Проверка повышения tier
   const newTier = Math.max(progressionTier, Math.min(Number(resolvedRank || progressionTier), 5));

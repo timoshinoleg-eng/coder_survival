@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { randomBytes } from "crypto";
 
 /**
  * Teams / Squads v1
@@ -8,17 +8,17 @@ import { randomBytes } from 'crypto';
  */
 
 function generateInviteCode() {
-  return randomBytes(4).toString('hex').toUpperCase();
+  return randomBytes(4).toString("hex").toUpperCase();
 }
 
 export async function createTeam(client, userId, name) {
   // Check if user already in a team
   const existing = await client.query(
     `SELECT team_id FROM team_members WHERE user_id = $1`,
-    [userId]
+    [userId],
   );
   if (existing.rows.length > 0) {
-    return { error: 'Already in a team', status: 409 };
+    return { error: "Already in a team", status: 409 };
   }
 
   const inviteCode = generateInviteCode();
@@ -26,14 +26,14 @@ export async function createTeam(client, userId, name) {
     `INSERT INTO teams (name, invite_code)
      VALUES ($1, $2)
      RETURNING *`,
-    [name.slice(0, 64), inviteCode]
+    [name.slice(0, 64), inviteCode],
   );
   const team = teamResult.rows[0];
 
   await client.query(
     `INSERT INTO team_members (team_id, user_id, role)
      VALUES ($1, $2, 'leader')`,
-    [team.id, userId]
+    [team.id, userId],
   );
 
   return { team, status: 200 };
@@ -42,34 +42,34 @@ export async function createTeam(client, userId, name) {
 export async function joinTeam(client, userId, inviteCode) {
   const teamResult = await client.query(
     `SELECT * FROM teams WHERE invite_code = $1`,
-    [inviteCode.toUpperCase()]
+    [inviteCode.toUpperCase()],
   );
   if (teamResult.rows.length === 0) {
-    return { error: 'Team not found', status: 404 };
+    return { error: "Team not found", status: 404 };
   }
   const team = teamResult.rows[0];
 
   const existing = await client.query(
     `SELECT 1 FROM team_members WHERE user_id = $1`,
-    [userId]
+    [userId],
   );
   if (existing.rows.length > 0) {
-    return { error: 'Already in a team', status: 409 };
+    return { error: "Already in a team", status: 409 };
   }
 
   const memberCountResult = await client.query(
     `SELECT COUNT(*) as cnt FROM team_members WHERE team_id = $1`,
-    [team.id]
+    [team.id],
   );
   const memberCount = parseInt(memberCountResult.rows[0].cnt, 10);
   if (memberCount >= 5) {
-    return { error: 'Team is full', status: 409 };
+    return { error: "Team is full", status: 409 };
   }
 
   await client.query(
     `INSERT INTO team_members (team_id, user_id, role)
      VALUES ($1, $2, 'member')`,
-    [team.id, userId]
+    [team.id, userId],
   );
 
   return { team, status: 200 };
@@ -78,16 +78,15 @@ export async function joinTeam(client, userId, inviteCode) {
 export async function getMyTeam(client, userId) {
   const memberResult = await client.query(
     `SELECT team_id, role FROM team_members WHERE user_id = $1`,
-    [userId]
+    [userId],
   );
   if (memberResult.rows.length === 0) return null;
 
   const { team_id, role } = memberResult.rows[0];
 
-  const teamResult = await client.query(
-    `SELECT * FROM teams WHERE id = $1`,
-    [team_id]
-  );
+  const teamResult = await client.query(`SELECT * FROM teams WHERE id = $1`, [
+    team_id,
+  ]);
   const team = teamResult.rows[0];
 
   const membersResult = await client.query(
@@ -99,49 +98,46 @@ export async function getMyTeam(client, userId) {
      LEFT JOIN progression p ON p.user_id = tm.user_id
      WHERE tm.team_id = $1
      ORDER BY tm.joined_at ASC`,
-    [team_id]
+    [team_id],
   );
 
   return {
     team,
     myRole: role,
-    members: membersResult.rows.map(r => ({
+    members: membersResult.rows.map((r) => ({
       userId: r.user_id,
       username: r.username,
       firstName: r.first_name,
       role: r.role,
       joinedAt: r.joined_at,
-      commitsTotal: parseInt(r.commits_total, 10)
-    }))
+      commitsTotal: parseInt(r.commits_total, 10),
+    })),
   };
 }
 
 export async function leaveTeam(client, userId) {
   const memberResult = await client.query(
     `SELECT team_id, role FROM team_members WHERE user_id = $1`,
-    [userId]
+    [userId],
   );
   if (memberResult.rows.length === 0) {
-    return { error: 'Not in a team', status: 404 };
+    return { error: "Not in a team", status: 404 };
   }
 
   const { team_id, role } = memberResult.rows[0];
 
-  await client.query(
-    `DELETE FROM team_members WHERE user_id = $1`,
-    [userId]
-  );
+  await client.query(`DELETE FROM team_members WHERE user_id = $1`, [userId]);
 
   // If leader left, promote oldest member or delete empty team
-  if (role === 'leader') {
+  if (role === "leader") {
     const remaining = await client.query(
       `SELECT user_id FROM team_members WHERE team_id = $1 ORDER BY joined_at ASC LIMIT 1`,
-      [team_id]
+      [team_id],
     );
     if (remaining.rows.length > 0) {
       await client.query(
         `UPDATE team_members SET role = 'leader' WHERE user_id = $1`,
-        [remaining.rows[0].user_id]
+        [remaining.rows[0].user_id],
       );
     } else {
       await client.query(`DELETE FROM teams WHERE id = $1`, [team_id]);
@@ -159,7 +155,7 @@ export async function getTeamLeaderboard(client) {
      LEFT JOIN team_members tm ON tm.team_id = t.id
      GROUP BY t.id
      ORDER BY t.total_commits DESC
-     LIMIT 20`
+     LIMIT 20`,
   );
 
   return result.rows.map((r, idx) => ({
@@ -168,7 +164,7 @@ export async function getTeamLeaderboard(client) {
     name: r.name,
     inviteCode: r.invite_code,
     totalCommits: parseInt(r.total_commits, 10),
-    memberCount: parseInt(r.member_count, 10)
+    memberCount: parseInt(r.member_count, 10),
   }));
 }
 
@@ -179,7 +175,7 @@ export async function updateTeamProgress(client, userId, commitsDelta) {
 
   const memberResult = await client.query(
     `SELECT team_id FROM team_members WHERE user_id = $1`,
-    [userId]
+    [userId],
   );
   if (memberResult.rows.length === 0) return null;
 
@@ -189,8 +185,32 @@ export async function updateTeamProgress(client, userId, commitsDelta) {
      SET total_commits = total_commits + $2,
          created_at = created_at
      WHERE id = $1`,
-    [teamId, commitsDelta]
+    [teamId, commitsDelta],
   );
 
-  return { teamId, commitsDelta };
+  const seasonResult = await client.query(
+    `SELECT id
+     FROM team_battle_seasons
+     WHERE status = 'active'
+       AND start_date <= NOW()
+       AND end_date >= NOW()
+     ORDER BY start_date DESC
+     LIMIT 1`,
+    [],
+  );
+
+  if (seasonResult.rows.length > 0) {
+    const seasonId = seasonResult.rows[0].id;
+    await client.query(
+      `INSERT INTO team_battle_contributions (season_id, team_id, user_id, commits_contributed, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (season_id, user_id) DO UPDATE SET
+         team_id = EXCLUDED.team_id,
+         commits_contributed = team_battle_contributions.commits_contributed + EXCLUDED.commits_contributed,
+         updated_at = NOW()`,
+      [seasonId, teamId, userId, commitsDelta],
+    );
+  }
+
+  return { teamId, commitsDelta, seasonId: seasonResult.rows[0]?.id || null };
 }

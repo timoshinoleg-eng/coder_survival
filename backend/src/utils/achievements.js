@@ -3,13 +3,15 @@
  * Call checkAchievement() after significant events.
  */
 
-const ACHIEVEMENT_TRIGGERS = {
-  'tap': 'tap_master',
-  'commit_total': 'commit_king',
-  'rank_up': 'legacy_zone',
-  'night_session': 'night_shift_30',
-  'referral': null, // handled separately
-};
+export async function ensureAchievementRows(client, userId) {
+  await client.query(
+    `INSERT INTO user_achievements (user_id, achievement_id)
+     SELECT $1, achievement_id
+     FROM achievements
+     ON CONFLICT (user_id, achievement_id) DO NOTHING`,
+    [userId],
+  );
+}
 
 /**
  * Update achievement progress and return newly completed ones.
@@ -22,15 +24,6 @@ const ACHIEVEMENT_TRIGGERS = {
  */
 export async function checkAchievement(client, userId, triggerType, payload = {}) {
   const completedAchievements = [];
-
-  // Ensure rows exist
-  await client.query(
-    `INSERT INTO user_achievements (user_id, achievement_id)
-     SELECT $1, achievement_id
-     FROM achievements
-     ON CONFLICT (user_id, achievement_id) DO NOTHING`,
-    [userId]
-  );
 
   switch (triggerType) {
     case 'tap': {
@@ -47,7 +40,7 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
                THEN NOW()
                ELSE completed_at
              END
-         WHERE user_id = $1 AND achievement_id = 'tap_master'
+         WHERE user_id = $1 AND achievement_id = 'tap_master' AND completed = FALSE
          RETURNING completed, completed_at`,
         [userId]
       );
@@ -77,7 +70,7 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
                THEN NOW()
                ELSE completed_at
              END
-         WHERE user_id = $1 AND achievement_id = 'commit_king'
+         WHERE user_id = $1 AND achievement_id = 'commit_king' AND completed = FALSE
          RETURNING completed, completed_at`,
         [userId, total]
       );
@@ -96,7 +89,7 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
            SET progress_value = 1,
                completed = TRUE,
                completed_at = COALESCE(completed_at, NOW())
-           WHERE user_id = $1 AND achievement_id = 'legacy_zone'
+           WHERE user_id = $1 AND achievement_id = 'legacy_zone' AND completed = FALSE
            RETURNING completed, completed_at`,
           [userId]
         );
@@ -108,7 +101,11 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
     }
 
     case 'night_session': {
-      // night_shift_30: 30 sessions after 22:00
+      // night_shift_30: 30 distinct sessions started during night hours
+      if (!isNightSessionAt(payload?.sessionStartedAt)) {
+        break;
+      }
+
       const nightResult = await client.query(
         `UPDATE user_achievements
          SET progress_value = progress_value + 1,
@@ -121,7 +118,7 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
                THEN NOW()
                ELSE completed_at
              END
-         WHERE user_id = $1 AND achievement_id = 'night_shift_30'
+         WHERE user_id = $1 AND achievement_id = 'night_shift_30' AND completed = FALSE
          RETURNING completed, completed_at`,
         [userId]
       );
@@ -155,10 +152,12 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
 }
 
 /**
- * Check if current session is a "night session" (after 22:00 local time)
- * Called from state.js or tap.js
+ * Check if a session start time falls into night hours (22:00-05:59).
  */
-export function isNightSession() {
-  const hour = new Date().getHours();
+export function isNightSessionAt(dateLike) {
+  if (!dateLike) {
+    return false;
+  }
+  const hour = new Date(dateLike).getHours();
   return hour >= 22 || hour < 6;
 }
