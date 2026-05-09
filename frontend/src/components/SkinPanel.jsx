@@ -69,7 +69,7 @@ const RARITY_LABELS = {
 };
 
 export default function SkinPanel({ open, onClose }) {
-  const { skins, showToast } = useGameState();
+  const { skins, equipSkin } = useGameState();
   const { haptic } = useTelegram();
   const [selectedSkin, setSelectedSkin] = useState(null);
 
@@ -249,8 +249,7 @@ export default function SkinPanel({ open, onClose }) {
         onClick: () => {
           haptic('success');
           audioManager.play('questDone');
-          // TODO: call API to equip skin when Model A provides endpoint
-          showToast('Скин экипирован (локально)', 'success', 1500);
+          equipSkin(selectedSkin.skinId);
         },
         style: {
           width: '100%',

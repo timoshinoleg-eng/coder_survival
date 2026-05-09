@@ -15,10 +15,22 @@ import PhaserGame from "./game/PhaserGame.js";
 
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
-  const { loading } = useGameState();
+  const { loading, rank, crunchTime } = useGameState();
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     return localStorage.getItem("cs_onboarding_v2") === "1";
   });
+
+  // Zone-based BGM switching
+  useEffect(() => {
+    if (!audioManager.initialized) return;
+    if (crunchTime?.active) {
+      audioManager.switchZoneBGM('hackathon');
+    } else if (rank >= 3) {
+      audioManager.switchZoneBGM('legacy');
+    } else {
+      audioManager.switchZoneBGM('main');
+    }
+  }, [rank, crunchTime?.active]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;

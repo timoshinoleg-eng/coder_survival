@@ -467,6 +467,16 @@ export function GameProvider({ children }) {
         return null;
       }
     },
+    equipSkin: (skinId) => {
+      setState((current) => ({
+        ...current,
+        skins: {
+          ...current.skins,
+          equipped: skinId
+        }
+      }));
+      showToast(`Скин экипирован`, "success", 1500);
+    },
     reset: loadState,
   };
 
