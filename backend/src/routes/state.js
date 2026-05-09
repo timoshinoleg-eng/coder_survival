@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { pool } from '../index.js';
 import { recoverProgression } from '../utils/progression.js';
 import { ensureDailyQuests, ensurePlayerLevel, getDailyQuestSummary, markLoginQuestComplete } from '../utils/vnext.js';
@@ -20,8 +20,6 @@ import {
 } from '../utils/phase2State.js';
 
 const router = Router();
-
-import { createHash } from 'crypto';
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];

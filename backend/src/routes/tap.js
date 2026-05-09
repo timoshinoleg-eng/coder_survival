@@ -192,7 +192,8 @@ router.post('/', async (req, res, next) => {
           energy: recoveredProgress.energy,
           depressionLevel: recoveredProgress.depression_level,
           streakDays: recoveredProgress.streak_days,
-          updatedAt: recoveredProgress.updated_at
+          updatedAt: recoveredProgress.updated_at,
+          isDead: recoveredProgress.is_dead
         },
         game: {
           tier: recoveredProgress.tier,
@@ -201,7 +202,8 @@ router.post('/', async (req, res, next) => {
           energy: recoveredProgress.energy,
           depression_level: recoveredProgress.depression_level,
           streak_days: recoveredProgress.streak_days,
-          updated_at: recoveredProgress.updated_at
+          updated_at: recoveredProgress.updated_at,
+          is_dead: recoveredProgress.is_dead
         },
         progressionUpdatedAt: recoveredProgress.updated_at,
         serverNow: new Date().toISOString(),
