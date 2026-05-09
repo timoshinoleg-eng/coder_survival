@@ -194,5 +194,21 @@ export default class GameScene extends Phaser.Scene {
     // Read depression from window (bridged from React state)
     const depression = window.__GAME_STATE__?.depression || 0;
     this.updateDepression(depression);
+
+    // Skin tint based on equipped skin
+    const equippedSkin = window.__GAME_STATE__?.skins?.equipped || null;
+    const skinTints = {
+      legacy_archaeologist: 0x60a5fa,
+      night_shift: 0xc084fc,
+      burnout_survivor: 0xfacc15,
+      stack_overflow_guru: 0x4ade80,
+      deploy_hero: 0xef4444,
+      coffee_addict: 0xfb923c,
+    };
+    if (equippedSkin && skinTints[equippedSkin]) {
+      this.avatar.setTint(skinTints[equippedSkin]);
+    } else {
+      this.avatar.clearTint();
+    }
   }
 }

@@ -14,6 +14,7 @@ import TeamPanel from "./TeamPanel.jsx";
 import TeamBattle from "./TeamBattle.jsx";
 import MemeGenerator from "./MemeGenerator.jsx";
 import SkinPanel from "./SkinPanel.jsx";
+import MiniGameDebug from "./MiniGameDebug.jsx";
 import AudioSettings from "./AudioSettings.jsx";
 
 export default function StatsBar() {
@@ -51,6 +52,7 @@ export default function StatsBar() {
   const [teamOpen, setTeamOpen] = useState(false);
   const [memeOpen, setMemeOpen] = useState(false);
   const [skinOpen, setSkinOpen] = useState(false);
+  const [miniGameOpen, setMiniGameOpen] = useState(false);
   const [teamBattleOpen, setTeamBattleOpen] = useState(false);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const [adLoading, setAdLoading] = useState(false);
@@ -458,6 +460,24 @@ export default function StatsBar() {
                   "🎭",
                 ),
                 h(
+                  "button",
+                  {
+                    onClick: () => setMiniGameOpen(true),
+                    style: {
+                      border: "1px solid #30527e",
+                      background: depression >= 30 ? '#1a3a5c' : '#122642',
+                      color: '#dce9f9',
+                      borderRadius: '8px',
+                      padding: '5px 8px',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      animation: depression >= 30 ? 'pulse 1.6s infinite' : 'none'
+                    }
+                  },
+                  '🐛'
+                ),
+                h(
                   "div",
                   {
                     style: {
@@ -849,6 +869,10 @@ export default function StatsBar() {
       h(SkinPanel, {
         open: skinOpen,
         onClose: () => setSkinOpen(false),
+      }),
+      h(MiniGameDebug, {
+        open: miniGameOpen,
+        onClose: () => setMiniGameOpen(false),
       }),
     ],
   );
