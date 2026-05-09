@@ -81,7 +81,7 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
          RETURNING completed, completed_at`,
         [userId, total]
       );
-      if (kingResult.rows[0]?.completed && !kingResult.rows[0]?.completed_at === null) {
+      if (kingResult.rows[0]?.completed && kingResult.rows[0]?.completed_at) {
         completedAchievements.push('commit_king');
       }
       break;

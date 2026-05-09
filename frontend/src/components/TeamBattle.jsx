@@ -159,7 +159,7 @@ export default function TeamBattle({ open, onClose }) {
             }, [
               h('div', { style: { background: '#131d33', border: '1px solid #1f3552', borderRadius: '8px', padding: '10px' } }, [
                 h('div', { style: { color: '#8ba1bb', fontSize: '11px' } }, 'Личный вклад'),
-                h('div', { style: { color: '#c7ddf5', fontWeight: 700, marginTop: '4px' } }, `${battle.personalCommits ?? battle.myCommits ?? 0} коммитов`)
+                h('div', { style: { color: '#c7ddf5', fontWeight: 700, marginTop: '4px' } }, `${battle.personalContribution ?? 0} коммитов`)
               ]),
               h('div', { style: { background: '#131d33', border: '1px solid #1f3552', borderRadius: '8px', padding: '10px' } }, [
                 h('div', { style: { color: '#8ba1bb', fontSize: '11px' } }, 'Средний вклад'),
