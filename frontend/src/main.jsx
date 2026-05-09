@@ -35,8 +35,11 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    const unlockAudio = () => {
-      audioManager.init().catch(() => {});
+    const unlockAudio = async () => {
+      const success = await audioManager.init().catch(() => false);
+      if (success && !audioManager.isMuted()) {
+        audioManager.playBGM('bgm_main');
+      }
     };
 
     window.addEventListener('pointerdown', unlockAudio, { once: true });

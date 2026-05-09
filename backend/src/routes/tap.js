@@ -115,7 +115,8 @@ router.post('/', async (req, res, next) => {
       await ensureDailyQuests(client, userId);
       await updateDailyQuestProgress(client, userId, {
         tapDelta: 1,
-        commitDelta: tapResult.commitsDelta
+        commitDelta: tapResult.commitsDelta,
+        energyDelta: tapResult.energyDelta
       });
       const daily = await getDailyQuestSummary(client, userId);
 

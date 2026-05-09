@@ -8,6 +8,8 @@ import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { getPassStatus } from '../utils/pass.js';
 import { getProductById } from '../utils/shopCatalog.js';
 import { getMyTeam } from '../utils/teams.js';
+import { processLoginReward } from '../utils/loginReward.js';
+import { updateDailyQuestProgress } from '../utils/vnext.js';
 
 const router = Router();
 
@@ -73,6 +75,27 @@ async function ensureReferralFromStartParam(client, referredUserId, referredTele
       `INSERT INTO audit_logs (user_id, action, context)
        VALUES ($1, 'referral_bind_flagged', $2::jsonb)`,
       [referrerId, JSON.stringify({ referredId: referredUserId, flag: fraudFlag, bindIp: clientIp })]
+    );
+  }
+
+  // Update invite_friend daily quest for the referrer on actual new binding
+  if (insertResult.rows.length > 0) {
+    await ensureDailyQuests(client, referrerId);
+    await updateDailyQuestProgress(client, referrerId, { tapDelta: 0, commitDelta: 0, energyDelta: 0 });
+    // Manually mark invite_friend as completed since updateDailyQuestProgress only handles tap/commit/energy
+    await client.query(
+      `UPDATE daily_quests
+       SET progress_value = LEAST(target_value, progress_value + 1),
+           completed = (progress_value + 1) >= target_value,
+           completed_at = CASE
+             WHEN completed THEN completed_at
+             WHEN (progress_value + 1) >= target_value THEN NOW()
+             ELSE completed_at
+           END
+       WHERE user_id = $1
+         AND quest_date = CURRENT_DATE
+         AND quest_type = 'invite_friend'`,
+      [referrerId]
     );
   }
 }
@@ -189,6 +212,7 @@ router.get('/', async (req, res, next) => {
 
       await ensureDailyQuests(client, user.id);
       await markLoginQuestComplete(client, user.id);
+      const loginReward = await processLoginReward(client, user.id);
       const daily = await getDailyQuestSummary(client, user.id);
 
       const event = await getActiveEvent(client);
@@ -214,6 +238,7 @@ router.get('/', async (req, res, next) => {
           username: user.username,
           firstName: user.first_name,
           lastName: user.last_name,
+          photoUrl: user.photo_url,
           createdAt: user.created_at,
           lastActive: user.last_active
         },
@@ -244,6 +269,7 @@ router.get('/', async (req, res, next) => {
         maxEnergy: rankMeta.maxEnergy,
         recoveryIntervalSeconds: parseInt(process.env.ENERGY_RECOVERY_INTERVAL_SECONDS || '60', 10),
         daily,
+        loginReward,
         activeSession: activeSession ? {
           sessionId: activeSession.session_id,
           startedAt: activeSession.started_at,
