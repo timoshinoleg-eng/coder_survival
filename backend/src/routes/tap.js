@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { TAP_MECHANICS } from '../config/balance.js';
 import { checkTapRateLimit } from '../middleware/rateLimit.js';
-import { recoverProgression } from '../utils/progression.js';
+import { getEffectiveRecoveryIntervalSeconds, recoverProgression } from '../utils/progression.js';
 import {
   addTapXp,
   computeTapXp,
@@ -14,6 +14,7 @@ import {
 } from '../utils/vnext.js';
 import { recordEventContribution } from '../utils/events.js';
 import { addPassXp } from '../utils/pass.js';
+import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { updateTeamProgress } from '../utils/teams.js';
 import { checkAchievement, ensureAchievementRows } from '../utils/achievements.js';
 import { getActiveCrunchTime } from '../utils/phase2State.js';
@@ -146,6 +147,7 @@ router.post('/', async (req, res) => {
            depression_level = $5,
            tier = $6,
            is_burnout = $7,
+           updated_at = NOW(),
            last_energy_activity_at = NOW(),
            energy_recovery_checkpoint_at = NOW()
        WHERE user_id = $1
@@ -170,16 +172,27 @@ router.post('/', async (req, res) => {
       commitDelta: tapResult.commitsDelta,
       energyDelta: -1
     });
-    await getDailyQuestSummary(client, userId);
+    const daily = await getDailyQuestSummary(client, userId);
 
-    await recordEventContribution(client, userId, tapResult.commitsDelta);
-    await addPassXp(client, userId, levelAfter.xpDelta ?? xpDelta);
+    const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
+    const passResult = await addPassXp(client, userId, levelAfter.xpDelta ?? xpDelta);
     await updateTeamProgress(client, userId, tapResult.commitsDelta);
 
     await checkAchievement(client, userId, 'tap');
     await checkAchievement(client, userId, 'commit_total');
     if (levelAfter.record.resolved.rank > levelBefore.resolved.rank) {
       await checkAchievement(client, userId, 'rank_up', { rank: levelAfter.record.resolved.rank });
+    }
+    const contextOffer = await getContextOffer(client, userId, {
+      energy: recoveredProgress.energy,
+      maxEnergy: rankMeta.maxEnergy,
+      depression: recoveredProgress.depression_level,
+      xpProgress: levelAfter.record.resolved.progressInLevel,
+      xpRequiredForNext: levelAfter.record.resolved.requiredForNextLevel,
+      featureFlags: {}
+    });
+    if (contextOffer?.type) {
+      await recordOfferImpression(client, userId, contextOffer.type, 'tap');
     }
 
     try {
@@ -314,6 +327,56 @@ router.post('/', async (req, res) => {
     await client.query('COMMIT');
 
     return res.json({
+      success: true,
+      delta: {
+        commits: tapResult.commitsDelta,
+        energy: -1,
+        depression: depressionDelta
+      },
+      state: {
+        userId,
+        telegramId,
+        tier: recoveredProgress.tier,
+        commitsTotal: Number(recoveredProgress.commits_total ?? 0),
+        commitsCurrent: Number(recoveredProgress.commits_current ?? 0),
+        energy: Number(recoveredProgress.energy ?? 0),
+        depressionLevel: Number(recoveredProgress.depression_level ?? 0),
+        streakDays: Number(recoveredProgress.streak_days ?? 0),
+        updatedAt: recoveredProgress.updated_at,
+        isBurnout
+      },
+      game: {
+        tier: recoveredProgress.tier,
+        commits_total: Number(recoveredProgress.commits_total ?? 0),
+        commits_current: Number(recoveredProgress.commits_current ?? 0),
+        energy: Number(recoveredProgress.energy ?? 0),
+        depression_level: Number(recoveredProgress.depression_level ?? 0),
+        streak_days: Number(recoveredProgress.streak_days ?? 0),
+        updated_at: recoveredProgress.updated_at,
+        is_burnout: isBurnout
+      },
+      progressionUpdatedAt: recoveredProgress.updated_at,
+      serverNow: new Date().toISOString(),
+      level: levelAfter.record.resolved,
+      xpDelta: levelAfter.xpDelta ?? xpDelta,
+      recoveryIntervalSeconds: getEffectiveRecoveryIntervalSeconds(recoveredProgress),
+      daily,
+      event: eventResult ? {
+        eventId: eventResult.event.id,
+        contributed: eventResult.contribution.commits_contributed,
+        target: eventResult.event.target_commits,
+        claimed: eventResult.contribution.claimed
+      } : null,
+      pass: passResult ? {
+        seasonNumber: passResult.pass.season_number,
+        currentLevel: passResult.playerPass.current_level,
+        currentXp: passResult.playerPass.current_xp,
+        isPremium: passResult.playerPass.is_premium,
+        leveledUp: passResult.leveledUp
+      } : null,
+      crunchTime,
+      contextOffer,
+      rateLimit: rateLimit.info || null,
       energy: Number(recoveredProgress.energy ?? 0),
       depression: Number(recoveredProgress.depression_level ?? 0),
       commitsDelta: tapResult.commitsDelta,
