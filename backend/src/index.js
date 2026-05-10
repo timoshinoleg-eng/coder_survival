@@ -21,14 +21,18 @@ import questsRouter from "./routes/quests.js";
 import shopRouter from "./routes/shop.js";
 import battleRouter from "./routes/battle.js";
 import eventRouter from "./routes/event.js";
+import eventsRouter from "./routes/events.js";
 import passRouter from "./routes/pass.js";
 import teamRouter from "./routes/team.js";
 import offersRouter from "./routes/offers.js";
 import rewardsRouter from "./routes/rewards.js";
 import coffeeRouter from "./routes/coffee.js";
-import respawnRouter from "./routes/respawn.js";
 import teamBattleRouter from "./routes/teamBattle.js";
 import skinsRouter from "./routes/skins.js";
+import onboardingRouter from "./routes/onboarding.js";
+import streakRouter from "./routes/streak.js";
+import rewardedVideoRouter from "./routes/rewardedVideo.js";
+import teamHackathonRouter from "./routes/teamHackathon.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -117,14 +121,18 @@ app.use(
   battleRouter,
 );
 app.use("/api/event", initDataMiddleware, eventRouter);
+app.use("/api/events", initDataMiddleware, eventsRouter);
 app.use("/api/pass", initDataMiddleware, passRouter);
 app.use("/api/team", initDataMiddleware, teamRouter);
+app.use("/api/team/hackathon", initDataMiddleware, teamHackathonRouter);
 app.use("/api/offers", initDataMiddleware, offersRouter);
 app.use("/api/rewards", initDataMiddleware, rewardsRouter);
 app.use("/api/coffee", initDataMiddleware, coffeeRouter);
-app.use("/api/respawn", initDataMiddleware, respawnRouter);
 app.use("/api/team-battle", initDataMiddleware, teamBattleRouter);
 app.use("/api/skins", initDataMiddleware, skinsRouter);
+app.use("/api/onboarding", initDataMiddleware, onboardingRouter);
+app.use("/api/streak", initDataMiddleware, streakRouter);
+app.use("/api/rewarded-video", initDataMiddleware, rewardedVideoRouter);
 
 // Error handler
 app.use(errorHandler);

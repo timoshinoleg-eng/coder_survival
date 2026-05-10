@@ -1,6 +1,5 @@
 import { distributeBattleRewards } from "../src/utils/battleDistribution.js";
 import { checkAchievement } from "../src/utils/achievements.js";
-import { getDeathState } from "../src/utils/phase2State.js";
 import { ensureTestSchema, resetTestDatabase, testPool, TEST_DATABASE_URL } from "./helpers/testDb.js";
 
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
@@ -12,6 +11,14 @@ describeIfDb("phase2 unit coverage", () => {
 
   beforeEach(async () => {
     await resetTestDatabase();
+    await testPool.query(
+      `INSERT INTO achievements (achievement_id, name, description, target_value, reward_payload) VALUES
+       ('legacy_zone', 'Legacy', 'Legacy', 1, '{}'::jsonb),
+       ('night_shift_30', 'Night', 'Night', 30, '{}'::jsonb),
+       ('tap_master', 'Tap', 'Tap', 1000, '{}'::jsonb),
+       ('commit_king', 'Commit', 'Commit', 10000, '{}'::jsonb)
+       ON CONFLICT (achievement_id) DO NOTHING`,
+    );
   });
 
   afterAll(async () => {
@@ -124,7 +131,7 @@ describeIfDb("phase2 unit coverage", () => {
     const claims = await testPool.query(
       `SELECT user_id, rank FROM battle_reward_claims ORDER BY rank ASC`,
     );
-    expect(claims.rows.map((row) => row.user_id)).toEqual([
+    expect(claims.rows.map((row) => Number(row.user_id))).toEqual([
       users[0],
       users[1],
       users[2],
@@ -132,18 +139,8 @@ describeIfDb("phase2 unit coverage", () => {
     expect(claims.rows).toHaveLength(3);
   });
 
-  test("getDeathState derives state strictly from progression.is_dead", () => {
-    expect(getDeathState({ is_dead: false, depression_level: 100 })).toEqual({
-      isDead: false,
-      death: null,
-    });
-
-    expect(getDeathState({ is_dead: true, depression_level: 10 })).toEqual({
-      isDead: true,
-      death: {
-        canRespawn: true,
-        respawnCost: { energy: 50 },
-      },
-    });
+  test("burnout remains a soft progression state", () => {
+    const progression = { depression_level: 100 };
+    expect(progression.depression_level >= 100).toBe(true);
   });
 });

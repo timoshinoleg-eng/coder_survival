@@ -1,6 +1,6 @@
 /**
  * Phase 2 state helpers for /api/state extension.
- * Provides: teamBattle, skins, achievements, crunchTime, referralChain, isDead
+ * Provides: teamBattle, skins, achievements, crunchTime, referralChain
  */
 
 const SKIN_PRESENTATION = {
@@ -247,18 +247,4 @@ export async function getMemeTemplates(client) {
     unlockCondition: r.unlock_condition,
     assetPath: r.asset_path
   }));
-}
-
-export function getDeathState(progression) {
-  const isDead = progression?.is_dead === true;
-  if (!isDead) {
-    return { isDead: false, death: null };
-  }
-  return {
-    isDead: true,
-    death: {
-      canRespawn: true,
-      respawnCost: { energy: 50 }
-    }
-  };
 }

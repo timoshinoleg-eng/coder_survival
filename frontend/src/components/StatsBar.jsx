@@ -23,6 +23,7 @@ export default function StatsBar() {
     energy,
     maxEnergy,
     recoveryIntervalSeconds,
+    recoveryEtaSeconds,
     depression,
     streakDays,
     todayTaps,
@@ -112,6 +113,14 @@ export default function StatsBar() {
       return "Энергия полна";
     }
 
+    if (Number.isFinite(Number(recoveryEtaSeconds))) {
+      const eta = Math.max(0, Number(recoveryEtaSeconds));
+      const minutes = Math.floor(eta / 60);
+      const seconds = eta % 60;
+      const formatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+      return `+1 энергия через ${formatted}, если не тапать`;
+    }
+
     const baselineMs = progressionUpdatedAt
       ? new Date(progressionUpdatedAt).getTime()
       : NaN;
@@ -139,6 +148,7 @@ export default function StatsBar() {
     energy,
     maxEnergy,
     progressionUpdatedAt,
+    recoveryEtaSeconds,
     recoveryIntervalSeconds,
     serverClockOffsetMs,
   ]);

@@ -188,6 +188,13 @@ export async function updateTeamProgress(client, userId, commitsDelta) {
     [teamId, commitsDelta],
   );
 
+  await client.query(
+    `UPDATE team_members
+     SET last_active_at = NOW()
+     WHERE user_id = $1`,
+    [userId],
+  );
+
   const seasonResult = await client.query(
     `SELECT id
      FROM team_battle_seasons

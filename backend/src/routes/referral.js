@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { REFERRAL_ACTIVE_THRESHOLD_COMMITS, REFERRAL_MILESTONE_REWARDS } from '../config/balance.js';
+import { REFERRAL_ACTIVE_THRESHOLD_COMMITS, REFERRAL_MILESTONE_REWARDS, STAGE3 } from '../config/balance.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
+import { getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
 
 const router = Router();
 const REFERRAL_MILESTONES = Object.keys(REFERRAL_MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
+const STAGE3_REFERRAL_MILESTONES = Object.keys(STAGE3.REFERRAL.MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
 
 function getBotUsername() {
   return process.env.BOT_USERNAME || 'coder_survival_bot';
@@ -115,6 +117,217 @@ router.get('/link', async (req, res, next) => {
         referralCode: ensured.code,
         referralLink: `https://t.me/${getBotUsername()}?startapp=${ensured.code}`
       });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/status', async (req, res, next) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const client = await pool.connect();
+    try {
+      const ensured = await ensureUserAndCode(client, telegramUser);
+      if (ensured.error) return res.status(ensured.status).json({ error: ensured.error });
+
+      const activeResult = await client.query(
+        `SELECT
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2)::int AS active
+         FROM referrals r
+         LEFT JOIN progression p ON p.user_id = r.referred_id
+         WHERE r.referrer_id = $1`,
+        [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
+      );
+      const claimedResult = await client.query(
+        `SELECT referral_state FROM progression WHERE user_id = $1`,
+        [ensured.userId]
+      );
+      const referralState = claimedResult.rows[0]?.referral_state || {};
+      const claimed = (referralState.milestonesReached || []).map(Number);
+      const active = Number(activeResult.rows[0]?.active || 0);
+      const pendingRewards = getUnlockedReferralMilestones(active, claimed);
+
+      return res.json({
+        success: true,
+        referralCode: ensured.code,
+        referralLink: `https://t.me/${getBotUsername()}?startapp=${ensured.code}`,
+        activeThresholdCommits: STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS,
+        total: Number(activeResult.rows[0]?.total || 0),
+        active,
+        milestones: STAGE3_REFERRAL_MILESTONES.map((milestone) => ({
+          milestone,
+          reward: STAGE3.REFERRAL.MILESTONE_REWARDS[milestone],
+          reached: active >= milestone,
+          claimed: claimed.includes(milestone)
+        })),
+        pendingRewards
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/track', async (req, res, next) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
+
+  const refCode = req.body?.refCode || req.body?.referral_code || req.query?.startapp;
+  const inviterTelegramId = parseReferralCode(refCode);
+  if (!inviterTelegramId) return res.status(400).json({ error: 'Неверная реферальная ссылка' });
+
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const inviterResult = await client.query(
+        `SELECT id FROM users WHERE telegram_id = $1`,
+        [Number(inviterTelegramId)]
+      );
+      if (inviterResult.rows.length === 0 || Number(inviterTelegramId) === Number(telegramUser.id)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Неверная реферальная ссылка' });
+      }
+      const invitedResult = await client.query(
+        `SELECT id FROM users WHERE telegram_id = $1`,
+        [telegramUser.id]
+      );
+      if (invitedResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const inviterId = inviterResult.rows[0].id;
+      const invitedId = invitedResult.rows[0].id;
+      if (inviterId === invitedId) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Неверная реферальная ссылка' });
+      }
+
+      await client.query(
+        `INSERT INTO referrals (referrer_id, referred_id, status)
+         VALUES ($1, $2, 'pending')
+         ON CONFLICT (referrer_id, referred_id) DO NOTHING`,
+        [inviterId, invitedId]
+      );
+
+      const progressResult = await client.query(
+        `SELECT referral_state FROM progression WHERE user_id = $1 FOR UPDATE`,
+        [invitedId]
+      );
+      const tracked = trackReferral(progressResult.rows[0]?.referral_state || {}, inviterId);
+      await client.query(
+        `UPDATE progression SET referral_state = $2 WHERE user_id = $1`,
+        [invitedId, JSON.stringify(tracked.state)]
+      );
+
+      await client.query('COMMIT');
+      return res.json({ success: true, status: tracked.status });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/claim', async (req, res, next) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
+
+  const milestone = Number(req.body?.milestone || 1);
+  if (!STAGE3_REFERRAL_MILESTONES.includes(milestone)) {
+    return res.status(400).json({ error: 'Invalid milestone' });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const userResult = await client.query(
+        `SELECT id FROM users WHERE telegram_id = $1`,
+        [telegramUser.id]
+      );
+      if (userResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'User not found' });
+      }
+      const userId = userResult.rows[0].id;
+      const progressResult = await client.query(
+        `SELECT referral_state FROM progression WHERE user_id = $1 FOR UPDATE`,
+        [userId]
+      );
+      const referralState = progressResult.rows[0]?.referral_state || {};
+      const claimed = (referralState.milestonesReached || []).map(Number);
+      if (claimed.includes(milestone)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Already claimed' });
+      }
+
+      const activeResult = await client.query(
+        `SELECT COUNT(*)::int AS active
+         FROM referrals r
+         LEFT JOIN progression p ON p.user_id = r.referred_id
+         WHERE r.referrer_id = $1
+           AND COALESCE(p.commits_total, 0) >= $2`,
+        [userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
+      );
+      const active = Number(activeResult.rows[0]?.active || 0);
+      if (active < milestone) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Milestone not reached' });
+      }
+
+      const reward = STAGE3.REFERRAL.MILESTONE_REWARDS[milestone]?.inviter || {};
+      const nextState = {
+        ...referralState,
+        milestonesReached: [...claimed, milestone].sort((a, b) => a - b),
+        pendingRewards: (referralState.pendingRewards || []).filter((item) => Number(item.milestone) !== milestone)
+      };
+
+      await client.query(
+        `UPDATE progression
+         SET referral_state = $2,
+             energy = LEAST(100, energy + $3),
+             inventory = inventory || $4::jsonb
+         WHERE user_id = $1`,
+        [
+          userId,
+          JSON.stringify(nextState),
+          reward.energy || 0,
+          JSON.stringify({
+            stars: reward.stars || 0,
+            skin_fragments: reward.skinFragment ? { [reward.skinFragment]: 1 } : {}
+          })
+        ]
+      );
+      if (reward.xp) {
+        await client.query(
+          `INSERT INTO player_levels (user_id, xp_total)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id) DO UPDATE SET
+             xp_total = player_levels.xp_total + EXCLUDED.xp_total,
+             updated_at = NOW()`,
+          [userId, reward.xp]
+        );
+      }
+
+      await client.query('COMMIT');
+      return res.json({ success: true, milestone, reward });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
     } finally {
       client.release();
     }

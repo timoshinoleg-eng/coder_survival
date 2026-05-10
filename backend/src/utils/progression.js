@@ -1,43 +1,135 @@
-import { DEPRESSION_RECOVERY_PER_ENERGY, STRESS_V2 } from '../config/balance.js';
+import { TAP_MECHANICS } from '../config/balance.js';
+import { getEventRecoveryMultiplier } from './events.js';
 
-export async function recoverProgression(client, progression, maxEnergy = 100, featureFlags = {}) {
-  if (!progression) return progression;
+function toValidDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getRecoveryAnchor(progression) {
+  const activityAnchor = toValidDate(progression?.last_energy_activity_at);
+  if (activityAnchor) return activityAnchor;
+
+  const createdAnchor = toValidDate(progression?.created_at);
+  if (createdAnchor) return createdAnchor;
+
+  console.warn('[Progression] Missing valid last_energy_activity_at and created_at; using current time', {
+    userId: progression?.user_id ?? null
+  });
+  return new Date();
+}
+
+function getRecoveryCheckpoint(progression) {
+  return toValidDate(progression?.energy_recovery_checkpoint_at) || getRecoveryAnchor(progression);
+}
+
+export function getEffectiveRecoveryIntervalSeconds(progression, now = new Date()) {
+  const createdAt = toValidDate(progression?.created_at);
+  if (!createdAt) {
+    return TAP_MECHANICS.energyRecoveryIntervalSeconds;
+  }
+
+  const ageMs = now.getTime() - createdAt.getTime();
+  const newbieWindowMs = TAP_MECHANICS.newbiePeriodHours * 60 * 60 * 1000;
+  const isNewbie = ageMs >= 0 && ageMs < newbieWindowMs;
+
+  if (!isNewbie) {
+    return TAP_MECHANICS.energyRecoveryIntervalSeconds;
+  }
+
+  console.log('newbie_recovery_active', {
+    userId: progression?.user_id ?? null,
+    createdAt: createdAt.toISOString()
+  });
+
+  return Math.floor(
+    TAP_MECHANICS.energyRecoveryIntervalSeconds / TAP_MECHANICS.newbieRecoveryMultiplier
+  );
+}
+
+export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.maxEnergy, now = new Date()) {
+  if (!progression) return null;
 
   const energy = Number(progression.energy ?? 0);
-  // P0-1: use action-based idle anchor; fallback to updated_at for legacy users
-  const anchorTimestamp = progression.last_energy_activity_at
-    ? new Date(progression.last_energy_activity_at)
-    : new Date(progression.updated_at);
-  if (!anchorTimestamp || Number.isNaN(anchorTimestamp.getTime()) || energy >= maxEnergy) {
-    return progression;
+  if (energy >= maxEnergy) return 0;
+
+  const anchor = getRecoveryAnchor(progression);
+  const checkpoint = getRecoveryCheckpoint(progression);
+  let interval = getEffectiveRecoveryIntervalSeconds(progression, now);
+  const recoveryMultiplier = getEventRecoveryMultiplier(progression.event_state || {}, now);
+  if (recoveryMultiplier > 1) {
+    interval = Math.max(1, Math.floor(interval / recoveryMultiplier));
+  }
+  const secondsPassed = Math.max(0, Math.floor((now.getTime() - checkpoint.getTime()) / 1000));
+  const remainder = secondsPassed % interval;
+
+  return remainder === 0 && secondsPassed > 0 ? 0 : interval - remainder;
+}
+
+export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy) {
+  if (!progression) return progression;
+
+  const now = new Date();
+  const energy = Number(progression.energy ?? 0);
+  const depression = Number(progression.depression_level ?? 0);
+  const anchor = getRecoveryAnchor(progression);
+  const checkpoint = getRecoveryCheckpoint(progression);
+  let interval = getEffectiveRecoveryIntervalSeconds(progression, now);
+  const recoveryMultiplier = getEventRecoveryMultiplier(progression.event_state || {}, now);
+  if (recoveryMultiplier > 1) {
+    interval = Math.max(1, Math.floor(interval / recoveryMultiplier));
+  }
+  const secondsPassed = Math.max(0, Math.floor((now.getTime() - checkpoint.getTime()) / 1000));
+  const energyRecovered = Math.floor(secondsPassed / interval);
+
+  if (energyRecovered <= 0) {
+    return {
+      ...progression,
+      is_burnout: depression >= TAP_MECHANICS.maxDepression
+    };
   }
 
-  const recoveryIntervalSeconds = parseInt(process.env.ENERGY_RECOVERY_INTERVAL_SECONDS || '60', 10);
-  const now = Date.now();
-  const elapsedSeconds = Math.floor((now - anchorTimestamp.getTime()) / 1000);
-  const recoveredEnergy = Math.floor(elapsedSeconds / recoveryIntervalSeconds);
+  const newEnergy = Math.min(maxEnergy, energy + energyRecovered);
+  const actualRecovered = newEnergy - energy;
 
-  if (recoveredEnergy <= 0) {
-    return progression;
+  if (actualRecovered <= 0) {
+    return {
+      ...progression,
+      is_burnout: depression >= TAP_MECHANICS.maxDepression
+    };
   }
 
-  const depressionRecovery = Math.floor(recoveredEnergy / DEPRESSION_RECOVERY_PER_ENERGY);
-
-  // P0-2: stress_v2 passive depression decay
-  const stressV2 = featureFlags?.stress_v2 === true;
-  const totalDepressionRecovery = stressV2
-    ? depressionRecovery + Math.floor(elapsedSeconds / 3600) * (STRESS_V2?.DEPRESSION_PASSIVE_DECAY_PER_HOUR || 5)
-    : depressionRecovery;
+  const depressionRecovered = Math.floor(actualRecovered / TAP_MECHANICS.depressionRecoveryPerEnergy);
+  const newDepression = Math.max(0, depression - depressionRecovered);
+  const isBurnout = newDepression >= TAP_MECHANICS.maxDepression;
+  const nextCheckpoint = new Date(checkpoint.getTime() + actualRecovered * interval * 1000);
 
   const result = await client.query(
     `UPDATE progression
-     SET energy = LEAST($3, energy + $2),
-         depression_level = GREATEST(0, depression_level - $4),
-         updated_at = NOW()
+     SET energy = $2,
+         depression_level = $3,
+         is_burnout = $4,
+         energy_recovery_checkpoint_at = $5
      WHERE user_id = $1
      RETURNING *`,
-    [progression.user_id, recoveredEnergy, maxEnergy, totalDepressionRecovery]
+    [progression.user_id, newEnergy, newDepression, isBurnout, nextCheckpoint]
   );
 
-  return result.rows[0] || progression;
+  console.log('energy_recovery_trusted', {
+    userId: progression.user_id,
+    energyRecovered: actualRecovered,
+    anchor: anchor.toISOString(),
+    checkpoint: checkpoint.toISOString(),
+    nextCheckpoint: nextCheckpoint.toISOString(),
+    intervalSeconds: interval
+  });
+
+  return result.rows[0] || {
+    ...progression,
+    energy: newEnergy,
+    depression_level: newDepression,
+    is_burnout: isBurnout,
+    energy_recovery_checkpoint_at: nextCheckpoint
+  };
 }

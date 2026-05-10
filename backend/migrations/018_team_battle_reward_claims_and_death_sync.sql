@@ -1,5 +1,5 @@
 -- migrations/018_team_battle_reward_claims_and_death_sync.sql
--- Canonical team battle claim ledger + one-time death-state sync.
+-- Canonical team battle claim ledger + one-time burnout-state sync.
 
 CREATE TABLE IF NOT EXISTS team_battle_reward_claims (
     id SERIAL PRIMARY KEY,
@@ -17,6 +17,9 @@ CREATE INDEX IF NOT EXISTS idx_team_battle_reward_claims_season
 CREATE INDEX IF NOT EXISTS idx_team_battle_reward_claims_team
     ON team_battle_reward_claims(team_id);
 
+ALTER TABLE progression
+ADD COLUMN IF NOT EXISTS is_burnout BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- Backfill historical claims from the old boolean marker to preserve idempotency.
 INSERT INTO team_battle_reward_claims (season_id, user_id, team_id, reward_payload, claimed_at)
 SELECT
@@ -30,9 +33,9 @@ JOIN team_battle_seasons s ON s.id = c.season_id
 WHERE c.reward_claimed = TRUE
 ON CONFLICT (season_id, user_id) DO NOTHING;
 
--- Canonical source for death state is progression.is_dead.
--- Do not auto-clear here: only mark legacy rows that are definitely dead.
+-- Canonical source for burnout state is progression.is_burnout.
+-- Do not auto-clear here: only mark legacy rows that are definitely burned out.
 UPDATE progression
-SET is_dead = TRUE
+SET is_burnout = TRUE
 WHERE depression_level >= 100
-  AND is_dead = FALSE;
+  AND is_burnout = FALSE;
