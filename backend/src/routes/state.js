@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { randomUUID, createHash } from "crypto";
 import { pool } from "../index.js";
-import { recoverProgression } from "../utils/progression.js";
+import { STAGE4 } from "../config/balance.js";
+import {
+  getEffectiveRecoveryIntervalSeconds,
+  getRecoveryEtaSeconds,
+  recoverProgression,
+} from "../utils/progression.js";
 import {
   ensureDailyQuests,
   ensurePlayerLevel,
@@ -21,7 +26,6 @@ import {
   getUserAchievements,
   getActiveCrunchTime,
   getReferralChain,
-  getDeathState,
 } from "../utils/phase2State.js";
 import { checkAchievement, ensureAchievementRows } from "../utils/achievements.js";
 
@@ -274,6 +278,12 @@ router.get("/", async (req, res, next) => {
         rankMeta.maxEnergy,
         userFeatureFlags,
       );
+      const careerStory = await ensureCareerStoryUnlocked(
+        client,
+        user.id,
+        progression?.career_story || progressRow?.career_story || {},
+        Number(level.resolved?.rank || progression?.tier || 1),
+      );
 
       const sessionResult = await client.query(
         `INSERT INTO sessions (session_id, user_id, ip_address)
@@ -354,7 +364,12 @@ router.get("/", async (req, res, next) => {
       const achievements = await getUserAchievements(client, user.id);
       const crunchTime = await getActiveCrunchTime(client);
       const referralChain = await getReferralChain(client, user.id);
-      const { isDead, death } = getDeathState(progression);
+      const isBurnout = Number(progression.depression_level ?? 0) >= 100;
+      const recoveryIntervalSeconds = getEffectiveRecoveryIntervalSeconds(progression);
+      const recoveryEtaSeconds = getRecoveryEtaSeconds(
+        progression,
+        rankMeta.maxEnergy,
+      );
 
       await client.query("COMMIT");
 
@@ -381,7 +396,9 @@ router.get("/", async (req, res, next) => {
               depressionLevel: progression.depression_level,
               streakDays: progression.streak_days,
               updatedAt: progression.updated_at,
-              isDead: progression.is_dead,
+              onboardingCompleted: progression.onboarding_completed === true,
+              inventory: progression.inventory || {},
+              isBurnout,
             }
           : null,
         game: {
@@ -392,16 +409,16 @@ router.get("/", async (req, res, next) => {
           depression_level: progression.depression_level,
           streak_days: progression.streak_days,
           updated_at: progression.updated_at,
-          is_dead: progression.is_dead,
+          onboarding_completed: progression.onboarding_completed === true,
+          inventory: progression.inventory || {},
+          is_burnout: isBurnout,
         },
         progressionUpdatedAt: progression?.updated_at ?? null,
         serverNow: new Date().toISOString(),
         level: level.resolved,
         maxEnergy: rankMeta.maxEnergy,
-        recoveryIntervalSeconds: parseInt(
-          process.env.ENERGY_RECOVERY_INTERVAL_SECONDS || "60",
-          10,
-        ),
+        recoveryIntervalSeconds,
+        recoveryEtaSeconds,
         daily,
         loginReward,
         activeSession: activeSession
@@ -455,8 +472,8 @@ router.get("/", async (req, res, next) => {
         achievements,
         crunchTime,
         referralChain,
-        isDead,
-        death,
+        careerStory,
+        isBurnout,
       });
     } catch (err) {
       await client.query("ROLLBACK");
@@ -478,6 +495,31 @@ function getTierName(tier) {
     5: "CTO",
   };
   return names[tier] || "Unknown";
+}
+
+async function ensureCareerStoryUnlocked(client, userId, careerStory = {}, currentRank = 1) {
+  const unlocked = new Set((careerStory.unlockedBeats || []).map(Number));
+  const newlyUnlocked = Object.entries(STAGE4.CAREER_STORY.BEATS)
+    .filter(([id]) => Number(id) <= currentRank && !unlocked.has(Number(id)))
+    .map(([id]) => Number(id));
+
+  if (newlyUnlocked.length === 0) return careerStory;
+
+  for (const beatId of newlyUnlocked) unlocked.add(beatId);
+  const nextStory = {
+    ...careerStory,
+    unlockedBeats: Array.from(unlocked).sort((left, right) => left - right),
+    lastPromptedAt: newlyUnlocked[newlyUnlocked.length - 1]
+  };
+
+  await client.query(
+    `UPDATE progression
+     SET career_story = $2
+     WHERE user_id = $1`,
+    [userId, JSON.stringify(nextStory)]
+  );
+
+  return nextStory;
 }
 
 export default router;

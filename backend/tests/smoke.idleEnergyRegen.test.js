@@ -1,122 +1,111 @@
 /**
- * Smoke test: idle energy regeneration anchor regression
- * Covers the key regression path where repeated state fetches (app opens)
- * must NOT reset the idle regeneration timer.
+ * Smoke test: idle energy regeneration trust contract.
  *
- * What it tests:
- *   1. recoverProgression() correctly recovers energy from a stale anchor.
- *   2. Repeated recoverProgression() calls without taps do NOT regress energy.
- *   3. A tap resets last_energy_activity_at, blocking immediate regen.
- *
- * What it does NOT test:
- *   - Real time progression over spaced intervals (it uses a single stale
- *     anchor and repeated immediate reads, not 5 actual openings over an hour).
- *   - This is a fast regression guard, not a full simulation.
- *
- * Prerequisites:
- *   - Schema migration 009_quick_wins.sql must be applied
- *     (progression.last_energy_activity_at column must exist).
- *
- * Run: npm test -- tests/smoke.idleEnergyRegen.test.js
- * Requires: TEST_DATABASE_URL env or local PostgreSQL
+ * Covers:
+ *   1. GET /api/state does not reset last_energy_activity_at.
+ *   2. 10 minutes idle gives +15 energy for a newbie user (40s interval).
+ *   3. An intermediate empty visit does not double-apply the same idle window.
  */
 
-import pg from 'pg';
-import { recoverProgression } from '../src/utils/progression.js';
+import {
+  createInitData,
+  ensureTestSchema,
+  resetTestDatabase,
+  testPool,
+  TEST_DATABASE_URL,
+} from "./helpers/testDb.js";
+import { startTestServer } from "./helpers/testServer.js";
+import { recoverProgression } from "../src/utils/progression.js";
 
-const { Pool } = pg;
+const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
-// Use a dedicated test DB if available; otherwise rely on env
-const DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+describeIfDb("idle energy regen smoke", () => {
+  let server;
 
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+  beforeAll(async () => {
+    process.env.NODE_ENV = "test";
+    await ensureTestSchema();
+    server = await startTestServer();
+  });
 
-async function withClient(fn) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await fn(client);
-    await client.query('ROLLBACK');
-    return result;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
-describe('idle energy regen smoke', () => {
-  if (!DATABASE_URL) {
-    test.skip('no database url', () => {});
-    return;
-  }
-
-  test('energy regenerates across multiple state fetches without taps', async () => {
-    await withClient(async (client) => {
-      // 1. Create a test user
-      const userRes = await client.query(
-        `INSERT INTO users (telegram_id, username)
-         VALUES ($1, $2)
-         RETURNING id`,
-        [999999001, 'smoke_test_user']
-      );
-      const userId = userRes.rows[0].id;
-
-      // 2. Seed progression with low energy and a stale activity anchor
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      const progRes = await client.query(
-        `INSERT INTO progression (user_id, energy, last_energy_activity_at)
-         VALUES ($1, 50, $2)
-         RETURNING *`,
-        [userId, tenMinutesAgo]
-      );
-      let progression = progRes.rows[0];
-
-      // 3. First "open app" (state fetch) — should recover energy
-      const maxEnergy = 100;
-      progression = await recoverProgression(client, progression, maxEnergy, {});
-      const energyAfterFirst = progression.energy;
-
-      // Expect ~10 minutes of recovery (at 60s interval => ~10 energy)
-      expect(energyAfterFirst).toBeGreaterThan(50);
-
-      // 4. Simulate 4 more state fetches over 5 minutes (NO taps)
-      for (let i = 0; i < 4; i++) {
-        // Re-fetch progression row to simulate fresh DB read
-        const fresh = await client.query(
-          `SELECT * FROM progression WHERE user_id = $1`,
-          [userId]
-        );
-        progression = await recoverProgression(client, fresh.rows[0], maxEnergy, {});
-      }
-
-      // 5. Energy should NOT have reset; it should be monotonically increasing or stable
-      expect(progression.energy).toBeGreaterThanOrEqual(energyAfterFirst);
-
-      // 6. Tap once — this should reset the idle anchor
-      await client.query(
-        `UPDATE progression
-         SET energy = energy - 1,
-             last_energy_activity_at = NOW()
-         WHERE user_id = $1`,
-        [userId]
-      );
-
-      // 7. Immediate state fetch after tap — energy should NOT recover instantly
-      const postTap = await client.query(
-        `SELECT * FROM progression WHERE user_id = $1`,
-        [userId]
-      );
-      const afterTap = await recoverProgression(client, postTap.rows[0], maxEnergy, {});
-      expect(afterTap.energy).toBe(postTap.rows[0].energy); // no immediate regen
-    });
+  beforeEach(async () => {
+    await resetTestDatabase();
   });
 
   afterAll(async () => {
-    await pool.end();
+    if (server) {
+      await server.close();
+    }
+    if (testPool) {
+      await testPool.end();
+    }
+  });
+
+  test("GET /api/state recovers energy without resetting tap activity anchor", async () => {
+    const telegramId = 999999001;
+    const initData = createInitData(telegramId, { username: "idle_smoke" });
+
+    const userResult = await testPool.query(
+      `INSERT INTO users (telegram_id, username)
+       VALUES ($1, $2)
+       RETURNING id`,
+      [telegramId, "idle_smoke"],
+    );
+    const userId = userResult.rows[0].id;
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    await testPool.query(
+      `INSERT INTO daily_login_claims (user_id, last_claimed_date, streak_days)
+       VALUES ($1, $2, 1)`,
+      [userId, today],
+    );
+
+    const createdAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const anchor = new Date(Date.now() - 10 * 60 * 1000);
+    await testPool.query(
+      `INSERT INTO progression (
+         user_id,
+         energy,
+         depression_level,
+         created_at,
+         last_energy_activity_at,
+         energy_recovery_checkpoint_at
+       )
+       VALUES ($1, 50, 20, $2, $3, $3)`,
+      [userId, createdAt, anchor],
+    );
+
+    const firstState = await server.request("/api/state", {
+      headers: { "X-Telegram-Init-Data": initData },
+    });
+    expect(firstState.status).toBe(200);
+    expect(firstState.body?.game?.energy).toBe(65);
+
+    const afterFirst = await testPool.query(
+      `SELECT energy, last_energy_activity_at, energy_recovery_checkpoint_at
+       FROM progression
+       WHERE user_id = $1`,
+      [userId],
+    );
+    const persistedEnergyAfterFirstVisit = afterFirst.rows[0].energy;
+    expect(persistedEnergyAfterFirstVisit).toBeGreaterThanOrEqual(65);
+    expect(new Date(afterFirst.rows[0].last_energy_activity_at).getTime()).toBe(anchor.getTime());
+    expect(new Date(afterFirst.rows[0].energy_recovery_checkpoint_at).getTime()).toBeGreaterThan(anchor.getTime());
+
+    const emptyVisit = await recoverProgression(testPool, afterFirst.rows[0], 100);
+    expect(emptyVisit.energy).toBe(persistedEnergyAfterFirstVisit);
+
+    const afterEmptyVisit = await testPool.query(
+      `SELECT energy, last_energy_activity_at, energy_recovery_checkpoint_at
+       FROM progression
+       WHERE user_id = $1`,
+      [userId],
+    );
+    expect(afterEmptyVisit.rows[0].energy).toBe(persistedEnergyAfterFirstVisit);
+    expect(new Date(afterEmptyVisit.rows[0].last_energy_activity_at).getTime()).toBe(anchor.getTime());
+    expect(new Date(afterEmptyVisit.rows[0].energy_recovery_checkpoint_at).getTime()).toBe(
+      new Date(afterFirst.rows[0].energy_recovery_checkpoint_at).getTime(),
+    );
   });
 });

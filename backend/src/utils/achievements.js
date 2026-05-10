@@ -132,7 +132,7 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
   // Unlock skins for completed achievements
   for (const achievementId of completedAchievements) {
     const skinResult = await client.query(
-      `SELECT unlock_payload->>'skinId' as skin_id
+      `SELECT reward_payload->>'skinId' as skin_id
        FROM achievements
        WHERE achievement_id = $1`,
       [achievementId]

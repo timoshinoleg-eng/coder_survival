@@ -1,4 +1,7 @@
 import { applyReward } from './rewards.js';
+import { STAGE2 } from '../config/balance.js';
+
+const { PASS } = STAGE2;
 
 /**
  * Sprint Pass v1 — compact battle pass.
@@ -46,7 +49,101 @@ export async function ensurePlayerPass(client, userId, passId) {
   return existing.rows[0] || null;
 }
 
-export async function addPassXp(client, userId, xpAmount) {
+export function calculatePassLevel(passState = {}) {
+  let remaining = Number(passState.currentXp || 0);
+  let level = 0;
+  let nextReq = 0;
+
+  for (const passLevel of PASS.LEVELS) {
+    if (remaining >= passLevel.requiredXp) {
+      remaining -= passLevel.requiredXp;
+      level = passLevel.level;
+    } else {
+      nextReq = passLevel.requiredXp;
+      break;
+    }
+  }
+
+  if (level === 20) {
+    return {
+      currentLevel: 20,
+      progressToNext: 1.0,
+      nextLevelXp: 0,
+      remainingXp: remaining
+    };
+  }
+
+  return {
+    currentLevel: level,
+    progressToNext: nextReq > 0 ? remaining / nextReq : 1.0,
+    nextLevelXp: nextReq,
+    remainingXp: remaining
+  };
+}
+
+export function addPassXp(passStateOrClient, amountOrUserId, maybeXpAmount) {
+  if (passStateOrClient?.query && typeof amountOrUserId !== 'undefined') {
+    return addDbPassXp(passStateOrClient, amountOrUserId, maybeXpAmount);
+  }
+
+  const passState = passStateOrClient || {};
+  const amount = Number(amountOrUserId || 0);
+  const before = calculatePassLevel(passState);
+  const newXp = Number(passState.currentXp || 0) + amount;
+  const nextState = {
+    seasonId: passState.seasonId || PASS.SEASON_ID,
+    seasonStartDate: passState.seasonStartDate || process.env.STAGE2_PASS_SEASON_START_DATE || '2026-05-01',
+    currentXp: newXp,
+    claimedLevels: Array.isArray(passState.claimedLevels) ? passState.claimedLevels : [],
+    premiumUnlocked: passState.premiumUnlocked === true
+  };
+  const after = calculatePassLevel(nextState);
+
+  return {
+    newState: nextState,
+    leveledUp: after.currentLevel > before.currentLevel,
+    newLevel: after.currentLevel,
+    levelsGained: after.currentLevel - before.currentLevel
+  };
+}
+
+export function getClaimableRewards(passState = {}) {
+  const { currentLevel } = calculatePassLevel(passState);
+  const claimed = new Set(passState.claimedLevels || []);
+  const premium = passState.premiumUnlocked === true;
+  const result = [];
+
+  for (let level = 1; level <= currentLevel; level++) {
+    if (!claimed.has(level)) {
+      result.push({
+        level,
+        free: PASS.FREE_REWARDS[level] || null,
+        premium: premium ? (PASS.PREMIUM_REWARDS[level] || null) : null
+      });
+    }
+  }
+
+  return result;
+}
+
+export function claimLevelRewards(passState = {}, level) {
+  const { currentLevel } = calculatePassLevel(passState);
+  if (level > currentLevel) throw new Error('Level not reached');
+
+  const claimed = new Set(passState.claimedLevels || []);
+  if (claimed.has(level)) throw new Error('Already claimed');
+
+  claimed.add(level);
+  return {
+    seasonId: passState.seasonId || PASS.SEASON_ID,
+    seasonStartDate: passState.seasonStartDate || process.env.STAGE2_PASS_SEASON_START_DATE || '2026-05-01',
+    currentXp: Number(passState.currentXp || 0),
+    premiumUnlocked: passState.premiumUnlocked === true,
+    claimedLevels: Array.from(claimed).sort((left, right) => left - right)
+  };
+}
+
+async function addDbPassXp(client, userId, xpAmount) {
   const pass = await getActivePass(client);
   if (!pass || xpAmount <= 0) return null;
 
@@ -78,8 +175,7 @@ export async function addPassXp(client, userId, xpAmount) {
   const result = await client.query(
     `UPDATE player_passes
      SET current_level = $3,
-         current_xp = $4,
-         updated_at = NOW()
+         current_xp = $4
      WHERE user_id = $1 AND pass_id = $2
      RETURNING *`,
     [userId, pass.id, newLevel, newXp]
@@ -186,8 +282,7 @@ export async function unlockPremiumPass(client, userId) {
 
   const result = await client.query(
     `UPDATE player_passes
-     SET is_premium = TRUE,
-         updated_at = NOW()
+     SET is_premium = TRUE
      WHERE user_id = $1 AND pass_id = $2
      RETURNING *`,
     [userId, pass.id]
@@ -225,8 +320,7 @@ export function normalizePassStatus(status) {
       currentLevel: status.playerPass.current_level,
       currentXp: status.playerPass.current_xp,
       isPremium: status.playerPass.is_premium,
-      createdAt: status.playerPass.created_at,
-      updatedAt: status.playerPass.updated_at
+      createdAt: status.playerPass.created_at
     } : null,
     rewards: status.rewards || []
   };

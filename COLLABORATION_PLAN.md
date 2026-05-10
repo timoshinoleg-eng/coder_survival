@@ -181,7 +181,7 @@ CREATE TABLE battle_reward_claims (
     "nextMilestone": 3,
     "milestoneReward": { "energy": 50 }
   },
-  "isDead": false,
+  "isBurnout": false,
   "death": {
     "canRespawn": false,
     "respawnCost": null
@@ -193,8 +193,8 @@ CREATE TABLE battle_reward_claims (
 #### A-5. Death Screen Backend Trigger
 - **File:** `backend/src/utils/deathScreen.js` (new)
 - **Spec:**
-  - In `recoverProgression` and `tap.js`: if `depression_level >= 100`, set `is_dead = true` in progression
-  - In `/api/state`: return `isDead: true` and `death: { canRespawn: true, respawnCost: { energy: 50 } }`
+  - In `recoverProgression` and `tap.js`: if `depression_level >= 100`, set `is_burnout = true` in progression
+  - In `/api/state`: return `isBurnout: true`
   - `POST /api/respawn`: resets depression to 0, subtracts respawn cost
 - **Deliverable:** Death state correctly triggered and resettable
 
@@ -255,11 +255,11 @@ Mini-games, skins UI, death screen, creative frontend features.
 #### B-3. Death Screen UI
 - **File:** `frontend/src/components/DeathScreen.jsx` (new)
 - **Spec:**
-  - Triggered when `state.isDead === true`
+  - Triggered when `state.isBurnout === true`
   - Dark overlay, dramatic copy (" burnout...")
   - "Respawn" button (calls `POST /api/respawn`)
   - Show stats: days survived, total commits, rank
-- **API needed from A:** `/api/state` → `isDead`, `death`; `POST /api/respawn`
+- **API needed from A:** `/api/state` → `isBurnout`
 - **Deliverable:** Polished death + respawn flow
 
 #### B-4. P1-3 Meme Generator (Client-Side)
@@ -379,7 +379,7 @@ interface ExtendedState {
     nextMilestone: number;
     milestoneReward: RewardPayload;
   };
-  isDead: boolean;
+  isBurnout: boolean;
   death?: {
     canRespawn: boolean;
     respawnCost: RewardPayload | null;

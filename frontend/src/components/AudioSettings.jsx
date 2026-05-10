@@ -42,6 +42,13 @@ export default function AudioSettings() {
 
     const next = !muted;
     audioManager.setMute(next);
+    if (!next) {
+      if (audioManager.currentBGMTrack) {
+        audioManager.resumeBGMPlayback();
+      } else {
+        audioManager.playBGM('bgm_main');
+      }
+    }
     setMuted(next);
   }, [muted]);
 

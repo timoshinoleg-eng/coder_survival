@@ -24,8 +24,7 @@ export async function applyReward(client, userId, rewardPayload) {
     await client.query(
       `UPDATE progression
        SET energy = LEAST($3, energy + $2),
-           updated_at = NOW(),
-           last_energy_activity_at = NOW()
+           updated_at = NOW()
        WHERE user_id = $1`,
       [userId, rewardPayload.energy, maxEnergy]
     );
@@ -37,8 +36,7 @@ export async function applyReward(client, userId, rewardPayload) {
     await client.query(
       `UPDATE progression
        SET commits_current = commits_current + $2,
-           updated_at = NOW(),
-           last_energy_activity_at = NOW()
+           updated_at = NOW()
        WHERE user_id = $1`,
       [userId, commitsDelta]
     );
@@ -62,8 +60,8 @@ export async function applyReward(client, userId, rewardPayload) {
     await client.query(
       `UPDATE progression
        SET depression_level = GREATEST(0, depression_level - $2),
-           updated_at = NOW(),
-           last_energy_activity_at = NOW()
+           is_burnout = GREATEST(0, depression_level - $2) >= 100,
+           updated_at = NOW()
        WHERE user_id = $1`,
       [userId, rewardPayload.depressionRelief]
     );

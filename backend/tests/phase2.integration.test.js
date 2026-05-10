@@ -130,7 +130,7 @@ describeIfDb("phase2 integration", () => {
     );
   });
 
-  test("/api/respawn clears death state and re-enables tap", async () => {
+  test("/api/tap keeps burnout as a soft penalty state", async () => {
     const initData = createInitData(730001, { username: "burned_out" });
 
     const stateResponse = await server.request("/api/state", {
@@ -146,36 +146,26 @@ describeIfDb("phase2 integration", () => {
 
     await testPool.query(
       `UPDATE progression
-       SET is_dead = TRUE,
+       SET is_burnout = TRUE,
            energy = 80,
            depression_level = 100
        WHERE user_id = $1`,
       [userId],
     );
 
-    const blockedTap = await server.request("/api/tap", {
+    const burnoutTap = await server.request("/api/tap", {
       method: "POST",
       headers: { "X-Telegram-Init-Data": initData },
       body: {},
     });
-    expect(blockedTap.status).toBe(409);
-    expect(blockedTap.body?.isDead).toBe(true);
+    expect(burnoutTap.status).toBe(200);
+    expect(burnoutTap.body?.isBurnout).toBe(true);
+    expect(burnoutTap.body?.commitsDelta).toBeGreaterThanOrEqual(1);
 
-    const respawn = await server.request("/api/respawn", {
-      method: "POST",
+    const stateAfterBurnoutTap = await server.request("/api/state", {
       headers: { "X-Telegram-Init-Data": initData },
     });
-    expect(respawn.status).toBe(200);
-    expect(respawn.body?.success).toBe(true);
-    expect(respawn.body?.isDead).toBe(false);
-
-    const tapAfterRespawn = await server.request("/api/tap", {
-      method: "POST",
-      headers: { "X-Telegram-Init-Data": initData },
-      body: {},
-    });
-    expect(tapAfterRespawn.status).toBe(200);
-    expect(tapAfterRespawn.body?.success).toBe(true);
-    expect(tapAfterRespawn.body?.state?.isDead).toBe(false);
+    expect(stateAfterBurnoutTap.status).toBe(200);
+    expect(stateAfterBurnoutTap.body?.isBurnout).toBe(true);
   });
 });

@@ -5,14 +5,29 @@ import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
 
 export default function TapArea({ active }) {
-  const { tap, energy, lastTapDelta, error: gameError, showToast } = useGameState();
+  const {
+    tap,
+    energy,
+    depression,
+    isBurnout,
+    isCrit,
+    critTier,
+    lastTapDelta,
+    error: gameError,
+    showToast,
+  } = useGameState();
   const { haptic } = useTelegram();
   const [ripples, setRipples] = useState([]);
   const [floatTexts, setFloatTexts] = useState([]);
   const [pressed, setPressed] = useState(false);
+  const [luckArmed, setLuckArmed] = useState(true);
   const lastTapPosRef = useRef({ x: 0, y: 0 });
   const prevDeltaRef = useRef(null);
   const prevErrorRef = useRef(null);
+
+  useEffect(() => {
+    audioManager.init().catch(() => {});
+  }, []);
 
   const addFloatText = useCallback((x, y, text, color, size = '16px', duration = 1000) => {
     const id = Date.now() + Math.random();
@@ -23,6 +38,7 @@ export default function TapArea({ active }) {
   }, []);
 
   const handlePointerDown = useCallback((e) => {
+    audioManager.resumeOnGesture();
     if (!active || energy <= 0) {
       haptic('error');
       audioManager.play('energy0');
@@ -38,6 +54,8 @@ export default function TapArea({ active }) {
 
     haptic('light');
     audioManager.play('tap');
+    setLuckArmed(false);
+    window.setTimeout(() => setLuckArmed(true), 220);
     tap();
 
     // Ripple — immediate tactile feedback only
@@ -62,12 +80,18 @@ export default function TapArea({ active }) {
     let textContent;
     let textColor;
     let textSize = '16px';
-    if (deltaCommits >= 5) {
-      textContent = `+${deltaCommits} коммитов`;
-      textColor = '#facc15';
-      textSize = '18px';
+    if (lastTapDelta.critTier === 'gold') {
+      textContent = `КРИТ! +${deltaCommits}!`;
+      textColor = '#ffd700';
+      textSize = '22px';
       haptic('success');
-      showToast('Отличный коммит!', 'success', 1200);
+      showToast(`Критический коммит: +${deltaCommits}!`, 'success', 1200);
+    } else if (lastTapDelta.critTier === 'silver') {
+      textContent = `+${deltaCommits}!`;
+      textColor = '#c0c0c0';
+      textSize = '20px';
+      haptic('success');
+      showToast(`Сильный коммит: +${deltaCommits}`, 'success', 1000);
     } else if (deltaCommits > 1) {
       textContent = `+${deltaCommits} коммита`;
       textColor = '#4ade80';
@@ -114,6 +138,21 @@ export default function TapArea({ active }) {
   if (!active) return null;
 
   const isExhausted = energy <= 0;
+  const tapZoneClass = [
+    isCrit && critTier === 'silver' ? 'crit-flash-silver' : '',
+    isCrit && critTier === 'gold' ? 'crit-flash-gold' : '',
+    isBurnout ? 'pulse-red' : '',
+  ].filter(Boolean).join(' ');
+  const depressionClass =
+    isBurnout ? 'depression-burnout'
+      : depression >= 70 ? 'depression-high'
+        : depression >= 30 ? 'depression-med'
+          : 'depression-low';
+  const buttonText = isExhausted
+    ? '⚡ Нет энергии'
+    : isBurnout
+      ? '🔥 Горю...'
+      : '💻 КОДИТЬ';
 
   return h('div', {
     style: {
@@ -177,8 +216,74 @@ export default function TapArea({ active }) {
       }
     }, gameError),
 
+    h('style', null, `
+      .crit-flash-silver { animation: flashSilver 300ms ease-out; }
+      @keyframes flashSilver {
+        0% { box-shadow: 0 0 0 rgba(192,192,192,0); }
+        50% { box-shadow: 0 0 20px rgba(192,192,192,0.8); }
+        100% { box-shadow: 0 0 0 rgba(192,192,192,0); }
+      }
+      .crit-flash-gold { animation: flashGold 400ms ease-out; }
+      @keyframes flashGold {
+        0% { transform: scale(1); box-shadow: 0 0 0 rgba(255,215,0,0); }
+        50% { transform: scale(1.1); box-shadow: 0 0 30px rgba(255,215,0,0.9); }
+        100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,215,0,0); }
+      }
+      .pulse-red { animation: pulseRed 1.5s infinite; }
+      @keyframes pulseRed { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+      .depression-low { background: #FFD700; }
+      .depression-med { background: #FF8C00; }
+      .depression-high { background: #DC143C; animation: pulseRed 2s infinite; }
+      .depression-burnout { background: #2F2F2F; color: #FF0000; }
+    `),
+
+    h('div', {
+      style: {
+        width: 'min(260px, 75vw)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        pointerEvents: 'none'
+      }
+    }, [
+      h('div', {
+        style: {
+          height: '4px',
+          width: '100%',
+          borderRadius: '999px',
+          background: 'rgba(255,255,255,0.12)',
+          overflow: 'hidden'
+        }
+      }, h('div', {
+        style: {
+          width: luckArmed ? '20%' : '0%',
+          height: '100%',
+          background: 'linear-gradient(90deg, #c0c0c0, #ffd700)',
+          transition: luckArmed ? 'width 180ms ease-out' : 'none'
+        }
+      })),
+      h('div', {
+        title: 'Депрессия растёт с каждым тапом. Отдохни — она снизится',
+        style: {
+          height: '6px',
+          width: '100%',
+          borderRadius: '999px',
+          background: 'rgba(255,255,255,0.12)',
+          overflow: 'hidden'
+        }
+      }, h('div', {
+        className: depressionClass,
+        style: {
+          width: `${Math.min(100, Math.max(0, Math.round(depression || 0)))}%`,
+          height: '100%',
+          transition: 'width 0.25s ease'
+        }
+      }))
+    ]),
+
     // Tap zone
     h('div', {
+      className: tapZoneClass,
       onPointerDown: handlePointerDown,
       onPointerUp: handlePointerUp,
       onPointerLeave: handlePointerUp,
@@ -187,15 +292,18 @@ export default function TapArea({ active }) {
         width: 'min(260px, 75vw)',
         height: 'min(260px, 75vw)',
         borderRadius: '50%',
+        opacity: isExhausted ? 0.6 : 1,
         background: isExhausted
           ? 'radial-gradient(circle at 40% 40%, #3a2a2a, #2a1a1a)'
+          : isBurnout
+            ? 'rgba(255, 69, 0, 0.5)'
           : 'radial-gradient(circle at 40% 40%, #2d5a3e, #1a3f25)',
-        border: `3px solid ${isExhausted ? '#ef4444' : '#4ade80'}`,
+        border: `3px solid ${isExhausted || isBurnout ? '#ff4500' : '#4ade80'}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '20px',
-        color: isExhausted ? '#ef4444' : '#4ade80',
+        color: isExhausted || isBurnout ? '#ffe4dc' : '#4ade80',
         cursor: isExhausted ? 'not-allowed' : 'pointer',
         position: 'relative',
         overflow: 'hidden',
@@ -204,16 +312,15 @@ export default function TapArea({ active }) {
         userSelect: 'none',
         touchAction: 'manipulation',
         WebkitTapHighlightColor: 'transparent',
-        animation: isExhausted ? 'pulse-red 1.4s infinite' : 'none',
         boxShadow: pressed
           ? '0 0 24px rgba(74,222,128,0.45) inset'
-          : isExhausted
+          : isExhausted || isBurnout
             ? '0 0 16px rgba(239,68,68,0.35)'
             : '0 4px 24px rgba(0,0,0,0.35)'
       }
     }, [
       h('span', { style: { pointerEvents: 'none', fontWeight: 'bold', letterSpacing: '1px' } },
-        isExhausted ? 'НЕТ ЭНЕРГИИ' : 'КОДИТЬ'
+        buttonText
       ),
       // Ripple effects
       ...ripples.map(r => h('div', {

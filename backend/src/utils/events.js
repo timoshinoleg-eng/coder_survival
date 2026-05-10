@@ -1,3 +1,7 @@
+import { STAGE4 } from '../config/balance.js';
+
+const { EVENTS } = STAGE4;
+
 /**
  * Event System v1 — weekly hackathon.
  * Single active event at a time. Config-driven, no cron scheduler.
@@ -82,4 +86,66 @@ export async function claimEventReward(client, userId) {
     contribution: { ...contribution, claimed: true },
     status: 200
   };
+}
+
+export function getCurrentEvent(weekIndex) {
+  const normalized = Math.max(0, Number(weekIndex || 0));
+  return EVENTS.ROTATION[normalized % EVENTS.ROTATION.length] || null;
+}
+
+export function getLiveOpsWeekIndex(userDate = new Date()) {
+  return Math.floor(userDate.getTime() / (EVENTS.EVENT_DURATION_DAYS * 86400000));
+}
+
+export function isEventActiveToday(event, userDate = new Date()) {
+  if (!event) return false;
+  if (event.activeDays) {
+    return event.activeDays.includes(userDate.getDay());
+  }
+  return true;
+}
+
+export function applyEventModifiers(baseValue, modifiers, modifierType) {
+  if (!modifiers) return baseValue;
+  switch (modifierType) {
+    case 'energyRecovery':
+      return modifiers.energyRecoveryMult ? baseValue * modifiers.energyRecoveryMult : baseValue;
+    case 'commits':
+      return modifiers.commitMult ? baseValue * modifiers.commitMult : baseValue;
+    case 'critChance':
+      return modifiers.critChanceAdd ? baseValue + modifiers.critChanceAdd : baseValue;
+    default:
+      return baseValue;
+  }
+}
+
+export function generateEventBonusQuest(event) {
+  if (!event || !event.bonusQuest) return null;
+  return {
+    id: 'q_event_bonus',
+    type: event.bonusQuest.type,
+    target: event.bonusQuest.target,
+    reward: event.bonusQuest.reward,
+    eventId: event.id,
+    isEvent: true,
+    progress: 0,
+    completed: false,
+    claimed: false
+  };
+}
+
+export function getEventRecoveryMultiplier(eventState = {}, now = new Date()) {
+  const expiresAt = eventState.expiresAt ? new Date(eventState.expiresAt) : null;
+  if (!eventState.eventId || !eventState.modifiersApplied || (expiresAt && expiresAt.getTime() <= now.getTime())) {
+    return 1;
+  }
+  const multiplier = Number(eventState.modifiersApplied.energyRecoveryMult || 1);
+  if (!Number.isFinite(multiplier) || multiplier < 0.1 || multiplier > 5) {
+    return 1;
+  }
+  return multiplier;
+}
+
+export function getLocalDateFromOffset(timezoneOffset = 0, now = new Date()) {
+  return new Date(now.getTime() + Number(timezoneOffset || 0) * 60000);
 }
