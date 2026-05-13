@@ -1,4 +1,4 @@
-import { TAP_MECHANICS } from '../config/balance.js';
+import { TAP_MECHANICS, STRESS_V2 } from '../config/balance.js';
 import { getEventRecoveryMultiplier } from './events.js';
 
 function toValidDate(value) {
@@ -83,7 +83,24 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
   const secondsPassed = Math.max(0, Math.floor((now.getTime() - checkpoint.getTime()) / 1000));
   const energyRecovered = Math.floor(secondsPassed / interval);
 
+  const passiveDepressionDecay = Math.floor(
+    (secondsPassed / 3600) * STRESS_V2.DEPRESSION_PASSIVE_DECAY_PER_HOUR
+  );
+
   if (energyRecovered <= 0) {
+    if (passiveDepressionDecay > 0 && depression > 0) {
+      const newDepression = Math.max(0, depression - passiveDepressionDecay);
+      const isBurnout = newDepression >= TAP_MECHANICS.maxDepression;
+      await client.query(
+        `UPDATE progression
+         SET depression_level = $2,
+             is_burnout = $3,
+             updated_at = NOW()
+         WHERE user_id = $1`,
+        [progression.user_id, newDepression, isBurnout]
+      );
+      return { ...progression, depression_level: newDepression, is_burnout: isBurnout };
+    }
     return {
       ...progression,
       is_burnout: depression >= TAP_MECHANICS.maxDepression
@@ -101,7 +118,8 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
   }
 
   const depressionRecovered = Math.floor(actualRecovered / TAP_MECHANICS.depressionRecoveryPerEnergy);
-  const newDepression = Math.max(0, depression - depressionRecovered);
+  const combinedDepressionDecay = depressionRecovered + passiveDepressionDecay;
+  const newDepression = Math.max(0, depression - combinedDepressionDecay);
   const isBurnout = newDepression >= TAP_MECHANICS.maxDepression;
   const nextCheckpoint = new Date(checkpoint.getTime() + actualRecovered * interval * 1000);
 
@@ -110,7 +128,8 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
      SET energy = $2,
          depression_level = $3,
          is_burnout = $4,
-         energy_recovery_checkpoint_at = $5
+         energy_recovery_checkpoint_at = $5,
+         updated_at = NOW()
      WHERE user_id = $1
      RETURNING *`,
     [progression.user_id, newEnergy, newDepression, isBurnout, nextCheckpoint]

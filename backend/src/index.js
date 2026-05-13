@@ -9,6 +9,7 @@ import { dirname, join } from "path";
 import { initDataMiddleware } from "./middleware/initData.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
+import { startBalanceAuditJob } from "./jobs/balanceAudit.js";
 import tapRouter from "./routes/tap.js";
 import stateRouter from "./routes/state.js";
 import buyRouter from "./routes/buy.js";
@@ -166,4 +167,5 @@ if (isEntrypoint) {
     console.log(`Coder Survival API running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });
+  startBalanceAuditJob();
 }

@@ -7,6 +7,14 @@ export const PRODUCT_CATALOG = {
     icon: '⚡',
     category: 'energy'
   },
+  coffee_break: {
+    id: 'coffee_break',
+    name: 'Кофе-брейк',
+    description: '+50 энергии и снижает стресс на 30 пунктов',
+    stars: 25,
+    icon: '☕',
+    category: 'bundle'
+  },
   depression_cure: {
     id: 'depression_cure',
     name: 'Терапия',
