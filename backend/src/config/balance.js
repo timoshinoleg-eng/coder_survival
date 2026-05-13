@@ -4,7 +4,7 @@ export const CONTEXT_OFFER_RULES = {
   low_energy: {
     priority: 1,
     cooldownMs: 90 * 60 * 1000,
-    energyPercentThreshold: 25,
+    energyPercentThreshold: 15,
     title: '⚡ Энергия просела',
     body: 'Нужен быстрый рефилл, иначе сессия закончится раньше времени.',
     productId: 'energy_refill',
@@ -104,30 +104,8 @@ export const WEEKLY_HACKATHON_REWARD = {
   depressionRelief: 15
 };
 
-export const SPRINT_PASS_LEVELS = [
-  { level: 1, requiredXp: 20, freeReward: { energy: 10 }, premiumReward: { energy: 20 } },
-  { level: 2, requiredXp: 20, freeReward: { commitsCurrent: 15 }, premiumReward: { commitsCurrent: 30 } },
-  { level: 3, requiredXp: 25, freeReward: { energy: 10 }, premiumReward: { energy: 20 } },
-  { level: 4, requiredXp: 25, freeReward: { commitsCurrent: 15 }, premiumReward: { commitsCurrent: 30, depressionRelief: 10 } },
-  { level: 5, requiredXp: 30, freeReward: { energy: 15, commitsCurrent: 20 }, premiumReward: { energy: 30, commitsCurrent: 40 } },
-  { level: 6, requiredXp: 30, freeReward: { energy: 10 }, premiumReward: { energy: 20 } },
-  { level: 7, requiredXp: 35, freeReward: { commitsCurrent: 20 }, premiumReward: { commitsCurrent: 40 } },
-  { level: 8, requiredXp: 35, freeReward: { energy: 10 }, premiumReward: { energy: 20, depressionRelief: 10 } },
-  { level: 9, requiredXp: 40, freeReward: { commitsCurrent: 20 }, premiumReward: { energy: 30 } },
-  { level: 10, requiredXp: 45, freeReward: { energy: 20, commitsCurrent: 30 }, premiumReward: { energy: 40, commitsCurrent: 50 } },
-  { level: 11, requiredXp: 45, freeReward: { energy: 10 }, premiumReward: { energy: 20 } },
-  { level: 12, requiredXp: 50, freeReward: { commitsCurrent: 20 }, premiumReward: { commitsCurrent: 45 } },
-  { level: 13, requiredXp: 50, freeReward: { energy: 15 }, premiumReward: { energy: 25, depressionRelief: 10 } },
-  { level: 14, requiredXp: 55, freeReward: { commitsCurrent: 25 }, premiumReward: { commitsCurrent: 45 } },
-  { level: 15, requiredXp: 60, freeReward: { energy: 20, commitsCurrent: 35 }, premiumReward: { energy: 50, commitsCurrent: 60 } },
-  { level: 16, requiredXp: 60, freeReward: { energy: 15 }, premiumReward: { energy: 30 } },
-  { level: 17, requiredXp: 65, freeReward: { commitsCurrent: 25 }, premiumReward: { commitsCurrent: 50 } },
-  { level: 18, requiredXp: 70, freeReward: { energy: 20 }, premiumReward: { energy: 40, depressionRelief: 15 } },
-  { level: 19, requiredXp: 75, freeReward: { commitsCurrent: 30 }, premiumReward: { commitsCurrent: 60 } },
-  { level: 20, requiredXp: 80, freeReward: { energy: 30, commitsCurrent: 50 }, premiumReward: { energy: 80, commitsCurrent: 100, depressionRelief: 25 } }
-];
-
 export const SHOP_ITEM_EFFECTS = {
+  coffee_break: { energy: 50, depressionRelief: 30 },
   depression_cure: { depressionRelief: 60 },
   tier_boost: { xpTotal: 40, commitsCurrent: 50 }
 };
@@ -196,7 +174,7 @@ const STAGE2 = {
     LEVELS: (() => {
       const levels = [];
       for (let i = 1; i <= 20; i++) {
-        levels.push({ level: i, requiredXp: 100 + (i - 1) * 50 });
+        levels.push({ level: i, requiredXp: 200 + (i - 1) * 15 });
       }
       return levels;
     })(),
@@ -248,7 +226,7 @@ const STAGE2 = {
 };
 
 const totalStage2PassXp = STAGE2.PASS.LEVELS.reduce((sum, level) => sum + level.requiredXp, 0);
-console.assert(totalStage2PassXp === 11500, `Pass XP mismatch: ${totalStage2PassXp}`);
+console.assert(totalStage2PassXp === 6850, `Pass XP mismatch: ${totalStage2PassXp}`);
 console.assert(STAGE2.PASS.LEVELS.length === 20, 'Level count must be 20');
 console.assert(
   STAGE2.DAILY_QUEST.FULL_CLEAR.LOOT_BOX.drops.reduce((sum, drop) => sum + drop.weight, 0) === 100,

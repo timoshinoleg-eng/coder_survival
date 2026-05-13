@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { TAP_MECHANICS } from '../config/balance.js';
+import { TAP_MECHANICS, STRESS_V2 } from '../config/balance.js';
 import { checkTapRateLimit } from '../middleware/rateLimit.js';
+import { analyzeAndRecordTap } from '../middleware/antiCheat.js';
 import { getEffectiveRecoveryIntervalSeconds, recoverProgression } from '../utils/progression.js';
 import {
   addTapXp,
@@ -70,6 +71,28 @@ router.post('/', async (req, res) => {
     if (!rateLimit.allowed) {
       await client.query('ROLLBACK');
       return res.status(rateLimit.status).json(rateLimit.payload);
+    }
+
+    const antiCheat = analyzeAndRecordTap(userId);
+    if (!antiCheat.allowed) {
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, context, created_at)
+         VALUES ($1, 'anticheat_pattern_ban', $2::jsonb, NOW())`,
+        [userId, JSON.stringify(antiCheat.metrics || {})]
+      );
+      await client.query('ROLLBACK');
+      return res.status(429).json({
+        error: 'Подозрительная активность. Попробуйте позже.',
+        retryAfter: antiCheat.retryAfter,
+        type: 'pattern_ban'
+      });
+    }
+    if (antiCheat.suspicious) {
+      client.query(
+        `INSERT INTO audit_logs (user_id, action, context, created_at)
+         VALUES ($1, 'anticheat_pattern_flag', $2::jsonb, NOW())`,
+        [userId, JSON.stringify(antiCheat.metrics)]
+      ).catch(() => {});
     }
 
     const progressInsertResult = await client.query(
@@ -189,7 +212,7 @@ router.post('/', async (req, res) => {
       depression: recoveredProgress.depression_level,
       xpProgress: levelAfter.record.resolved.progressInLevel,
       xpRequiredForNext: levelAfter.record.resolved.requiredForNextLevel,
-      featureFlags: {}
+      featureFlags: { stress_v2: userId % 100 < STRESS_V2.AB_TEST_PERCENTAGE }
     });
     if (contextOffer?.type) {
       await recordOfferImpression(client, userId, contextOffer.type, 'tap');
@@ -294,7 +317,7 @@ router.post('/', async (req, res) => {
 
         hackathonState = addHackathonContribution(hackathonState, String(userId), tapResult.commitsDelta);
         await client.query(
-          'UPDATE progression SET team_hackathon_state = $2 WHERE user_id = $1',
+          'UPDATE progression SET team_hackathon_state = $2, updated_at = NOW() WHERE user_id = $1',
           [userId, JSON.stringify(hackathonState)]
         );
       }
@@ -306,7 +329,7 @@ router.post('/', async (req, res) => {
       );
       if (referralCheck.newlyUnlocked.length > 0) {
         await client.query(
-          'UPDATE progression SET referral_state = $2 WHERE user_id = $1',
+          'UPDATE progression SET referral_state = $2, updated_at = NOW() WHERE user_id = $1',
           [userId, JSON.stringify(referralCheck.state)]
         );
       }

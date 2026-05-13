@@ -117,6 +117,14 @@ export async function applyItemEffect(client, userId, itemType) {
       return { energy: maxEnergy };
     }
 
+    case 'coffee_break': {
+      await applyReward(client, userId, SHOP_ITEM_EFFECTS.coffee_break);
+      return {
+        energyDelta: SHOP_ITEM_EFFECTS.coffee_break.energy,
+        depressionDelta: -SHOP_ITEM_EFFECTS.coffee_break.depressionRelief
+      };
+    }
+
     case 'depression_cure': {
       await applyReward(client, userId, SHOP_ITEM_EFFECTS.depression_cure);
       return { depressionDelta: -SHOP_ITEM_EFFECTS.depression_cure.depressionRelief };
