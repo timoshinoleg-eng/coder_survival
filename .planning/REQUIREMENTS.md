@@ -87,39 +87,39 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MEME-01 | Phase 2 | Pending |
-| MEME-02 | Phase 2 | Pending |
-| MEME-03 | Phase 2 | Pending |
-| MEME-04 | Phase 3 | Pending |
-| MEME-05 | Phase 3 | Pending |
-| MINI-01 | Phase 3 | Pending |
-| MINI-02 | Phase 4 | Pending |
-| MINI-03 | Phase 5 | Pending |
-| MINI-04 | Phase 6 | Pending |
-| MINI-05 | Phase 7 | Pending |
-| SOCL-01 | Phase 4 | Pending |
-| SOCL-02 | Phase 4 | Pending |
-| SOCL-03 | Phase 4 | Pending |
-| SOCL-04 | Phase 5 | Pending |
-| SOCL-05 | Phase 5 | Pending |
+| MEME-01 | Phase 3 | Pending |
+| MEME-02 | Phase 3 | Pending |
+| MEME-03 | Phase 3 | Pending |
+| MEME-04 | Phase 10 | Pending |
+| MEME-05 | Phase 10 | Pending |
+| MINI-01 | Phase 6 | Pending |
+| MINI-02 | Phase 6 | Pending |
+| MINI-03 | Phase 8 | Pending |
+| MINI-04 | Phase 9 | Pending |
+| MINI-05 | Phase 9 | Pending |
+| SOCL-01 | Phase 7 | Pending |
+| SOCL-02 | Phase 7 | Pending |
+| SOCL-03 | Phase 10 | Pending |
+| SOCL-04 | Phase 8 | Pending |
+| SOCL-05 | Phase 8 | Pending |
 | SOCL-06 | Phase 5 | Pending |
 | SOCL-07 | Phase 5 | Pending |
 | VISU-01 | Phase 2 | Pending |
 | VISU-02 | Phase 2 | Pending |
 | VISU-03 | Phase 2 | Pending |
-| VISU-04 | Phase 3 | Pending |
-| VISU-05 | Phase 5 | Pending |
-| VISU-06 | Phase 6 | Pending |
-| VISU-07 | Phase 6 | Pending |
-| VISU-08 | Phase 3 | Pending |
-| VISU-09 | Phase 6 | Pending |
-| PROG-01 | Phase 2 | Pending |
-| PROG-02 | Phase 3 | Pending |
-| PROG-03 | Phase 3 | Pending |
-| PROG-04 | Phase 3 | Pending |
-| PROG-05 | Phase 2 | Pending |
-| PROG-06 | Phase 2 | Pending |
-| PROG-07 | Phase 3 | Pending |
+| VISU-04 | Phase 9 | Pending |
+| VISU-05 | Phase 8 | Pending |
+| VISU-06 | Phase 9 | Pending |
+| VISU-07 | Phase 9 | Pending |
+| VISU-08 | Phase 10 | Pending |
+| VISU-09 | Phase 10 | Pending |
+| PROG-01 | Phase 4 | Pending |
+| PROG-02 | Phase 9 | Pending |
+| PROG-03 | Phase 5 | Pending |
+| PROG-04 | Phase 5 | Pending |
+| PROG-05 | Phase 4 | Pending |
+| PROG-06 | Phase 4 | Pending |
+| PROG-07 | Phase 5 | Pending |
 | TECH-01 | Phase 1 | Pending |
 | TECH-02 | Phase 1 | Pending |
 | TECH-03 | Phase 1 | Pending |
@@ -127,8 +127,8 @@
 | TECH-05 | Phase 2 | Pending |
 
 **Coverage:**
-- v1 requirements: 40 total
-- Mapped to phases: 40
+- v1 requirements: 38 total
+- Mapped to phases: 38
 - Unmapped: 0 ✓
 
 ---
