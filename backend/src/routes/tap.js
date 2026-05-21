@@ -212,7 +212,7 @@ router.post('/', async (req, res) => {
       depression: recoveredProgress.depression_level,
       xpProgress: levelAfter.record.resolved.progressInLevel,
       xpRequiredForNext: levelAfter.record.resolved.requiredForNextLevel,
-      featureFlags: { stress_v2: userId % 100 < STRESS_V2.AB_TEST_PERCENTAGE }
+      featureFlags: { stress_v2: true }
     });
     if (contextOffer?.type) {
       await recordOfferImpression(client, userId, contextOffer.type, 'tap');
