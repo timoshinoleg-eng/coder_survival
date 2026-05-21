@@ -116,8 +116,7 @@ export const STRESS_V2 = {
   DEPRESSION_CRITICAL_LOW_ENERGY: 30,
   DEPRESSION_PASSIVE_DECAY_PER_HOUR: 5,
   STRESS_GAIN_PER_TAP_BELOW_50: 1,
-  STRESS_GAIN_PER_TAP_BELOW_30: 2,
-  AB_TEST_PERCENTAGE: 50
+  STRESS_GAIN_PER_TAP_BELOW_30: 2
 };
 
 // P1-4: escalating streak bonus for daily login quest (applied ON TOP of base reward)
