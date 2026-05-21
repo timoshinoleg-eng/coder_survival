@@ -1,11 +1,20 @@
 const UNDEFINED_TABLE = '42P01';
+const NO_ACTIVE_TRANSACTION = '25P01';
+const PASS_XP_LOG_SAVEPOINT = 'pass_xp_log_optional';
 
 let passXpLogAvailable = null;
 
 export async function logPassXp(client, userId, passId, source, amount, context = null) {
   if (!passId || amount <= 0) return null;
+  let hasSavepoint = false;
   try {
-    if (!(await hasPassXpLogTable(client))) return null;
+    hasSavepoint = await tryCreateSavepoint(client);
+    if (!(await hasPassXpLogTable(client))) {
+      if (hasSavepoint) {
+        await client.query(`RELEASE SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+      }
+      return null;
+    }
 
     const result = await client.query(
       `INSERT INTO pass_xp_log (user_id, pass_id, source, amount, context)
@@ -13,8 +22,14 @@ export async function logPassXp(client, userId, passId, source, amount, context 
        RETURNING *`,
       [userId, passId, source, amount, context ? JSON.stringify(context) : null]
     );
+    if (hasSavepoint) {
+      await client.query(`RELEASE SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+    }
     return result.rows[0];
   } catch (error) {
+    if (hasSavepoint) {
+      await rollbackPassXpLogSavepoint(client);
+    }
     if (isMissingPassXpLog(error)) {
       passXpLogAvailable = null;
       return null;
@@ -49,6 +64,27 @@ export async function getXpSourcesAggregate(client, userId, passId) {
 export function getMiniGameXpPlaceholder() {
   // Phase 6: replace with real mini-game XP
   return 0;
+}
+
+async function tryCreateSavepoint(client) {
+  try {
+    await client.query(`SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+    return true;
+  } catch (error) {
+    if (error?.code === NO_ACTIVE_TRANSACTION) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function rollbackPassXpLogSavepoint(client) {
+  try {
+    await client.query(`ROLLBACK TO SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+    await client.query(`RELEASE SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+  } catch (error) {
+    console.error('[passXpLog] rollback savepoint failed:', error?.message || error);
+  }
 }
 
 async function hasPassXpLogTable(client) {

@@ -135,13 +135,9 @@ router.post('/share', memeRateLimit, async (req, res, next) => {
     const userId = userResult.rows[0].id;
     await recordMemeShare(client, userId, templateId, format || '1:1', sharedTo);
 
-    try {
-      const activePass = await getActivePass(client);
-      if (activePass) {
-        await logPassXp(client, userId, activePass.id, 'social', 15, { templateId, format, sharedTo });
-      }
-    } catch (_passLogErr) {
-      console.error('[Meme] pass XP log failed (swallowed):', _passLogErr?.message || _passLogErr);
+    const activePass = await getActivePass(client);
+    if (activePass) {
+      await logPassXp(client, userId, activePass.id, 'social', 15, { templateId, format, sharedTo });
     }
 
     res.json({ success: true });

@@ -201,15 +201,10 @@ router.post('/', async (req, res) => {
     const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
     const passResult = await addPassXp(client, userId, levelAfter.xpDelta ?? xpDelta);
 
-    try {
-      const activePass = await getActivePass(client);
-      if (activePass && passResult?.playerPass) {
-        const tapPassXp = 1; // 1 passXp per tap for attribution tracking
-        await logPassXp(client, userId, activePass.id, 'tap', tapPassXp, { commitsDelta: tapResult.commitsDelta });
-      }
-    } catch (_passLogErr) {
-      // Never let pass XP logging break the tap
-      console.error('[Tap] pass XP log failed (swallowed):', _passLogErr?.message || _passLogErr);
+    const activePass = await getActivePass(client);
+    if (activePass && passResult?.playerPass) {
+      const tapPassXp = 1; // 1 passXp per tap for attribution tracking
+      await logPassXp(client, userId, activePass.id, 'tap', tapPassXp, { commitsDelta: tapResult.commitsDelta });
     }
 
     await updateTeamProgress(client, userId, tapResult.commitsDelta);
@@ -403,7 +398,7 @@ router.post('/', async (req, res) => {
         target: eventResult.event.target_commits,
         claimed: eventResult.contribution.claimed
       } : null,
-      pass: passResult?.pass && passResult?.playerPass ? {
+      pass: passResult ? {
         seasonNumber: passResult.pass.season_number,
         currentLevel: passResult.playerPass.current_level,
         currentXp: passResult.playerPass.current_xp,
