@@ -137,22 +137,18 @@ export const LOGIN_STREAK_BONUS = {
 const STAGE2 = {
   DAILY_QUEST: {
     RESET_HOUR: 0,
+    // PROG-01: 3 regular quests + 1 bonus
     BASE_QUESTS: [
-      { id: 'q_login', type: 'login', target: 1, reward: { energy: 10, xp: 5, passXp: 0 } },
-      { id: 'q_tap40', type: 'tap_count', target: 40, reward: { energy: 15, xp: 10, passXp: 10 } }
+      { id: 'q_login', type: 'login', target: 1, reward: { energy: 10, xp: 5, passXp: 5 } },
+      { id: 'q_tap50', type: 'tap_count', target: 50, reward: { energy: 20, xp: 10, passXp: 30 } },
+      { id: 'q_commit100', type: 'commit_total', target: 100, reward: { energy: 25, xp: 15, passXp: 35 } }
     ],
     POOLS: {
-      MORNING: [
-        { id: 'q_coffee', type: 'tap_count', target: 20, reward: { energy: 15, xp: 5, passXp: 10, inventory: { coffee_cups: 1 } } },
-        { id: 'q_bugfix', type: 'crit_count', target: 5, reward: { commitsCurrent: 30, xp: 10, passXp: 15, skinFragment: 'bug_hunter' } }
-      ],
-      AFTERNOON: [
-        { id: 'q_commit50', type: 'commit_total', target: 50, reward: { energy: 20, xp: 15, passXp: 25 } },
-        { id: 'q_review', type: 'social_visit', target: 1, reward: { energy: 25, xp: 10, passXp: 15 } }
-      ],
-      EVENING: [
-        { id: 'q_night30', type: 'tap_count', target: 30, reward: { energy: 15, xp: 10, passXp: 10 } },
-        { id: 'q_share', type: 'social_share', target: 1, reward: { energy: 20, xp: 5, passXp: 10, stars: 5 } }
+      // Bonus pool: higher targets, 2x rewards applied at generation time
+      BONUS: [
+        { id: 'q_bonus_tap', type: 'tap_count', target: 200, reward: { energy: 30, xp: 20, passXp: 40 } },
+        { id: 'q_bonus_crit', type: 'crit_count', target: 20, reward: { commitsCurrent: 60, xp: 20, passXp: 40, skinFragment: 'bug_hunter' } },
+        { id: 'q_bonus_commit', type: 'commit_total', target: 500, reward: { energy: 40, xp: 30, passXp: 40 } }
       ]
     },
     FULL_CLEAR: {
@@ -178,12 +174,18 @@ const STAGE2 = {
       return levels;
     })(),
     FREE_REWARDS: {
+      1: { energy: 25 },
+      2: { stars: 5 },
+      3: { commitBoostPercent: 5, durationHours: 24 },
       5: { energy: 20, stars: 10 },
       10: { energy: 30, stars: 15 },
       15: { energy: 40, stars: 20 },
       20: { energy: 50, stars: 25, title: 'Survivor' }
     },
     PREMIUM_REWARDS: {
+      1: { energy: 50, stars: 10 },
+      2: { stars: 15, skinFragment: 1 },
+      3: { commitBoostPercent: 10, durationHours: 24 },
       5: { skinFragment: 'startup_hoodie' },
       10: { skin: 'freelancer_pajama' },
       15: { skin: 'team_lead' },

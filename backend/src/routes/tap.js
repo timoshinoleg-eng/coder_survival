@@ -14,7 +14,8 @@ import {
   updateDailyQuestProgress
 } from '../utils/vnext.js';
 import { recordEventContribution } from '../utils/events.js';
-import { addPassXp } from '../utils/pass.js';
+import { addPassXp, getActivePass } from '../utils/pass.js';
+import { logPassXp } from '../utils/passXpLog.js';
 import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { updateTeamProgress } from '../utils/teams.js';
 import { checkAchievement, ensureAchievementRows } from '../utils/achievements.js';
@@ -199,6 +200,13 @@ router.post('/', async (req, res) => {
 
     const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
     const passResult = await addPassXp(client, userId, levelAfter.xpDelta ?? xpDelta);
+
+    const activePass = await getActivePass(client);
+    if (activePass && passResult?.playerPass) {
+      const tapPassXp = 1; // 1 passXp per tap for attribution tracking
+      await logPassXp(client, userId, activePass.id, 'tap', tapPassXp, { commitsDelta: tapResult.commitsDelta });
+    }
+
     await updateTeamProgress(client, userId, tapResult.commitsDelta);
 
     await checkAchievement(client, userId, 'tap');

@@ -6,10 +6,10 @@ status: active
 last_updated: "2026-05-21T17:35:00.000Z"
 progress:
   total_phases: 10
-  completed_phases: 2
+  completed_phases: 4
   total_plans: 1
   completed_plans: 1
-  percent: 20
+  percent: 40
 ---
 
 # Project State: Coder Survival
@@ -20,7 +20,7 @@ progress:
 
 | Attribute | Value |
 |-----------|-------|
-| Phase | 2 — Context Gathered |
+| Phase | 5 — Next Phase Ready |
 | Mode | mvp |
 | Granularity | fine |
 | Last Updated | 2026-05-21 |
@@ -32,7 +32,7 @@ progress:
 | 1 | Critical Fixes & Core Loop Polish | ✅ Complete | 4 | 100% |
 | 2 | Visual Foundation & Atmosphere | ✅ Complete | 4 | 100% |
 | 3 | Meme Engine MVP | ✅ Complete | 3 | 100% |
-| 4 | Daily Progression Overhaul | 🟡 Plan Ready | 3 | 0% |
+| 4 | Daily Progression Overhaul | ✅ Complete | 3 | 100% |
 | 5 | Streaks, Achievements & Social Seeds | 🔒 Planned | 5 | 0% |
 | 6 | Mini-Games Tier 1 (Early Levels) | 🔒 Planned | 2 | 0% |
 | 7 | Daily Battle & Referral Rewards | 🔒 Planned | 2 | 0% |
@@ -73,11 +73,13 @@ All v1 requirements are tracked in the phased roadmap. See [REQUIREMENTS.md](./R
 | 2026-05-21 | Phase 3 planned | PLAN.md created. 4 waves, 20 tasks. Backend renderer, bot share flow, frontend refactor, analytics. |
 | 2026-05-21 | Phase 3 executed | 2 commits, 20/20 tasks, 4 waves. Backend: @napi-rs/canvas PNG renderer, signed public tokens, LRU cache, rate limit, DB migration. Bot: /meme command + inline keyboard + replyWithPhoto. Frontend: server-rendered MemeGenerator, format toggle, auto-prompt on levelUp. 10 new unit tests pass. Build clean, tests green. |
 | 2026-05-21 | Phase 4 context gathered | Deep codebase audit: dual quest/pass systems, XP attribution gaps, frontend UI inconsistencies. 8 decisions locked in 04-CONTEXT.md. Ready for planning. |
+| 2026-05-21 | Phase 4 planned | PLAN.md created. 4 waves, 20 tasks. Quest 3+1 redesign, pass front-loading, XP attribution ledger. |
+| 2026-05-21 | Phase 4 executed | 20/20 tasks, 4 waves. Backend: unified quest/pass SSOT, front-load rewards migration, pass_xp_log with hooks. Frontend: unified DailyQuests modal, SprintPassPanel XP breakdown. 39 tests pass. Build clean. |
 
 ## Next Actions
 
-1. Plan Phase 4: Daily Progression Overhaul
-2. `/gsd:plan-phase 4` to generate PLAN.md from captured context
+1. Phase 4 complete — ready for `/gsd:verify-work 4`
+2. `/gsd:discuss-phase 5` to start Streaks, Achievements & Social Seeds
 3. Update this file at phase transitions per PROJECT.md evolution rules
 
 ---

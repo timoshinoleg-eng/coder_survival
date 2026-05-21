@@ -4,6 +4,8 @@ import { renderMeme, MEME_TEMPLATE_IDS } from '../utils/memeRenderer.js';
 import { signMemeToken, verifyMemeToken } from '../utils/memeToken.js';
 import { recordMemeShare } from '../utils/memeAnalytics.js';
 import { memeRateLimit } from '../middleware/memeRateLimit.js';
+import { getActivePass } from '../utils/pass.js';
+import { logPassXp } from '../utils/passXpLog.js';
 
 const router = Router();
 
@@ -132,6 +134,12 @@ router.post('/share', memeRateLimit, async (req, res, next) => {
     }
     const userId = userResult.rows[0].id;
     await recordMemeShare(client, userId, templateId, format || '1:1', sharedTo);
+
+    const activePass = await getActivePass(client);
+    if (activePass) {
+      await logPassXp(client, userId, activePass.id, 'social', 15, { templateId, format, sharedTo });
+    }
+
     res.json({ success: true });
   } catch (err) {
     next(err);

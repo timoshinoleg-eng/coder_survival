@@ -10,13 +10,13 @@ import {
 import {
   ensureDailyQuests,
   ensurePlayerLevel,
-  getDailyQuestSummary,
   markLoginQuestComplete,
   updateDailyQuestProgress,
 } from "../utils/vnext.js";
 import { getActiveEvent, getEventContribution } from "../utils/events.js";
 import { getContextOffer, recordOfferImpression } from "../utils/offers.js";
-import { getPassStatus } from "../utils/pass.js";
+import { getPassStatus, getActivePass } from "../utils/pass.js";
+import { logPassXp } from "../utils/passXpLog.js";
 import { getProductById } from "../utils/shopCatalog.js";
 import { getMyTeam } from "../utils/teams.js";
 import { processLoginReward } from "../utils/loginReward.js";
@@ -189,6 +189,11 @@ async function ensureReferralFromStartParam(
          AND quest_type = 'invite_friend'`,
       [referrerId],
     );
+
+    const activePass = await getActivePass(client);
+    if (activePass) {
+      await logPassXp(client, referrerId, activePass.id, 'social', 25, { referredId: referredUserId, action: 'referral_bind' });
+    }
   }
 }
 
@@ -330,7 +335,21 @@ router.get("/", async (req, res, next) => {
       await ensureDailyQuests(client, user.id);
       await markLoginQuestComplete(client, user.id);
       const loginReward = await processLoginReward(client, user.id);
-      const daily = await getDailyQuestSummary(client, user.id);
+
+      const dailyQuestStateResult = await client.query(
+        `SELECT daily_quests_state FROM progression WHERE user_id = $1`,
+        [user.id]
+      );
+      const dailyQuestState = dailyQuestStateResult.rows[0]?.daily_quests_state || {};
+      const daily = {
+        total: Array.isArray(dailyQuestState.quests) ? dailyQuestState.quests.length : 0,
+        completed: Array.isArray(dailyQuestState.quests) ? dailyQuestState.quests.filter((q) => q.completed).length : 0,
+        claimed: Array.isArray(dailyQuestState.quests) ? dailyQuestState.quests.filter((q) => q.claimed).length : 0,
+        claimable: Array.isArray(dailyQuestState.quests) ? dailyQuestState.quests.filter((q) => q.completed && !q.claimed).length : 0,
+        quests: Array.isArray(dailyQuestState.quests) ? dailyQuestState.quests : [],
+        fullClearAvailable: Array.isArray(dailyQuestState.quests) && dailyQuestState.quests.length === 4 && dailyQuestState.quests.every((q) => q.completed) && !dailyQuestState.fullClearClaimed,
+        fullClearClaimed: dailyQuestState.fullClearClaimed === true,
+      };
 
       const event = await getActiveEvent(client);
       const eventContribution = event

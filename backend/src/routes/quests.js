@@ -7,8 +7,9 @@ import {
   isFullClearAvailable,
   rollLootBox
 } from '../utils/dailyQuests.js';
-import { addPassXp } from '../utils/pass.js';
+import { addPassXp, getActivePass } from '../utils/pass.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
+import { logPassXp } from '../utils/passXpLog.js';
 
 const router = Router();
 const { DAILY_QUEST } = STAGE2;
@@ -79,7 +80,7 @@ async function getOrCreateQuestState(client, userId, today, lock = false) {
   const rankTier = Number(row?.tier || 1);
   let state = row?.daily_quests_state || {};
 
-  if (state.lastDate !== today || !Array.isArray(state.quests) || state.quests.length !== 5) {
+  if (state.lastDate !== today || !Array.isArray(state.quests) || state.quests.length !== 4) {
     state = initialQuestState(userId, today, rankTier);
     await client.query(
       `UPDATE progression
@@ -261,6 +262,12 @@ router.post('/claim', async (req, res) => {
     ));
 
     const rewardResult = await applyStage2Rewards(client, userId, progression, rewards);
+
+    const activePass = await getActivePass(client);
+    if (activePass && Number(rewards.passXp || 0) > 0) {
+      await logPassXp(client, userId, activePass.id, 'quest', Number(rewards.passXp), { questIds: unclaimed.map(q => q.id) });
+    }
+
     await client.query(
       `UPDATE progression
        SET daily_quests_state = $2,
