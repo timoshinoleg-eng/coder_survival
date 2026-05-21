@@ -126,7 +126,7 @@ export function GameProvider({ children }) {
     toastTimerRef.current = setTimeout(() => {
       setState((current) => ({ ...current, toast: null }));
     }, duration);
-  }, []);
+  }, [showToast]);
 
   const applyServerState = useCallback((payload) => {
     const game = payload?.game || payload?.state || payload?.progression;
@@ -169,6 +169,14 @@ export function GameProvider({ children }) {
     prevLevelRef.current = { rank: newRank, levelInRank: newLevelInRank };
 
     const hasContextOffer = Object.prototype.hasOwnProperty.call(payload || {}, "contextOffer");
+
+    if (payload?.idleRecovery?.energy > 0) {
+      showToast(
+        `⚡ Восстановлено +${payload.idleRecovery.energy} энергии за время отсутствия`,
+        "success",
+        1500
+      );
+    }
 
     setState((current) => ({
       ...current,
