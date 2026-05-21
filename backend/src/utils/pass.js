@@ -305,6 +305,8 @@ export async function unlockPremiumPass(client, userId) {
 export function normalizePassStatus(status) {
   if (!status) return null;
 
+  const levelMeta = calculatePassLevel(status.playerPass ? { currentXp: status.playerPass.current_xp } : {});
+
   return {
     pass: status.pass ? {
       id: status.pass.id,
@@ -320,7 +322,9 @@ export function normalizePassStatus(status) {
       currentLevel: status.playerPass.current_level,
       currentXp: status.playerPass.current_xp,
       isPremium: status.playerPass.is_premium,
-      createdAt: status.playerPass.created_at
+      createdAt: status.playerPass.created_at,
+      nextLevelXp: levelMeta.nextLevelXp,
+      remainingXp: levelMeta.remainingXp
     } : null,
     rewards: status.rewards || []
   };
