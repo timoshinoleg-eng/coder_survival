@@ -33,7 +33,7 @@ progress:
 | 2 | Visual Foundation & Atmosphere | ✅ Complete | 4 | 100% |
 | 3 | Meme Engine MVP | ✅ Complete | 3 | 100% |
 | 4 | Daily Progression Overhaul | ✅ Complete (verified) | 3 | 100% |
-| 5 | Streaks, Achievements & Social Seeds | 📋 Planned | 5 | 0% |
+| 5 | Streaks, Achievements & Social Seeds | ✅ Complete (verified) | 5 | 100% |
 | 6 | Mini-Games Tier 1 (Early Levels) | 🔒 Planned | 2 | 0% |
 | 7 | Daily Battle & Referral Rewards | 🔒 Planned | 2 | 0% |
 | 8 | Mini-Games Tier 2 & Team Features | 🔒 Planned | 4 | 0% |
@@ -78,11 +78,12 @@ All v1 requirements are tracked in the phased roadmap. See [REQUIREMENTS.md](./R
 | 2026-05-21 | Phase 4 verified | `/gsd:verify-work 4` completed. 11/11 UAT checks passed. 0 gaps. Ready for Phase 5. |
 | 2026-05-21 | Phase 5 context gathered | Discussed streak milestones (7/14/30), achievement list (10), referral anti-farm (2 days + 20 commits). 05-CONTEXT.md written. |
 | 2026-05-21 | Phase 5 planned | PLAN.md created. 4 waves, 20 tasks. Estimated ~10.5h. Ready for execution. |
+| 2026-05-22 | Phase 5 executed | 4 waves completed. W1: streak recovery (5 Stars base, escalating), W2: 10 achievements + meme share, W3: referral anti-farm (2 days + 20 commits), W4: 18 new unit tests. All builds pass, tests green. |
 
 ## Next Actions
 
-1. Phase 5 planned — ready for `/gsd:execute-phase 5`
-2. `/gsd:review` for cross-AI peer review (optional)
+1. Phase 5 complete — ready for `/gsd:verify-work 5`
+2. Phase 6 planning — Mini-Games Tier 1
 3. Update this file at phase transitions per PROJECT.md evolution rules
 
 ---
