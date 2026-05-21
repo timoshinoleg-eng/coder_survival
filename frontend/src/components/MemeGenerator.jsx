@@ -1,180 +1,116 @@
 import { h } from 'preact';
-import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
+import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
+import { apiRequest } from '../utils/api.js';
 import { audioManager } from '../utils/AudioManager.js';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 const MEME_TEMPLATES = [
-  {
-    id: 'works_on_my_machine',
-    label: 'Works on my machine',
-    topText: '— У меня работает',
-    bottomText: '— А у тебя?',
-    bgGradient: ['#1a3a5c', '#0f1b30'],
-    accentColor: '#facc15'
-  },
-  {
-    id: 'deploy_friday',
-    label: 'Deploy on Friday',
-    topText: 'Деплой в пятницу',
-    bottomText: 'Что может пойти не так?',
-    bgGradient: ['#5a2d2d', '#3f1a1a'],
-    accentColor: '#ef4444'
-  },
-  {
-    id: 'this_is_fine',
-    label: 'This is fine',
-    topText: 'Всё нормально',
-    bottomText: '(внутренний крик)',
-    bgGradient: ['#5a3e2d', '#3f2a1a'],
-    accentColor: '#fb923c'
-  },
-  {
-    id: 'wtf_per_minute',
-    label: 'WTF per minute',
-    topText: 'WTF в минуту: over 9000',
-    bottomText: 'Code review пройден',
-    bgGradient: ['#2d5a3e', '#1a3f25'],
-    accentColor: '#4ade80'
-  },
-  {
-    id: 'stack_overflow',
-    label: 'Stack Overflow',
-    topText: 'Stack Overflow copy-paste',
-    bottomText: 'Если работает — не трогай',
-    bgGradient: ['#30527e', '#1a3a5c'],
-    accentColor: '#60a5fa'
-  }
+  { id: 'works_on_my_machine', label: 'Works on my machine', accentColor: '#facc15' },
+  { id: 'deploy_friday', label: 'Deploy on Friday', accentColor: '#ef4444' },
+  { id: 'this_is_fine', label: 'This is fine', accentColor: '#fb923c' },
+  { id: 'wtf_per_minute', label: 'WTF/min', accentColor: '#4ade80' },
+  { id: 'stack_overflow', label: 'Stack Overflow', accentColor: '#60a5fa' }
 ];
 
-function drawMeme(canvas, template, stats) {
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-
-  // Background
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, template.bgGradient[0]);
-  grad.addColorStop(1, template.bgGradient[1]);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
-
-  // Border
-  ctx.strokeStyle = template.accentColor;
-  ctx.lineWidth = 4;
-  ctx.strokeRect(2, 2, w - 4, h - 4);
-
-  // Top text
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 28px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = 4;
-  ctx.fillText(template.topText, w / 2, 24);
-  ctx.shadowBlur = 0;
-
-  // Decorative line
-  ctx.strokeStyle = template.accentColor;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(40, 70);
-  ctx.lineTo(w - 40, 70);
-  ctx.stroke();
-
-  // Stats block
-  ctx.fillStyle = '#e6edf7';
-  ctx.font = 'bold 18px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(`${stats.rankName} | ${stats.commits} коммитов`, w / 2, 90);
-
-  ctx.fillStyle = '#9eb6d2';
-  ctx.font = '14px sans-serif';
-  const subLines = [
-    `Дней подряд: ${stats.streakDays}`,
-    `Стресс: ${stats.depression}%`,
-    `Энергия: ${stats.energy}/${stats.maxEnergy}`
-  ];
-  subLines.forEach((line, i) => {
-    ctx.fillText(line, w / 2, 118 + i * 22);
-  });
-
-  // Bottom text
-  ctx.fillStyle = template.accentColor;
-  ctx.font = 'bold 22px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = 4;
-  ctx.fillText(template.bottomText, w / 2, h - 50);
-  ctx.shadowBlur = 0;
-
-  // Watermark
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  ctx.font = '12px sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText('Coder Survival', w - 12, h - 14);
-}
+const FORMATS = [
+  { id: '1:1', label: 'Квадрат' },
+  { id: '9:16', label: 'Stories' }
+];
 
 export default function MemeGenerator({ open, onClose }) {
-  const { rankName, commits, streakDays, depression, energy, maxEnergy } = useGameState();
+  const { rankName, commits, streakDays, depression, energy, maxEnergy, user } = useGameState();
   const { shareText, haptic } = useTelegram();
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const canvasRef = useRef(null);
-
-  const stats = {
-    rankName: rankName || 'Junior',
-    commits: commits || 0,
-    streakDays: streakDays || 0,
-    depression: Math.round(depression || 0),
-    energy: Math.round(energy || 0),
-    maxEnergy: maxEnergy || 100
-  };
+  const [format, setFormat] = useState('1:1');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const template = MEME_TEMPLATES[selectedIndex];
+  const imgSrc = `${API_BASE_URL}/api/meme?templateId=${template.id}&format=${format}`;
 
   useEffect(() => {
     if (open) {
       audioManager.duckForModal();
+      setLoading(true);
+      setError(false);
     } else {
       audioManager.resumeFromModal();
     }
-    return () => {
-      audioManager.resumeFromModal();
-    };
+    return () => audioManager.resumeFromModal();
   }, [open]);
 
   useEffect(() => {
-    if (open && canvasRef.current) {
-      drawMeme(canvasRef.current, template, stats);
+    if (open) {
+      setLoading(true);
+      setError(false);
     }
-  }, [open, selectedIndex, template, stats]);
+  }, [open, selectedIndex, format]);
 
-  const handleShare = useCallback(() => {
+  const handleImageLoad = useCallback(() => {
+    setLoading(false);
+    setError(false);
+  }, []);
+
+  const handleImageError = useCallback(() => {
+    setLoading(false);
+    setError(true);
+  }, []);
+
+  const handleShare = useCallback(async () => {
     haptic('success');
-    const text = `Coder Survival — ${template.label}\n` +
-      `${stats.rankName} | ${stats.commits} коммитов | ${stats.streakDays} дней подряд\n` +
-      `А ты сколько накодил? 👇`;
-    shareText(text);
-  }, [haptic, shareText, template, stats]);
-
-  const handleCopy = useCallback(async () => {
-    const text = `${template.topText}\n${template.bottomText}\n` +
-      `${stats.rankName} | ${stats.commits} коммитов | ${stats.streakDays} дней подряд`;
+    const url = `${API_BASE_URL}/api/meme?templateId=${template.id}&format=${format}`;
+    const text = `Coder Survival — ${template.label}\n${rankName || 'Junior'} | ${commits || 0} коммитов | ${streakDays || 0} дней подряд\nА ты сколько накодил? 👇`;
+    shareText(text + '\n' + url);
     try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      haptic('light');
-      setTimeout(() => setCopied(false), 1500);
-    } catch (_e) {
-      setCopied(false);
+      await apiRequest('/api/meme/share', {
+        method: 'POST',
+        body: { templateId: template.id, format, sharedTo: 'chat' }
+      });
+    } catch (e) {
+      // Non-blocking analytics
     }
-  }, [haptic, template, stats]);
+  }, [haptic, shareText, template, format, rankName, commits, streakDays]);
+
+  const handleDownload = useCallback(async () => {
+    haptic('light');
+    try {
+      const response = await fetch(imgSrc, {
+        headers: {
+          'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || ''
+        }
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `coder-survival-${template.id}-${format.replace(':', 'x')}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+      try {
+        await apiRequest('/api/meme/share', {
+          method: 'POST',
+          body: { templateId: template.id, format, sharedTo: 'download' }
+        });
+      } catch (e) {
+        // Non-blocking analytics
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      haptic('error');
+    }
+  }, [haptic, imgSrc, template, format]);
 
   if (!open) return null;
 
   return h('div', {
     onClick: onClose,
+    className: 'pixel-overlay',
     style: {
       position: 'absolute',
       inset: 0,
@@ -188,15 +124,13 @@ export default function MemeGenerator({ open, onClose }) {
     }
   }, h('div', {
     onClick: (e) => e.stopPropagation(),
+    className: 'pixel-panel',
     style: {
       width: 'min(420px, 100%)',
       maxHeight: '90vh',
       overflowY: 'auto',
       background: '#10192d',
-      border: '1px solid #274267',
-      borderRadius: '8px',
       color: '#e6edf7',
-      boxShadow: '0 18px 48px rgba(0, 0, 0, 0.35)',
       display: 'flex',
       flexDirection: 'column'
     }
@@ -211,20 +145,46 @@ export default function MemeGenerator({ open, onClose }) {
         borderBottom: '1px solid #1f3552'
       }
     }, [
-      h('strong', null, '🎨 Мемогенератор'),
+      h('strong', { className: 'pixel-text', style: { fontSize: '12px' } }, '🎨 МЕМОГЕНЕРАТОР'),
       h('button', {
         onClick: onClose,
+        className: 'pixel-button',
         style: {
           border: 'none',
           background: 'transparent',
           color: '#9eb6d2',
           fontSize: '18px',
           cursor: 'pointer',
-          padding: 0,
+          padding: '4px 8px',
           lineHeight: 1
         }
       }, '×')
     ]),
+
+    // Format toggle
+    h('div', {
+      style: {
+        display: 'flex',
+        gap: '6px',
+        padding: '10px 14px',
+        borderBottom: '1px solid #1f3552'
+      }
+    }, FORMATS.map(f => h('button', {
+      key: f.id,
+      onClick: () => { haptic('light'); setFormat(f.id); },
+      className: 'pixel-button',
+      style: {
+        flex: 1,
+        padding: '6px 0',
+        border: format === f.id ? `2px solid ${template.accentColor}` : '2px solid #1f3552',
+        background: format === f.id ? 'rgba(255,255,255,0.08)' : '#131d33',
+        color: format === f.id ? template.accentColor : '#9eb6d2',
+        fontSize: '11px',
+        cursor: 'pointer',
+        fontWeight: format === f.id ? 700 : 400,
+        textTransform: 'uppercase'
+      }
+    }, f.label))),
 
     // Template selector
     h('div', {
@@ -237,15 +197,12 @@ export default function MemeGenerator({ open, onClose }) {
       }
     }, MEME_TEMPLATES.map((t, i) => h('button', {
       key: t.id,
-      onClick: () => {
-        haptic('light');
-        setSelectedIndex(i);
-      },
+      onClick: () => { haptic('light'); setSelectedIndex(i); },
+      className: 'pixel-button',
       style: {
         flexShrink: 0,
         padding: '5px 10px',
-        borderRadius: '6px',
-        border: i === selectedIndex ? `1px solid ${t.accentColor}` : '1px solid #1f3552',
+        border: i === selectedIndex ? `2px solid ${t.accentColor}` : '2px solid #1f3552',
         background: i === selectedIndex ? 'rgba(255,255,255,0.08)' : '#131d33',
         color: i === selectedIndex ? t.accentColor : '#9eb6d2',
         fontSize: '11px',
@@ -255,25 +212,43 @@ export default function MemeGenerator({ open, onClose }) {
       }
     }, t.label))),
 
-    // Canvas preview
+    // Image preview
     h('div', {
       style: {
         padding: '14px',
         display: 'flex',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '200px'
       }
-    }, h('canvas', {
-      ref: canvasRef,
-      width: 400,
-      height: 400,
-      style: {
-        width: '100%',
-        maxWidth: '360px',
-        height: 'auto',
-        borderRadius: '6px',
-        border: '1px solid #1f3552'
-      }
-    })),
+    }, [
+      loading && h('div', {
+        className: 'pixel-text',
+        style: { color: '#9eb6d2', fontSize: '10px', animation: 'pulse 1.2s infinite' }
+      }, 'РЕНДЕРИНГ...'),
+      error && h('div', { style: { textAlign: 'center' } }, [
+        h('div', { className: 'pixel-text', style: { color: '#ef4444', fontSize: '10px', marginBottom: '8px' } }, 'ОШИБКА ЗАГРУЗКИ'),
+        h('button', {
+          onClick: () => { setError(false); setLoading(true); },
+          className: 'pixel-button',
+          style: { padding: '6px 12px', fontSize: '11px', color: '#e6edf7' }
+        }, 'ПОВТОРИТЬ')
+      ]),
+      h('img', {
+        src: imgSrc,
+        onLoad: handleImageLoad,
+        onError: handleImageError,
+        style: {
+          display: loading || error ? 'none' : 'block',
+          width: '100%',
+          maxWidth: format === '9:16' ? '260px' : '360px',
+          height: 'auto',
+          imageRendering: 'pixelated',
+          border: '2px solid #1f3552'
+        },
+        alt: `Meme ${template.label}`
+      })
+    ]),
 
     // Actions
     h('div', {
@@ -286,32 +261,33 @@ export default function MemeGenerator({ open, onClose }) {
     }, [
       h('button', {
         onClick: handleShare,
+        className: 'pixel-button',
         style: {
           flex: 1,
           padding: '10px 0',
-          borderRadius: '8px',
-          border: 'none',
           background: '#3b82f6',
           color: '#fff',
           fontWeight: 'bold',
-          fontSize: '13px',
-          cursor: 'pointer'
+          fontSize: '12px',
+          cursor: 'pointer',
+          textTransform: 'uppercase'
         }
       }, '📤 Поделиться'),
       h('button', {
-        onClick: handleCopy,
+        onClick: handleDownload,
+        className: 'pixel-button',
         style: {
           flex: 1,
           padding: '10px 0',
-          borderRadius: '8px',
-          border: '1px solid #30527e',
-          background: copied ? '#1a3f25' : '#131d33',
-          color: copied ? '#4ade80' : '#c7ddf5',
+          background: '#131d33',
+          color: '#c7ddf5',
           fontWeight: 'bold',
-          fontSize: '13px',
-          cursor: 'pointer'
+          fontSize: '12px',
+          cursor: 'pointer',
+          textTransform: 'uppercase',
+          border: '2px solid #30527e'
         }
-      }, copied ? '✓ Скопировано' : '📋 Копировать текст')
+      }, '⬇ Скачать')
     ]),
 
     // Stats hint
@@ -322,6 +298,6 @@ export default function MemeGenerator({ open, onClose }) {
         color: '#6b7f99',
         textAlign: 'center'
       }
-    }, 'Статистика подставляется из текущего прогресса')
+    }, `Статистика: ${rankName || 'Junior'} | ${commits || 0} коммитов | ${streakDays || 0} дней`)
   ]));
 }

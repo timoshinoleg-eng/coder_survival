@@ -34,6 +34,7 @@ import onboardingRouter from "./routes/onboarding.js";
 import streakRouter from "./routes/streak.js";
 import rewardedVideoRouter from "./routes/rewardedVideo.js";
 import teamHackathonRouter from "./routes/teamHackathon.js";
+import memeRouter from "./routes/meme.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -134,6 +135,7 @@ app.use("/api/skins", initDataMiddleware, skinsRouter);
 app.use("/api/onboarding", initDataMiddleware, onboardingRouter);
 app.use("/api/streak", initDataMiddleware, streakRouter);
 app.use("/api/rewarded-video", initDataMiddleware, rewardedVideoRouter);
+app.use("/api/meme", initDataMiddleware, memeRouter);
 
 // Error handler
 app.use(errorHandler);

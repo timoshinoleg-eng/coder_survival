@@ -22,13 +22,15 @@ import BattleCard from "./components/BattleCard.jsx";
 import ShareButton from "./components/ShareButton.jsx";
 import AudioToggle from "./components/AudioToggle.jsx";
 import CareerModal from "./components/CareerModal.jsx";
+import MemeGenerator from "./components/MemeGenerator.jsx";
 
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
-  const { loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast } = useGameState();
+  const { loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast, memePrompt, clearMemePrompt } = useGameState();
   const [onboardingDismissedThisSession, setOnboardingDismissedThisSession] =
     useState(false);
   const [randomEvent, setRandomEvent] = useState(null);
+  const [memeOpen, setMemeOpen] = useState(false);
 
   useEffect(() => {
     if (!audioManager.initialized) return;
@@ -68,6 +70,12 @@ function AppInner() {
     }
   }, []);
 
+  useEffect(() => {
+    if (memePrompt && !memeOpen) {
+      setMemeOpen(true);
+    }
+  }, [memePrompt]);
+
   const handleCloseOnboarding = ({ completed } = {}) => {
     if (!completed) {
       localStorage.setItem("cs_onboarding_skipped", String(Date.now()));
@@ -104,6 +112,13 @@ function AppInner() {
       onClose: handleCloseOnboarding,
     }),
     h(LevelUpModal),
+    h(MemeGenerator, {
+      open: memeOpen,
+      onClose: () => {
+        setMemeOpen(false);
+        clearMemePrompt?.();
+      },
+    }),
     h(ContextOfferBanner),
     h(EventBanner),
     h(CrunchTimeBanner),

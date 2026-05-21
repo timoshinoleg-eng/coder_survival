@@ -57,7 +57,7 @@ export default function StatsBar() {
   const [teamBattleOpen, setTeamBattleOpen] = useState(false);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const [adLoading, setAdLoading] = useState(false);
-  const { initData } = useTelegram();
+  const { initData, haptic } = useTelegram();
 
   const energyPercent =
     maxEnergy > 0 ? Math.round((energy / maxEnergy) * 100) : 0;
@@ -377,7 +377,7 @@ export default function StatsBar() {
                 h(
                   "button",
                   {
-                    onClick: () => setMemeOpen(true),
+                    onClick: () => { haptic('light'); setMemeOpen(true); },
                     className: "pixel-button",
                     style: {
                       background: "#122642",
