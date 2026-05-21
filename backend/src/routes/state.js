@@ -30,6 +30,7 @@ import {
 import { checkAchievement, ensureAchievementRows } from "../utils/achievements.js";
 import { isReferralActive } from "../utils/referral.js";
 import { STAGE3 } from "../config/balance.js";
+import { pruneExpiredEffects, getActiveEffects } from "../utils/activeEffects.js";
 
 const router = Router();
 
@@ -285,6 +286,18 @@ router.get("/", async (req, res, next) => {
         rankMeta.maxEnergy,
         userFeatureFlags,
       );
+
+      // Phase 6: prune expired active effects
+      const prunedEffects = pruneExpiredEffects(progression.active_effects || {});
+      if (JSON.stringify(prunedEffects) !== JSON.stringify(progression.active_effects || {})) {
+        await client.query(
+          `UPDATE progression SET active_effects = $2 WHERE user_id = $1`,
+          [user.id, JSON.stringify(prunedEffects)]
+        );
+      }
+      progression.active_effects = prunedEffects;
+      const activeEffects = getActiveEffects(prunedEffects);
+
       const idleRecovery = progression?._idleRecovery || null;
       const careerStory = await ensureCareerStoryUnlocked(
         client,
@@ -516,6 +529,7 @@ router.get("/", async (req, res, next) => {
         teamBattle,
         skins,
         achievements,
+        activeEffects,
         crunchTime,
         referralChain,
         careerStory,
