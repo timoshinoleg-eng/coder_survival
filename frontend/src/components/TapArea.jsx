@@ -250,7 +250,7 @@ export default function TapArea({ active }) {
         style: {
           height: '4px',
           width: '100%',
-          borderRadius: '999px',
+          borderRadius: '0',
           background: 'rgba(255,255,255,0.12)',
           overflow: 'hidden'
         }
@@ -267,7 +267,7 @@ export default function TapArea({ active }) {
         style: {
           height: '6px',
           width: '100%',
-          borderRadius: '999px',
+          borderRadius: '0',
           background: 'rgba(255,255,255,0.12)',
           overflow: 'hidden'
         }
@@ -291,7 +291,7 @@ export default function TapArea({ active }) {
         pointerEvents: 'auto',
         width: 'min(260px, 75vw)',
         height: 'min(260px, 75vw)',
-        borderRadius: '50%',
+        borderRadius: '0',
         opacity: isExhausted ? 0.6 : 1,
         background: isExhausted
           ? 'radial-gradient(circle at 40% 40%, #3a2a2a, #2a1a1a)'
@@ -302,7 +302,8 @@ export default function TapArea({ active }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '20px',
+        fontFamily: "'Press Start 2P', 'Courier New', monospace",
+        fontSize: '14px',
         color: isExhausted || isBurnout ? '#ffe4dc' : '#4ade80',
         cursor: isExhausted ? 'not-allowed' : 'pointer',
         position: 'relative',
