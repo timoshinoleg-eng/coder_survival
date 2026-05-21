@@ -293,7 +293,14 @@ autonomous: false
     PassPanel.jsx:
     - Добавить import Confetti from './Confetti.jsx';
     - Добавить локальный state [showConfetti, setShowConfetti] = useState(false);
-    - Добавить useEffect(() => { ... }, [pass.currentLevel]);
+    - Добавить const prevLevelRef = useRef(pass.currentLevel);
+    - Добавить useEffect(() => {
+        if (prevLevelRef.current !== pass.currentLevel && pass.currentLevel > prevLevelRef.current) {
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 1200);
+        }
+        prevLevelRef.current = pass.currentLevel;
+      }, [pass.currentLevel]);
     - Рендерить {showConfetti && <Confetti />} абсолютно позиционированным внутри панели.
     - Добавить <span> с XP-математикой: `${(pass.nextLevelXp || 0) - (pass.remainingXp || 0)} / ${pass.nextLevelXp || 0} XP`.
   </action>
@@ -385,7 +392,7 @@ autonomous: false
 </task>
 
 <task id="P01-W4-T3">
-  <type>tdd</type>
+  <type>smoke</type>
   <title>RED/GREEN: Написать smoke-тесты для защиты от регрессий tap-механики</title>
   <requirement>TECH-01, TECH-02, TECH-03, TECH-04</requirement>
   <read_first>
