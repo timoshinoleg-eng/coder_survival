@@ -1,5 +1,16 @@
 import Phaser from 'phaser';
 
+const codeSnippets = [
+  'git commit -m "fix"',
+  'console.log("debug")',
+  'npm install hope',
+  '/* TODO: sleep */',
+  'await coffee()',
+  'rm -rf node_modules',
+  'git push --force',
+  '// it works on my machine'
+];
+
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
@@ -123,6 +134,29 @@ export default class GameScene extends Phaser.Scene {
     if (strength >= 3) {
       this.sparkleParticles.emitParticleAt(cx, cy - 20, Phaser.Math.Between(3, 6));
     }
+
+    // Floating code line
+    const snippet = CODE_SNIPPETS[Phaser.Math.Between(0, CODE_SNIPPETS.length - 1)];
+    const codeText = this.add.text(
+      cx + Phaser.Math.Between(-60, 60),
+      cy - 20 + Phaser.Math.Between(-20, 20),
+      snippet,
+      {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#4ade80',
+        alpha: 0.9
+      }
+    ).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: codeText,
+      y: codeText.y - 50,
+      alpha: 0,
+      duration: 900,
+      ease: 'Power1',
+      onComplete: () => codeText.destroy()
+    });
 
     // Avatar reaction
     this.tweens.add({
