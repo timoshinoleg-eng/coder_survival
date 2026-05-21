@@ -22,6 +22,48 @@ function normalizeProtection(protection = {}) {
   };
 }
 
+export function calculateRecoveryCost(starSavesUsed) {
+  const base = STREAK.RECOVERY.starBaseCost;
+  const increment = STREAK.RECOVERY.starCostIncrement;
+  return base + (starSavesUsed * increment);
+}
+
+export function starRecover(streakState, todayDate, starsAvailable) {
+  const protection = normalizeProtection(streakState.protection);
+  const last = streakState.lastLoginDate || null;
+  const brokenStreak = Number(streakState.brokenStreak || 0);
+
+  if (!last || brokenStreak <= 0) {
+    return { success: false, reason: 'no_streak', newState: streakState, cost: 0 };
+  }
+
+  const missed = daysBetween(last, todayDate) - 1;
+  if (missed < 1) {
+    return { success: false, reason: 'not_broken', newState: streakState, cost: 0 };
+  }
+
+  const cost = calculateRecoveryCost(protection.starSavesUsed);
+  if (starsAvailable < cost) {
+    return { success: false, reason: 'not_enough_stars', newState: streakState, cost };
+  }
+
+  const nextProtection = {
+    ...protection,
+    starSavesUsed: protection.starSavesUsed + 1
+  };
+
+  const newState = {
+    ...streakState,
+    lastLoginDate: todayDate,
+    currentStreak: brokenStreak,
+    maxStreak: Math.max(Number(streakState.maxStreak || 0), brokenStreak),
+    protection: nextProtection,
+    brokenStreak: null
+  };
+
+  return { success: true, newState, cost };
+}
+
 export function processDailyLogin(streakState = {}, todayDate) {
   const last = streakState.lastLoginDate || null;
   const current = Number(streakState.currentStreak || 0);
@@ -115,7 +157,8 @@ export function processDailyLogin(streakState = {}, todayDate) {
       lastLoginDate: todayDate,
       currentStreak: 1,
       maxStreak: Number(streakState.maxStreak || 0),
-      protection
+      protection,
+      brokenStreak: current
     },
     rewards: { daily: STREAK.DAILY_REWARD, milestone: null },
     brokenStreak: current,
