@@ -32,7 +32,7 @@ progress:
 | 1 | Critical Fixes & Core Loop Polish | ✅ Complete | 4 | 100% |
 | 2 | Visual Foundation & Atmosphere | ✅ Complete | 4 | 100% |
 | 3 | Meme Engine MVP | ✅ Complete | 3 | 100% |
-| 4 | Daily Progression Overhaul | 🟡 Context Gathered | 3 | 0% |
+| 4 | Daily Progression Overhaul | 🟡 Plan Ready | 3 | 0% |
 | 5 | Streaks, Achievements & Social Seeds | 🔒 Planned | 5 | 0% |
 | 6 | Mini-Games Tier 1 (Early Levels) | 🔒 Planned | 2 | 0% |
 | 7 | Daily Battle & Referral Rewards | 🔒 Planned | 2 | 0% |
