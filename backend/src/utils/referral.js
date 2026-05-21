@@ -31,6 +31,21 @@ export function trackReferral(referralState, inviterId) {
   };
 }
 
+export function daysBetween(left, right) {
+  const start = new Date(`${left}T00:00:00.000Z`);
+  const end = new Date(`${right}T00:00:00.000Z`);
+  return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function isReferralActive(referredProgression) {
+  if (!referredProgression) return false;
+  const totalCommits = Number(referredProgression.commits_total || 0);
+  const firstActiveAt = referredProgression.first_active_at;
+  if (!firstActiveAt) return false;
+  const daysSinceFirstActive = Math.floor((Date.now() - new Date(firstActiveAt).getTime()) / (1000 * 60 * 60 * 24));
+  return totalCommits >= REFERRAL.ACTIVE_THRESHOLD_COMMITS && daysSinceFirstActive >= REFERRAL.ANTI_FARM_DAYS;
+}
+
 export function getUnlockedReferralMilestones(activeReferralCount, claimedMilestones = []) {
   const claimed = new Set(claimedMilestones.map(Number));
   return Object.entries(REFERRAL.MILESTONE_REWARDS)
@@ -38,8 +53,18 @@ export function getUnlockedReferralMilestones(activeReferralCount, claimedMilest
     .filter(({ milestone }) => activeReferralCount >= milestone && !claimed.has(milestone));
 }
 
-export function checkReferralMilestones(referralState, totalCommits) {
-  if (!referralState?.invitedBy || Number(totalCommits || 0) < REFERRAL.ACTIVE_THRESHOLD_COMMITS) {
+export function checkReferralMilestones(referralState, totalCommits, firstActiveAt, now = new Date()) {
+  if (!referralState?.invitedBy) {
+    return { state: referralState, newlyUnlocked: [] };
+  }
+
+  const commitsOk = Number(totalCommits || 0) >= REFERRAL.ACTIVE_THRESHOLD_COMMITS;
+  // If firstActiveAt is not provided (legacy call), default daysOk to true for backward compat
+  const daysOk = firstActiveAt
+    ? Math.floor((now.getTime() - new Date(firstActiveAt).getTime()) / (1000 * 60 * 60 * 24)) >= REFERRAL.ANTI_FARM_DAYS
+    : true;
+
+  if (!commitsOk || !daysOk) {
     return { state: referralState, newlyUnlocked: [] };
   }
 
