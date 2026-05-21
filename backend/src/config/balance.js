@@ -22,7 +22,7 @@ export const CONTEXT_OFFER_RULES = {
   high_stress: {
     priority: 3,
     cooldownMs: 3 * 60 * 60 * 1000,
-    depressionThreshold: 55,
+    depressionThreshold: 20,
     title: '🧠 Стресс режет отдачу',
     body: 'Сними напряжение, пока штраф к эффективности не съел прогресс.',
     productId: 'depression_cure',

@@ -223,7 +223,7 @@ router.get("/", async (req, res, next) => {
           telegramUser.first_name || null,
           telegramUser.last_name || null,
           telegramUser.photo_url || null,
-          JSON.stringify({ stress_v2: telegramUser.id % 100 < 50 }),
+          JSON.stringify({ stress_v2: true }),
         ],
       );
 
@@ -231,7 +231,7 @@ router.get("/", async (req, res, next) => {
 
       // Backfill A/B cohort for existing users who don't have feature_flags yet
       if (!user.feature_flags || Object.keys(user.feature_flags).length === 0) {
-        const computedFlags = { stress_v2: user.telegram_id % 100 < 50 };
+        const computedFlags = { stress_v2: true };
         const updateResult = await client.query(
           `UPDATE users
            SET feature_flags = $1::jsonb
