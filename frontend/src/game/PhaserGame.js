@@ -22,7 +22,8 @@ export default function PhaserGame({ onReady }) {
       parent: container,
       backgroundColor: '#1a1a2e',
       pixelArt: true,
-      roundPixels: false,
+      antialias: false,
+      roundPixels: true,
       scale: {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH

@@ -11,6 +11,7 @@ import ContextOfferBanner from "./components/ContextOfferBanner.jsx";
 import EventBanner from "./components/EventBanner.jsx";
 import CrunchTimeBanner from "./components/CrunchTimeBanner.jsx";
 import PhaserGame from "./game/PhaserGame.js";
+import LoadingOverlay from "./components/LoadingOverlay.jsx";
 import StreakCalendar from "./components/StreakCalendar.jsx";
 import DailyQuests from "./components/DailyQuests.jsx";
 import PassPanel from "./components/PassPanel.jsx";
