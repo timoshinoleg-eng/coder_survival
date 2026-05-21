@@ -67,6 +67,8 @@ export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.max
   return remainder === 0 && secondsPassed > 0 ? 0 : interval - remainder;
 }
 
+const MIN_RECOVERY_THRESHOLD_SECONDS = 300;
+
 export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy) {
   if (!progression) return progression;
 
@@ -81,7 +83,9 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
     interval = Math.max(1, Math.floor(interval / recoveryMultiplier));
   }
   const secondsPassed = Math.max(0, Math.floor((now.getTime() - checkpoint.getTime()) / 1000));
-  const energyRecovered = Math.floor(secondsPassed / interval);
+
+  const shouldRecoverEnergy = secondsPassed >= MIN_RECOVERY_THRESHOLD_SECONDS;
+  const energyRecovered = shouldRecoverEnergy ? Math.floor(secondsPassed / interval) : 0;
 
   const passiveDepressionDecay = Math.floor(
     (secondsPassed / 3600) * STRESS_V2.DEPRESSION_PASSIVE_DECAY_PER_HOUR
@@ -99,11 +103,17 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
          WHERE user_id = $1`,
         [progression.user_id, newDepression, isBurnout]
       );
-      return { ...progression, depression_level: newDepression, is_burnout: isBurnout };
+      return {
+        ...progression,
+        depression_level: newDepression,
+        is_burnout: isBurnout,
+        _idleRecovery: null
+      };
     }
     return {
       ...progression,
-      is_burnout: depression >= TAP_MECHANICS.maxDepression
+      is_burnout: depression >= TAP_MECHANICS.maxDepression,
+      _idleRecovery: null
     };
   }
 
@@ -113,7 +123,8 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
   if (actualRecovered <= 0) {
     return {
       ...progression,
-      is_burnout: depression >= TAP_MECHANICS.maxDepression
+      is_burnout: depression >= TAP_MECHANICS.maxDepression,
+      _idleRecovery: null
     };
   }
 
@@ -144,11 +155,16 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
     intervalSeconds: interval
   });
 
-  return result.rows[0] || {
-    ...progression,
-    energy: newEnergy,
-    depression_level: newDepression,
-    is_burnout: isBurnout,
-    energy_recovery_checkpoint_at: nextCheckpoint
+  const idleRecovery = { energy: actualRecovered, secondsIdle: secondsPassed };
+
+  return {
+    ...(result.rows[0] || {
+      ...progression,
+      energy: newEnergy,
+      depression_level: newDepression,
+      is_burnout: isBurnout,
+      energy_recovery_checkpoint_at: nextCheckpoint
+    }),
+    _idleRecovery: idleRecovery
   };
 }
