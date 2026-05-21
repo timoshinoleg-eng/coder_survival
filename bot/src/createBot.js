@@ -37,6 +37,7 @@ export function createBot() {
         '4. Соревнуйся с другими программистами.\n\n' +
         'Команды:\n' +
         '/start — открыть игру\n' +
+        '/meme — сгенерировать мем\n' +
         '/leaderboard — топ игроков\n' +
         '/help — помощь'
     );
@@ -66,6 +67,52 @@ export function createBot() {
     } catch (error) {
       console.error(error);
       await ctx.reply('Не удалось загрузить leaderboard. Попробуй позже.');
+    }
+  });
+
+  bot.command('meme', async (ctx) => {
+    const keyboard = new InlineKeyboard()
+      .text('Works on my machine', 'meme_template:works_on_my_machine')
+      .text('Deploy on Friday', 'meme_template:deploy_friday')
+      .row()
+      .text('This is fine', 'meme_template:this_is_fine')
+      .text('WTF/min', 'meme_template:wtf_per_minute')
+      .row()
+      .text('Stack Overflow', 'meme_template:stack_overflow');
+    await ctx.reply('Выбери шаблон мема:', { reply_markup: keyboard });
+  });
+
+  bot.callbackQuery(/^meme_template:(.+)$/, async (ctx) => {
+    const templateId = ctx.match[1];
+    const userId = ctx.from?.id;
+    if (!userId) {
+      await ctx.answerCallbackQuery('Не удалось определить пользователя');
+      return;
+    }
+    if (!BOT_BACKEND_SECRET) {
+      await ctx.answerCallbackQuery('Секрет бота не настроен');
+      return;
+    }
+
+    // Generate a short-lived signed token for public image access
+    try {
+      const tokenRes = await fetch(`${API_URL}/api/meme/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, templateId, format: '1:1' }),
+      });
+      if (!tokenRes.ok) throw new Error('Token request failed');
+      const { token } = await tokenRes.json();
+      const photoUrl = `${API_URL}/api/meme/public/${token}`;
+      const playKeyboard = new InlineKeyboard().webApp('Играть в Coder Survival', WEBAPP_URL);
+      await ctx.replyWithPhoto(photoUrl, {
+        caption: `Coder Survival — ${templateId.replace(/_/g, ' ')}\nА ты сколько накодил? 👇`,
+        reply_markup: playKeyboard,
+      });
+      await ctx.answerCallbackQuery();
+    } catch (err) {
+      console.error('Meme share error:', err);
+      await ctx.answerCallbackQuery('Не удалось сгенерировать мем. Попробуй позже.');
     }
   });
 

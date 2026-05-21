@@ -64,6 +64,7 @@ const DEFAULT_STATE = {
   critTier: null,
   inventory: {},
   showOnboarding: false,
+  memePrompt: null,
 };
 
 const GameContext = createContext(null);
@@ -254,6 +255,9 @@ export function GameProvider({ children }) {
           }
         : current.lastTapDelta,
       levelUp: levelUp ?? current.levelUp,
+      memePrompt: levelUp
+        ? { trigger: 'levelUp', rankName: newRankName }
+        : current.memePrompt,
       sessionId,
       loading: false,
       syncing: false,
@@ -795,6 +799,8 @@ export function GameProvider({ children }) {
         equippingSkinRef.current = false;
       }
     },
+    setMemePrompt: (prompt) => setState((current) => ({ ...current, memePrompt: prompt })),
+    clearMemePrompt: () => setState((current) => ({ ...current, memePrompt: null })),
     reset: loadState,
   };
 
