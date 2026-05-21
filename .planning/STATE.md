@@ -1,3 +1,17 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+last_updated: "2026-05-21T07:23:02.893Z"
+progress:
+  total_phases: 10
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
+---
+
 # Project State: Coder Survival
 
 **Reference:** See [PROJECT.md](./PROJECT.md) for the full project definition, core value, constraints, key decisions, and evolution rules.
