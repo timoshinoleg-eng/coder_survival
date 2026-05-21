@@ -46,8 +46,8 @@ test('quest generation returns exactly 5 quests and scales base targets', () => 
   assert.strictEqual(quests.find((quest) => quest.id === 'q_tap40').target, 65);
 });
 
-test('pass boundary: 99/100 XP plus 2 XP unlocks level 1 claimable reward', () => {
-  const result = addPassXp({ currentXp: 99, claimedLevels: [] }, 2);
+test('pass boundary: 199/200 XP plus 2 XP unlocks level 1 claimable reward', () => {
+  const result = addPassXp({ currentXp: 199, claimedLevels: [] }, 2);
   assert.strictEqual(result.newLevel, 1);
   assert.strictEqual(result.leveledUp, true);
   assert.strictEqual(getClaimableRewards(result.newState).length, 1);
