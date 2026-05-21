@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import EventManager from '../EventManager.js';
 
 const codeSnippets = [
   'git commit -m "fix"',
@@ -152,6 +153,10 @@ export default class GameScene extends Phaser.Scene {
     // Tremor shake timer
     this.tremorShakeTimer = null;
 
+    // EventManager
+    this.eventManager = new EventManager(this);
+    this.eventManager.start();
+
     // Listen for tap events from DOM
     this.game.events.on('tap', this.onTap, this);
     this.game.events.on('event_choice', this.onEventChoice, this);
@@ -266,6 +271,10 @@ export default class GameScene extends Phaser.Scene {
     // Screen shake intensity based on strength
     const shakeIntensity = Math.min(0.012, 0.004 + strength * 0.001);
     this.cameras.main.shake(120, shakeIntensity);
+  }
+
+  showRandomEvent(payload) {
+    this.game.events.emit('random_event', payload);
   }
 
   onEventChoice({ eventId, action, deltas }) {
