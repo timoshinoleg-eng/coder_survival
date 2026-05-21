@@ -643,6 +643,36 @@ export function GameProvider({ children }) {
     return payload;
   }, [loadState, refreshPass, telegram?.initData]);
 
+  const recoverStreak = useCallback(async () => {
+    const payload = await apiRequest("/api/streak/recover", {
+      method: "POST",
+      initData: telegram?.initData,
+      body: withTimezoneBody(),
+    });
+    setState((current) => ({
+      ...current,
+      streak: { ...current.streak, ...payload },
+      streakDays: Number(payload?.currentStreak ?? current.streakDays),
+    }));
+    await loadState().catch(() => null);
+    return payload;
+  }, [loadState, telegram?.initData]);
+
+  const refreshAchievements = useCallback(async () => {
+    const payload = await apiRequest("/api/achievements", {
+      initData: telegram?.initData,
+    });
+    setState((current) => ({ ...current, achievements: payload?.achievements || [] }));
+    return payload;
+  }, [telegram?.initData]);
+
+  const shareAchievement = useCallback(async (achievementId) => {
+    const payload = await apiRequest(`/api/meme/achievement?achievementId=${encodeURIComponent(achievementId)}`, {
+      initData: telegram?.initData,
+    });
+    return payload;
+  }, [telegram?.initData]);
+
   const completeRewardedVideo = useCallback(async () => {
     const payload = await apiRequest("/api/rewarded-video/complete", {
       method: "POST",
@@ -695,6 +725,9 @@ export function GameProvider({ children }) {
     refreshPass,
     refreshStreak,
     claimStreak,
+    recoverStreak,
+    refreshAchievements,
+    shareAchievement,
     refreshRewardedVideo,
     refreshTeamHackathon,
     refreshBattles,

@@ -202,10 +202,13 @@ const STAGE2 = {
   STREAK: {
     DAILY_REWARD: { energy: 10, xp: 5, passXp: 5 },
     MILESTONES: {
-      3: { skinFragment: 'consistent_coder', energy: 20, xp: 10 },
-      7: { skin: 'week_warrior', energy: 50, xp: 25, passXp: 20, depressionRelief: 20 },
-      14: { skin: 'fortnight_hero', title: 'Unstoppable', energy: 100, xp: 50, passXp: 50 },
-      30: { skin: 'month_master', animation: 'golden_glow', energy: 200, xp: 100, stars: 50 }
+      7: { commitBoostPercent: 10, durationHours: 24, title: 'week_warrior' },
+      14: { skinFragment: 'midnight_office', title: 'office_dweller' },
+      30: { skin: 'retro_boombox' }
+    },
+    RECOVERY: {
+      starBaseCost: 5,
+      starCostIncrement: 5
     },
     PROTECTION: {
       freeSavesPerSeason: 1,
@@ -270,11 +273,12 @@ const STAGE3 = {
 
   REFERRAL: {
     MILESTONE_REWARDS: {
-      1: { inviter: { energy: 30, xp: 50 }, invited: { energy: 50, inventory: { starter_pack: 1 } } },
-      3: { inviter: { energy: 50, xp: 100, stars: 10 }, invited: { energy: 50, stars: 10 } },
-      5: { inviter: { energy: 100, xp: 200, stars: 25, skinFragment: 'recruiter' }, invited: { energy: 100, stars: 25 } }
+      1: { inviter: { commits: 50, energy: 25 }, invited: { commits: 100, inventory: { coffee_cups: 1 } } },
+      3: { inviter: { commits: 200, energy: 50, stars: 5 }, invited: { commits: 100, energy: 25 } },
+      5: { inviter: { skin: 'team_lead', energy: 100 }, invited: { commits: 100, stars: 5 } }
     },
     ACTIVE_THRESHOLD_COMMITS: 20,
+    ANTI_FARM_DAYS: 2,
     DEEP_LINK_PREFIX: 'ref_'
   },
 
