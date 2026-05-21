@@ -28,6 +28,8 @@ import {
   getReferralChain,
 } from "../utils/phase2State.js";
 import { checkAchievement, ensureAchievementRows } from "../utils/achievements.js";
+import { isReferralActive } from "../utils/referral.js";
+import { STAGE3 } from "../config/balance.js";
 
 const router = Router();
 
@@ -385,6 +387,30 @@ router.get("/", async (req, res, next) => {
       const crunchTime = await getActiveCrunchTime(client);
       const referralChain = await getReferralChain(client, user.id);
       const isBurnout = Number(progression.depression_level ?? 0) >= 100;
+      if (isBurnout) {
+        await checkAchievement(client, user.id, 'burnout');
+      }
+
+      // Phase 5: Auto-grant invited referral reward when anti-farm threshold reached
+      const referralState = progression.referral_state || {};
+      if (referralState.invitedBy && !referralState.invitedRewardGranted) {
+        if (isReferralActive(progression)) {
+          const invitedReward = STAGE3.REFERRAL.MILESTONE_REWARDS[1]?.invited || {};
+          await client.query(
+            `UPDATE progression
+             SET commits_total = commits_total + $2,
+                 inventory = COALESCE(inventory, '{}'::jsonb) || $3::jsonb,
+                 referral_state = COALESCE(referral_state, '{}'::jsonb) || '{"invitedRewardGranted": true}'::jsonb
+             WHERE user_id = $1`,
+            [
+              user.id,
+              invitedReward.commits || 0,
+              JSON.stringify(invitedReward.inventory || {})
+            ]
+          );
+        }
+      }
+
       const recoveryIntervalSeconds = getEffectiveRecoveryIntervalSeconds(progression);
       const recoveryEtaSeconds = getRecoveryEtaSeconds(
         progression,

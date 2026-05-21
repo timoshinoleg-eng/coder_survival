@@ -16,6 +16,7 @@ import MemeGenerator from "./MemeGenerator.jsx";
 import SkinPanel from "./SkinPanel.jsx";
 import MiniGameDebug from "./MiniGameDebug.jsx";
 import AudioSettings from "./AudioSettings.jsx";
+import AchievementsPanel from "./AchievementsPanel.jsx";
 
 export default function StatsBar() {
   const {
@@ -42,6 +43,7 @@ export default function StatsBar() {
     featureFlags,
     user,
     drinkCoffee,
+    achievements,
   } = useGameState();
 
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -55,9 +57,32 @@ export default function StatsBar() {
   const [skinOpen, setSkinOpen] = useState(false);
   const [miniGameOpen, setMiniGameOpen] = useState(false);
   const [teamBattleOpen, setTeamBattleOpen] = useState(false);
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const [adLoading, setAdLoading] = useState(false);
   const { initData, haptic } = useTelegram();
+
+  const unseenAchievementsCount = useMemo(() => {
+    if (!achievements || achievements.length === 0) return 0;
+    let seen;
+    try {
+      seen = new Set(JSON.parse(localStorage.getItem('cs_seen_achievements') || '[]'));
+    } catch {
+      seen = new Set();
+    }
+    return achievements.filter((a) => a.completed && !seen.has(a.id)).length;
+  }, [achievements]);
+
+  useEffect(() => {
+    if (achievementsOpen && achievements && achievements.length > 0) {
+      const completedIds = achievements.filter((a) => a.completed).map((a) => a.id);
+      try {
+        localStorage.setItem('cs_seen_achievements', JSON.stringify(completedIds));
+      } catch {
+        // Ignore storage errors
+      }
+    }
+  }, [achievementsOpen, achievements]);
 
   const energyPercent =
     maxEnergy > 0 ? Math.round((energy / maxEnergy) * 100) : 0;
@@ -340,6 +365,39 @@ export default function StatsBar() {
                     },
                   },
                   "🎯",
+                ),
+                h(
+                  "button",
+                  {
+                    onClick: () => setAchievementsOpen(true),
+                    className: "pixel-button",
+                    style: {
+                      background: "#122642",
+                      position: "relative",
+                    },
+                  },
+                  [
+                    "🎖️",
+                    unseenAchievementsCount > 0 && h('span', {
+                      key: 'badge',
+                      style: {
+                        position: 'absolute',
+                        top: '-4px',
+                        right: '-4px',
+                        minWidth: '16px',
+                        height: '16px',
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        color: '#fff',
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0 3px',
+                      },
+                    }, unseenAchievementsCount),
+                  ]
                 ),
                 h(
                   "button",
@@ -806,6 +864,10 @@ export default function StatsBar() {
       h(SkinPanel, {
         open: skinOpen,
         onClose: () => setSkinOpen(false),
+      }),
+      h(AchievementsPanel, {
+        open: achievementsOpen,
+        onClose: () => setAchievementsOpen(false),
       }),
       featureFlags?.minigameEnabled === true &&
         h(MiniGameDebug, {

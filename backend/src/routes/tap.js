@@ -209,7 +209,7 @@ router.post('/', async (req, res) => {
 
     await updateTeamProgress(client, userId, tapResult.commitsDelta);
 
-    await checkAchievement(client, userId, 'tap');
+    await checkAchievement(client, userId, 'tap', { isCrit: tapResult.isCrit });
     await checkAchievement(client, userId, 'commit_total');
     if (levelAfter.record.resolved.rank > levelBefore.resolved.rank) {
       await checkAchievement(client, userId, 'rank_up', { rank: levelAfter.record.resolved.rank });
