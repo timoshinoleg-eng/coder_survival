@@ -2,7 +2,7 @@
 
 **Executed:** 2026-05-20
 **Tasks completed:** 14 / 14
-**Commits made:** 15
+**Commits made:** 16
 
 ---
 
@@ -107,9 +107,10 @@
 ---
 
 ## Issues Encountered
-1. **No local PostgreSQL available** — Docker Desktop is not running and `psql`/`pg_isready` are not installed. All DB-dependent integration tests fail with `AggregateError` from `pg-pool`. Unit/oracle tests (stage3, stage4) pass. The pre-existing `stage2.oracles.test.js` failure (`addPassXp` 99/100 boundary) is unrelated to Phase 1.
-2. **Case-sensitivity bug in GameScene.js** — The committed `onTap()` code referenced `CODE_SNIPPETS` (uppercase) while the module-level constant was declared as `codeSnippets` (lowercase). This was caught during review and fixed in a follow-up commit.
-3. **Smoke test antiCheat interference** — The initial smoke test for rate limits sent 30 sequential taps, which triggered the in-memory antiCheat pattern detector. Fixed by lowering the `RATE_LIMIT_MAX_TAPS_PER_SECOND` env var to 2 and using only 5 parallel requests, staying safely below the `MIN_TAPS_FOR_ANALYSIS = 10` threshold.
+1. **No local PostgreSQL available** — Docker Desktop is not running and `psql`/`pg_isready` are not installed. All DB-dependent integration tests (phase1.*) are skipped with `AggregateError` from `pg-pool`. Unit/oracle tests (stage2, stage3, stage4) pass.
+2. **Case-sensitivity bug in GameScene.js** — The committed `onTap()` code referenced `CODE_SNIPPETS` (uppercase) while the module-level constant was declared as `codeSnippets` (lowercase). Caught during review and fixed in follow-up commit `160003c`.
+3. **Smoke test antiCheat interference** — The initial smoke test for rate limits sent 30 sequential taps, which triggered the in-memory antiCheat pattern detector. Fixed by lowering `RATE_LIMIT_MAX_TAPS_PER_SECOND` to 2 and using only 5 parallel requests, staying below `MIN_TAPS_FOR_ANALYSIS = 10`.
+4. **Pre-existing stage2 oracle regression** — `stage2.oracles.test.js` had a stale boundary test (`99/100 XP`) that assumed level 1 requires 100 XP, but the current `PASS.LEVELS` config requires 200 XP. Fixed in commit `c58ad30` by updating the test to `199/200 XP`.
 
 ---
 
