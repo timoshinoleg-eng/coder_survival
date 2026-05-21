@@ -136,7 +136,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Floating code line
-    const snippet = CODE_SNIPPETS[Phaser.Math.Between(0, CODE_SNIPPETS.length - 1)];
+    const snippet = codeSnippets[Phaser.Math.Between(0, codeSnippets.length - 1)];
     const codeText = this.add.text(
       cx + Phaser.Math.Between(-60, 60),
       cy - 20 + Phaser.Math.Between(-20, 20),

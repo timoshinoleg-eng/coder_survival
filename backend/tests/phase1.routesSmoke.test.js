@@ -37,6 +37,13 @@ describeIfDb("phase 1 regression smoke", () => {
     );
     const userId = userResult.rows[0].id;
 
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    await testPool.query(
+      `INSERT INTO daily_login_claims (user_id, last_claimed_date, streak_days) VALUES ($1, $2, 1)`,
+      [userId, today]
+    );
+
     await testPool.query(
       `INSERT INTO progression (user_id, energy, depression_level, commits_total) VALUES ($1, 100, 0, 0)`,
       [userId]
@@ -55,6 +62,9 @@ describeIfDb("phase 1 regression smoke", () => {
   });
 
   test("POST /api/tap respects rate limits", async () => {
+    const originalLimit = process.env.RATE_LIMIT_MAX_TAPS_PER_SECOND;
+    process.env.RATE_LIMIT_MAX_TAPS_PER_SECOND = "2";
+
     const telegramId = 900000021;
     const initData = createInitData(telegramId, { username: "rate_limit_smoke" });
 
@@ -64,23 +74,34 @@ describeIfDb("phase 1 regression smoke", () => {
     );
     const userId = userResult.rows[0].id;
 
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    await testPool.query(
+      `INSERT INTO daily_login_claims (user_id, last_claimed_date, streak_days) VALUES ($1, $2, 1)`,
+      [userId, today]
+    );
+
     await testPool.query(
       `INSERT INTO progression (user_id, energy, depression_level) VALUES ($1, 100, 0)`,
       [userId]
     );
 
-    const responses = [];
-    for (let i = 0; i < 30; i++) {
-      const res = await server.request("/api/tap", {
+    const requests = Array.from({ length: 5 }, () =>
+      server.request("/api/tap", {
         method: "POST",
         headers: { "X-Telegram-Init-Data": initData },
         body: {},
-      });
-      responses.push(res);
-    }
+      })
+    );
 
+    const responses = await Promise.all(requests);
+    const successes = responses.filter((r) => r.status === 200);
     const rateLimited = responses.filter((r) => r.status === 429);
-    expect(rateLimited.length).toBeGreaterThan(0);
+
+    expect(successes.length).toBeGreaterThanOrEqual(1);
+    expect(rateLimited.length).toBeGreaterThanOrEqual(1);
+
+    process.env.RATE_LIMIT_MAX_TAPS_PER_SECOND = originalLimit;
   });
 
   test("GET /api/state returns updated progression after tap", async () => {
