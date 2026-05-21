@@ -656,9 +656,30 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
+  const applyEventDeltas = useCallback((deltas) => {
+    setState((current) => {
+      const nextEnergy = Math.min(
+        current.maxEnergy || 100,
+        Math.max(0, (current.energy || 0) + (deltas.energyDelta || 0))
+      );
+      const nextDepression = Math.min(
+        100,
+        Math.max(0, (current.depression || 0) + (deltas.depressionDelta || 0))
+      );
+      const nextCommits = Math.max(0, (current.commits || 0) + (deltas.commitsDelta || 0));
+      return {
+        ...current,
+        energy: nextEnergy,
+        depression: nextDepression,
+        commits: nextCommits,
+      };
+    });
+  }, []);
+
   const value = {
     ...state,
     tap,
+    applyEventDeltas,
     clearLevelUp,
     showToast,
     setShopOpen,

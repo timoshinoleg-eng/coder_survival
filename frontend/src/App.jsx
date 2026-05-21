@@ -12,6 +12,7 @@ import EventBanner from "./components/EventBanner.jsx";
 import CrunchTimeBanner from "./components/CrunchTimeBanner.jsx";
 import PhaserGame from "./game/PhaserGame.js";
 import LoadingOverlay from "./components/LoadingOverlay.jsx";
+import RandomEventToast from "./components/RandomEventToast.jsx";
 import StreakCalendar from "./components/StreakCalendar.jsx";
 import DailyQuests from "./components/DailyQuests.jsx";
 import PassPanel from "./components/PassPanel.jsx";
@@ -24,9 +25,10 @@ import CareerModal from "./components/CareerModal.jsx";
 
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
-  const { loading, rank, crunchTime, showOnboarding, battles } = useGameState();
+  const { loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast } = useGameState();
   const [onboardingDismissedThisSession, setOnboardingDismissedThisSession] =
     useState(false);
+  const [randomEvent, setRandomEvent] = useState(null);
 
   useEffect(() => {
     if (!audioManager.initialized) return;
@@ -38,6 +40,21 @@ function AppInner() {
       audioManager.switchZoneBGM("main");
     }
   }, [rank, crunchTime?.active]);
+
+  useEffect(() => {
+    const game = window.__PHASER_GAME__;
+    if (!game) return;
+
+    const handler = (payload) => {
+      setRandomEvent(payload);
+    };
+    game.events.on('random_event', handler);
+    return () => {
+      game.events.off('random_event', handler);
+    };
+  }, []);
+
+  // Deferred backend sync after event: next tap or natural polling will sync state
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -90,6 +107,24 @@ function AppInner() {
     h(ContextOfferBanner),
     h(EventBanner),
     h(CrunchTimeBanner),
+    h(RandomEventToast, {
+      event: randomEvent,
+      onChoice: (eventId, action, deltas) => {
+        window.__PHASER_GAME__?.events.emit('event_choice', { eventId, action, deltas });
+        applyEventDeltas(deltas);
+        const sign = (val) => (val > 0 ? `+${val}` : `${val}`);
+        const parts = [];
+        if (deltas.commitsDelta) parts.push(`${sign(deltas.commitsDelta)} коммитов`);
+        if (deltas.energyDelta) parts.push(`${sign(deltas.energyDelta)} энергии`);
+        if (deltas.depressionDelta) parts.push(`${sign(deltas.depressionDelta)} стресса`);
+        showToast(
+          action === 'solve' ? `Решено: ${parts.join(', ')}` : `Игнорировано: ${parts.join(', ')}`,
+          action === 'solve' ? 'success' : 'info',
+          2000
+        );
+        setRandomEvent(null);
+      },
+    }),
   );
 }
 
