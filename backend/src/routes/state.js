@@ -278,6 +278,7 @@ router.get("/", async (req, res, next) => {
         rankMeta.maxEnergy,
         userFeatureFlags,
       );
+      const idleRecovery = progression?._idleRecovery || null;
       const careerStory = await ensureCareerStoryUnlocked(
         client,
         user.id,
@@ -474,6 +475,7 @@ router.get("/", async (req, res, next) => {
         referralChain,
         careerStory,
         isBurnout,
+        idleRecovery,
       });
     } catch (err) {
       await client.query("ROLLBACK");
