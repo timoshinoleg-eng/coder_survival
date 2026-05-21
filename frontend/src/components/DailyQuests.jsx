@@ -19,28 +19,28 @@ function questTitle(quest) {
   const titles = {
     q_login: 'Открыть рабочий день',
     q_tap40: 'Разогнать IDE',
+    q_tap50: 'Разогнать IDE',
     q_coffee: 'Кофейный спринт',
     q_bugfix: 'Поймать крит',
     q_commit50: 'Закрыть задачу',
+    q_commit100: 'Закрыть задачу',
     q_review: 'Заглянуть на ревью',
     q_night30: 'Вечерний рывок',
     q_share: 'Поделиться прогрессом',
+    q_bonus_tap: 'Бонус: тапы',
+    q_bonus_crit: 'Бонус: крит',
+    q_bonus_commit: 'Бонус: коммиты',
   };
   return titles[quest.id] || quest.id;
 }
 
-function windowLabel(quest) {
-  if (quest.windowStart === '09:00') return 'Утренний';
-  if (quest.windowStart === '12:00') return 'Дневной';
-  if (quest.windowStart === '18:00') return 'Вечерний';
-  return 'Весь день';
-}
-
-export default function DailyQuests() {
+export default function DailyQuests({ modal = false, open = true, onClose }) {
   const { daily, quests, claimQuests, claimFullClear, refreshQuests } = useGameState();
   const [claiming, setClaiming] = useState(false);
   const [openingChest, setOpeningChest] = useState(false);
   const list = quests || daily?.quests || [];
+
+  if (modal && !open) return null;
 
   async function handleClaim() {
     if (claiming) return;
@@ -65,7 +65,8 @@ export default function DailyQuests() {
     }, 3000);
   }
 
-  return h('section', {
+  const content = h('section', {
+    className: modal ? '' : 'pixel-panel',
     style: {
       padding: '10px 12px',
       display: 'flex',
@@ -85,7 +86,7 @@ export default function DailyQuests() {
         alignItems: 'center',
       },
     }, [
-      h('strong', { style: { fontSize: '13px' } }, 'Дневные квесты'),
+      h('strong', { className: 'pixel-text', style: { fontSize: '13px' } }, 'Дневные квесты'),
       h('span', { style: { color: '#8ba1bb', fontSize: '11px' } },
         `${daily?.completed || list.filter((quest) => quest.completed).length}/${list.length || 5}`
       ),
@@ -93,24 +94,26 @@ export default function DailyQuests() {
     list.map((quest) => {
       const progress = quest.target > 0 ? Math.round((quest.progress / quest.target) * 100) : 0;
       const claimable = quest.completed && !quest.claimed;
+      const isBonus = quest.isBonus === true;
       return h('div', {
         key: quest.id,
+        className: isBonus ? 'pixel-panel' : '',
         style: {
-          border: quest.isEvent ? '1px solid #facc15' : claimable ? '1px solid #facc15' : quest.claimed ? '1px solid #2d5a3e' : '1px solid #30527e',
+          border: isBonus ? '1px solid #facc15' : quest.isEvent ? '1px solid #facc15' : claimable ? '1px solid #facc15' : quest.claimed ? '1px solid #2d5a3e' : '1px solid #30527e',
           borderRadius: '8px',
-          background: quest.isEvent ? '#2b210d' : quest.claimed ? '#101a24' : '#121d33',
+          background: isBonus ? '#2b210d' : quest.isEvent ? '#2b210d' : quest.claimed ? '#101a24' : '#121d33',
           opacity: quest.claimed ? 0.65 : 1,
           padding: '10px',
           animation: claimable ? 'questGoldPulse 1.6s infinite' : 'none',
         },
       }, [
         h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '10px' } }, [
-            h('div', null, [
-              h('div', { style: { fontWeight: 700, fontSize: '12px' } }, questTitle(quest)),
+          h('div', null, [
+            h('div', { style: { fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' } }, [
+              questTitle(quest),
+              isBonus && h('span', { style: { fontSize: '10px', color: '#facc15', fontWeight: 800 } }, '⭐ Бонус'),
+            ]),
             h('div', { style: { color: '#8ba1bb', fontSize: '11px', marginTop: '2px' } }, rewardText(quest.reward)),
-            h('div', { style: { color: '#60a5fa', fontSize: '10px', marginTop: '3px' } },
-              quest.windowStart ? `${windowLabel(quest)} · ${quest.windowStart}-${quest.windowEnd}` : windowLabel(quest)
-            ),
           ]),
           h('span', {
             style: {
@@ -140,6 +143,7 @@ export default function DailyQuests() {
     }),
     list.some((quest) => quest.completed && !quest.claimed) && h('button', {
       type: 'button',
+      className: 'pixel-button',
       onClick: handleClaim,
       disabled: claiming,
       style: {
@@ -153,6 +157,7 @@ export default function DailyQuests() {
     }, claiming ? 'Забираем...' : 'Забрать награды'),
     daily?.fullClearAvailable && h('button', {
       type: 'button',
+      className: 'pixel-button',
       onClick: handleFullClear,
       disabled: openingChest,
       style: {
@@ -166,4 +171,58 @@ export default function DailyQuests() {
       },
     }, openingChest ? '🎁 Открываем сундук...' : '🎁 Full Clear бонус'),
   ]);
+
+  if (!modal) return content;
+
+  return h('div', {
+    onClick: onClose,
+    style: {
+      position: 'absolute',
+      inset: 0,
+      zIndex: 40,
+      background: 'rgba(7, 12, 24, 0.78)',
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      padding: '16px 12px',
+    },
+  }, h('div', {
+    onClick: (e) => e.stopPropagation(),
+    style: {
+      width: 'min(420px, 100%)',
+      maxHeight: '70vh',
+      overflowY: 'auto',
+      background: '#10192d',
+      border: '1px solid #274267',
+      borderRadius: '8px',
+      color: '#e6edf7',
+      boxShadow: '0 18px 48px rgba(0, 0, 0, 0.35)',
+    },
+  }, [
+    onClose && h('div', {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 14px',
+        borderBottom: '1px solid #1f3552',
+      },
+    }, [
+      h('strong', { className: 'pixel-text' }, 'Дневные квесты'),
+      h('button', {
+        onClick: onClose,
+        className: 'pixel-button',
+        style: {
+          border: 'none',
+          background: 'transparent',
+          color: '#9eb6d2',
+          fontSize: '18px',
+          cursor: 'pointer',
+          padding: 0,
+          lineHeight: 1,
+        },
+      }, '×'),
+    ]),
+    content,
+  ]));
 }

@@ -32,34 +32,24 @@ export function generateDailyQuests(userId, dateString, rankTier = 1) {
     expiresAt: null
   }));
 
-  const morning = {
-    ...cloneQuest(selectFromPool(DAILY_QUEST.POOLS.MORNING, seed, 0)),
+  const bonusTemplate = selectFromPool(DAILY_QUEST.POOLS.BONUS, seed, 0);
+  const bonus = {
+    ...cloneQuest(bonusTemplate),
+    isBonus: true,
+    target: bonusTemplate.target * 2 + rankTier * 5,
+    reward: Object.fromEntries(
+      Object.entries(bonusTemplate.reward).map(([key, value]) => [
+        key,
+        typeof value === 'number' ? value * 2 : value
+      ])
+    ),
     progress: 0,
     completed: false,
     claimed: false,
-    windowStart: '09:00',
-    windowEnd: '12:00'
+    expiresAt: null
   };
 
-  const afternoon = {
-    ...cloneQuest(selectFromPool(DAILY_QUEST.POOLS.AFTERNOON, seed, 6)),
-    progress: 0,
-    completed: false,
-    claimed: false,
-    windowStart: '12:00',
-    windowEnd: '18:00'
-  };
-
-  const evening = {
-    ...cloneQuest(selectFromPool(DAILY_QUEST.POOLS.EVENING, seed, 4)),
-    progress: 0,
-    completed: false,
-    claimed: false,
-    windowStart: '18:00',
-    windowEnd: '23:59'
-  };
-
-  return [...base, morning, afternoon, evening];
+  return [...base, bonus];
 }
 
 export function checkQuestProgress(quests, eventType, eventValue) {
@@ -127,7 +117,7 @@ export function applyQuestUpdates(quests, updates) {
 export function isFullClearAvailable(quests, fullClearClaimed) {
   if (!Array.isArray(quests) || fullClearClaimed) return false;
   const baseQuests = quests.filter((quest) => quest.isEvent !== true);
-  return baseQuests.length === 5 && baseQuests.every((quest) => quest.completed);
+  return baseQuests.length === 4 && baseQuests.every((quest) => quest.completed);
 }
 
 export function rollLootBox(drops, rng = Math.random) {

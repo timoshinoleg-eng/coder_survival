@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
 import { useTelegram } from '../hooks/useTelegram.js';
@@ -8,9 +8,15 @@ import { formatRewardPayload } from '../utils/rewardFormatting.js';
 
 export default function SprintPassPanel({ open, onClose }) {
   const { initData } = useTelegram();
-  const { pass, showToast, reset } = useGameState();
+  const { pass, showToast, reset, refreshPass } = useGameState();
   const [claiming, setClaiming] = useState(null);
   const [unlockingPremium, setUnlockingPremium] = useState(false);
+  const [xpSources, setXpSources] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    apiRequest('/api/pass/xp-sources', { initData }).then(setXpSources).catch(() => null);
+  }, [open, initData]);
 
   if (!open) return null;
 
@@ -66,7 +72,7 @@ export default function SprintPassPanel({ open, onClose }) {
       });
       if (payload?.success) {
         showToast('Награда получена!', 'success', 2000);
-        window.location.reload();
+        await refreshPass();
       }
     } catch (err) {
       showToast(err?.message || 'Не удалось забрать награду', 'error', 2000);
@@ -172,6 +178,16 @@ export default function SprintPassPanel({ open, onClose }) {
           }
         }, unlockingPremium ? '...' : 'Купить Premium')
       ])
+    ]),
+
+    xpSources && h('div', { style: { padding: '8px 14px', fontSize: '11px', color: '#8ba1bb' } }, [
+      h('div', { style: { fontWeight: 700, marginBottom: '4px', color: '#c7ddf5' } }, 'Источники XP пасса'),
+      h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+        Object.entries(xpSources).map(([source, amount]) => {
+          const labels = { quest: 'Квесты', minigame: 'Мини-игры', social: 'Соц.', tap: 'Тапы', other: 'Другое' };
+          return h('span', { key: source, style: { background: '#131d33', padding: '3px 8px', borderRadius: '4px', border: '1px solid #1f3552' } }, `${labels[source] || source}: ${amount}`);
+        })
+      )
     ]),
 
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 14px' } },

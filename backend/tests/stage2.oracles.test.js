@@ -8,7 +8,7 @@ test('Oracle 1: quest determinism', () => {
   const q1 = generateDailyQuests('test_user', '2026-05-10', 1);
   const q2 = generateDailyQuests('test_user', '2026-05-10', 1);
   assert.deepStrictEqual(q1.map((quest) => quest.id), q2.map((quest) => quest.id));
-  assert.deepStrictEqual(q1.map((quest) => quest.id), ['q_login', 'q_tap40', 'q_coffee', 'q_commit50', 'q_night30']);
+  assert.deepStrictEqual(q1.map((quest) => quest.id), ['q_login', 'q_tap50', 'q_commit100', 'q_bonus_crit']);
 });
 
 test('Oracle 2: pass XP conservation', () => {
@@ -40,10 +40,10 @@ test('Oracle 4: loot box weights are stable under deterministic RNG sweep', () =
   assert(counts.stars_5 > 500 && counts.stars_5 < 1500);
 });
 
-test('quest generation returns exactly 5 quests and scales base targets', () => {
+test('quest generation returns exactly 4 quests and scales base targets', () => {
   const quests = generateDailyQuests('user_42', '2026-05-10', 5);
-  assert.strictEqual(quests.length, 5);
-  assert.strictEqual(quests.find((quest) => quest.id === 'q_tap40').target, 65);
+  assert.strictEqual(quests.length, 4);
+  assert.strictEqual(quests.find((quest) => quest.id === 'q_tap50').target, 75);
 });
 
 test('pass boundary: 199/200 XP plus 2 XP unlocks level 1 claimable reward', () => {

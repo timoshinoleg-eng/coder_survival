@@ -59,7 +59,7 @@
 
 ---
 
-## Phase 4: Daily Progression Overhaul
+## Phase 4: Daily Progression Overhaul ✅ Complete
 
 **Goal:** Make daily engagement rewarding through auto-tracked quests and a friction-free Battle Pass.  
 **Mode:** mvp  
@@ -69,10 +69,10 @@
 - PROG-01, PROG-05, PROG-06
 
 ### Success Criteria
-1. 3 daily quests + 1 bonus quest auto-track and complete without manual refresh.
-2. Daily chest unlocks when all 4 quests are finished; reward is granted automatically.
-3. Battle Pass shows 20 levels with a free track only; first 3 levels are front-loaded for quick wins.
-4. XP breakdown is visible to the player: quests 60%, mini-games 20%, social actions 20%.
+1. ✅ 3 daily quests + 1 bonus quest auto-track and complete without manual refresh.
+2. ✅ Daily chest unlocks when all 4 quests are finished; reward is granted automatically.
+3. ✅ Battle Pass shows 20 levels with a free track only; first 3 levels are front-loaded for quick wins.
+4. ✅ XP breakdown is visible to the player: quests 60%, mini-games 20%, social actions 20%.
 
 ---
 

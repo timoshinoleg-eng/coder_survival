@@ -6,7 +6,7 @@ import { adsManager } from "../utils/AdsManager.js";
 import LeaderboardPanel from "./LeaderboardPanel.jsx";
 import ShopPanel from "./ShopPanel.jsx";
 import ReferralPanel from "./ReferralPanel.jsx";
-import DailyQuestsPanel from "./DailyQuestsPanel.jsx";
+import DailyQuests from "./DailyQuests.jsx";
 import DailyBattlePanel from "./DailyBattlePanel.jsx";
 import EventPanel from "./EventPanel.jsx";
 import SprintPassPanel from "./SprintPassPanel.jsx";
@@ -769,7 +769,8 @@ export default function StatsBar() {
         open: leaderboardOpen,
         onClose: () => setLeaderboardOpen(false),
       }),
-      h(DailyQuestsPanel, {
+      h(DailyQuests, {
+        modal: true,
         open: questsOpen,
         onClose: () => setQuestsOpen(false),
       }),

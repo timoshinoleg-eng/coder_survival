@@ -60,7 +60,7 @@ test('Oracle 6: invalid energy recovery multipliers are ignored', () => {
 });
 
 test('Oracle 7: full clear ignores optional event quest', () => {
-  const baseQuests = Array.from({ length: 5 }, (_, index) => ({
+  const baseQuests = Array.from({ length: 4 }, (_, index) => ({
     id: `q_${index}`,
     completed: true,
     claimed: false
@@ -72,5 +72,5 @@ test('Oracle 7: full clear ignores optional event quest', () => {
     claimed: false
   };
   expect(isFullClearAvailable([...baseQuests, eventQuest], false)).toBe(true);
-  expect(isFullClearAvailable([...baseQuests.slice(0, 4), { id: 'q_4', completed: false }, eventQuest], false)).toBe(false);
+  expect(isFullClearAvailable([...baseQuests.slice(0, 3), { id: 'q_3', completed: false }, eventQuest], false)).toBe(false);
 });
