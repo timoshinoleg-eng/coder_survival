@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals";
 import {
   generateDailyQuests,
   checkQuestProgress,
@@ -111,6 +112,34 @@ describe("phase4 daily progression overhaul", () => {
 
       await expect(logPassXp(client, 1, 2, "tap", 1)).resolves.toBeNull();
       expect(calls.some((sql) => sql.startsWith("INSERT INTO pass_xp_log"))).toBe(false);
+    });
+
+    test("logPassXp rolls back failed attribution insert to keep outer transaction usable", async () => {
+      const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+      const calls = [];
+      const client = {
+        async query(sql) {
+          calls.push(sql);
+          if (sql.includes("to_regclass")) {
+            return { rows: [{ table_name: "pass_xp_log" }] };
+          }
+          if (sql.startsWith("INSERT INTO pass_xp_log")) {
+            const error = new Error("insert or update on table pass_xp_log violates foreign key constraint");
+            error.code = "23503";
+            throw error;
+          }
+          return { rows: [] };
+        },
+      };
+
+      try {
+        await expect(logPassXp(client, 1, 2, "tap", 1)).resolves.toBeNull();
+        expect(calls).toContain("SAVEPOINT pass_xp_log_optional");
+        expect(calls).toContain("ROLLBACK TO SAVEPOINT pass_xp_log_optional");
+        expect(calls).toContain("RELEASE SAVEPOINT pass_xp_log_optional");
+      } finally {
+        consoleError.mockRestore();
+      }
     });
   });
 
