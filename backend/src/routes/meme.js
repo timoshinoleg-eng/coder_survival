@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { renderMeme, MEME_TEMPLATE_IDS } from '../utils/memeRenderer.js';
+import { renderMeme, renderAchievementMeme, MEME_TEMPLATE_IDS } from '../utils/memeRenderer.js';
 import { signMemeToken, verifyMemeToken } from '../utils/memeToken.js';
 import { recordMemeShare } from '../utils/memeAnalytics.js';
 import { memeRateLimit } from '../middleware/memeRateLimit.js';
 import { getActivePass } from '../utils/pass.js';
 import { logPassXp } from '../utils/passXpLog.js';
+import { checkAchievement } from '../utils/achievements.js';
 
 const router = Router();
 
@@ -66,6 +67,56 @@ async function fetchUserStats(client, telegramId) {
     maxEnergy: 100, // Will be resolved from rankMeta if needed; 100 is safe default
   };
 }
+
+// GET /api/meme/achievement?achievementId=xxx
+router.get('/achievement', memeRateLimit, async (req, res, next) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) {
+    return res.status(401).json({ error: 'No user in initData' });
+  }
+
+  const achievementId = req.query.achievementId;
+  if (!achievementId) {
+    return res.status(400).json({ error: 'Missing achievementId' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const achievementResult = await client.query(
+      `SELECT achievement_id, name, description, target_value, reward_payload
+       FROM achievements WHERE achievement_id = $1`,
+      [achievementId]
+    );
+    if (achievementResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Achievement not found' });
+    }
+
+    const userResult = await client.query(
+      `SELECT id, username FROM users WHERE telegram_id = $1`,
+      [telegramUser.id]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userId = userResult.rows[0].id;
+    const stats = await fetchUserStats(client, telegramUser.id);
+    if (!stats) {
+      return res.status(404).json({ error: 'User stats not found' });
+    }
+
+    const pngBuffer = await renderAchievementMeme(achievementResult.rows[0], stats);
+
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=300');
+    res.set('X-Meme-Type', 'achievement');
+    res.send(pngBuffer);
+  } catch (err) {
+    next(err);
+  } finally {
+    client.release();
+  }
+});
 
 // GET /api/meme?templateId=...&format=1:1|9:16
 router.get('/', memeRateLimit, async (req, res, next) => {
@@ -134,6 +185,7 @@ router.post('/share', memeRateLimit, async (req, res, next) => {
     }
     const userId = userResult.rows[0].id;
     await recordMemeShare(client, userId, templateId, format || '1:1', sharedTo);
+    await checkAchievement(client, userId, 'meme_share');
 
     const activePass = await getActivePass(client);
     if (activePass) {

@@ -18,7 +18,7 @@ export async function ensureAchievementRows(client, userId) {
  *
  * @param {pg.Client} client
  * @param {number} userId
- * @param {string} triggerType — 'tap', 'commit_total', 'rank_up', 'night_session'
+ * @param {string} triggerType — 'tap', 'commit_total', 'rank_up', 'night_session', 'burnout', 'use_item', 'meme_share', 'referral', 'random_event'
  * @param {object} payload — context data
  * @returns {Promise<Array>} — list of newly completed achievement IDs
  */
@@ -46,6 +46,29 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
       );
       if (tapResult.rows[0]?.completed && tapResult.rows[0]?.completed_at) {
         completedAchievements.push('tap_master');
+      }
+
+      // bug_hunter: 100 crit taps
+      if (payload.isCrit) {
+        const bugResult = await client.query(
+          `UPDATE user_achievements
+           SET progress_value = progress_value + 1,
+               completed = (progress_value + 1) >= (
+                 SELECT target_value FROM achievements WHERE achievement_id = 'bug_hunter'
+               ),
+               completed_at = CASE
+                 WHEN completed THEN completed_at
+                 WHEN (progress_value + 1) >= (SELECT target_value FROM achievements WHERE achievement_id = 'bug_hunter')
+                 THEN NOW()
+                 ELSE completed_at
+               END
+           WHERE user_id = $1 AND achievement_id = 'bug_hunter' AND completed = FALSE
+           RETURNING completed, completed_at`,
+          [userId]
+        );
+        if (bugResult.rows[0]?.completed && bugResult.rows[0]?.completed_at) {
+          completedAchievements.push('bug_hunter');
+        }
       }
       break;
     }
@@ -127,23 +150,152 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
       }
       break;
     }
+
+    case 'burnout': {
+      // burnout_first: reach depression >= 100 once
+      const burnoutResult = await client.query(
+        `UPDATE user_achievements
+         SET progress_value = 1,
+             completed = TRUE,
+             completed_at = COALESCE(completed_at, NOW())
+         WHERE user_id = $1 AND achievement_id = 'burnout_first' AND completed = FALSE
+         RETURNING completed, completed_at`,
+        [userId]
+      );
+      if (burnoutResult.rows[0]?.completed) {
+        completedAchievements.push('burnout_first');
+      }
+      break;
+    }
+
+    case 'use_item': {
+      // coffee_addict: drink coffee 50 times
+      if (payload.itemId === 'coffee') {
+        const coffeeResult = await client.query(
+          `UPDATE user_achievements
+           SET progress_value = progress_value + 1,
+               completed = (progress_value + 1) >= (
+                 SELECT target_value FROM achievements WHERE achievement_id = 'coffee_addict'
+               ),
+               completed_at = CASE
+                 WHEN completed THEN completed_at
+                 WHEN (progress_value + 1) >= (SELECT target_value FROM achievements WHERE achievement_id = 'coffee_addict')
+                 THEN NOW()
+                 ELSE completed_at
+               END
+           WHERE user_id = $1 AND achievement_id = 'coffee_addict' AND completed = FALSE
+           RETURNING completed, completed_at`,
+          [userId]
+        );
+        if (coffeeResult.rows[0]?.completed && coffeeResult.rows[0]?.completed_at) {
+          completedAchievements.push('coffee_addict');
+        }
+      }
+      break;
+    }
+
+    case 'meme_share': {
+      // meme_lord: share meme 10 times
+      const memeResult = await client.query(
+        `UPDATE user_achievements
+         SET progress_value = progress_value + 1,
+             completed = (progress_value + 1) >= (
+               SELECT target_value FROM achievements WHERE achievement_id = 'meme_lord'
+             ),
+             completed_at = CASE
+               WHEN completed THEN completed_at
+               WHEN (progress_value + 1) >= (SELECT target_value FROM achievements WHERE achievement_id = 'meme_lord')
+               THEN NOW()
+               ELSE completed_at
+             END
+         WHERE user_id = $1 AND achievement_id = 'meme_lord' AND completed = FALSE
+         RETURNING completed, completed_at`,
+        [userId]
+      );
+      if (memeResult.rows[0]?.completed && memeResult.rows[0]?.completed_at) {
+        completedAchievements.push('meme_lord');
+      }
+      break;
+    }
+
+    case 'referral': {
+      // referral_god: refer 5 active users
+      const referralResult = await client.query(
+        `UPDATE user_achievements
+         SET progress_value = (
+           SELECT COUNT(*)::int FROM referrals WHERE referrer_id = $1
+         ),
+             completed = (
+               SELECT COUNT(*)::int FROM referrals WHERE referrer_id = $1
+             ) >= (SELECT target_value FROM achievements WHERE achievement_id = 'referral_god'),
+             completed_at = CASE
+               WHEN completed THEN completed_at
+               WHEN (
+                 SELECT COUNT(*)::int FROM referrals WHERE referrer_id = $1
+               ) >= (SELECT target_value FROM achievements WHERE achievement_id = 'referral_god')
+               THEN NOW()
+               ELSE completed_at
+             END
+         WHERE user_id = $1 AND achievement_id = 'referral_god' AND completed = FALSE
+         RETURNING completed, completed_at`,
+        [userId]
+      );
+      if (referralResult.rows[0]?.completed && referralResult.rows[0]?.completed_at) {
+        completedAchievements.push('referral_god');
+      }
+      break;
+    }
+
+    case 'random_event': {
+      // prod_survivor: prod_down event 10 times
+      if (payload.eventId === 'prod_down') {
+        const prodResult = await client.query(
+          `UPDATE user_achievements
+           SET progress_value = progress_value + 1,
+               completed = (progress_value + 1) >= (
+                 SELECT target_value FROM achievements WHERE achievement_id = 'prod_survivor'
+               ),
+               completed_at = CASE
+                 WHEN completed THEN completed_at
+                 WHEN (progress_value + 1) >= (SELECT target_value FROM achievements WHERE achievement_id = 'prod_survivor')
+                 THEN NOW()
+                 ELSE completed_at
+               END
+           WHERE user_id = $1 AND achievement_id = 'prod_survivor' AND completed = FALSE
+           RETURNING completed, completed_at`,
+          [userId]
+        );
+        if (prodResult.rows[0]?.completed && prodResult.rows[0]?.completed_at) {
+          completedAchievements.push('prod_survivor');
+        }
+      }
+      break;
+    }
   }
 
-  // Unlock skins for completed achievements
+  // Unlock rewards for completed achievements
   for (const achievementId of completedAchievements) {
-    const skinResult = await client.query(
-      `SELECT reward_payload->>'skinId' as skin_id
-       FROM achievements
-       WHERE achievement_id = $1`,
+    const rewardResult = await client.query(
+      `SELECT reward_payload FROM achievements WHERE achievement_id = $1`,
       [achievementId]
     );
-    const skinId = skinResult.rows[0]?.skin_id;
-    if (skinId) {
+    const reward = rewardResult.rows[0]?.reward_payload || {};
+
+    if (reward.skinId) {
       await client.query(
         `INSERT INTO user_skins (user_id, skin_id)
          VALUES ($1, $2)
          ON CONFLICT (user_id, skin_id) DO NOTHING`,
-        [userId, skinId]
+        [userId, reward.skinId]
+      );
+    }
+
+    if (reward.title) {
+      await client.query(
+        `UPDATE progression
+         SET inventory = COALESCE(inventory, '{}'::jsonb) || jsonb_build_object('title_' || $2, 1)
+         WHERE user_id = $1`,
+        [userId, reward.title]
       );
     }
   }

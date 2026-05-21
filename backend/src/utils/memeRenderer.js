@@ -146,6 +146,107 @@ export async function renderMeme(templateId, format, stats) {
   return canvas.encode('png');
 }
 
+export async function renderAchievementMeme(achievement, stats) {
+  const width = 400;
+  const height = 400;
+
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, height);
+  grad.addColorStop(0, '#1a3a5c');
+  grad.addColorStop(1, '#0f1b30');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+
+  // Pixel shadow
+  drawPixelShadow(ctx, 4, 4, width - 12, height - 12, 'rgba(0,0,0,0.35)', 4);
+
+  // Pixel border (gold for achievement)
+  drawPixelBorder(ctx, 4, 4, width - 8, height - 8, '#facc15', 2);
+
+  const pad = 20;
+  const contentW = width - pad * 2;
+
+  // Title: Achievement unlocked
+  const titleFontSize = 22;
+  ctx.font = `bold ${titleFontSize}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#facc15';
+  drawTextShadow(ctx, '🏆 Достижение разблокировано', width / 2, pad + titleFontSize, contentW);
+  ctx.fillText('🏆 Достижение разблокировано', width / 2, pad + titleFontSize, contentW);
+
+  // Achievement name
+  const nameFontSize = 28;
+  const nameY = pad + titleFontSize + 32;
+  ctx.font = `bold ${nameFontSize}px sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  drawTextShadow(ctx, achievement.name, width / 2, nameY, contentW);
+  ctx.fillText(achievement.name, width / 2, nameY, contentW);
+
+  // Divider
+  const dividerY = nameY + 20;
+  ctx.strokeStyle = '#facc15';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(pad + 20, dividerY);
+  ctx.lineTo(width - pad - 20, dividerY);
+  ctx.stroke();
+
+  // Description
+  const descFontSize = 16;
+  const descY = dividerY + 28;
+  ctx.font = `${descFontSize}px sans-serif`;
+  ctx.fillStyle = '#e6edf7';
+  ctx.fillText(achievement.description, width / 2, descY, contentW);
+
+  // Stats block
+  const statsY = descY + 36;
+  const lineHeight = 24;
+  const statsFontSize = 16;
+  ctx.font = `bold ${statsFontSize}px sans-serif`;
+  ctx.fillStyle = '#e6edf7';
+
+  const lines = [
+    `${stats.rankName || 'Junior'} | ${stats.commits || 0} коммитов`,
+    `Дней подряд: ${stats.streakDays || 0}`,
+    `Стресс: ${Math.round(stats.depression || 0)}%`,
+  ];
+
+  lines.forEach((line, i) => {
+    ctx.fillText(line, width / 2, statsY + i * lineHeight, contentW);
+  });
+
+  // Funny quote
+  const quotes = [
+    'Это пойдёт в резюме.',
+    'Мама будет гордиться.',
+    'Теперь ты легенда.',
+    'GitHub recruiters incoming...',
+    'Наконец-то смысл жизни найден.'
+  ];
+  const quote = quotes[Math.floor(Math.random() * quotes.length)];
+  const quoteY = height - pad - 40;
+  ctx.font = 'bold 18px sans-serif';
+  ctx.fillStyle = '#facc15';
+  drawTextShadow(ctx, `"${quote}"`, width / 2, quoteY, contentW);
+  ctx.fillText(`"${quote}"`, width / 2, quoteY, contentW);
+
+  // Watermark
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('Coder Survival', width - pad, height - pad);
+
+  if (stats.username) {
+    ctx.textAlign = 'left';
+    ctx.fillText(`@${stats.username}`, pad, height - pad);
+  }
+
+  return canvas.encode('png');
+}
+
 export function getTemplateLabel(templateId) {
   return TEMPLATES[templateId]?.label || templateId;
 }
