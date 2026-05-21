@@ -190,9 +190,13 @@ async function ensureReferralFromStartParam(
       [referrerId],
     );
 
-    const activePass = await getActivePass(client);
-    if (activePass) {
-      await logPassXp(client, referrerId, activePass.id, 'social', 25, { referredId: referredUserId, action: 'referral_bind' });
+    try {
+      const activePass = await getActivePass(client);
+      if (activePass) {
+        await logPassXp(client, referrerId, activePass.id, 'social', 25, { referredId: referredUserId, action: 'referral_bind' });
+      }
+    } catch (_passLogErr) {
+      console.error('[State] pass XP log failed (swallowed):', _passLogErr?.message || _passLogErr);
     }
   }
 }
