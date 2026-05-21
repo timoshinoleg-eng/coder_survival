@@ -1,6 +1,7 @@
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import Confetti from './Confetti.jsx';
 
 function iconForReward(reward) {
   if (!reward) return '·';
@@ -13,9 +14,23 @@ function iconForReward(reward) {
 export default function PassPanel() {
   const { pass, refreshPass } = useGameState();
   const [open, setOpen] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const prevLevelRef = useRef(null);
   const levels = pass?.levels || [];
   const currentLevel = Number(pass?.currentLevel || 0);
   const progress = Math.max(0, Math.min(100, Math.round((pass?.progressToNext || 0) * 100)));
+  const nextLevelXp = pass?.nextLevelXp || 0;
+  const remainingXp = pass?.remainingXp || 0;
+  const currentLevelXp = nextLevelXp > 0 ? nextLevelXp - remainingXp : 0;
+
+  useEffect(() => {
+    if (prevLevelRef.current !== null && currentLevel > prevLevelRef.current) {
+      setShowConfetti(true);
+      const t = setTimeout(() => setShowConfetti(false), 1200);
+      return () => clearTimeout(t);
+    }
+    prevLevelRef.current = currentLevel;
+  }, [currentLevel]);
 
   return h('section', {
     style: {
@@ -25,8 +40,10 @@ export default function PassPanel() {
       background: '#10192d',
       color: '#e6edf7',
       overflow: 'hidden',
+      position: 'relative',
     },
   }, [
+    showConfetti && h(Confetti),
     h('style', null, '@keyframes passPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 16px rgba(250,204,21,.45); } }'),
     h('button', {
       type: 'button',
@@ -49,6 +66,19 @@ export default function PassPanel() {
     }, [
       h('span', null, `Sprint Pass · ${currentLevel}/20`),
       h('span', { style: { color: '#8ba1bb', fontSize: '12px' } }, `${pass?.daysRemaining ?? 0} дн.`),
+    ]),
+    h('div', {
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '4px 12px 8px',
+        fontSize: '11px',
+        color: '#8ba1bb',
+      }
+    }, [
+      h('span', null, `${currentLevelXp} / ${nextLevelXp} XP`),
+      h('span', null, `${progress}%`),
     ]),
     h('div', { style: { height: '6px', background: '#0f3460' } },
       h('div', {
