@@ -96,6 +96,24 @@ describe("phase4 daily progression overhaul", () => {
     });
   });
 
+  describe("pass XP logging migration drift", () => {
+    test("logPassXp skips attribution without inserting when pass_xp_log table is missing", async () => {
+      const calls = [];
+      const client = {
+        async query(sql) {
+          calls.push(sql);
+          if (sql.includes("to_regclass")) {
+            return { rows: [{ table_name: null }] };
+          }
+          return { rows: [] };
+        },
+      };
+
+      await expect(logPassXp(client, 1, 2, "tap", 1)).resolves.toBeNull();
+      expect(calls.some((sql) => sql.startsWith("INSERT INTO pass_xp_log"))).toBe(false);
+    });
+  });
+
   describeIfDb("pass XP logging", () => {
     beforeAll(async () => {
       await ensureTestSchema();
@@ -174,4 +192,5 @@ describe("phase4 daily progression overhaul", () => {
       expect(levels).toContain(3);
     });
   });
+
 });
