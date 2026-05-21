@@ -1,8 +1,8 @@
-# Session Handoff: Phase 4 Verified → Phase 5 Execution Ready
+# Session Handoff: Phase 5 & 6 Complete → Phase 7 Ready
 
-**Date:** 2026-05-21  
-**From:** Session executing verify-work 4 + discuss-phase 5 + plan-phase 5  
-**To:** Next session (Phase 5 execution)
+**Date:** 2026-05-22  
+**From:** Session executing Phase 5 + Phase 6  
+**To:** Next session (Phase 7 planning or verify-work 6)
 
 ---
 
@@ -11,25 +11,36 @@
 ```bash
 # Current branch: main
 # Status: clean (nothing to commit)
-# Ahead of origin/main: 53 commits
-# Last commit: 73b09cf plan(05): Phase 5 PLAN.md
+# Ahead of origin/main: 63 commits
+# Last commit: d302e99 docs(06): update STATE.md + Phase 6 planning artifacts
 ```
 
-**Commits by Phase 5 prep:**
-- `2f09858` — docs(05): Phase 5 context gathered
-- `73b09cf` — plan(05): Phase 5 PLAN.md
+**Commits by Phase:**
+- Phase 5: `a45d9a8` `da5cbfd` `e9835d6` `57f7078` `2538e4a`
+- Phase 6: `c695b80` `f387cef` `07e10fa` `d302e99`
 
 ---
 
-## 2. Phase 5 Completion Summary (Planned)
+## 2. Phase Completion Summary
+
+### Phase 5: Streaks, Achievements & Social Seeds ✅
 
 | Requirement | Status | Key Work |
 |-------------|--------|----------|
-| PROG-03 Streaks (7/14/30) | 📋 Planned | W1: Update milestones, add recovery |
-| PROG-04 Streak recovery | 📋 Planned | W1: POST /api/streak/recover, escalating cost |
-| PROG-07 Achievements (≥10) | 📋 Planned | W2: 6 new achievements, panel, "Позориться" |
-| SOCL-06 Referral tiered | 📋 Planned | W3: +50/+200/Team Lead skin |
-| SOCL-07 Anti-farm | 📋 Planned | W3: 2 days + 20 commits |
+| PROG-03 Streaks (7/14/30) | ✅ Complete | Milestones updated, rewards rebalanced |
+| PROG-04 Streak recovery | ✅ Complete | POST /api/streak/recover, 5 Stars base, escalating cost |
+| PROG-07 Achievements (≥10) | ✅ Complete | 6 new achievements, AchievementsPanel, "Позориться" meme share |
+| SOCL-06 Referral tiered | ✅ Complete | +50/+200/Team Lead skin rewards |
+| SOCL-07 Anti-farm | ✅ Complete | 2 days + 20 commits gate, auto-grant invited reward |
+
+### Phase 6: Mini-Games Tier 1 ✅
+
+| Requirement | Status | Key Work |
+|-------------|--------|----------|
+| MINI-01 Hello World QTE | ✅ Complete | 5 keys / 3 sec, level 2+, 4h cooldown, +50 commits, −10 depression |
+| MINI-02 Code Review | ✅ Complete | 3 bugs / 15 sec, level 4+, 6h cooldown, +100 commits, −20 depression, +10% tap boost |
+| Mini-game launcher | ✅ Complete | MiniGameLauncher panel with cooldown timers and level locks |
+| Active effects system | ✅ Complete | JSONB `active_effects`, tap boost integration, prune expired on state load |
 
 ---
 
@@ -42,47 +53,53 @@
   - `NODE_TLS_REJECT_UNAUTHORIZED=0` in `.env`
   - Zero frontend/bot unit tests (only backend tests exist)
 - **TDD mode active** — commit pattern: `test(NN): RED` → `feat(NN): GREEN` → `refactor(NN):`
-- **SAVEPOINT fix** (commit 71110cc) — `passXpLog.js` uses savepoints for optional XP logging
+- **Migrations 024–028** exist but not yet applied to production
+- **`calculateTapDelta`** moved from `routes/tap.js` to `utils/tap.js` (Phase 6 refactor)
 
-### Files Created/Modified in Phase 5 Prep
-```
-.planning/phases/05-streaks-achievements-social-seeds/05-CONTEXT.md      # NEW
-.planning/phases/05-streaks-achievements-social-seeds/05-DISCUSSION-LOG.md # NEW
-.planning/phases/05-streaks-achievements-social-seeds/PLAN.md            # NEW
-.planning/STATE.md                                                       # UPDATED
-```
+### New Systems Introduced (Phase 6)
+- **`progression.minigame_state JSONB`** — cooldown tracking for mini-games
+- **`progression.active_effects JSONB`** — temporary buffs/debuffs (tap boost, future effects)
+- **`POST /api/minigame/start`** — level gate + cooldown check
+- **`POST /api/minigame/complete`** — score validation + reward application
+- **MiniGameLauncher** — game selection panel, scales to future mini-games
 
-### Key Decisions Locked (05-CONTEXT.md)
-- D-01: Streak milestones — strictly 7/14/30 (remove 3 and 21)
-- D-02: Recovery cost — 5 Stars base, escalating (+5 each time)
-- D-03: 10 achievements total (4 existing + 6 new)
-- D-04: Achievement share via existing meme renderer
-- D-05: Referral tiered — 1 friend +50, 3 friends +200, 5 friends Team Lead skin
-- D-06: Invited reward — +100 commits + 1 espresso (auto-granted)
-- D-07: Anti-farm — 2 days in game + 20 commits
+### Key Decisions Locked (06-CONTEXT.md)
+- React overlay pattern for Tier 1 (Phaser scenes deferred to Phase 8)
+- No Energy Sandbox for Tier 1 (small rewards, cooldown is primary gate)
+- `minigame_state` and `active_effects` stored in progression JSONB
+- No energy cost to play mini-games
 
 ---
 
-## 4. Phase 5 Readiness
+## 4. Phase 7 Readiness
+
+### Current Status
+| Phase | Name | Status |
+|-------|------|--------|
+| 1–4 | Foundation | ✅ Complete |
+| 5 | Streaks, Achievements & Social Seeds | ✅ Complete |
+| 6 | Mini-Games Tier 1 | ✅ Complete |
+| 7 | Daily Battle & Referral Rewards | 🔒 Planned |
+| 8 | Mini-Games Tier 2 & Team Features | 🔒 Planned |
 
 ### Prerequisites (all ✅)
-- [x] Phase 4 verified (11/11 UAT)
-- [x] 05-CONTEXT.md created
-- [x] PLAN.md created (4 waves, ~20 tasks)
+- [x] Phase 5 executed and committed
+- [x] Phase 6 executed and committed
 - [x] Working tree clean
-- [x] All non-DB tests green (41 passed, 0 failed)
+- [x] All tests green (77 passed, 31 skipped, 0 failed)
+- [x] Frontend build clean (0 errors)
 
 ### Recommended Next Steps
-1. **Read** `.planning/phases/05-streaks-achievements-social-seeds/PLAN.md`
-2. **Run** `/gsd:execute-phase 5` to start execution
-3. **Or manually:** Begin Wave 1 (streaks polish + recovery)
+1. **Optional:** `/gsd:verify-work 6` — retroactive UAT audit
+2. **Read** `.planning/ROADMAP.md` Phase 7 section
+3. **Run** `/gsd:discuss-phase 7` or `/gsd:plan-phase 7` to start planning
 
 ---
 
 ## 5. Known Environment Gaps
 
 | Gap | Impact | Workaround |
-|-----|--------|------------|
+|-----|--------|-----------|
 | No local PostgreSQL | DB tests skipped | Tests auto-skip; use Docker for integration testing |
 | No Docker Desktop | Can't run full DB suite | Install or use remote test DB |
 | `.env` not committed | New clones need setup | Copy from `.env.example` |
@@ -92,18 +109,18 @@
 ## 6. Quick Start Commands (Next Session)
 
 ```bash
-# Verify Phase 5 is ready
+# Verify current state
 cat .planning/STATE.md
 git log --oneline -5
 
 # Check tests still green
-cd backend && npm test          # Should show 41 passed, 31 skipped
-cd frontend && npm run build    # Should build in ~17s
+cd backend && npm test          # Should show 77 passed, 31 skipped
+cd frontend && npm run build    # Should build in ~20s
 
-# Start Phase 5 execution
-cat .planning/phases/05-streaks-achievements-social-seeds/PLAN.md
+# Start Phase 7 planning
+cat .planning/ROADMAP.md | grep -A 20 "Phase 7"
 ```
 
 ---
 
-*This handoff ensures zero context loss between sessions. Phase 5 is locked and loaded for execution.*
+*This handoff ensures zero context loss between sessions. Phases 5–6 are complete and committed. Phase 7 is ready for planning.*
