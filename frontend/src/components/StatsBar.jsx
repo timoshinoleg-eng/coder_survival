@@ -14,7 +14,7 @@ import TeamPanel from "./TeamPanel.jsx";
 import TeamBattle from "./TeamBattle.jsx";
 import MemeGenerator from "./MemeGenerator.jsx";
 import SkinPanel from "./SkinPanel.jsx";
-import MiniGameDebug from "./MiniGameDebug.jsx";
+import MiniGameLauncher from "./MiniGameLauncher.jsx";
 import AudioSettings from "./AudioSettings.jsx";
 import AchievementsPanel from "./AchievementsPanel.jsx";
 
@@ -870,7 +870,7 @@ export default function StatsBar() {
         onClose: () => setAchievementsOpen(false),
       }),
       featureFlags?.minigameEnabled === true &&
-        h(MiniGameDebug, {
+        h(MiniGameLauncher, {
           open: miniGameOpen,
           onClose: () => setMiniGameOpen(false),
         }),
