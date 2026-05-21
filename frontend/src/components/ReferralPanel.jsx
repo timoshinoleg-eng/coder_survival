@@ -26,22 +26,20 @@ export default function ReferralPanel({ open, onClose }) {
   });
 
   const loadData = useCallback(async () => {
-    const [statsPayload, linkPayload] = await Promise.all([
-      apiRequest("/api/referral/stats", { initData }),
-      apiRequest("/api/referral/link", { initData }),
-    ]);
+    const statusPayload = await apiRequest("/api/referral/status", { initData });
     setState((s) => ({
       ...s,
       loading: false,
-      referralCode:
-        statsPayload?.referralCode || linkPayload?.referralCode || "",
-      referralLink: linkPayload?.referralLink || "",
-      stats: statsPayload?.stats || {
-        total: 0,
-        active: 0,
-        nextMilestone: null,
-        milestones: [],
-        claimedMilestones: [],
+      referralCode: statusPayload?.referralCode || "",
+      referralLink: statusPayload?.referralLink || "",
+      stats: {
+        total: statusPayload?.total ?? 0,
+        active: statusPayload?.active ?? 0,
+        nextMilestone: statusPayload?.nextMilestone ?? null,
+        milestones: statusPayload?.milestones || [],
+        claimedMilestones: statusPayload?.milestones?.filter((m) => m.claimed).map((m) => m.milestone) || [],
+        referred: statusPayload?.referred || [],
+        antiFarmDays: statusPayload?.antiFarmDays || 2,
       },
       error: null,
     }));
@@ -112,15 +110,21 @@ export default function ReferralPanel({ open, onClose }) {
         claimSuccess: null,
       }));
       try {
-        const payload = await apiRequest("/api/referral/claim-milestone", {
+        const payload = await apiRequest("/api/referral/claim", {
           method: "POST",
           initData,
           body: { milestone },
         });
         if (payload?.success) {
+          const reward = payload.reward || {};
+          const parts = [];
+          if (reward.commits) parts.push(`+${reward.commits} коммитов`);
+          if (reward.energy) parts.push(`+${reward.energy} энергии`);
+          if (reward.stars) parts.push(`+${reward.stars} Stars`);
+          if (reward.skin) parts.push('скин Team Lead');
           setState((s) => ({
             ...s,
-            claimSuccess: `Получено +${payload.reward.energy} энергии!`,
+            claimSuccess: parts.join(' · ') || 'Награда получена!',
             claimLoading: null,
           }));
           await loadData();
@@ -252,6 +256,17 @@ export default function ReferralPanel({ open, onClose }) {
                           },
                         },
                         "Твоя реферальная ссылка",
+                      ),
+                      h(
+                        "div",
+                        {
+                          style: {
+                            fontSize: "11px",
+                            color: "#60a5fa",
+                            marginBottom: "6px",
+                          },
+                        },
+                        "Твой друг получит +100 коммитов и эспрессо, когда наберёт 20 коммитов за 2 дня",
                       ),
                       h(
                         "div",
@@ -390,6 +405,67 @@ export default function ReferralPanel({ open, onClose }) {
                       ),
                     ],
                   ),
+
+                  // Referred list with anti-farm status
+                  stats.referred && stats.referred.length > 0 &&
+                    h(
+                      "div",
+                      {
+                        style: {
+                          background: "#131d33",
+                          borderRadius: "8px",
+                          padding: "12px",
+                          border: "1px solid #1f3552",
+                          marginBottom: "10px",
+                        },
+                      },
+                      [
+                        h(
+                          "div",
+                          {
+                            style: {
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              marginBottom: "8px",
+                            },
+                          },
+                          "👥 Приглашённые",
+                        ),
+                        h(
+                          "div",
+                          {
+                            style: {
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "6px",
+                            },
+                          },
+                          stats.referred.map((r, i) =>
+                            h(
+                              "div",
+                              {
+                                key: i,
+                                style: {
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  padding: "6px 8px",
+                                  borderRadius: "6px",
+                                  background: r.isActive ? "#1a3f25" : "#0f1b30",
+                                  border: r.isActive ? "1px solid #2d5a3e" : "1px solid #1f3552",
+                                },
+                              },
+                              [
+                                h("span", { style: { fontSize: "12px", color: "#c7ddf5" } }, r.username || "Аноним"),
+                                h("span", { style: { fontSize: "11px", color: r.isActive ? "#4ade80" : "#8ba1bb" } },
+                                  r.isActive ? "✅ Активен" : r.antiFarmStatus || `${r.commitsTotal}/${stats.activeThresholdCommits || 20} коммитов`
+                                ),
+                              ]
+                            )
+                          )
+                        ),
+                      ]
+                    ),
 
                   // Milestones
                   stats.milestones.length > 0 &&

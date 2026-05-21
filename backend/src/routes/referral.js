@@ -3,6 +3,7 @@ import { pool } from '../index.js';
 import { REFERRAL_ACTIVE_THRESHOLD_COMMITS, REFERRAL_MILESTONE_REWARDS, STAGE3 } from '../config/balance.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
 import { getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
+import { checkAchievement } from '../utils/achievements.js';
 
 const router = Router();
 const REFERRAL_MILESTONES = Object.keys(REFERRAL_MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
@@ -138,12 +139,27 @@ router.get('/status', async (req, res, next) => {
       const activeResult = await client.query(
         `SELECT
            COUNT(*)::int AS total,
-           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2)::int AS active
+           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days')::int AS active
          FROM referrals r
          LEFT JOIN progression p ON p.user_id = r.referred_id
          WHERE r.referrer_id = $1`,
         [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
       );
+
+      const referredResult = await client.query(
+        `SELECT
+           u.username,
+           COALESCE(p.commits_total, 0)::int as commits_total,
+           p.first_active_at,
+           (COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days') as is_active
+         FROM referrals r
+         LEFT JOIN progression p ON p.user_id = r.referred_id
+         LEFT JOIN users u ON u.id = r.referred_id
+         WHERE r.referrer_id = $1
+         ORDER BY r.created_at DESC`,
+        [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
+      );
+
       const claimedResult = await client.query(
         `SELECT referral_state FROM progression WHERE user_id = $1`,
         [ensured.userId]
@@ -158,8 +174,16 @@ router.get('/status', async (req, res, next) => {
         referralCode: ensured.code,
         referralLink: `https://t.me/${getBotUsername()}?startapp=${ensured.code}`,
         activeThresholdCommits: STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS,
+        antiFarmDays: STAGE3.REFERRAL.ANTI_FARM_DAYS,
         total: Number(activeResult.rows[0]?.total || 0),
         active,
+        referred: referredResult.rows.map(r => ({
+          username: r.username,
+          commitsTotal: r.commits_total,
+          firstActiveAt: r.first_active_at,
+          isActive: r.is_active,
+          antiFarmStatus: `${Math.min(STAGE3.REFERRAL.ANTI_FARM_DAYS, Math.floor((Date.now() - new Date(r.first_active_at || Date.now()).getTime()) / (1000 * 60 * 60 * 24)))}/${STAGE3.REFERRAL.ANTI_FARM_DAYS} дней · ${r.commits_total}/${STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS} коммитов`
+        })),
         milestones: STAGE3_REFERRAL_MILESTONES.map((milestone) => ({
           milestone,
           reward: STAGE3.REFERRAL.MILESTONE_REWARDS[milestone],
@@ -229,6 +253,7 @@ router.post('/track', async (req, res, next) => {
         [invitedId, JSON.stringify(tracked.state)]
       );
 
+      await checkAchievement(client, inviterId, 'referral');
       await client.query('COMMIT');
       return res.json({ success: true, status: tracked.status });
     } catch (err) {
@@ -296,22 +321,28 @@ router.post('/claim', async (req, res, next) => {
         pendingRewards: (referralState.pendingRewards || []).filter((item) => Number(item.milestone) !== milestone)
       };
 
+      // Build inventory update
+      const inventoryUpdate = {};
+      if (reward.stars) inventoryUpdate.stars = reward.stars;
+      if (reward.skin) inventoryUpdate[`skin_${reward.skin}`] = 1;
+
       await client.query(
         `UPDATE progression
          SET referral_state = $2,
-             energy = LEAST(100, energy + $3),
-             inventory = inventory || $4::jsonb
+             energy = LEAST($3, energy + $4),
+             commits_total = commits_total + $5,
+             inventory = COALESCE(inventory, '{}'::jsonb) || $6::jsonb
          WHERE user_id = $1`,
         [
           userId,
           JSON.stringify(nextState),
+          100, // maxEnergy default; proper cap would need rankMeta but 100 is safe floor
           reward.energy || 0,
-          JSON.stringify({
-            stars: reward.stars || 0,
-            skin_fragments: reward.skinFragment ? { [reward.skinFragment]: 1 } : {}
-          })
+          reward.commits || 0,
+          JSON.stringify(inventoryUpdate)
         ]
       );
+
       if (reward.xp) {
         await client.query(
           `INSERT INTO player_levels (user_id, xp_total)
@@ -426,6 +457,10 @@ router.post('/', async (req, res, next) => {
                  WHERE referrer_id = $1 AND referred_id = $2`,
                 [referrerId, referredId]
               );
+
+        if (referralInsertResult.rows.length > 0) {
+          await checkAchievement(client, referrerId, 'referral');
+        }
 
         await client.query('COMMIT');
 
