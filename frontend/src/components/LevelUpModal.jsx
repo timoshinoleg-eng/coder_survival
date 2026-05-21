@@ -3,37 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
-
-function Confetti() {
-  const pieces = Array.from({ length: 18 }, (_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    delay: `${Math.random() * 0.4}s`,
-    color: ['#facc15', '#4ade80', '#60a5fa', '#c084fc', '#f87171'][Math.floor(Math.random() * 5)]
-  }));
-
-  return h('div', {
-    style: {
-      position: 'absolute',
-      inset: 0,
-      pointerEvents: 'none',
-      overflow: 'hidden',
-      zIndex: 0
-    }
-  }, pieces.map(p => h('div', {
-    key: p.id,
-    style: {
-      position: 'absolute',
-      top: '-10px',
-      left: p.left,
-      width: '6px',
-      height: '6px',
-      borderRadius: '50%',
-      background: p.color,
-      animation: `confetti-fall 1.2s ease-out ${p.delay} forwards`
-    }
-  })));
-}
+import Confetti from './Confetti.jsx';
 
 export default function LevelUpModal() {
   const { levelUp, clearLevelUp } = useGameState();
