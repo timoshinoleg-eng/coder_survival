@@ -1,0 +1,155 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+/* ── Pixel-art 16-bit theme for Coder Survival ── */
+
+/* Base */
+.pixel-font {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+}
+
+/* Panels */
+.pixel-panel {
+  background: #16213e;
+  border: 2px solid #334155;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #0f172a;
+  padding: 16px;
+}
+
+/* Buttons */
+.pixel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f3460;
+  border: 2px solid #4ade80;
+  border-radius: 0;
+  padding: 8px 16px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #e2e8f0;
+  text-shadow: 2px 2px 0 #0f172a;
+  cursor: pointer;
+  user-select: none;
+  transition: none;
+  line-height: 1.2;
+}
+
+.pixel-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #0f172a;
+}
+
+.pixel-button--danger {
+  border-color: #f87171;
+}
+
+.pixel-button--warning {
+  border-color: #fbbf24;
+}
+
+.pixel-button--info {
+  border-color: #60a5fa;
+}
+
+/* Text */
+.pixel-text {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  color: #e2e8f0;
+  text-shadow: 2px 2px 0 #0f172a;
+  line-height: 1.5;
+}
+
+.pixel-text--muted {
+  color: #94a3b8;
+}
+
+.pixel-text--accent {
+  color: #4ade80;
+}
+
+.pixel-text--danger {
+  color: #f87171;
+}
+
+/* Badge */
+.pixel-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #0f3460;
+  border: 2px solid #fbbf24;
+  border-radius: 0;
+  padding: 4px 8px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 8px;
+  color: #e2e8f0;
+  text-shadow: 2px 2px 0 #0f172a;
+}
+
+/* Toast / Banner */
+.pixel-toast {
+  background: #16213e;
+  border: 2px solid #fbbf24;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #0f172a;
+  padding: 12px 16px;
+}
+
+.pixel-toast--info {
+  border-color: #60a5fa;
+}
+
+.pixel-toast--success {
+  border-color: #4ade80;
+}
+
+.pixel-toast--danger {
+  border-color: #f87171;
+}
+
+/* Progress bar */
+.pixel-progress {
+  background: #0f3460;
+  border: 2px solid #334155;
+  border-radius: 0;
+  height: 8px;
+  overflow: hidden;
+}
+
+.pixel-progress__bar {
+  height: 100%;
+  transition: width 0.25s step-end;
+}
+
+/* Animations */
+.pixel-fade-in {
+  animation: pixel-fade-in 150ms step-end forwards;
+}
+
+@keyframes pixel-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pixel-blink {
+  animation: pixel-blink 800ms step-end infinite;
+}
+
+@keyframes pixel-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Tap area */
+.pixel-tap-area {
+  border: 2px solid #334155;
+  border-radius: 0;
+  background: rgba(15, 52, 96, 0.2);
+  box-shadow: inset 0 0 12px rgba(74, 222, 128, 0.05);
+}
+
+.pixel-tap-area--active {
+  border-color: #4ade80;
+  box-shadow: inset 0 0 16px rgba(74, 222, 128, 0.15), 0 0 8px rgba(74, 222, 128, 0.2);
+}

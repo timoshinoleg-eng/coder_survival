@@ -171,11 +171,10 @@ export default function StatsBar() {
   return h(
     "div",
     {
+      className: "pixel-panel",
       style: {
         position: "relative",
         zIndex: 10,
-        background: "linear-gradient(180deg, #0f1b30 0%, #16213e 100%)",
-        borderBottom: "1px solid #1a3a5c",
         padding: "10px 14px",
         display: "flex",
         flexDirection: "column",
@@ -183,7 +182,7 @@ export default function StatsBar() {
         fontSize: "12px",
         color: "#e0e0e0",
         userSelect: "none",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
+        fontFamily: "'Press Start 2P', 'Courier New', monospace",
       },
     },
     [
@@ -217,16 +216,11 @@ export default function StatsBar() {
               h(
                 "span",
                 {
+                  className: "pixel-badge",
                   style: {
                     background: rankBadgeGradient,
-                    color: "#fff",
-                    padding: "3px 10px",
-                    borderRadius: "12px",
-                    fontSize: "11px",
-                    fontWeight: "bold",
-                    letterSpacing: "0.5px",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                    fontSize: "9px",
+                    padding: "4px 8px",
                   },
                 },
                 displayRank.toUpperCase(),
@@ -280,15 +274,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setQuestsOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: daily?.claimable ? "#1a3a5c" : "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                       animation: daily?.claimable
                         ? "pulse 1.6s infinite"
                         : "none",
@@ -301,16 +289,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setShopOpen(true),
+                    className: isLowEnergy ? "pixel-button pixel-button--danger" : "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
-                      background:
-                        isLowEnergy || isHighStress ? "#1a3a5c" : "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
+                      background: isLowEnergy || isHighStress ? "#1a3a5c" : "#122642",
                       animation: isLowEnergy ? "pulse 1.6s infinite" : "none",
                     },
                   },
@@ -320,15 +301,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setReferralOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "🔗",
@@ -337,15 +312,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setBattleOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "⚔️",
@@ -354,15 +323,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setEventOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "⚡",
@@ -371,15 +334,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setPassOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "🎯",
@@ -388,15 +345,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setTeamOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "👥",
@@ -405,15 +356,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setTeamBattleOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "🛡️",
@@ -422,15 +367,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setLeaderboardOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "🏆",
@@ -439,15 +378,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setMemeOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "🎨",
@@ -456,15 +389,9 @@ export default function StatsBar() {
                   "button",
                   {
                     onClick: () => setSkinOpen(true),
+                    className: "pixel-button",
                     style: {
-                      border: "1px solid #30527e",
                       background: "#122642",
-                      color: "#dce9f9",
-                      borderRadius: "8px",
-                      padding: "5px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      fontWeight: 600,
                     },
                   },
                   "🎭",
@@ -522,7 +449,7 @@ export default function StatsBar() {
                 flex: 1,
                 height: "6px",
                 background: "#0f3460",
-                borderRadius: "3px",
+                borderRadius: "0",
                 overflow: "hidden",
               },
             },
@@ -575,7 +502,7 @@ export default function StatsBar() {
                 flex: 1,
                 height: "8px",
                 background: "#0f3460",
-                borderRadius: "4px",
+                borderRadius: "0",
                 overflow: "hidden",
               },
             },
@@ -652,7 +579,7 @@ export default function StatsBar() {
                 flex: 1,
                 height: "8px",
                 background: "#0f3460",
-                borderRadius: "4px",
+                borderRadius: "0",
                 overflow: "hidden",
               },
             },
@@ -812,15 +739,13 @@ export default function StatsBar() {
         h(
           "div",
           {
+            className: "pixel-toast pixel-fade-in",
             style: {
               marginTop: "4px",
               padding: "8px 12px",
-              borderRadius: "8px",
-              fontSize: "12px",
+              fontSize: "10px",
               fontWeight: 600,
               textAlign: "center",
-              animation: "fade-in-up 0.25s ease-out",
-              border: "1px solid rgba(255,255,255,0.1)",
               ...(toast.type === "success"
                 ? {
                     background: "linear-gradient(90deg, #1a3f25, #2d5a3e)",
