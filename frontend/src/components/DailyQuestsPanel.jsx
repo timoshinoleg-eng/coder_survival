@@ -1,14 +1,17 @@
 import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { formatQuestTitle, formatRewardPayload } from '../utils/rewardFormatting.js';
 import { audioManager } from '../utils/AudioManager.js';
+import Confetti from './Confetti.jsx';
 
 export default function DailyQuestsPanel({ open, onClose }) {
   const { daily, claimDailyQuest, streakDays, loginReward } = useGameState();
   const [claimingId, setClaimingId] = useState(null);
   const [localError, setLocalError] = useState(null);
   const [bonusToast, setBonusToast] = useState(null);
+  const [justCompletedQuestId, setJustCompletedQuestId] = useState(null);
+  const prevQuestsRef = useRef([]);
 
   useEffect(() => {
     if (open) {
@@ -18,6 +21,19 @@ export default function DailyQuestsPanel({ open, onClose }) {
       audioManager.resumeFromModal();
     }
   }, [open]);
+
+  useEffect(() => {
+    const quests = daily?.quests || [];
+    const newlyCompleted = quests.find(
+      (q) => q.completed && prevQuestsRef.current.find((p) => p.id === q.id && !p.completed)
+    );
+    if (newlyCompleted) {
+      setJustCompletedQuestId(newlyCompleted.id);
+      const t = setTimeout(() => setJustCompletedQuestId(null), 1200);
+      return () => clearTimeout(t);
+    }
+    prevQuestsRef.current = quests;
+  }, [daily?.quests]);
 
   if (!open) return null;
 
@@ -69,6 +85,7 @@ export default function DailyQuestsPanel({ open, onClose }) {
       boxShadow: '0 18px 48px rgba(0, 0, 0, 0.35)'
     }
   }, [
+    justCompletedQuestId && h(Confetti),
     h('div', {
       style: {
         display: 'flex',
