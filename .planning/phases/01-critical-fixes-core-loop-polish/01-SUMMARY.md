@@ -2,7 +2,7 @@
 
 **Executed:** 2026-05-20
 **Tasks completed:** 14 / 14
-**Commits made:** 14
+**Commits made:** 15
 
 ---
 
@@ -69,6 +69,10 @@
 - `GameScene.js` renders a random code snippet (`git commit -m "fix"`, `console.log("debug")`, etc.) on each tap with upward-fade tween
 - `backend/tests/phase1.routesSmoke.test.js` guards against tap mechanics regressions
 
+**Post-commit fixes:**
+- Fixed case-sensitivity bug (`CODE_SNIPPETS` → `codeSnippets`) in `GameScene.js`
+- Hardened smoke-test rate-limit case to avoid antiCheat interference (`fix(01): correct case-sensitive codeSnippets reference and harden smoke tests`)
+
 ---
 
 ## Verification
@@ -104,7 +108,8 @@
 
 ## Issues Encountered
 1. **No local PostgreSQL available** — Docker Desktop is not running and `psql`/`pg_isready` are not installed. All DB-dependent integration tests fail with `AggregateError` from `pg-pool`. Unit/oracle tests (stage3, stage4) pass. The pre-existing `stage2.oracles.test.js` failure (`addPassXp` 99/100 boundary) is unrelated to Phase 1.
-2. **Duplicate code insertion in GameScene.js** — During `StrReplaceFile`, a second copy of the floating code-line block was inadvertently inserted at the end of `onTap()`. Removed in a follow-up edit before commit.
+2. **Case-sensitivity bug in GameScene.js** — The committed `onTap()` code referenced `CODE_SNIPPETS` (uppercase) while the module-level constant was declared as `codeSnippets` (lowercase). This was caught during review and fixed in a follow-up commit.
+3. **Smoke test antiCheat interference** — The initial smoke test for rate limits sent 30 sequential taps, which triggered the in-memory antiCheat pattern detector. Fixed by lowering the `RATE_LIMIT_MAX_TAPS_PER_SECOND` env var to 2 and using only 5 parallel requests, staying safely below the `MIN_TAPS_FOR_ANALYSIS = 10` threshold.
 
 ---
 
