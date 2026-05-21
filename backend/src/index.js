@@ -36,6 +36,7 @@ import rewardedVideoRouter from "./routes/rewardedVideo.js";
 import teamHackathonRouter from "./routes/teamHackathon.js";
 import memeRouter from "./routes/meme.js";
 import achievementsRouter from "./routes/achievements.js";
+import minigameRouter from "./routes/minigame.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -138,6 +139,7 @@ app.use("/api/streak", initDataMiddleware, streakRouter);
 app.use("/api/rewarded-video", initDataMiddleware, rewardedVideoRouter);
 app.use("/api/meme", initDataMiddleware, memeRouter);
 app.use("/api/achievements", initDataMiddleware, achievementsRouter);
+app.use("/api/minigame", initDataMiddleware, minigameRouter);
 
 // Error handler
 app.use(errorHandler);

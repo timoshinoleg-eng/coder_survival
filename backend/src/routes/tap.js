@@ -19,6 +19,8 @@ import { logPassXp } from '../utils/passXpLog.js';
 import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { updateTeamProgress } from '../utils/teams.js';
 import { checkAchievement, ensureAchievementRows } from '../utils/achievements.js';
+import { getActiveEffects } from '../utils/activeEffects.js';
+import { calculateTapDelta, calculateDepressionDelta } from '../utils/tap.js';
 import { getActiveCrunchTime } from '../utils/phase2State.js';
 import { applyQuestUpdates, checkQuestProgress } from '../utils/dailyQuests.js';
 import { addHackathonContribution, calculateHackathonTarget, getWeekId } from '../utils/teamHackathon.js';
@@ -131,12 +133,15 @@ router.post('/', async (req, res) => {
     }
 
     const crunchTime = await getActiveCrunchTime(client);
+    const activeEffects = getActiveEffects(recoveredProgress.active_effects || {});
+    const tapBoostPercent = activeEffects.tapBoost?.percent || 0;
     const tapResult = calculateTapDelta(
       rankMeta.commitsPerTap,
       currentEnergy,
       currentDepression,
       Number(recoveredProgress.streak_days ?? 0),
-      Number(crunchTime?.commitMultiplier ?? 1)
+      Number(crunchTime?.commitMultiplier ?? 1),
+      tapBoostPercent
     );
     const depressionDelta = calculateDepressionDelta(
       currentEnergy,
@@ -410,6 +415,8 @@ router.post('/', async (req, res) => {
       rateLimit: rateLimit.info || null,
       energy: Number(recoveredProgress.energy ?? 0),
       depression: Number(recoveredProgress.depression_level ?? 0),
+      activeEffects,
+      activeEffects,
       commitsDelta: tapResult.commitsDelta,
       totalCommits: Number(recoveredProgress.commits_total ?? 0),
       isBurnout,
@@ -437,58 +444,6 @@ function getLocalDateString(timezoneOffset = 180, now = new Date()) {
   return local.toISOString().slice(0, 10);
 }
 
-export function calculateTapDelta(baseCommits, energy, depression, streak, commitMultiplier = 1) {
-  const energyMultiplier = energy / 100;
-  const depressionPenalty = depression / 100;
-  const streakBonus = Math.min(
-    streak * TAP_MECHANICS.streakBonusPerDay,
-    TAP_MECHANICS.streakBonusCap
-  );
 
-  let base = Math.round(
-    baseCommits
-    * energyMultiplier
-    * (1 - depressionPenalty * TAP_MECHANICS.depressionPenaltyMultiplier)
-    * (1 + streakBonus)
-    * commitMultiplier
-  );
-  if (base < 1) base = 1;
-
-  const roll = Math.random();
-  let multiplier = 1;
-  let tier = null;
-
-  if (roll < TAP_MECHANICS.critGoldChance) {
-    multiplier = 3;
-    tier = 'gold';
-  } else if (roll < TAP_MECHANICS.critGoldChance + TAP_MECHANICS.critSilverChance) {
-    multiplier = 2;
-    tier = 'silver';
-  }
-
-  let commitsDelta = Math.round(base * multiplier);
-  const isBurnout = depression >= TAP_MECHANICS.maxDepression;
-
-  if (isBurnout) {
-    commitsDelta = Math.max(
-      1,
-      Math.floor(commitsDelta * TAP_MECHANICS.burnoutCommitMultiplier)
-    );
-  }
-
-  return {
-    commitsDelta,
-    isCrit: multiplier > 1,
-    critTier: tier,
-    isBurnout
-  };
-}
-
-export function calculateDepressionDelta(energy, depressionMultiplier = 1) {
-  let delta = TAP_MECHANICS.depressionGainPerTap;
-  if (energy < 30) delta += TAP_MECHANICS.depressionGainLowEnergy;
-  if (energy < 10) delta += TAP_MECHANICS.depressionGainCriticalEnergy;
-  return delta * depressionMultiplier;
-}
 
 export default router;

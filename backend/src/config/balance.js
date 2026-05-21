@@ -226,6 +226,23 @@ const STAGE2 = {
     BUTTON_TEXT: '☕ Кофе-брейк'
   },
 
+  MINIGAMES: {
+    hello_world: {
+      requiredLevel: 2,
+      cooldownHours: 4,
+      timeLimitSeconds: 3,
+      maxScore: 5,
+      reward: { commits: 50, depressionRelief: 10 }
+    },
+    code_review: {
+      requiredLevel: 4,
+      cooldownHours: 6,
+      timeLimitSeconds: 15,
+      maxScore: 3,
+      reward: { commits: 100, depressionRelief: 20, tapBoostPercent: 10, tapBoostDurationMinutes: 10 }
+    }
+  },
+
   TAP_MECHANICS
 };
 
