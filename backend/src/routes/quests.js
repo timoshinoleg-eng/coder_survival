@@ -263,9 +263,13 @@ router.post('/claim', async (req, res) => {
 
     const rewardResult = await applyStage2Rewards(client, userId, progression, rewards);
 
-    const activePass = await getActivePass(client);
-    if (activePass && Number(rewards.passXp || 0) > 0) {
-      await logPassXp(client, userId, activePass.id, 'quest', Number(rewards.passXp), { questIds: unclaimed.map(q => q.id) });
+    try {
+      const activePass = await getActivePass(client);
+      if (activePass && Number(rewards.passXp || 0) > 0) {
+        await logPassXp(client, userId, activePass.id, 'quest', Number(rewards.passXp), { questIds: unclaimed.map(q => q.id) });
+      }
+    } catch (_passLogErr) {
+      console.error('[Quests] pass XP log failed (swallowed):', _passLogErr?.message || _passLogErr);
     }
 
     await client.query(
