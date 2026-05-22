@@ -150,6 +150,31 @@ router.post('/claim', async (req, res, next) => {
 
       const reward = STAGE3.TEAM_HACKATHON.REWARD_TIERS[tier]?.reward;
       const nextState = { ...state, tierClaimed: tier, currentTier: tier };
+
+      // Find team members for skin grant
+      const memberResult = await client.query(
+        `SELECT tm.user_id, tm.last_active_at
+         FROM team_members tm
+         WHERE tm.team_id = (SELECT team_id FROM team_members WHERE user_id = $1 LIMIT 1)`,
+        [userId]
+      );
+      const sevenDaysAgo = Date.now() - 7 * 86400000;
+      const activeMemberIds = memberResult.rows
+        .filter(r => r.last_active_at && new Date(r.last_active_at).getTime() >= sevenDaysAgo)
+        .map(r => r.user_id);
+
+      // Grant team_champion skin to all active members on GOLD
+      if (tier === 'GOLD' && activeMemberIds.length > 0) {
+        for (const memberId of activeMemberIds) {
+          await client.query(
+            `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+             VALUES ($1, 'team_champion', false, NOW())
+             ON CONFLICT (user_id, skin_id) DO NOTHING`,
+            [memberId]
+          );
+        }
+      }
+
       await client.query(
         `UPDATE progression
          SET team_hackathon_state = $2,

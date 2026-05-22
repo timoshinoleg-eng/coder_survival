@@ -1,40 +1,9 @@
 import cron from 'node-cron';
 import { pool } from '../index.js';
 import { distributeDailySummaryRewards, buildChatMessage } from '../utils/dailySummary.js';
+import { postToTelegramChat } from '../utils/telegram.js';
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
 const ENABLE_CRON = process.env.ENABLE_DAILY_SUMMARY_CRON !== 'false';
-
-async function postToTelegramChat(chatId, text) {
-  if (!BOT_TOKEN) {
-    console.warn('[dailySummaryCron] BOT_TOKEN not set, skipping Telegram post');
-    return false;
-  }
-
-  try {
-    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: 'Markdown'
-      })
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      console.error(`[dailySummaryCron] Telegram API error for chat ${chatId}: ${response.status} ${errBody}`);
-      return false;
-    }
-
-    return true;
-  } catch (err) {
-    console.error(`[dailySummaryCron] Failed to post to chat ${chatId}:`, err.message);
-    return false;
-  }
-}
 
 async function runDailySummary() {
   const client = await pool.connect();

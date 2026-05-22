@@ -39,6 +39,7 @@ import achievementsRouter from "./routes/achievements.js";
 import minigameRouter from "./routes/minigame.js";
 import dailySummaryRouter from "./routes/dailySummary.js";
 import { startDailySummaryCron } from "./jobs/dailySummaryCron.js";
+import { startTeamHackathonCron } from "./jobs/teamHackathonCron.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -178,4 +179,5 @@ if (isEntrypoint) {
   });
   startBalanceAuditJob();
   startDailySummaryCron();
+  startTeamHackathonCron();
 }

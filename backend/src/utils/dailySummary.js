@@ -115,6 +115,14 @@ export async function calculateDailySummaryScores(client, date = null) {
   );
   const activeReferralsMap = new Map(referralsResult.rows.map(r => [r.inviter_id, parseInt(r.cnt, 10)]));
 
+  // Fetch equipped team_lead skins for all active users
+  const userIds = activityResult.rows.map(r => r.user_id);
+  const skinsResult = await client.query(
+    `SELECT user_id FROM user_skins WHERE user_id = ANY($1::int[]) AND skin_id = 'team_lead' AND equipped = true`,
+    [userIds]
+  );
+  const teamLeadUsers = new Set(skinsResult.rows.map(r => r.user_id));
+
   const results = [];
 
   for (const row of activityResult.rows) {
@@ -130,7 +138,20 @@ export async function calculateDailySummaryScores(client, date = null) {
 
     const activeReferrals = activeReferralsMap.get(userId) || 0;
 
-    const scores = computeScoreComponents({ commitsToday, depressionLevel, socialEvents, activeReferrals });
+    let scores = computeScoreComponents({ commitsToday, depressionLevel, socialEvents, activeReferrals });
+
+    // Team Lead skin bonus: +15% productivity score in Daily Battle
+    if (teamLeadUsers.has(userId)) {
+      const boostedProductivity = Math.min(
+        scores.productivity * 1.15,
+        DAILY_SUMMARY.SCORE.PRODUCTIVITY_WEIGHT
+      );
+      scores = {
+        ...scores,
+        productivity: parseFloat(boostedProductivity.toFixed(2)),
+        total: parseFloat((scores.total - scores.productivity + boostedProductivity).toFixed(2))
+      };
+    }
 
     results.push({
       userId,
