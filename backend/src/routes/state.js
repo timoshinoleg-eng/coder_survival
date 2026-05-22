@@ -280,11 +280,17 @@ router.get("/", async (req, res, next) => {
       await ensureAchievementRows(client, user.id);
       const rankMeta = level.resolved;
       const userFeatureFlags = user.feature_flags || {};
+      const skinResult = await client.query(
+        `SELECT 1 FROM user_skins WHERE user_id = $1 AND skin_id = 'senior_pajamas' AND equipped = true`,
+        [user.id]
+      );
+      const skinRecoveryMult = skinResult.rows.length > 0 ? 1.05 : 1;
+
       const progression = await recoverProgression(
         client,
         progressRow,
         rankMeta.maxEnergy,
-        userFeatureFlags,
+        skinRecoveryMult,
       );
 
       // Phase 6: prune expired active effects
@@ -424,10 +430,12 @@ router.get("/", async (req, res, next) => {
         }
       }
 
-      const recoveryIntervalSeconds = getEffectiveRecoveryIntervalSeconds(progression);
+      const recoveryIntervalSeconds = getEffectiveRecoveryIntervalSeconds(progression, new Date(), skinRecoveryMult);
       const recoveryEtaSeconds = getRecoveryEtaSeconds(
         progression,
         rankMeta.maxEnergy,
+        new Date(),
+        skinRecoveryMult,
       );
 
       await client.query("COMMIT");

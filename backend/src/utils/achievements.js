@@ -271,6 +271,32 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
       }
       break;
     }
+
+    case 'minigame_success': {
+      const gameType = payload?.gameType;
+      if (!gameType) break;
+      const mgResult = await client.query(
+        `UPDATE user_achievements
+         SET progress_value = progress_value + 1,
+             completed = (progress_value + 1) >= (
+               SELECT target_value FROM achievements WHERE achievement_id = 'architect_winner'
+             ),
+             completed_at = CASE
+               WHEN completed THEN completed_at
+               WHEN (progress_value + 1) >= (SELECT target_value FROM achievements WHERE achievement_id = 'architect_winner')
+               THEN NOW()
+               ELSE completed_at
+             END
+         WHERE user_id = $1 AND achievement_id = 'architect_winner' AND completed = FALSE
+           AND condition->>'gameType' = $2
+         RETURNING completed, completed_at`,
+        [userId, gameType]
+      );
+      if (mgResult.rows[0]?.completed && mgResult.rows[0]?.completed_at) {
+        completedAchievements.push('architect_winner');
+      }
+      break;
+    }
   }
 
   // Unlock rewards for completed achievements

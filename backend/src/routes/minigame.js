@@ -9,6 +9,8 @@ import {
   updateMinigameState
 } from '../utils/minigame.js';
 import { addEffect, pruneExpiredEffects } from '../utils/activeEffects.js';
+import { checkAchievement } from '../utils/achievements.js';
+import { updateWeeklySprintState } from '../utils/weeklySprint.js';
 
 const router = Router();
 const { MINIGAMES } = STAGE2;
@@ -182,6 +184,36 @@ router.post('/complete', async (req, res, next) => {
             JSON.stringify(updateMinigameState(prog.minigame_state || {}, gameType))
           ]
         );
+      }
+
+      // Grant skin reward if present (e.g., IPO -> cto_cape)
+      if (success && reward?.skin) {
+        await client.query(
+          `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+           VALUES ($1, $2, false, NOW())
+           ON CONFLICT (user_id, skin_id) DO NOTHING`,
+          [userId, reward.skin]
+        );
+      }
+
+      // Update weekly sprint progress
+      try {
+        const sprintIncs = { minigamesCompleted: 1 };
+        if (success && reward?.commits) {
+          sprintIncs.commitsEarned = reward.commits;
+        }
+        await updateWeeklySprintState(client, userId, sprintIncs);
+      } catch (sprintErr) {
+        console.error('Weekly sprint update failed:', sprintErr);
+      }
+
+      // Achievement trigger
+      if (success) {
+        try {
+          await checkAchievement(client, userId, 'minigame_success', { gameType });
+        } catch (achErr) {
+          console.error('Achievement check error:', achErr);
+        }
       }
 
       await client.query('COMMIT');

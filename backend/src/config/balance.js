@@ -248,6 +248,45 @@ const STAGE2 = {
       maxScore: 5,
       minSuccessScore: 4,
       reward: { commits: 200, depressionRelief: 30, skinFragment: 'dream_interview_rare' }
+    },
+    architectural_committee: {
+      requiredLevel: 8,
+      cooldownHours: 24,
+      timeLimitSeconds: 120,
+      maxScore: 1,
+      minSuccessScore: 1,
+      reward: { commits: 500, depressionRelief: 40 }
+    },
+    ipo: {
+      requiredLevel: 10,
+      cooldownHours: 168,
+      timeLimitSeconds: 90,
+      maxScore: 1,
+      minSuccessScore: 1,
+      reward: { commits: 1000, depressionRelief: 50, skin: 'cto_cape' }
+    }
+  },
+
+  WEEKLY_SPRINT: {
+    TIERS: {
+      EASY: {
+        targetCommits: 500,
+        targetQuests: 3,
+        reward: { energy: 30, xp: 20 }
+      },
+      MEDIUM: {
+        targetCommits: 1500,
+        targetQuests: 5,
+        targetMinigames: 1,
+        reward: { energy: 50, xp: 40, skinFragment: 'sprint_contender' }
+      },
+      HARD: {
+        targetCommits: 3000,
+        targetQuests: 7,
+        targetMinigames: 2,
+        targetMemeShares: 1,
+        reward: { energy: 100, xp: 80, skinFragment: 'sprint_hero', title: 'sprint_master' }
+      }
     }
   },
 
