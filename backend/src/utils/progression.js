@@ -24,31 +24,31 @@ function getRecoveryCheckpoint(progression) {
   return toValidDate(progression?.energy_recovery_checkpoint_at) || getRecoveryAnchor(progression);
 }
 
-export function getEffectiveRecoveryIntervalSeconds(progression, now = new Date()) {
+export function getEffectiveRecoveryIntervalSeconds(progression, now = new Date(), skinRecoveryMult = 1) {
   const createdAt = toValidDate(progression?.created_at);
-  if (!createdAt) {
-    return TAP_MECHANICS.energyRecoveryIntervalSeconds;
+  let interval = TAP_MECHANICS.energyRecoveryIntervalSeconds;
+
+  if (createdAt) {
+    const ageMs = now.getTime() - createdAt.getTime();
+    const newbieWindowMs = TAP_MECHANICS.newbiePeriodHours * 60 * 60 * 1000;
+    const isNewbie = ageMs >= 0 && ageMs < newbieWindowMs;
+    if (isNewbie) {
+      console.log('newbie_recovery_active', {
+        userId: progression?.user_id ?? null,
+        createdAt: createdAt.toISOString()
+      });
+      interval = Math.floor(interval / TAP_MECHANICS.newbieRecoveryMultiplier);
+    }
   }
 
-  const ageMs = now.getTime() - createdAt.getTime();
-  const newbieWindowMs = TAP_MECHANICS.newbiePeriodHours * 60 * 60 * 1000;
-  const isNewbie = ageMs >= 0 && ageMs < newbieWindowMs;
-
-  if (!isNewbie) {
-    return TAP_MECHANICS.energyRecoveryIntervalSeconds;
+  if (skinRecoveryMult > 1) {
+    interval = Math.max(1, Math.floor(interval / skinRecoveryMult));
   }
 
-  console.log('newbie_recovery_active', {
-    userId: progression?.user_id ?? null,
-    createdAt: createdAt.toISOString()
-  });
-
-  return Math.floor(
-    TAP_MECHANICS.energyRecoveryIntervalSeconds / TAP_MECHANICS.newbieRecoveryMultiplier
-  );
+  return interval;
 }
 
-export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.maxEnergy, now = new Date()) {
+export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.maxEnergy, now = new Date(), skinRecoveryMult = 1) {
   if (!progression) return null;
 
   const energy = Number(progression.energy ?? 0);
@@ -56,7 +56,7 @@ export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.max
 
   const anchor = getRecoveryAnchor(progression);
   const checkpoint = getRecoveryCheckpoint(progression);
-  let interval = getEffectiveRecoveryIntervalSeconds(progression, now);
+  let interval = getEffectiveRecoveryIntervalSeconds(progression, now, skinRecoveryMult);
   const recoveryMultiplier = getEventRecoveryMultiplier(progression.event_state || {}, now);
   if (recoveryMultiplier > 1) {
     interval = Math.max(1, Math.floor(interval / recoveryMultiplier));
@@ -69,7 +69,7 @@ export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.max
 
 const MIN_RECOVERY_THRESHOLD_SECONDS = 300;
 
-export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy) {
+export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy, skinRecoveryMult = 1) {
   if (!progression) return progression;
 
   const now = new Date();
@@ -77,7 +77,7 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
   const depression = Number(progression.depression_level ?? 0);
   const anchor = getRecoveryAnchor(progression);
   const checkpoint = getRecoveryCheckpoint(progression);
-  let interval = getEffectiveRecoveryIntervalSeconds(progression, now);
+  let interval = getEffectiveRecoveryIntervalSeconds(progression, now, skinRecoveryMult);
   const recoveryMultiplier = getEventRecoveryMultiplier(progression.event_state || {}, now);
   if (recoveryMultiplier > 1) {
     interval = Math.max(1, Math.floor(interval / recoveryMultiplier));

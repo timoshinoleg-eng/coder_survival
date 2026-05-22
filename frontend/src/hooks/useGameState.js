@@ -66,6 +66,7 @@ const DEFAULT_STATE = {
   inventory: {},
   showOnboarding: false,
   memePrompt: null,
+  weeklySprint: null,
 };
 
 const GameContext = createContext(null);
@@ -365,6 +366,14 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
+  const refreshWeeklySprint = useCallback(async () => {
+    const payload = await apiRequest(`/api/quests/weekly?${timezoneQuery()}`, {
+      initData: telegram?.initData,
+    });
+    setState((current) => ({ ...current, weeklySprint: payload }));
+    return payload;
+  }, [telegram?.initData]);
+
   const loadState = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
@@ -378,6 +387,7 @@ export function GameProvider({ children }) {
         battlesPayload,
         referralPayload,
         liveEventPayload,
+        weeklySprintPayload,
       ] =
         await Promise.all([
           apiRequest("/api/state", { initData: telegram?.initData }),
@@ -389,6 +399,7 @@ export function GameProvider({ children }) {
           apiRequest("/api/battle/active", { initData: telegram?.initData }).catch(() => null),
           apiRequest("/api/referral/status", { initData: telegram?.initData }).catch(() => null),
           apiRequest(`/api/events?${timezoneQuery()}`, { initData: telegram?.initData }).catch(() => null),
+          apiRequest(`/api/quests/weekly?${timezoneQuery()}`, { initData: telegram?.initData }).catch(() => null),
         ]);
 
       applyServerState(statePayload);
@@ -408,6 +419,7 @@ export function GameProvider({ children }) {
         referral: referralPayload,
         liveEvent: liveEventPayload,
         careerStory: liveEventPayload?.careerStory ?? current.careerStory,
+        weeklySprint: weeklySprintPayload,
         loading: false,
         syncing: false,
         error: null,
@@ -735,6 +747,7 @@ export function GameProvider({ children }) {
     refreshBattles,
     refreshReferral,
     refreshLiveEvent,
+    refreshWeeklySprint,
     completeRewardedVideo,
     acceptBattle: async (battleId) => {
       const payload = await apiRequest("/api/battle/accept", {

@@ -24,6 +24,7 @@ import { calculateTapDelta, calculateDepressionDelta } from '../utils/tap.js';
 import { getActiveCrunchTime } from '../utils/phase2State.js';
 import { applyQuestUpdates, checkQuestProgress } from '../utils/dailyQuests.js';
 import { addHackathonContribution, calculateHackathonTarget, getWeekId } from '../utils/teamHackathon.js';
+import { updateWeeklySprintState } from '../utils/weeklySprint.js';
 import { checkReferralMilestones } from '../utils/referral.js';
 
 const router = Router();
@@ -113,7 +114,13 @@ router.post('/', async (req, res) => {
       )
     ).rows[0];
 
-    let recoveredProgress = await recoverProgression(client, progress, rankMeta.maxEnergy);
+    const skinResult = await client.query(
+      `SELECT 1 FROM user_skins WHERE user_id = $1 AND skin_id = 'senior_pajamas' AND equipped = true`,
+      [userId]
+    );
+    const skinRecoveryMult = skinResult.rows.length > 0 ? 1.05 : 1;
+
+    let recoveredProgress = await recoverProgression(client, progress, rankMeta.maxEnergy, skinRecoveryMult);
     const currentEnergy = Number(recoveredProgress.energy ?? 0);
     const currentDepression = Number(recoveredProgress.depression_level ?? 0);
     const currentCommitsTotal = Number(recoveredProgress.commits_total ?? 0);
@@ -135,7 +142,7 @@ router.post('/', async (req, res) => {
     const crunchTime = await getActiveCrunchTime(client);
     const activeEffects = getActiveEffects(recoveredProgress.active_effects || {});
     const tapBoostPercent = activeEffects.tapBoost?.percent || 0;
-    const tapResult = calculateTapDelta(
+    let tapResult = calculateTapDelta(
       rankMeta.commitsPerTap,
       currentEnergy,
       currentDepression,
@@ -143,6 +150,22 @@ router.post('/', async (req, res) => {
       Number(crunchTime?.commitMultiplier ?? 1),
       tapBoostPercent
     );
+
+    // Query equipped skins for bonus application
+    const equippedSkinsResult = await client.query(
+      `SELECT skin_id FROM user_skins WHERE user_id = $1 AND equipped = true`,
+      [userId]
+    );
+    const equippedSkins = new Set(equippedSkinsResult.rows.map(r => r.skin_id));
+
+    // Legacy Archaeologist: +20% commits when rank >= 3
+    const currentRank = Number(levelBefore.resolved.rank || 1);
+    if (equippedSkins.has('legacy_archaeologist') && currentRank >= 3) {
+      tapResult = {
+        ...tapResult,
+        commitsDelta: Math.round(tapResult.commitsDelta * 1.2)
+      };
+    }
     const depressionDelta = calculateDepressionDelta(
       currentEnergy,
       Number(crunchTime?.depressionMultiplier ?? 1)
@@ -155,6 +178,25 @@ router.post('/', async (req, res) => {
 
     if (isBurnout && currentDepression < TAP_MECHANICS.maxDepression) {
       console.log('burnout_entered', { userId, depression: newDepression });
+      // Track burnout count for Heroically Fired skin unlock
+      await client.query(
+        `UPDATE progression
+         SET inventory = COALESCE(inventory, '{}') || jsonb_build_object('burnout_count', COALESCE((inventory->>'burnout_count')::int, 0) + 1)
+         WHERE user_id = $1`,
+        [userId]
+      );
+      const burnoutCountResult = await client.query(
+        `SELECT COALESCE((inventory->>'burnout_count')::int, 0) AS cnt FROM progression WHERE user_id = $1`,
+        [userId]
+      );
+      if (parseInt(burnoutCountResult.rows[0]?.cnt || 0, 10) >= 10) {
+        await client.query(
+          `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+           VALUES ($1, 'heroically_fired', false, NOW())
+           ON CONFLICT (user_id, skin_id) DO NOTHING`,
+          [userId]
+        );
+      }
     }
     if (tapResult.critTier === 'gold') {
       console.log('tap_crit_gold', { userId, commitsDelta: tapResult.commitsDelta });
@@ -218,6 +260,34 @@ router.post('/', async (req, res) => {
     await checkAchievement(client, userId, 'commit_total');
     if (levelAfter.record.resolved.rank > levelBefore.resolved.rank) {
       await checkAchievement(client, userId, 'rank_up', { rank: levelAfter.record.resolved.rank });
+      const newRank = levelAfter.record.resolved.rank;
+      // Auto-unlock rank-based skins
+      if (newRank >= 3) {
+        await client.query(
+          `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+           VALUES ($1, 'legacy_archaeologist', false, NOW())
+           ON CONFLICT (user_id, skin_id) DO NOTHING`,
+          [userId]
+        );
+      }
+      if (newRank >= 5) {
+        await client.query(
+          `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+           VALUES ($1, 'senior_pajamas', false, NOW())
+           ON CONFLICT (user_id, skin_id) DO NOTHING`,
+          [userId]
+        );
+      }
+      // Heroically Fired skin bonus: +10% tap boost for 24h after rank-up
+      if (equippedSkins.has('heroically_fired')) {
+        const currentEffects = recoveredProgress.active_effects || {};
+        const updatedEffects = addEffect(currentEffects, 'tapBoost', { percent: 10 }, 24 * 60);
+        await client.query(
+          `UPDATE progression SET active_effects = $2 WHERE user_id = $1`,
+          [userId, JSON.stringify(updatedEffects)]
+        );
+        recoveredProgress.active_effects = updatedEffects;
+      }
     }
     const contextOffer = await getContextOffer(client, userId, {
       energy: recoveredProgress.energy,
@@ -348,6 +418,13 @@ router.post('/', async (req, res) => {
       }
     } catch (socialErr) {
       console.error('Social progress update failed:', socialErr);
+    }
+
+    // Update weekly sprint progress
+    try {
+      await updateWeeklySprintState(client, userId, { commitsEarned: tapResult.commitsDelta });
+    } catch (sprintErr) {
+      console.error('Weekly sprint update failed:', sprintErr);
     }
 
     if (session_id) {

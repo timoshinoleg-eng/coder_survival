@@ -94,6 +94,7 @@ function AppInner() {
     h(StreakCalendar),
     h(StatsBar),
     h(DailyQuests),
+    h(WeeklySprintPanel),
     h(PassPanel),
     h(
       "div",

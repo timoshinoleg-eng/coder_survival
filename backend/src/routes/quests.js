@@ -7,12 +7,20 @@ import {
   isFullClearAvailable,
   rollLootBox
 } from '../utils/dailyQuests.js';
+import {
+  getWeekStart,
+  getWeeklySprintState,
+  determineEligibleTier,
+  canClaimTier,
+  getTierReward,
+  updateWeeklySprintState
+} from '../utils/weeklySprint.js';
 import { addPassXp, getActivePass } from '../utils/pass.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
 import { logPassXp } from '../utils/passXpLog.js';
 
 const router = Router();
-const { DAILY_QUEST } = STAGE2;
+const { DAILY_QUEST, WEEKLY_SPRINT } = STAGE2;
 
 function getTimezoneOffset(req, fallback = 180) {
   const raw =
@@ -261,6 +269,13 @@ router.post('/claim', async (req, res) => {
         : quest
     ));
 
+    // Increment weekly sprint progress
+    const weeklySprintIncs = {
+      questsCompleted: unclaimed.length,
+      commitsEarned: Number(rewards.commitsCurrent || 0)
+    };
+    await updateWeeklySprintState(client, userId, weeklySprintIncs);
+
     const rewardResult = await applyStage2Rewards(client, userId, progression, rewards);
 
     const activePass = await getActivePass(client);
@@ -365,6 +380,122 @@ router.post('/full-clear', async (req, res) => {
   } catch (err) {
     if (client) await client.query('ROLLBACK');
     console.error('Full clear error:', err);
+    return res.status(500).json({ error: 'Технический сбой' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// Weekly sprint helpers
+async function getOrCreateWeeklySprintState(client, userId, timezoneOffset = 180) {
+  const result = await client.query(
+    `SELECT weekly_sprint_quest_state
+     FROM progression
+     WHERE user_id = $1`,
+    [userId]
+  );
+  const weekStart = getWeekStart(timezoneOffset);
+  const state = getWeeklySprintState(result.rows[0]?.weekly_sprint_quest_state, weekStart);
+  if (state.weekStart !== (result.rows[0]?.weekly_sprint_quest_state?.weekStart)) {
+    await client.query(
+      `UPDATE progression SET weekly_sprint_quest_state = $2 WHERE user_id = $1`,
+      [userId, JSON.stringify(state)]
+    );
+  }
+  return state;
+}
+
+router.get('/weekly', async (req, res) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) {
+    return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    const timezoneOffset = getTimezoneOffset(req);
+    const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
+    const state = await getOrCreateWeeklySprintState(client, userId, timezoneOffset);
+    const eligibleTier = determineEligibleTier(state);
+
+    return res.json({
+      weekStart: state.weekStart,
+      progress: {
+        questsCompleted: state.questsCompleted,
+        commitsEarned: state.commitsEarned,
+        minigamesCompleted: state.minigamesCompleted,
+        memeShares: state.memeShares
+      },
+      eligibleTier,
+      tierClaimed: state.tierClaimed,
+      tiers: WEEKLY_SPRINT.TIERS
+    });
+  } catch (err) {
+    console.error('Weekly sprint GET error:', err);
+    return res.status(500).json({ error: 'Технический сбой' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+router.post('/weekly/claim', async (req, res) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) {
+    return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
+  }
+
+  const requestedTier = req.body?.tier;
+  if (!requestedTier || !WEEKLY_SPRINT.TIERS[requestedTier]) {
+    return res.status(400).json({ error: 'Некорректный тир' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const timezoneOffset = getTimezoneOffset(req);
+    const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
+    const state = await getOrCreateWeeklySprintState(client, userId, timezoneOffset);
+
+    if (!canClaimTier(state, requestedTier)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Тир недоступен или уже получен' });
+    }
+
+    const progressionResult = await client.query(
+      `SELECT inventory, pass_state
+       FROM progression
+       WHERE user_id = $1
+       FOR UPDATE`,
+      [userId]
+    );
+    const progression = progressionResult.rows[0] || {};
+    const rewards = getTierReward(requestedTier);
+
+    state.tierClaimed = requestedTier;
+    const rewardResult = await applyStage2Rewards(client, userId, progression, rewards);
+
+    await client.query(
+      `UPDATE progression
+       SET weekly_sprint_quest_state = $2,
+           pass_state = $3
+       WHERE user_id = $1`,
+      [userId, JSON.stringify(state), JSON.stringify(rewardResult.passState)]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      claimedTier: requestedTier,
+      rewards,
+      passUpdate: rewardResult.passUpdate,
+      sprintState: state
+    });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    console.error('Weekly sprint claim error:', err);
     return res.status(500).json({ error: 'Технический сбой' });
   } finally {
     if (client) client.release();

@@ -5,6 +5,8 @@ import { apiRequest } from '../utils/api.js';
 import MiniGameHelloWorld from './MiniGameHelloWorld.jsx';
 import MiniGameCodeReview from './MiniGameCodeReview.jsx';
 import MiniGameDreamInterview from './MiniGameDreamInterview.jsx';
+import MiniGameArchitecturalCommittee from './MiniGameArchitecturalCommittee.jsx';
+import MiniGameIPO from './MiniGameIPO.jsx';
 
 const GAMES = [
   {
@@ -30,6 +32,22 @@ const GAMES = [
     requiredLevel: 6,
     cooldownHours: 24,
     reward: '+200 коммитов, −30 стресса, фрагмент скина',
+  },
+  {
+    id: 'architectural_committee',
+    name: 'Арх. комитет',
+    emoji: '🏛️',
+    requiredLevel: 8,
+    cooldownHours: 24,
+    reward: '+500 коммитов, −40 стресса, ачивка',
+  },
+  {
+    id: 'ipo',
+    name: 'IPO — Питч',
+    emoji: '📈',
+    requiredLevel: 10,
+    cooldownHours: 168,
+    reward: '+1000 коммитов, −50 стресса, скин CTO',
   },
 ];
 
@@ -71,6 +89,12 @@ export default function MiniGameLauncher({ open, onClose }) {
   }
   if (selectedGame === 'dream_interview') {
     return h(MiniGameDreamInterview, { open: true, onClose: () => { setSelectedGame(null); fetchStatuses(); } });
+  }
+  if (selectedGame === 'architectural_committee') {
+    return h(MiniGameArchitecturalCommittee, { open: true, onClose: () => { setSelectedGame(null); fetchStatuses(); } });
+  }
+  if (selectedGame === 'ipo') {
+    return h(MiniGameIPO, { open: true, onClose: () => { setSelectedGame(null); fetchStatuses(); } });
   }
 
   if (!open) return null;
