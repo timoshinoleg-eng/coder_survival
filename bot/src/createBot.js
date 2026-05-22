@@ -70,6 +70,45 @@ export function createBot() {
     }
   });
 
+  bot.command('bindchat', async (ctx) => {
+    const chat = ctx.chat;
+    const from = ctx.from;
+    if (!chat || !from) {
+      await ctx.reply('Не удалось определить чат или пользователя.');
+      return;
+    }
+    if (chat.type === 'private') {
+      await ctx.reply('Эту команду нужно отправить в рабочий групповой чат.');
+      return;
+    }
+    if (!BOT_BACKEND_SECRET) {
+      await ctx.reply('Секрет бота не настроен.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/daily-summary/internal/bind-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Bot-Backend-Secret': BOT_BACKEND_SECRET
+        },
+        body: JSON.stringify({ chatId: chat.id, telegramUserId: from.id })
+      });
+
+      if (response.ok) {
+        await ctx.reply('✅ Рабочий чат привязан. Ежедневная битва будет публиковаться здесь в 18:00 UTC.');
+      } else {
+        const text = await response.text();
+        console.error('bindchat error:', response.status, text);
+        await ctx.reply('Не удалось привязать чат. Попробуй позже.');
+      }
+    } catch (err) {
+      console.error('bindchat exception:', err);
+      await ctx.reply('Ошибка при привязке чата.');
+    }
+  });
+
   bot.command('meme', async (ctx) => {
     const keyboard = new InlineKeyboard()
       .text('Works on my machine', 'meme_template:works_on_my_machine')

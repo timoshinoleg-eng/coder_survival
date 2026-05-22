@@ -299,6 +299,29 @@ const STAGE3 = {
     DEEP_LINK_PREFIX: 'ref_'
   },
 
+  DAILY_SUMMARY: {
+    SCORE: {
+      PRODUCTIVITY_MAX_COMMITS: 500,
+      PRODUCTIVITY_WEIGHT: 40,
+      DEPRESSION_WEIGHT: 30,
+      SOCIAL_MAX_EVENTS: 5,
+      SOCIAL_WEIGHT: 20,
+      REFERRAL_MAX_COUNT: 3,
+      REFERRAL_WEIGHT: 10
+    },
+    STATUSES: {
+      PRODUCTIVE_GENIUS: { id: 'productive_genius', title: 'Продуктивный гений' },
+      BURNT_OUT: { id: 'burnt_out', title: 'Выгорел дня' },
+      DEPRESSION_SAVIOR: { id: 'depression_savior', title: 'Спаситель депрессии' }
+    },
+    REWARDS: {
+      RANK_1: { tapBoostPercent: 15, tapBoostDurationHours: 24, skinFragment: 'battle_hero', title: 'daily_hero' },
+      RANK_2: { tapBoostPercent: 10, tapBoostDurationHours: 12 },
+      RANK_3: { tapBoostPercent: 5, tapBoostDurationHours: 6 }
+    },
+    POST_HOUR_UTC: 18
+  },
+
   SHARE_CARDS: {
     TEMPLATES: [
       { id: 'depression_scale', aspect: '9:16', trigger: 'depression>75' },

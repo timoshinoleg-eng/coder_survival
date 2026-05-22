@@ -17,6 +17,7 @@ import SkinPanel from "./SkinPanel.jsx";
 import MiniGameLauncher from "./MiniGameLauncher.jsx";
 import AudioSettings from "./AudioSettings.jsx";
 import AchievementsPanel from "./AchievementsPanel.jsx";
+import DailySummaryPanel from "./DailySummaryPanel.jsx";
 
 export default function StatsBar() {
   const {
@@ -58,6 +59,7 @@ export default function StatsBar() {
   const [miniGameOpen, setMiniGameOpen] = useState(false);
   const [teamBattleOpen, setTeamBattleOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [dailySummaryOpen, setDailySummaryOpen] = useState(false);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const [adLoading, setAdLoading] = useState(false);
   const { initData, haptic } = useTelegram();
@@ -343,6 +345,17 @@ export default function StatsBar() {
                     },
                   },
                   "⚔️",
+                ),
+                h(
+                  "button",
+                  {
+                    onClick: () => setDailySummaryOpen(true),
+                    className: "pixel-button",
+                    style: {
+                      background: "#122642",
+                    },
+                  },
+                  "🏆",
                 ),
                 h(
                   "button",
@@ -868,6 +881,10 @@ export default function StatsBar() {
       h(AchievementsPanel, {
         open: achievementsOpen,
         onClose: () => setAchievementsOpen(false),
+      }),
+      h(DailySummaryPanel, {
+        open: dailySummaryOpen,
+        onClose: () => setDailySummaryOpen(false),
       }),
       featureFlags?.minigameEnabled === true &&
         h(MiniGameLauncher, {
