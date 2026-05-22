@@ -37,6 +37,8 @@ import teamHackathonRouter from "./routes/teamHackathon.js";
 import memeRouter from "./routes/meme.js";
 import achievementsRouter from "./routes/achievements.js";
 import minigameRouter from "./routes/minigame.js";
+import dailySummaryRouter from "./routes/dailySummary.js";
+import { startDailySummaryCron } from "./jobs/dailySummaryCron.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -140,6 +142,7 @@ app.use("/api/rewarded-video", initDataMiddleware, rewardedVideoRouter);
 app.use("/api/meme", initDataMiddleware, memeRouter);
 app.use("/api/achievements", initDataMiddleware, achievementsRouter);
 app.use("/api/minigame", initDataMiddleware, minigameRouter);
+app.use("/api/daily-summary", initDataMiddleware, dailySummaryRouter);
 
 // Error handler
 app.use(errorHandler);
@@ -174,4 +177,5 @@ if (isEntrypoint) {
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });
   startBalanceAuditJob();
+  startDailySummaryCron();
 }
