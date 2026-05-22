@@ -538,11 +538,14 @@ router.post('/claim-milestone', async (req, res, next) => {
   }
 
   const { milestone } = req.body || {};
-  if (!REFERRAL_MILESTONES.includes(milestone)) {
+  if (!STAGE3_REFERRAL_MILESTONES.includes(milestone)) {
     return res.status(400).json({ error: 'Invalid milestone' });
   }
 
-  const rewardEnergy = REFERRAL_MILESTONE_REWARDS[milestone]?.energy;
+  const rewardDef = STAGE3.REFERRAL.MILESTONE_REWARDS[milestone];
+  if (!rewardDef) {
+    return res.status(400).json({ error: 'Milestone reward not configured' });
+  }
 
   try {
     const client = await pool.connect();
@@ -581,27 +584,47 @@ router.post('/claim-milestone', async (req, res, next) => {
         return res.status(409).json({ error: 'Already claimed' });
       }
 
-      const progResult = await client.query(
-        `SELECT energy FROM progression WHERE user_id = $1`,
-        [userId]
-      );
-      let newEnergy = rewardEnergy;
-      if (progResult.rows.length > 0) {
-        const { energy } = progResult.rows[0];
-        const level = await ensurePlayerLevel(client, userId);
-        const maxEnergy = level.resolved?.maxEnergy || 100;
-        newEnergy = Math.min(maxEnergy, Number(energy) + rewardEnergy);
+      const inviterReward = rewardDef.inviter || {};
+
+      // Apply commits / energy via progression update
+      const level = await ensurePlayerLevel(client, userId);
+      const maxEnergy = level.resolved?.maxEnergy || 100;
+      const energyAdd = inviterReward.energy || 0;
+
+      let inventoryUpdate = '';
+      const inventoryParams = [];
+      let paramIdx = 4;
+
+      if (inviterReward.stars) {
+        inventoryUpdate += `inventory = COALESCE(inventory, '{}') || jsonb_build_object($${paramIdx}, COALESCE((inventory->>$${paramIdx})::int, 0) + $${paramIdx + 1}),`;
+        inventoryParams.push('stars', inviterReward.stars);
+        paramIdx += 2;
       }
 
       await client.query(
-        `UPDATE progression SET energy = $1, updated_at = NOW() WHERE user_id = $2`,
-        [newEnergy, userId]
+        `UPDATE progression
+         SET commits_total = commits_total + $2,
+             commits_current = commits_current + $2,
+             energy = LEAST($3, energy + $4)
+             ${inventoryUpdate ? `, ${inventoryUpdate}` : ''}
+         WHERE user_id = $1`,
+        [userId, inviterReward.commits || 0, maxEnergy, energyAdd, ...inventoryParams]
       );
+
+      // Grant skin if present
+      if (inviterReward.skin) {
+        await client.query(
+          `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+           VALUES ($1, $2, false, NOW())
+           ON CONFLICT (user_id, skin_id) DO NOTHING`,
+          [userId, inviterReward.skin]
+        );
+      }
 
       await client.query(
         `INSERT INTO referral_milestone_claims (user_id, milestone, reward_energy)
          VALUES ($1, $2, $3)`,
-        [userId, milestone, rewardEnergy]
+        [userId, milestone, energyAdd]
       );
 
       await client.query('COMMIT');
@@ -609,8 +632,8 @@ router.post('/claim-milestone', async (req, res, next) => {
       res.json({
         success: true,
         milestone,
-        reward: { energy: rewardEnergy },
-        newEnergy
+        reward: inviterReward,
+        newEnergy: energyAdd
       });
     } catch (err) {
       await client.query('ROLLBACK');

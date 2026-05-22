@@ -124,7 +124,7 @@ router.post('/complete', async (req, res, next) => {
 
       const reward = buildReward(gameType);
       const config = MINIGAMES[gameType];
-      const success = score >= config.maxScore;
+      const success = score >= (config.minSuccessScore ?? config.maxScore);
 
       let activeEffects = pruneExpiredEffects(prog.active_effects || {});
       let appliedReward = null;
@@ -144,22 +144,31 @@ router.post('/complete', async (req, res, next) => {
           commits: reward.commits || 0,
           depressionRelief: reward.depressionRelief || 0,
           tapBoostPercent: reward.tapBoostPercent || null,
-          tapBoostDurationMinutes: reward.tapBoostDurationMinutes || null
+          tapBoostDurationMinutes: reward.tapBoostDurationMinutes || null,
+          skinFragment: reward.skinFragment || null
         };
+
+        const inventoryUpdate = reward.skinFragment
+          ? `inventory = COALESCE(inventory, '{}') || jsonb_build_object($6, COALESCE((inventory->>$6)::int, 0) + 1),`
+          : '';
+        const inventoryParam = reward.skinFragment ? [`fragment_${reward.skinFragment}`] : [];
 
         await client.query(
           `UPDATE progression
            SET commits_total = commits_total + $2,
+               commits_current = commits_current + $2,
                depression_level = GREATEST(0, depression_level - $3),
                minigame_state = $4,
                active_effects = $5
+               ${inventoryUpdate ? `, ${inventoryUpdate}` : ''}
            WHERE user_id = $1`,
           [
             userId,
             reward.commits || 0,
             reward.depressionRelief || 0,
             JSON.stringify(updateMinigameState(prog.minigame_state || {}, gameType)),
-            JSON.stringify(activeEffects)
+            JSON.stringify(activeEffects),
+            ...inventoryParam
           ]
         );
       } else {

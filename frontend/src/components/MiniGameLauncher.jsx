@@ -4,6 +4,7 @@ import { useGameState } from '../hooks/useGameState.js';
 import { apiRequest } from '../utils/api.js';
 import MiniGameHelloWorld from './MiniGameHelloWorld.jsx';
 import MiniGameCodeReview from './MiniGameCodeReview.jsx';
+import MiniGameDreamInterview from './MiniGameDreamInterview.jsx';
 
 const GAMES = [
   {
@@ -21,6 +22,14 @@ const GAMES = [
     requiredLevel: 4,
     cooldownHours: 6,
     reward: '+100 коммитов, −20 стресса, +10% тап',
+  },
+  {
+    id: 'dream_interview',
+    name: 'Собеседование мечты',
+    emoji: '🧠',
+    requiredLevel: 6,
+    cooldownHours: 24,
+    reward: '+200 коммитов, −30 стресса, фрагмент скина',
   },
 ];
 
@@ -59,6 +68,9 @@ export default function MiniGameLauncher({ open, onClose }) {
   }
   if (selectedGame === 'code_review') {
     return h(MiniGameCodeReview, { open: true, onClose: () => { setSelectedGame(null); fetchStatuses(); } });
+  }
+  if (selectedGame === 'dream_interview') {
+    return h(MiniGameDreamInterview, { open: true, onClose: () => { setSelectedGame(null); fetchStatuses(); } });
   }
 
   if (!open) return null;

@@ -240,6 +240,14 @@ const STAGE2 = {
       timeLimitSeconds: 15,
       maxScore: 3,
       reward: { commits: 100, depressionRelief: 20, tapBoostPercent: 10, tapBoostDurationMinutes: 10 }
+    },
+    dream_interview: {
+      requiredLevel: 6,
+      cooldownHours: 24,
+      timeLimitSeconds: 60,
+      maxScore: 5,
+      minSuccessScore: 4,
+      reward: { commits: 200, depressionRelief: 30, skinFragment: 'dream_interview_rare' }
     }
   },
 
@@ -264,6 +272,8 @@ const STAGE3 = {
   TEAM_HACKATHON: {
     WEEK_DURATION_DAYS: 7,
     COMMITS_PER_ACTIVE_MEMBER: 150,
+    FINAL_POST_DAY_UTC: 0,
+    FINAL_POST_HOUR_UTC: 21,
     REWARD_TIERS: {
       BRONZE: { threshold: 0.50, reward: { energy: 30, xp: 20, passXp: 10 } },
       SILVER: { threshold: 0.75, reward: { energy: 50, xp: 40, passXp: 20, skinFragment: 'hackathon_contender' } },
