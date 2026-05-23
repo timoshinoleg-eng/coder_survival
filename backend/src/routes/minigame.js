@@ -126,7 +126,23 @@ router.post('/complete', async (req, res, next) => {
 
       const reward = buildReward(gameType);
       const config = MINIGAMES[gameType];
-      const success = score >= (config.minSuccessScore ?? config.maxScore);
+      let success = score >= (config.minSuccessScore ?? config.maxScore);
+
+      // Query equipped skins for rubber duck check
+      const equippedSkinsResult = await client.query(
+        `SELECT skin_id FROM user_skins WHERE user_id = $1 AND equipped = true`,
+        [userId]
+      );
+      const equippedSkins = new Set(equippedSkinsResult.rows.map(r => r.skin_id));
+
+      // Rubber Duck skin: 20% chance to save a failed mini-game
+      let duckSaved = false;
+      if (!success && equippedSkins.has('rubber_duck')) {
+        if (Math.random() < 0.20) {
+          success = true;
+          duckSaved = true;
+        }
+      }
 
       let activeEffects = pruneExpiredEffects(prog.active_effects || {});
       let appliedReward = null;
@@ -207,12 +223,57 @@ router.post('/complete', async (req, res, next) => {
         console.error('Weekly sprint update failed:', sprintErr);
       }
 
-      // Achievement trigger
+      // Achievement triggers
       if (success) {
         try {
           await checkAchievement(client, userId, 'minigame_success', { gameType });
         } catch (achErr) {
           console.error('Achievement check error:', achErr);
+        }
+      } else {
+        // Track failure for secret achievement and GIF trigger
+        try {
+          await checkAchievement(client, userId, 'minigame_failure', { gameType });
+
+          // Increment daily failure counter
+          await client.query(
+            `UPDATE progression
+             SET inventory = COALESCE(inventory, '{}') || jsonb_build_object(
+               'minigame_failures_today', COALESCE((inventory->>'minigame_failures_today')::int, 0) + 1,
+               '${gameType}_failures', COALESCE((inventory->>'${gameType}_failures')::int, 0) + 1
+             )
+             WHERE user_id = $1`,
+            [userId]
+          );
+
+          // Auto-send debug GIF after 10 failed code_review attempts
+          if (gameType === 'code_review') {
+            const failResult = await client.query(
+              `SELECT COALESCE((inventory->>'code_review_failures')::int, 0) AS cnt
+               FROM progression WHERE user_id = $1`,
+              [userId]
+            );
+            const totalFailures = parseInt(failResult.rows[0]?.cnt || 0, 10);
+            if (totalFailures === 10) {
+              try {
+                const { generateDebugStagesGif } = await import('../utils/gifRenderer.js');
+                const gifBuffer = await generateDebugStagesGif();
+                const { sendAnimationToChat } = await import('../utils/telegram.js');
+                const chatResult = await client.query(
+                  `SELECT work_chat_id FROM progression WHERE user_id = $1`,
+                  [userId]
+                );
+                const chatId = chatResult.rows[0]?.work_chat_id;
+                if (chatId) {
+                  await sendAnimationToChat(chatId, gifBuffer, '10 провалов в охоте на багов. Это искусство.');
+                }
+              } catch (gifErr) {
+                console.error('[minigame] Failed to send debug GIF:', gifErr.message);
+              }
+            }
+          }
+        } catch (failErr) {
+          console.error('Failure tracking error:', failErr);
         }
       }
 
@@ -223,7 +284,8 @@ router.post('/complete', async (req, res, next) => {
         score,
         maxScore: config.maxScore,
         reward: appliedReward,
-        activeEffects
+        activeEffects,
+        duckSaved
       });
     } catch (err) {
       await client.query('ROLLBACK');

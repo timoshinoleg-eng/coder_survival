@@ -38,6 +38,14 @@ export const PRODUCT_CATALOG = {
     stars: 200,
     icon: '🎟️',
     category: 'pass'
+  },
+  office_cat: {
+    id: 'office_cat',
+    name: 'Офисный кот',
+    description: '-10 депрессии каждые 5 минут',
+    stars: 100,
+    icon: '🐱',
+    category: 'skin'
   }
 };
 

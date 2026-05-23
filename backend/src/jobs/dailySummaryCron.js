@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { pool } from '../index.js';
 import { distributeDailySummaryRewards, buildChatMessage } from '../utils/dailySummary.js';
-import { postToTelegramChat } from '../utils/telegram.js';
+import { postToTelegramChat, sendPollToChat } from '../utils/telegram.js';
 
 const ENABLE_CRON = process.env.ENABLE_DAILY_SUMMARY_CRON !== 'false';
 
@@ -51,6 +51,19 @@ async function runDailySummary() {
     }
 
     console.log(`[dailySummaryCron] Posted to ${postedChats.size} chat(s)`);
+
+    // Phase 10: Send follow-up poll to each unique chat
+    for (const chatId of postedChats) {
+      try {
+        await sendPollToChat(
+          chatId,
+          'Как прошел день?',
+          ['Продуктивно', 'Выгорел', 'Нужен кофе']
+        );
+      } catch (pollErr) {
+        console.error(`[dailySummaryCron] Poll send failed for chat ${chatId}:`, pollErr.message);
+      }
+    }
   } catch (err) {
     console.error('[dailySummaryCron] Error during daily summary:', err);
   } finally {

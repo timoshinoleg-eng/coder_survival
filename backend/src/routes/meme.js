@@ -262,4 +262,30 @@ router.get('/public/:token', async (req, res, next) => {
   }
 });
 
+// GET /api/meme/gif/debug-stages — "Five stages of debugging" GIF
+router.get('/gif/debug-stages', async (req, res, next) => {
+  try {
+    const { generateDebugStagesGif } = await import('../utils/gifRenderer.js');
+    const buffer = await generateDebugStagesGif();
+    res.set('Content-Type', 'image/gif');
+    res.set('Cache-Control', 'public, max-age=300');
+    res.send(buffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/meme/gif/deadline — "Manager NPC: +1 deadline" GIF
+router.get('/gif/deadline', async (req, res, next) => {
+  try {
+    const { generateDeadlineGif } = await import('../utils/gifRenderer.js');
+    const buffer = await generateDeadlineGif();
+    res.set('Content-Type', 'image/gif');
+    res.set('Cache-Control', 'public, max-age=300');
+    res.send(buffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

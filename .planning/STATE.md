@@ -20,7 +20,7 @@ progress:
 
 | Attribute | Value |
 |-----------|-------|
-| Phase | 5 — Next Phase Ready |
+| Phase | 9 — Advanced Content & Endgame Skins |
 | Mode | mvp |
 | Granularity | fine |
 | Last Updated | 2026-05-21 |
@@ -36,8 +36,8 @@ progress:
 | 5 | Streaks, Achievements & Social Seeds | ✅ Complete (verified) | 5 | 100% |
 | 6 | Mini-Games Tier 1 (Early Levels) | ✅ Complete (verified) | 2 | 100% |
 | 7 | Daily Battle & Referral Rewards | ✅ Complete | 2 | 100% |
-| 8 | Mini-Games Tier 2 & Team Features | ✅ Complete | 4 | 100% |
-| 9 | Advanced Content & Endgame Skins | 🔒 Planned | 6 | 0% |
+| 8 | Mini-Games Tier 2 & Team Features | ✅ Complete (verified) | 4 | 100% |
+| 9 | Advanced Content & Endgame Skins | ✅ Complete (verified) | 6 | 100% |
 | 10 | Viral Polish & Final Social | 🔒 Planned | 5 | 0% |
 
 ## Validated Requirements (Pre-Roadmap)
@@ -82,11 +82,15 @@ All v1 requirements are tracked in the phased roadmap. See [REQUIREMENTS.md](./R
 | 2026-05-22 | Phase 6 executed | 4 waves completed. W1: Hello World QTE (level 2+, 4h cooldown), W2: Code Review bug hunt (level 4+, 6h cooldown) + active effects/tap boost, W3: MiniGameLauncher panel, W4: 18 unit tests + tap.js refactor. All builds pass, tests green. |
 | 2026-05-22 | Phase 7 executed | 4 waves completed. W1: DB migration `daily_summary_results`, score formula, `distributeDailySummaryRewards`, cron job. W2: Bot `/bindchat`, backend→Telegram posting. W3: `DailySummaryPanel` frontend. W4: 11 unit tests. All builds pass, tests green (89 passed, 0 failed). |
 | 2026-05-22 | Phase 8 executed | 4 waves completed. W1: Dream Interview quiz mini-game (level 6+, 24h cd), frontend component + launcher integration. W2: Extracted shared `telegram.js` utility, team hackathon final post cron (Sunday 21:00), GOLD skin auto-grant. W3: `team_lead` + `team_champion` skin seeds, referral milestone skin fix, +15% Daily Battle productivity bonus for Team Lead. W4: 10 unit tests. All builds pass, tests green (97 passed, 0 failed). |
+| 2026-05-22 | Phase 8 verified | `/gsd:verify-work 8` completed. 12/12 UAT checks passed. 0 gaps. Ready for Phase 9. |
+| 2026-05-22 | Phase 9 executed | 5 waves completed. W1: Backend foundation — config, migrations, skin bonuses. W2: Architectural Committee mini-game (level 8+, 24h cd). W3: IPO pitch simulator (level 10+, weekly). W4: Weekly Sprint quest tiers (Easy/Medium/Hard). W5: 22 unit tests, builds clean, tests green (119 passed, 0 failed). |
+| 2026-05-22 | Phase 9 verified | `/gsd:verify-work 9` completed. 13/13 UAT checks passed. 0 gaps. Ready for Phase 10. |
 
 ## Next Actions
 
-1. Phase 8 complete — ready for `/gsd:verify-work 8`
-2. Phase 9 planning — Advanced Content & Endgame Skins
+1. Phase 10 planning — Viral Polish & Final Social
+2. `/gsd:plan-phase 10` — Plan next phase
+3. `/gsd:execute-phase 10` — Execute next phase
 3. Update this file at phase transitions per PROJECT.md evolution rules
 
 ---
