@@ -69,7 +69,7 @@ export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.max
 
 const MIN_RECOVERY_THRESHOLD_SECONDS = 300;
 
-export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy, skinRecoveryMult = 1) {
+export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy, skinRecoveryMult = 1, officeCatEquipped = false) {
   if (!progression) return progression;
 
   const now = new Date();
@@ -129,7 +129,14 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
   }
 
   const depressionRecovered = Math.floor(actualRecovered / TAP_MECHANICS.depressionRecoveryPerEnergy);
-  const combinedDepressionDecay = depressionRecovered + passiveDepressionDecay;
+  let combinedDepressionDecay = depressionRecovered + passiveDepressionDecay;
+
+  // Office Cat skin: -10 depression every 5 minutes when equipped
+  if (officeCatEquipped && secondsPassed >= 300) {
+    const catReliefCycles = Math.floor(secondsPassed / 300);
+    combinedDepressionDecay += catReliefCycles * 10;
+  }
+
   const newDepression = Math.max(0, depression - combinedDepressionDecay);
   const isBurnout = newDepression >= TAP_MECHANICS.maxDepression;
   const nextCheckpoint = new Date(checkpoint.getTime() + actualRecovered * interval * 1000);

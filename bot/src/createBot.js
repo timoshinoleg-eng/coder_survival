@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from 'grammy';
+import { Bot, InlineKeyboard, InputFile } from 'grammy';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://frontend-ashy-alpha-77.vercel.app';
@@ -152,6 +152,23 @@ export function createBot() {
     } catch (err) {
       console.error('Meme share error:', err);
       await ctx.answerCallbackQuery('Не удалось сгенерировать мем. Попробуй позже.');
+    }
+  });
+
+  bot.command('deadline', async (ctx) => {
+    try {
+      const response = await fetch(`${API_URL}/api/meme/gif/deadline`, {
+        method: 'GET',
+        headers: { 'X-Bot-Backend-Secret': BOT_BACKEND_SECRET }
+      });
+      if (!response.ok) throw new Error('GIF generation failed');
+      const buffer = Buffer.from(await response.arrayBuffer());
+      await ctx.replyWithAnimation(new InputFile(buffer, 'deadline.gif'), {
+        caption: 'Менеджер не дремлет. +1 дедлайн! 📅'
+      });
+    } catch (err) {
+      console.error('Deadline GIF error:', err);
+      await ctx.reply('GIF генератор временно недоступен. Попробуй позже.');
     }
   });
 

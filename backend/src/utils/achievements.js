@@ -297,6 +297,31 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
       }
       break;
     }
+
+    case 'minigame_failure': {
+      const gameType = payload?.gameType;
+      // rubber_duck_unlock: 3 mini-game failures in a day
+      const failResult = await client.query(
+        `UPDATE user_achievements
+         SET progress_value = progress_value + 1,
+             completed = (progress_value + 1) >= (
+               SELECT target_value FROM achievements WHERE achievement_id = 'rubber_duck_unlock'
+             ),
+             completed_at = CASE
+               WHEN completed THEN completed_at
+               WHEN (progress_value + 1) >= (SELECT target_value FROM achievements WHERE achievement_id = 'rubber_duck_unlock')
+               THEN NOW()
+               ELSE completed_at
+             END
+         WHERE user_id = $1 AND achievement_id = 'rubber_duck_unlock' AND completed = FALSE
+         RETURNING completed, completed_at`,
+        [userId]
+      );
+      if (failResult.rows[0]?.completed && failResult.rows[0]?.completed_at) {
+        completedAchievements.push('rubber_duck_unlock');
+      }
+      break;
+    }
   }
 
   // Unlock rewards for completed achievements
@@ -307,12 +332,12 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
     );
     const reward = rewardResult.rows[0]?.reward_payload || {};
 
-    if (reward.skinId) {
+    if (reward.skinId || reward.skin) {
       await client.query(
-        `INSERT INTO user_skins (user_id, skin_id)
-         VALUES ($1, $2)
+        `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+         VALUES ($1, $2, false, NOW())
          ON CONFLICT (user_id, skin_id) DO NOTHING`,
-        [userId, reward.skinId]
+        [userId, reward.skinId || reward.skin]
       );
     }
 

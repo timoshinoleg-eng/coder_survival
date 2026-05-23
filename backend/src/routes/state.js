@@ -286,11 +286,18 @@ router.get("/", async (req, res, next) => {
       );
       const skinRecoveryMult = skinResult.rows.length > 0 ? 1.05 : 1;
 
+      const officeCatResult = await client.query(
+        `SELECT 1 FROM user_skins WHERE user_id = $1 AND skin_id = 'office_cat' AND equipped = true`,
+        [user.id]
+      );
+      const officeCatEquipped = officeCatResult.rows.length > 0;
+
       const progression = await recoverProgression(
         client,
         progressRow,
         rankMeta.maxEnergy,
         skinRecoveryMult,
+        officeCatEquipped,
       );
 
       // Phase 6: prune expired active effects

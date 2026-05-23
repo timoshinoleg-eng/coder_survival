@@ -431,4 +431,28 @@ const STAGE4 = {
   }
 };
 
-export { STAGE4 };
+// ═══════════════════════════════════════════════════════════════
+// PHASE 10: VIRAL POLISH — CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+
+const PHASE10 = {
+  SKIN_PRICES: {
+    office_cat: 100
+  },
+  GIF: {
+    DEBUG_STAGES: {
+      width: 256,
+      height: 256,
+      frames: 5,
+      frameDelayMs: 700
+    },
+    DEADLINE: {
+      width: 256,
+      height: 256,
+      frames: 2,
+      frameDelayMs: 1400
+    }
+  }
+};
+
+export { STAGE4, PHASE10 };

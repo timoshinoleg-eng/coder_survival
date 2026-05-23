@@ -154,6 +154,16 @@ export async function applyItemEffect(client, userId, itemType) {
       // TODO: логика защиты стрика
       return { streakProtected: true };
 
+    case 'office_cat': {
+      await client.query(
+        `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+         VALUES ($1, 'office_cat', false, NOW())
+         ON CONFLICT (user_id, skin_id) DO NOTHING`,
+        [userId]
+      );
+      return { skinGranted: 'office_cat' };
+    }
+
     default:
       return {};
   }
