@@ -69,6 +69,18 @@ export function incrementSprintProgress(state, increments) {
   };
 }
 
+export function getWeeklySprintNarrativeMeta(state = {}) {
+  const stages = WEEKLY_SPRINT.NARRATIVE_ARC || [];
+  const progressPoints = Number(state.questsCompleted || 0) + Number(state.minigamesCompleted || 0) + Number(state.memeShares || 0);
+  const stageIndex = Math.min(stages.length - 1, Math.max(0, Math.floor(progressPoints / 2)));
+  return {
+    arc: stages,
+    currentStage: stages[stageIndex] || stages[0] || null,
+    stageIndex,
+    rewardChoice: WEEKLY_SPRINT.REWARD_CHOICE || null
+  };
+}
+
 export async function updateWeeklySprintState(client, userId, increments) {
   const result = await client.query(
     `SELECT weekly_sprint_quest_state, timezone_offset

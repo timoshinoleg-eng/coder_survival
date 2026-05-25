@@ -8,17 +8,6 @@ export default class BootScene extends Phaser.Scene {
   preload() {
     // Generate fallback textures first — game always starts with valid textures
     this.generateFallbackTextures();
-
-    // Attempt to load external sprite sheet
-    this.load.spritesheet('avatar_sheet', 'assets/sprites/avatar.png', {
-      frameWidth: 64,
-      frameHeight: 64,
-    });
-
-    this.load.on('loaderror', (file) => {
-      // Silent fallback — code-drawn textures remain active
-      console.warn(`[BootScene] Failed to load ${file.key}, using fallback`);
-    });
   }
 
   create() {

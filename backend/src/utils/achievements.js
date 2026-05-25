@@ -152,7 +152,7 @@ export async function checkAchievement(client, userId, triggerType, payload = {}
     }
 
     case 'burnout': {
-      // burnout_first: reach depression >= 100 once
+      // burnout_first: reach Heart Attack threshold once.
       const burnoutResult = await client.query(
         `UPDATE user_achievements
          SET progress_value = 1,

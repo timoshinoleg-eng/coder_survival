@@ -4,6 +4,9 @@ import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
 
+const DEPRESSION_MAX = 200;
+const DEPRESSION_AFFLICTION = 100;
+
 export default function TapArea({ active }) {
   const {
     tap,
@@ -138,6 +141,7 @@ export default function TapArea({ active }) {
   if (!active) return null;
 
   const isExhausted = energy <= 0;
+  const depressionPercent = Math.min(100, Math.max(0, Math.round(((depression || 0) / DEPRESSION_MAX) * 100)));
   const tapZoneClass = [
     isCrit && critTier === 'silver' ? 'crit-flash-silver' : '',
     isCrit && critTier === 'gold' ? 'crit-flash-gold' : '',
@@ -145,13 +149,13 @@ export default function TapArea({ active }) {
   ].filter(Boolean).join(' ');
   const depressionClass =
     isBurnout ? 'depression-burnout'
-      : depression >= 70 ? 'depression-high'
-        : depression >= 30 ? 'depression-med'
+      : depression >= DEPRESSION_AFFLICTION ? 'depression-high'
+        : depression >= 60 ? 'depression-med'
           : 'depression-low';
   const buttonText = isExhausted
     ? '⚡ Нет энергии'
     : isBurnout
-      ? '🔥 Горю...'
+      ? '💥 Session reset'
       : '💻 КОДИТЬ';
 
   return h('div', {
@@ -274,7 +278,7 @@ export default function TapArea({ active }) {
       }, h('div', {
         className: depressionClass,
         style: {
-          width: `${Math.min(100, Math.max(0, Math.round(depression || 0)))}%`,
+          width: `${depressionPercent}%`,
           height: '100%',
           transition: 'width 0.25s ease'
         }

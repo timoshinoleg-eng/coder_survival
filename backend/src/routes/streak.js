@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { STAGE2 } from '../config/balance.js';
+import { DEPRESSION_SCALE, STAGE2 } from '../config/balance.js';
 import { addPassXp } from '../utils/pass.js';
-import { processDailyLogin, starRecover, calculateRecoveryCost } from '../utils/streak.js';
+import { processDailyLogin, starRecover, calculateRecoveryCost, shouldOfferStreakSaver } from '../utils/streak.js';
+import { getProductById } from '../utils/shopCatalog.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
 
 const router = Router();
@@ -64,6 +65,9 @@ function normalizeStreakState(streakState = {}) {
     currentStreak: Number(streakState.currentStreak || 0),
     maxStreak: Number(streakState.maxStreak || 0),
     lastLoginDate: streakState.lastLoginDate || null,
+    brokenStreak: streakState.brokenStreak != null ? Number(streakState.brokenStreak) : null,
+    lastStreakSaveTimestamp: streakState.lastStreakSaveTimestamp || null,
+    saverArmedForDate: streakState.saverArmedForDate || null,
     protection: normalizeProtection(streakState.protection)
   };
 }
@@ -131,16 +135,32 @@ router.get('/', async (req, res) => {
     const today = getTodayDate(timezoneOffset);
     const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
     const result = await client.query(
-      `SELECT streak_state
+      `SELECT streak_state, energy
        FROM progression
        WHERE user_id = $1`,
       [userId]
     );
     const streakState = normalizeStreakState(result.rows[0]?.streak_state || {});
+    const energy = Number(result.rows[0]?.energy || 0);
 
     const loggedInToday = streakState.lastLoginDate === today;
     const recoveryCost = calculateRecoveryCost(streakState.protection?.starSavesUsed || 0);
     const canRecover = !loggedInToday && (streakState.brokenStreak != null);
+
+    const streakSaverOffer = shouldOfferStreakSaver({
+      streakState,
+      energy,
+      todayDate: today,
+      now: new Date()
+    })
+      ? {
+          type: 'streak_saver',
+          productId: 'streak_saver',
+          stars: getProductById('streak_saver')?.stars ?? 1,
+          discountPercent: STAGE2.STREAK.SAVER.discountPercent,
+          body: `Твой стрик ${streakState.currentStreak} дней сгорит через 2 часа! Купи 'Экстренный кофе' за 1⭐ (скидка 90%), чтобы сохранить его.`
+        }
+      : null;
 
     return res.json({
       currentStreak: streakState.currentStreak,
@@ -152,7 +172,8 @@ router.get('/', async (req, res) => {
       nextMilestone: STAGE2.STREAK.MILESTONES[streakState.currentStreak + 1] || null,
       brokenStreak: streakState.brokenStreak || null,
       recoveryCost,
-      canRecover
+      canRecover,
+      streakSaverOffer
     });
   } catch (err) {
     console.error('Streak GET error:', err);
@@ -217,7 +238,7 @@ router.post('/claim', async (req, res) => {
            pass_state = $3,
            energy = LEAST($4, energy + $5),
            depression_level = GREATEST(0, depression_level - $6),
-           is_burnout = GREATEST(0, depression_level - $6) >= 100,
+            is_burnout = GREATEST(0, depression_level - $6) >= $8,
            inventory = $7
        WHERE user_id = $1`,
       [
@@ -227,7 +248,8 @@ router.post('/claim', async (req, res) => {
         levelRow.resolved.maxEnergy,
         Number(rewards.energy || 0),
         Number(rewards.depressionRelief || 0),
-        JSON.stringify(inventory)
+        JSON.stringify(inventory),
+        DEPRESSION_SCALE.HEART_ATTACK_THRESHOLD
       ]
     );
 

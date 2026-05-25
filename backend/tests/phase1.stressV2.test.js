@@ -57,13 +57,13 @@ describeIfDb("stress_v2 activation", () => {
     expect(state.body?.featureFlags?.stress_v2).toBe(true);
   });
 
-  test("high_stress offer triggers at depression 20%", async () => {
+  test("stress_warning offer triggers at depression 20%", async () => {
     const telegramId = 900000010;
-    const initData = createInitData(telegramId, { username: "high_stress_20" });
+    const initData = createInitData(telegramId, { username: "stress_warning_20" });
 
     const userResult = await testPool.query(
       `INSERT INTO users (telegram_id, username) VALUES ($1, $2) RETURNING id`,
-      [telegramId, "high_stress_20"]
+      [telegramId, "stress_warning_20"]
     );
     const userId = userResult.rows[0].id;
 
@@ -84,16 +84,16 @@ describeIfDb("stress_v2 activation", () => {
     });
 
     expect(state.status).toBe(200);
-    expect(state.body?.contextOffer?.type).toBe("high_stress");
+    expect(state.body?.contextOffer?.type).toBe("stress_warning");
   });
 
-  test("high_stress offer does NOT trigger at depression 19%", async () => {
+  test("stress_warning offer does NOT trigger at depression 19%", async () => {
     const telegramId = 900000011;
-    const initData = createInitData(telegramId, { username: "high_stress_19" });
+    const initData = createInitData(telegramId, { username: "stress_warning_19" });
 
     const userResult = await testPool.query(
       `INSERT INTO users (telegram_id, username) VALUES ($1, $2) RETURNING id`,
-      [telegramId, "high_stress_19"]
+      [telegramId, "stress_warning_19"]
     );
     const userId = userResult.rows[0].id;
 
@@ -114,7 +114,7 @@ describeIfDb("stress_v2 activation", () => {
     });
 
     expect(state.status).toBe(200);
-    expect(state.body?.contextOffer?.type).not.toBe("high_stress");
+    expect(state.body?.contextOffer?.type).not.toBe("stress_warning");
   });
 
   test("passive depression decay applies after 1 hour idle", async () => {

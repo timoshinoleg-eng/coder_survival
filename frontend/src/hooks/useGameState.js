@@ -67,6 +67,11 @@ const DEFAULT_STATE = {
   showOnboarding: false,
   memePrompt: null,
   weeklySprint: null,
+  generatorState: null,
+  randomEventState: null,
+  dailyFarm: null,
+  passiveLocRecovery: null,
+  antiCheat: null,
 };
 
 const GameContext = createContext(null);
@@ -85,6 +90,8 @@ function normalizeQuestPayload(payload) {
   return {
     date: payload.date,
     quests: payload.quests || payload.daily?.quests || [],
+    avgDailyFarm: payload.avgDailyFarm ?? payload.daily?.avgDailyFarm ?? null,
+    accountAgeDays: payload.accountAgeDays ?? payload.daily?.accountAgeDays ?? null,
     fullClearAvailable: payload.fullClearAvailable ?? payload.daily?.fullClearAvailable ?? false,
     fullClearClaimed: payload.fullClearClaimed ?? payload.daily?.fullClearClaimed ?? false,
     total: payload.daily?.total ?? (payload.quests || []).length,
@@ -129,7 +136,7 @@ export function GameProvider({ children }) {
     toastTimerRef.current = setTimeout(() => {
       setState((current) => ({ ...current, toast: null }));
     }, duration);
-  }, [showToast]);
+  }, []);
 
   const applyServerState = useCallback((payload) => {
     const game = payload?.game || payload?.state || payload?.progression;
@@ -181,6 +188,14 @@ export function GameProvider({ children }) {
       );
     }
 
+    if (payload?.passiveLocRecovery?.locEarned > 0) {
+      showToast(
+        `🤖 Генераторы принесли +${payload.passiveLocRecovery.locEarned} LOC`,
+        "success",
+        1800
+      );
+    }
+
     setState((current) => ({
       ...current,
       user: payload?.user ?? current.user ?? null,
@@ -229,6 +244,11 @@ export function GameProvider({ children }) {
       achievements: payload?.achievements ?? current.achievements ?? [],
       skins: payload?.skins ?? current.skins ?? null,
       activeEffects: payload?.activeEffects ?? payload?.active_effects ?? current.activeEffects ?? {},
+      generatorState: payload?.generatorState ?? payload?.generator_state ?? current.generatorState ?? null,
+      randomEventState: payload?.randomEventState ?? payload?.random_event_state ?? current.randomEventState ?? null,
+      dailyFarm: payload?.dailyFarm ?? payload?.daily_farm ?? current.dailyFarm ?? null,
+      passiveLocRecovery: payload?.passiveLocRecovery ?? payload?.passive_loc_recovery ?? current.passiveLocRecovery ?? null,
+      antiCheat: payload?.antiCheat ?? payload?.anti_cheat ?? current.antiCheat ?? null,
       featureFlags: payload?.featureFlags ?? payload?.feature_flags ?? current.featureFlags ?? {},
       stressCohort: payload?.stressCohort ?? payload?.stress_cohort ?? current.stressCohort ?? "control",
       contextOffer: hasContextOffer ? payload.contextOffer : current.contextOffer,
@@ -270,6 +290,9 @@ export function GameProvider({ children }) {
 
   const applyTapState = useCallback((payload) => {
     if (!payload) return;
+    if (payload?.heartAttackReset) {
+      showToast('💥 Heart Attack! Сессия сброшена, но прогресс карьеры сохранён.', 'error', 2800);
+    }
     setState((current) => ({
       ...current,
       commits: Number(payload.totalCommits ?? current.commits),
@@ -289,9 +312,12 @@ export function GameProvider({ children }) {
         isBurnout: payload.isBurnout ?? false,
       },
       syncing: false,
+      memePrompt: payload?.heartAttackReset
+        ? { trigger: 'heartAttack', rankName: current.rankName }
+        : current.memePrompt,
       error: null,
     }));
-  }, []);
+  }, [showToast]);
 
   const refreshQuests = useCallback(async () => {
     const payload = await apiRequest(`/api/quests?${timezoneQuery()}`, {
@@ -374,6 +400,21 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
+  const refreshGenerators = useCallback(async () => {
+    const payload = await apiRequest('/api/generators', { initData: telegram?.initData });
+    setState((current) => ({
+      ...current,
+      commits: Number(payload?.commitsTotal ?? current.commits),
+      exp: Number(payload?.commitsCurrent ?? current.exp),
+      generatorState: payload?.generatorState ?? current.generatorState,
+      passiveLocRecovery: payload?.passiveLocRecovery ?? current.passiveLocRecovery,
+    }));
+    if (payload?.passiveLocRecovery?.locEarned > 0) {
+      showToast(`🤖 Генераторы принесли +${payload.passiveLocRecovery.locEarned} LOC`, 'success', 1800);
+    }
+    return payload;
+  }, [showToast, telegram?.initData]);
+
   const loadState = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
@@ -437,6 +478,41 @@ export function GameProvider({ children }) {
     }
   }, [applyServerState, telegram?.initData]);
 
+  const claimPassReward = useCallback(async (level, track = 'free') => {
+    const payload = await apiRequest('/api/pass/claim', {
+      method: 'POST',
+      initData: telegram?.initData,
+      body: { level, track },
+    });
+    await refreshPass().catch(() => null);
+    await loadState().catch(() => null);
+    return payload;
+  }, [loadState, refreshPass, telegram?.initData]);
+
+  const claimWeeklySprintTier = useCallback(async (tier) => {
+    const payload = await apiRequest('/api/quests/weekly/claim', {
+      method: 'POST',
+      initData: telegram?.initData,
+      body: withTimezoneBody({ tier }),
+    });
+    setState((current) => ({
+      ...current,
+      weeklySprint: current.weeklySprint
+        ? {
+            ...current.weeklySprint,
+            tierClaimed: payload?.claimedTier ?? current.weeklySprint.tierClaimed,
+            narrative: payload?.narrative ?? current.weeklySprint.narrative,
+          }
+        : current.weeklySprint,
+    }));
+    await loadState().catch(() => null);
+    return payload;
+  }, [loadState, telegram?.initData]);
+
+  const setRandomEventState = useCallback((randomEventState) => {
+    setState((current) => ({ ...current, randomEventState }));
+  }, []);
+
   useEffect(() => {
     loadState();
   }, [loadState]);
@@ -495,6 +571,14 @@ export function GameProvider({ children }) {
     }, 5 * 60 * 1000);
     return () => clearInterval(timer);
   }, [refreshBattles]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      refreshGenerators().catch(() => null);
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [refreshGenerators]);
 
   useEffect(() => {
     window.__GAME_STATE__ = state;
@@ -704,6 +788,21 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
+  const buyGenerator = useCallback(async (tierId) => {
+    const payload = await apiRequest('/api/generators/buy', {
+      method: 'POST',
+      initData: telegram?.initData,
+      body: { tierId },
+    });
+    setState((current) => ({
+      ...current,
+      generatorState: payload?.generatorState ?? current.generatorState,
+      exp: Number(payload?.progression?.commits_current ?? current.exp),
+    }));
+    await loadState().catch(() => null);
+    return payload;
+  }, [loadState, telegram?.initData]);
+
   const applyEventDeltas = useCallback((deltas) => {
     setState((current) => {
       const nextEnergy = Math.min(
@@ -737,6 +836,7 @@ export function GameProvider({ children }) {
     claimDailyQuest: claimQuests,
     claimFullClear,
     refreshPass,
+    claimPassReward,
     refreshStreak,
     claimStreak,
     recoverStreak,
@@ -748,7 +848,11 @@ export function GameProvider({ children }) {
     refreshReferral,
     refreshLiveEvent,
     refreshWeeklySprint,
+    refreshGenerators,
+    claimWeeklySprintTier,
+    setRandomEventState,
     completeRewardedVideo,
+    buyGenerator,
     acceptBattle: async (battleId) => {
       const payload = await apiRequest("/api/battle/accept", {
         method: "POST",

@@ -1,4 +1,4 @@
-import { STAGE3 } from '../config/balance.js';
+import { DEPRESSION_SCALE, STAGE3 } from '../config/balance.js';
 import { applyReward } from './rewards.js';
 import { addEffect } from './activeEffects.js';
 
@@ -26,8 +26,8 @@ export function computeScoreComponents(details) {
     DAILY_SUMMARY.SCORE.PRODUCTIVITY_WEIGHT
   );
   const scoreDepression = normalize(
-    100 - details.depressionLevel,
-    100,
+    DEPRESSION_SCALE.MAX - details.depressionLevel,
+    DEPRESSION_SCALE.MAX,
     DAILY_SUMMARY.SCORE.DEPRESSION_WEIGHT
   );
   const scoreSocial = normalize(

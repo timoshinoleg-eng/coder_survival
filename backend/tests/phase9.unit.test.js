@@ -4,6 +4,7 @@ import {
   determineEligibleTier,
   canClaimTier,
   getTierReward,
+  getWeeklySprintNarrativeMeta,
   incrementSprintProgress
 } from '../src/utils/weeklySprint.js';
 import { validateScore, buildReward } from '../src/utils/minigame.js';
@@ -87,6 +88,13 @@ describe('Phase 9: Weekly Sprint Quest', () => {
     expect(next.questsCompleted).toBe(3);
     expect(next.commitsEarned).toBe(500);
     expect(next.minigamesCompleted).toBe(1);
+  });
+
+  test('getWeeklySprintNarrativeMeta: exposes narrative arc and reward choice', () => {
+    const meta = getWeeklySprintNarrativeMeta({ questsCompleted: 3, minigamesCompleted: 1, memeShares: 0 });
+    expect(meta.arc).toEqual(['Planning', 'Coding', 'Testing', 'Deploy']);
+    expect(meta.currentStage).toBe('Testing');
+    expect(meta.rewardChoice).toEqual({ type: 'choice', options: ['skin', 'booster', 'currency'], count: 3 });
   });
 });
 

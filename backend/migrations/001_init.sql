@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS progression (
     commits_total   BIGINT NOT NULL DEFAULT 0,            -- всего коммитов за всё время
     commits_current BIGINT NOT NULL DEFAULT 0,            -- коммитов на текущем уровне
     energy          INTEGER NOT NULL DEFAULT 100,        -- энергия 0-100
-    depression_level INTEGER NOT NULL DEFAULT 0,         -- уровень депрессии 0-100
+    depression_level NUMERIC(6,2) NOT NULL DEFAULT 0,   -- уровень депрессии 0-100
     streak_days     INTEGER NOT NULL DEFAULT 0,          -- дней подряд
     updated_at      TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(user_id)

@@ -10,6 +10,7 @@ import {
 } from '../utils/minigame.js';
 import { addEffect, pruneExpiredEffects } from '../utils/activeEffects.js';
 import { checkAchievement } from '../utils/achievements.js';
+import { logDailyFarm } from '../utils/farmLog.js';
 import { updateWeeklySprintState } from '../utils/weeklySprint.js';
 
 const router = Router();
@@ -189,6 +190,9 @@ router.post('/complete', async (req, res, next) => {
             ...inventoryParam
           ]
         );
+        if (Number(reward.commits || 0) > 0) {
+          await logDailyFarm(client, userId, Number(reward.commits || 0));
+        }
       } else {
         // Even on failure, update lastPlayed to enforce cooldown
         await client.query(

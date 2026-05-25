@@ -1,15 +1,19 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
 import { pool } from "../index.js";
+import { DEFAULTS } from "../config/balance.js";
+import { evaluateFtueAdAvailability } from "../utils/adsPolicy.js";
+import { applyLocPenalty, normalizeAntiCheatState } from '../utils/anticheat.js';
+import { updateDailyQuestStateForEvent } from '../utils/dailyQuests.js';
 import { applyReward } from "../utils/rewards.js";
 import { ensurePlayerLevel } from "../utils/vnext.js";
-import { verifyAdProof } from "../utils/adProof.js";
+import { verifyAdProof, verifyAdsgramCallbackSignature, verifyPropellerCallbackHash } from "../utils/adProof.js";
 
 const router = Router();
-const AD_REWARD_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
-const AD_REWARD_DAILY_LIMIT = 5;
+const AD_REWARD_COOLDOWN_MS = DEFAULTS.ADS.adCooldownMinutes * 60 * 1000;
+const MAX_ADS_PER_DAY = DEFAULTS.ADS.maxPerDay;
 const AD_SESSION_TTL_MINUTES = 15;
-const ALLOWED_PROVIDERS = new Set(["mock", "google", "unity", "admob"]);
+const ALLOWED_PROVIDERS = new Set(["mock", "google", "unity", "admob", "adsgram", "propeller"]);
 
 const MOCK_REWARDED_ADS_ENABLED =
   process.env.ENABLE_MOCK_REWARDED_ADS === "true";
@@ -31,8 +35,148 @@ function isProviderConfigured(provider) {
       return true;
     case "unity":
       return Boolean(process.env.UNITY_REWARDED_SECRET);
+    case "adsgram":
+      return Boolean(process.env.ADSGRAM_SECRET);
+    case "propeller":
+      return Boolean(process.env.PROPELLER_SECRET);
     default:
       return false;
+  }
+}
+
+function getAdNetwork(req) {
+  const value = req.body?.ad_network;
+  return typeof value === "string" ? value.trim().toLowerCase() : null;
+}
+
+function getEventId(req) {
+  const value = req.body?.event_id;
+  return typeof value === "string" ? value.trim() : null;
+}
+
+async function ensureRewardUser(client, telegramUser) {
+  const userResult = await client.query(
+    `SELECT id, created_at FROM users WHERE telegram_id = $1`,
+    [telegramUser.id],
+  );
+  return userResult.rows[0] || null;
+}
+
+async function claimValidatedAdSession(client, { userId, nonce, provider, proof = null }) {
+  await client.query("BEGIN");
+
+  try {
+
+  const sessionResult = await client.query(
+    `SELECT nonce, user_id, provider, created_at, expires_at, used_at, status
+     FROM ad_reward_sessions
+     WHERE nonce = $1
+     FOR UPDATE`,
+    [nonce],
+  );
+  if (sessionResult.rows.length === 0) {
+    await client.query("ROLLBACK");
+    return { status: 404, payload: { error: "Invalid ad event" } };
+  }
+
+  const session = sessionResult.rows[0];
+  if (session.user_id !== userId) {
+    await client.query("ROLLBACK");
+    return { status: 403, payload: { error: "Ad event does not belong to user" } };
+  }
+  if (session.provider !== provider) {
+    await client.query("ROLLBACK");
+    return {
+      status: 409,
+      payload: { error: "Provider mismatch", expectedProvider: session.provider },
+    };
+  }
+  if ((provider === 'adsgram' || provider === 'propeller') ? session.status !== 'verified' || session.used_at : session.status !== "pending" || session.used_at) {
+    await client.query("ROLLBACK");
+    return { status: 409, payload: { error: "Ad event already used" } };
+  }
+  const createdAtMs = new Date(session.created_at).getTime();
+  const maxAgeMs = AD_SESSION_TTL_MINUTES * 60 * 1000;
+  if (
+    !Number.isFinite(createdAtMs) ||
+    Date.now() - createdAtMs > maxAgeMs ||
+    new Date(session.expires_at).getTime() < Date.now()
+  ) {
+    await client.query("ROLLBACK");
+    return { status: 410, payload: { error: "Ad event expired" } };
+  }
+
+  const requiresProof = provider !== "adsgram" && provider !== "propeller";
+  if (requiresProof && !(await verifyAdProof(getVerifierProvider(provider), proof, nonce))) {
+    await client.query("ROLLBACK");
+    return { status: 403, payload: { error: "Invalid ad proof" } };
+  }
+
+  const limitResult = await client.query(
+    `SELECT count, last_rewarded_at
+     FROM ad_rewards
+     WHERE user_id = $1 AND date = CURRENT_DATE
+     FOR UPDATE`,
+    [userId],
+  );
+  const limitRow = limitResult.rows[0];
+  const currentCount = limitRow ? parseInt(limitRow.count, 10) : 0;
+  if (currentCount >= MAX_ADS_PER_DAY) {
+    await client.query("ROLLBACK");
+    return { status: 429, payload: { error: "Daily ad reward limit reached" } };
+  }
+
+  if (limitRow?.last_rewarded_at) {
+    const lastRewarded = new Date(limitRow.last_rewarded_at).getTime();
+    if (Date.now() - lastRewarded < AD_REWARD_COOLDOWN_MS) {
+      await client.query("ROLLBACK");
+      return { status: 429, payload: { error: "Ad reward cooldown active" } };
+    }
+  }
+
+  const level = await ensurePlayerLevel(client, userId);
+  const maxEnergy = level.resolved.maxEnergy;
+  const antiCheatResult = await client.query(
+    `SELECT anti_cheat_state FROM progression WHERE user_id = $1`,
+    [userId],
+  );
+  const antiCheatState = normalizeAntiCheatState(antiCheatResult.rows[0]?.anti_cheat_state || {});
+  const rewardEnergy = applyLocPenalty(Math.floor(maxEnergy * 0.5), antiCheatState.banScore);
+  await applyReward(client, userId, { energy: rewardEnergy });
+  await updateDailyQuestStateForEvent(client, userId, 'watch_ad', 1).catch(() => null);
+
+  await client.query(
+    `UPDATE ad_reward_sessions
+     SET used_at = NOW(), status = 'used'
+     WHERE nonce = $1`,
+    [nonce],
+  );
+
+  await client.query(
+    `INSERT INTO ad_rewards (user_id, date, count, last_rewarded_at, provider, proof_id)
+     VALUES ($1, CURRENT_DATE, 1, NOW(), $2, $3)
+     ON CONFLICT (user_id, date) DO UPDATE SET
+       count = ad_rewards.count + 1,
+       last_rewarded_at = NOW(),
+       provider = EXCLUDED.provider,
+       proof_id = EXCLUDED.proof_id`,
+    [userId, provider, nonce],
+  );
+
+  await client.query("COMMIT");
+  return {
+    status: 200,
+    payload: {
+      success: true,
+      reward: { energy: rewardEnergy },
+      energy_granted: rewardEnergy,
+      ads_remaining_today: MAX_ADS_PER_DAY - (currentCount + 1),
+      remainingToday: MAX_ADS_PER_DAY - (currentCount + 1),
+    },
+  };
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
   }
 }
 
@@ -40,7 +184,7 @@ function validateProvider(req, res) {
   const provider = getRequestedProvider(req);
   if (!provider || !ALLOWED_PROVIDERS.has(provider)) {
     res.status(400).json({
-      error: "provider must be one of: mock, google, unity, admob",
+      error: "provider must be one of: mock, google, unity, admob, adsgram, propeller",
     });
     return null;
   }
@@ -78,14 +222,23 @@ router.post("/ad-session", async (req, res, next) => {
   try {
     const client = await pool.connect();
     try {
-      const userResult = await client.query(
-        `SELECT id FROM users WHERE telegram_id = $1`,
-        [telegramUser.id],
-      );
-      if (userResult.rows.length === 0) {
+      const user = await ensureRewardUser(client, telegramUser);
+      if (!user?.id) {
         return res.status(404).json({ error: "User not found" });
       }
-      const userId = userResult.rows[0].id;
+
+      const rewardCount = await client.query(
+        `SELECT count FROM ad_rewards WHERE user_id = $1 AND date = CURRENT_DATE`,
+        [user.id],
+      );
+      const ftue = evaluateFtueAdAvailability({
+        createdAt: user.created_at,
+        adsClaimedToday: Number(rewardCount.rows[0]?.count || 0),
+        now: new Date(),
+      });
+      if (!ftue.allowed) {
+        return res.status(403).json({ error: ftue.reason, rule: ftue.rule });
+      }
 
       const nonce = randomUUID();
       const expiresAt = new Date(
@@ -95,12 +248,13 @@ router.post("/ad-session", async (req, res, next) => {
       await client.query(
         `INSERT INTO ad_reward_sessions (nonce, user_id, expires_at, provider, reward_type)
          VALUES ($1, $2, $3, $4, $5)`,
-        [nonce, userId, expiresAt, provider, "ad_energy"],
+         [nonce, user.id, expiresAt, provider, "ad_energy"],
       );
 
       res.json({
         success: true,
         nonce,
+        event_id: nonce,
         provider,
         expiresAt: expiresAt.toISOString(),
       });
@@ -135,15 +289,12 @@ router.post("/ad-claim", async (req, res, next) => {
     try {
       await client.query("BEGIN");
 
-      const userResult = await client.query(
-        `SELECT id FROM users WHERE telegram_id = $1`,
-        [telegramUser.id],
-      );
-      if (userResult.rows.length === 0) {
+      const user = await ensureRewardUser(client, telegramUser);
+      if (!user?.id) {
         await client.query("ROLLBACK");
         return res.status(404).json({ error: "User not found" });
       }
-      const userId = userResult.rows[0].id;
+      const userId = user.id;
 
       // 1. Validate nonce
       const sessionResult = await client.query(
@@ -200,7 +351,7 @@ router.post("/ad-claim", async (req, res, next) => {
       );
       const limitRow = limitResult.rows[0];
       const currentCount = limitRow ? parseInt(limitRow.count, 10) : 0;
-      if (currentCount >= AD_REWARD_DAILY_LIMIT) {
+      if (currentCount >= MAX_ADS_PER_DAY) {
         await client.query("ROLLBACK");
         return res.status(429).json({ error: "Daily ad reward limit reached" });
       }
@@ -248,11 +399,137 @@ router.post("/ad-claim", async (req, res, next) => {
       res.json({
         success: true,
         reward,
-        remainingToday: AD_REWARD_DAILY_LIMIT - (currentCount + 1),
+        remainingToday: MAX_ADS_PER_DAY - (currentCount + 1),
       });
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/rewards/ad_complete
+ * Prompt v11.1 contract wrapper. `event_id` is the server-created ad session nonce.
+ */
+router.post("/ad_complete", async (req, res, next) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) {
+    return res.status(401).json({ error: "No user in initData" });
+  }
+
+  const eventId = getEventId(req);
+  const adNetwork = getAdNetwork(req);
+  if (!eventId) {
+    return res.status(400).json({ error: "event_id is required" });
+  }
+  if (!adNetwork || !ALLOWED_PROVIDERS.has(adNetwork)) {
+    return res.status(400).json({ error: "ad_network must be one of: adsgram, propeller" });
+  }
+  if (adNetwork !== "adsgram" && adNetwork !== "propeller") {
+    return res.status(400).json({ error: "ad_network must be one of: adsgram, propeller" });
+  }
+  if (!isProviderConfigured(adNetwork)) {
+    return res.status(503).json({ error: "Ads not configured", ad_network: adNetwork });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      const user = await ensureRewardUser(client, telegramUser);
+      if (!user?.id) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      const rewardCount = await client.query(
+        `SELECT count FROM ad_rewards WHERE user_id = $1 AND date = CURRENT_DATE`,
+        [user.id],
+      );
+      const ftue = evaluateFtueAdAvailability({
+        createdAt: user.created_at,
+        adsClaimedToday: Number(rewardCount.rows[0]?.count || 0),
+        now: new Date(),
+      });
+      if (!ftue.allowed) {
+        return res.status(403).json({ error: ftue.reason, rule: ftue.rule });
+      }
+      const result = await claimValidatedAdSession(client, {
+        userId: user.id,
+        nonce: eventId,
+        provider: adNetwork,
+        proof: req.body?.proof || null,
+      });
+      return res.status(result.status).json(result.payload);
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/adsgram_callback', async (req, res, next) => {
+  const signature = req.headers['x-adsgram-signature'];
+  const secret = process.env.ADSGRAM_SECRET;
+  if (!verifyAdsgramCallbackSignature(req.body || {}, typeof signature === 'string' ? signature : '', secret)) {
+    return res.status(403).json({ error: 'Invalid AdsGram signature' });
+  }
+
+  const eventId = typeof req.body?.event_id === 'string' ? req.body.event_id.trim() : '';
+  if (!eventId) {
+    return res.status(400).json({ error: 'event_id is required' });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        `UPDATE ad_reward_sessions
+         SET status = 'verified'
+         WHERE nonce = $1
+           AND provider = 'adsgram'
+           AND status = 'pending'
+         RETURNING nonce`,
+        [eventId]
+      );
+      return res.json({ success: true, verified: result.rows.length > 0, idempotent: result.rows.length === 0 });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/propeller_callback', async (req, res, next) => {
+  const eventId = typeof (req.body?.event_id ?? req.query?.event_id) === 'string' ? String(req.body?.event_id ?? req.query?.event_id).trim() : '';
+  const userId = typeof (req.body?.user_id ?? req.query?.user_id) === 'string' || typeof (req.body?.user_id ?? req.query?.user_id) === 'number'
+    ? String(req.body?.user_id ?? req.query?.user_id).trim()
+    : '';
+  const hash = typeof (req.body?.hash ?? req.query?.hash) === 'string' ? String(req.body?.hash ?? req.query?.hash).trim() : '';
+  if (!verifyPropellerCallbackHash({ eventId, userId, hash, secret: process.env.PROPELLER_SECRET })) {
+    return res.status(403).json({ error: 'Invalid Propeller hash' });
+  }
+  if (!eventId) {
+    return res.status(400).json({ error: 'event_id is required' });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        `UPDATE ad_reward_sessions
+         SET status = 'verified'
+         WHERE nonce = $1
+           AND provider = 'propeller'
+           AND status = 'pending'
+         RETURNING nonce`,
+        [eventId]
+      );
+      return res.json({ success: true, verified: result.rows.length > 0, idempotent: result.rows.length === 0 });
     } finally {
       client.release();
     }

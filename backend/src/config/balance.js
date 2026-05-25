@@ -1,9 +1,111 @@
 export const CONTEXT_OFFER_GLOBAL_COOLDOWN_MS = 90 * 1000;
 
+export const DEFAULTS = {
+  BALANCE_VERSION: '2.0-hook-optimized',
+  GENERATORS: {
+    GROWTH_RATE: 1.15,
+    tiers: {
+      junior_dev: { baseOutput: 1, baseCost: 50, unlockAtClicks: 8 },
+      middle_dev: { baseOutput: 7, baseCost: 400, requires: { tier: 'junior_dev', owned: 5 } },
+      senior_dev: { baseOutput: 42, baseCost: 3200, requires: { tier: 'middle_dev', owned: 5 } },
+      tech_lead: { baseOutput: 240, baseCost: 25600, requires: { tier: 'senior_dev', owned: 5 } },
+      staff_engineer: { baseOutput: 1300, baseCost: 204800, requires: { tier: 'tech_lead', owned: 5 } }
+    }
+  },
+  FTUE_ACCELERATION: [
+    { id: 'minute_0_to_5', minMinutes: 0, maxMinutes: 5, incomeMultiplier: 3.0, costMultiplier: 0.5 },
+    { id: 'minute_5_to_15', minMinutes: 5, maxMinutes: 15, incomeMultiplier: 2.0, costMultiplier: 0.7 },
+    { id: 'minute_15_to_30', minMinutes: 15, maxMinutes: 30, incomeMultiplier: 1.5, costMultiplier: 0.85 },
+    { id: 'minute_30_to_60', minMinutes: 30, maxMinutes: 60, incomeMultiplier: 1.2, costMultiplier: 1.0 },
+    { id: 'after_60min', minMinutes: 60, maxMinutes: Infinity, incomeMultiplier: 1.0, costMultiplier: 1.0 }
+  ],
+  DEPRESSION: {
+    triggers: {
+      bugEncountered: 4,
+      failedDeploy: 12,
+      criticalCodeReview: 8,
+      energyBelow20Percent: { value: 1, tickIntervalSeconds: 60 }
+    },
+    selfishDebuff: {
+      appliesTo: ['coffee_break', 'energy_refill_discount', 'streak_saver'],
+      doesNotApplyTo: ['generators', 'boosters', 'skins', 'pass_premium', 'battle_pass_xp_boost'],
+      multiplier: 2.0
+    },
+    hopelessDebuff: {
+      appliesTo: ['tap_action_only'],
+      doesNotApplyTo: ['iap_purchases', 'mini_games', 'generator_purchase', 'quest_claim', 'ad_rewards'],
+      effect: 'tap_yields_0_loc_this_click',
+      probability: 0.5
+    },
+    heartAttackSessionReset: {
+      resetFields: ['session.loc_earned_this_session', 'session.active_boosters', 'session.temporary_multipliers'],
+      preserveFields: ['lifetime.loc_total', 'lifetime.prestige_currency', 'lifetime.generators_owned', 'lifetime.unlocked_skins', 'battle_pass.xp_total', 'battle_pass.claimed_rewards', 'streak.days', 'squads.membership', 'inventory.consumables'],
+      sessionAnchorField: 'progression.session_started_at'
+    }
+  },
+  RANDOM_EVENTS: {
+    positiveGapResolution: 'add_two_events',
+    codeReviewRejectDepression: 8,
+    productionAlert: { energyDrain: 0.08, tickIntervalSeconds: 60, durationSeconds: 180 },
+    FTUE_EVENT_SUPPRESSION: [
+      { id: 'first_5_minutes', minMinutes: 0, maxMinutes: 5, rule: 'no_negative_events' },
+      { id: 'minute_5_to_15', minMinutes: 5, maxMinutes: 15, rule: 'negative_events_at_50_percent_weight' },
+      { id: 'after_15_min', minMinutes: 15, maxMinutes: Infinity, rule: 'full_event_pool' }
+    ],
+    stateMachine: {
+      legacyCode: { refactorClicksRequired: 10, effectWhileActive: { upgradeCostMultiplier: 2 } },
+      deployFriday: { choiceTimeoutSeconds: 30, successChance: 0.70, failLocLoss: 0.25, successBadge: 'friday_deployer' }
+    }
+  },
+  DAILY_QUESTS: {
+    avgDailyFarm: { method: 'rolling_7_day_average', source: 'daily_farm_log', formula: 'SUM(last_7_days_loc_earned) / 7', fallback: { day1: 5000, day2: 12000, day3: 25000 } },
+    rewardSplit: { mainQuest1: 0.10, mainQuest2: 0.10, mainQuest3: 0.10, bonusQuest: 0.05, fullClearBonusStars: 100 },
+    frontLoading: { multiplier: 2.5, appliesTo: ['main_quest_1', 'main_quest_2', 'main_quest_3'], doesNotApplyTo: ['bonus_quest', 'full_clear_bonus'] },
+    triggerExampleValues: { tapCount: 300, useBooster: 1, watchAd: 1, buyGenerator: 1, earnLoc: 10000 }
+  },
+  STREAK_SAVER: {
+    triggerWindowSeconds: 2 * 60 * 60,
+    priceStars: 1,
+    discountPercent: 90,
+    minIntervalDays: 7
+  },
+  BATTLE_PASS: {
+    avgDailyXP: { method: 'rolling_7_day_personal_average', formula: 'SUM(player_xp_last_7_days) / 7' },
+    catchUp: { missedDayPercent: 0.5, capDays: 3, appliesWeekendMultiplier: false },
+    weekendDoubleXp: { appliesTo: ['tap_xp', 'quest_xp', 'generator_xp', 'event_xp'], doesNotApplyTo: ['catch_up_xp', 'iap_xp_boosters', 'ad_xp'] },
+    premiumTrackRefund: { totalRefundPercent: 0.50, currencySplit: { stars: 0.40, ton: 0.10 }, distribution: 'per_level_claim', perLevelPercent: 0.025 }
+  },
+  SQUADS: {
+    socialObligation: { reductionPercent: 20, trigger: 'any_member.missed_yesterday == true', duration: '24 hours from UTC midnight' },
+    timezone: 'UTC',
+    teamBonusTarget: { appliesTo: 'squad_passive_loc_multiplier', baseMultiplier: 1.0, fullSquadMultiplier: 1.5, formula: '1.0 + (active_members / total_members) * 0.5' },
+    firstSquadBonus: { trigger: 'first_7_days_after_joining_squad', multiplier: 1.5 },
+    hackathon: { frequency: 'weekly (Mon 00:00 UTC -> Sun 23:59 UTC)', goalType: 'total_LOC_from_all_members', rewards: ['squad_only_skins', 'squad_only_boosters'] }
+  },
+  ANTICHEAT: {
+    fatigueDetection: { minimumSessionDurationMs: 600000, method: 'compare_first_5_min_cps_vs_last_3_min_cps', expectedDecayRatio: 0.75, suspiciousThresholdRatio: 0.95, flagAfterMs: 900000 },
+    banScoreIncrements: { layer1CpsOver20: 5, layer1PixelPerfect: 3, layer2CvBelow01: 10, layer2MissingFatigue: 7, layer3BalanceMismatch: 25 },
+    banScoreDecay: { ratePerDay: -5, condition: 'no_new_violations_today AND >50 taps_made', floor: 0 },
+    sanctionsScope: { leaderboardBanVisibility: 'hidden_from_global_leaderboard', appealLocation: 'Settings -> Account -> Appeal Ban', appealAvailableAt: 'ban_score >= 50' }
+  },
+  ADS: {
+    adsgramProofValidation: { method: 'server-to-server callback', endpoint: '/api/rewards/adsgram_callback', signatureHeader: 'X-Adsgram-Signature', envVar: 'ADSGRAM_SECRET', validation: 'hmac_sha256(body, ADSGRAM_SECRET) === signature' },
+    propellerProofValidation: { method: 'postback URL with hash', endpoint: '/api/rewards/propeller_callback', signatureParam: 'hash', envVar: 'PROPELLER_SECRET', validation: 'md5(event_id + user_id + PROPELLER_SECRET) === hash' },
+    replayProtection: { storage: 'KV.rewards:event_id_claimed', ttlHours: 24 },
+    adCooldownMinutes: 15,
+    maxPerDay: 5,
+    ftueAdRules: [
+      { id: 'first_30_minutes', minMinutes: 0, maxMinutes: 30, rule: 'no_ads_shown' },
+      { id: 'minute_30_to_60', minMinutes: 30, maxMinutes: 60, rule: 'max_1_ad' },
+      { id: 'after_60min', minMinutes: 60, maxMinutes: Infinity, rule: 'full_ad_availability' }
+    ]
+  }
+};
+
 export const CONTEXT_OFFER_RULES = {
   low_energy: {
     priority: 1,
-    cooldownMs: 90 * 60 * 1000,
+    cooldownMs: 60 * 60 * 1000,
     energyPercentThreshold: 15,
     title: '⚡ Энергия просела',
     body: 'Нужен быстрый рефилл, иначе сессия закончится раньше времени.',
@@ -12,14 +114,14 @@ export const CONTEXT_OFFER_RULES = {
   },
   near_rank: {
     priority: 2,
-    cooldownMs: 2 * 60 * 60 * 1000,
-    progressThreshold: 0.72,
+    cooldownMs: 6 * 60 * 60 * 1000,
+    progressThreshold: 0.85,
     title: '🚀 Повышение рядом',
     body: 'Добей уровень сейчас: буст даст XP и подтолкнёт карьерный рост.',
     productId: 'tier_boost',
     action: 'Дожать'
   },
-  high_stress: {
+  stress_warning: {
     priority: 3,
     cooldownMs: 3 * 60 * 60 * 1000,
     depressionThreshold: 20,
@@ -77,15 +179,28 @@ export const BATTLE_REWARD_PREVIEW = {
   top3: { energy: 15 }
 };
 
+export const MIN_IDLE_THRESHOLD_SECONDS = 300;
+export const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 5;
+export const RECOVERY_INTERVAL_NEWBIE_SECONDS = 90;
+export const RECOVERY_INTERVAL_VETERAN_SECONDS = 120;
+
+export const DEPRESSION_SCALE = {
+  MIN: 0,
+  MAX: 200,
+  AFFLICTION_THRESHOLD: 100,
+  HEART_ATTACK_THRESHOLD: 200
+};
+
 export const TAP_MECHANICS = {
   depressionGainPerTap: 0.5,
   depressionGainLowEnergy: 0.5,
   depressionGainCriticalEnergy: 1.0,
   depressionRecoveryPerEnergy: 2,
   depressionPenaltyMultiplier: 0.5,
-  maxDepression: 100,
-  energyRecoveryIntervalSeconds: 60,
-  newbieRecoveryMultiplier: 1.5,
+  maxDepression: DEPRESSION_SCALE.HEART_ATTACK_THRESHOLD,
+  afflictionDepression: DEPRESSION_SCALE.AFFLICTION_THRESHOLD,
+  energyRecoveryIntervalSeconds: RECOVERY_INTERVAL_VETERAN_SECONDS,
+  newbieRecoveryMultiplier: RECOVERY_INTERVAL_VETERAN_SECONDS / RECOVERY_INTERVAL_NEWBIE_SECONDS,
   newbiePeriodHours: 72,
   maxEnergy: 100,
   critSilverChance: 0.15,
@@ -105,7 +220,7 @@ export const WEEKLY_HACKATHON_REWARD = {
 };
 
 export const SHOP_ITEM_EFFECTS = {
-  coffee_break: { energy: 50, depressionRelief: 30 },
+  coffee_break: { energy: 50, depressionRelief: 10 },
   depression_cure: { depressionRelief: 60 },
   tier_boost: { xpTotal: 40, commitsCurrent: 50 }
 };
@@ -114,7 +229,7 @@ export const SHOP_ITEM_EFFECTS = {
 export const STRESS_V2 = {
   DEPRESSION_INCREASE_LOW_ENERGY: 60,
   DEPRESSION_CRITICAL_LOW_ENERGY: 30,
-  DEPRESSION_PASSIVE_DECAY_PER_HOUR: 5,
+  DEPRESSION_PASSIVE_DECAY_PER_HOUR: DEPRESSION_PASSIVE_RECOVERY_PER_HOUR,
   STRESS_GAIN_PER_TAP_BELOW_50: 1,
   STRESS_GAIN_PER_TAP_BELOW_30: 2
 };
@@ -139,20 +254,20 @@ const STAGE2 = {
     RESET_HOUR: 0,
     // PROG-01: 3 regular quests + 1 bonus
     BASE_QUESTS: [
-      { id: 'q_login', type: 'login', target: 1, reward: { energy: 10, xp: 5, passXp: 5 } },
-      { id: 'q_tap50', type: 'tap_count', target: 50, reward: { energy: 20, xp: 10, passXp: 30 } },
-      { id: 'q_commit100', type: 'commit_total', target: 100, reward: { energy: 25, xp: 15, passXp: 35 } }
+      { id: 'q_login', type: 'login', target: 1, reward: { commitsCurrent: 500 } },
+      { id: 'q_tap300', type: 'tap_count', target: 300, reward: { commitsCurrent: 500 } },
+      { id: 'q_earn10000', type: 'commit_total', target: 10000, reward: { commitsCurrent: 500 } }
     ],
     POOLS: {
       // Bonus pool: higher targets, 2x rewards applied at generation time
       BONUS: [
-        { id: 'q_bonus_tap', type: 'tap_count', target: 200, reward: { energy: 30, xp: 20, passXp: 40 } },
-        { id: 'q_bonus_crit', type: 'crit_count', target: 20, reward: { commitsCurrent: 60, xp: 20, passXp: 40, skinFragment: 'bug_hunter' } },
-        { id: 'q_bonus_commit', type: 'commit_total', target: 500, reward: { energy: 40, xp: 30, passXp: 40 } }
+        { id: 'q_bonus_watch_ad', type: 'watch_ad', target: 1, reward: { commitsCurrent: 250 } },
+        { id: 'q_bonus_buy_generator', type: 'buy_generator', target: 1, reward: { commitsCurrent: 250 } },
+        { id: 'q_bonus_commit', type: 'commit_total', target: 10000, reward: { commitsCurrent: 250 } }
       ]
     },
     FULL_CLEAR: {
-      reward: { energy: 30, xp: 20, passXp: 50 },
+      reward: { stars: 100 },
       LOOT_BOX: {
         drops: [
           { id: 'energy_10', weight: 70, reward: { energy: 10 } },
@@ -160,6 +275,13 @@ const STAGE2 = {
           { id: 'stars_5', weight: 10, reward: { stars: 5 } }
         ]
       }
+    },
+    TRIGGERS: {
+      tapCount: DEFAULTS.DAILY_QUESTS.triggerExampleValues.tapCount,
+      useBooster: DEFAULTS.DAILY_QUESTS.triggerExampleValues.useBooster,
+      watchAd: DEFAULTS.DAILY_QUESTS.triggerExampleValues.watchAd,
+      buyGenerator: DEFAULTS.DAILY_QUESTS.triggerExampleValues.buyGenerator,
+      earnLoc: DEFAULTS.DAILY_QUESTS.triggerExampleValues.earnLoc
     }
   },
 
@@ -169,7 +291,7 @@ const STAGE2 = {
     LEVELS: (() => {
       const levels = [];
       for (let i = 1; i <= 20; i++) {
-        levels.push({ level: i, requiredXp: 200 + (i - 1) * 15 });
+        levels.push({ level: i, requiredXp: i * 100 });
       }
       return levels;
     })(),
@@ -192,8 +314,13 @@ const STAGE2 = {
       20: { skin: 'cto_cape', title: 'Legendary Dev', stars: 100 }
     },
     CATCH_UP: {
-      missedDayPercent: 0.5,
+      missedDayPercent: DEFAULTS.BATTLE_PASS.catchUp.missedDayPercent,
       weekendMultiplier: 2.0,
+      catchUpCapDays: DEFAULTS.BATTLE_PASS.catchUp.capDays,
+      catchUpAppliesWeekendMultiplier: DEFAULTS.BATTLE_PASS.catchUp.appliesWeekendMultiplier,
+      premiumTrackRefundPercent: DEFAULTS.BATTLE_PASS.premiumTrackRefund.totalRefundPercent,
+      premiumTrackRefundCurrencySplit: DEFAULTS.BATTLE_PASS.premiumTrackRefund.currencySplit,
+      premiumTrackRefundDistribution: DEFAULTS.BATTLE_PASS.premiumTrackRefund.distribution,
       lastChanceDays: 3,
       levelBuyCostStars: 10
     }
@@ -215,14 +342,20 @@ const STAGE2 = {
       starSaveCost: 25,
       maxStarSavesPerSeason: 2,
       teamSaveThreshold: 3
+    },
+    SAVER: {
+      triggerWindowSeconds: DEFAULTS.STREAK_SAVER.triggerWindowSeconds,
+      priceStars: DEFAULTS.STREAK_SAVER.priceStars,
+      discountPercent: DEFAULTS.STREAK_SAVER.discountPercent,
+      minIntervalDays: DEFAULTS.STREAK_SAVER.minIntervalDays
     }
   },
 
   REWARDED_VIDEO: {
     TRIGGER_ENERGY_PCT: 0.20,
     REWARD_ENERGY_PCT: 0.50,
-    DAILY_LIMIT: 3,
-    COOLDOWN_MINUTES: 5,
+    DAILY_LIMIT: DEFAULTS.ADS.maxPerDay,
+    COOLDOWN_MINUTES: DEFAULTS.ADS.adCooldownMinutes,
     BUTTON_TEXT: '☕ Кофе-брейк'
   },
 
@@ -268,6 +401,12 @@ const STAGE2 = {
   },
 
   WEEKLY_SPRINT: {
+    NARRATIVE_ARC: ['Planning', 'Coding', 'Testing', 'Deploy'],
+    REWARD_CHOICE: {
+      type: 'choice',
+      options: ['skin', 'booster', 'currency'],
+      count: 3
+    },
     TIERS: {
       EASY: {
         targetCommits: 500,
@@ -294,7 +433,7 @@ const STAGE2 = {
 };
 
 const totalStage2PassXp = STAGE2.PASS.LEVELS.reduce((sum, level) => sum + level.requiredXp, 0);
-console.assert(totalStage2PassXp === 6850, `Pass XP mismatch: ${totalStage2PassXp}`);
+console.assert(totalStage2PassXp === 21000, `Pass XP mismatch: ${totalStage2PassXp}`);
 console.assert(STAGE2.PASS.LEVELS.length === 20, 'Level count must be 20');
 console.assert(
   STAGE2.DAILY_QUEST.FULL_CLEAR.LOOT_BOX.drops.reduce((sum, drop) => sum + drop.weight, 0) === 100,

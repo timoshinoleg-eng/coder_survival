@@ -8,6 +8,37 @@ const { PASS } = STAGE2;
  * One active season, 20 levels, XP from the normal tap XP curve.
  */
 
+export function getPassRequiredXp(level) {
+  const normalizedLevel = Number(level || 0);
+  if (!Number.isInteger(normalizedLevel) || normalizedLevel < 1 || normalizedLevel > 20) {
+    return null;
+  }
+  return normalizedLevel * 100;
+}
+
+export function calculateCatchUpXp(missedDays, avgDailyXP) {
+  const days = Math.max(0, Math.floor(Number(missedDays || 0)));
+  const average = Math.max(0, Number(avgDailyXP || 0));
+  return Math.floor(days * average * PASS.CATCH_UP.missedDayPercent);
+}
+
+export function calculateCappedCatchUpXp(missedDays, avgDailyXP) {
+  const cappedDays = Math.min(PASS.CATCH_UP.catchUpCapDays || 3, Math.max(0, Math.floor(Number(missedDays || 0))));
+  return calculateCatchUpXp(cappedDays, avgDailyXP);
+}
+
+export function getWeekendXpMultiplier(date = new Date()) {
+  const day = date.getUTCDay();
+  return day === 0 || day === 6 ? PASS.CATCH_UP.weekendMultiplier : 1;
+}
+
+export function applyPassXpSourceMultiplier(amount, source, date = new Date()) {
+  const normalized = Math.max(0, Number(amount || 0));
+  const weekendSources = new Set(['tap_xp', 'quest_xp', 'generator_xp', 'event_xp']);
+  if (!weekendSources.has(source)) return normalized;
+  return Math.floor(normalized * getWeekendXpMultiplier(date));
+}
+
 export async function getActivePass(client) {
   const result = await client.query(
     `SELECT id, season_number, season_name, start_date, end_date
@@ -159,7 +190,7 @@ async function addDbPassXp(client, userId, xpAmount) {
 
   while (newLevel < maxLevel) {
     const rewardDef = rewards.find(r => r.level === newLevel);
-    const required = rewardDef ? rewardDef.required_xp : 30;
+    const required = rewardDef ? rewardDef.required_xp : getPassRequiredXp(newLevel);
     if (newXp < required) break;
     newXp -= required;
     newLevel += 1;
@@ -313,7 +344,12 @@ export function normalizePassStatus(status) {
       seasonNumber: status.pass.season_number,
       seasonName: status.pass.season_name,
       startDate: status.pass.start_date,
-      endDate: status.pass.end_date
+      endDate: status.pass.end_date,
+      refund: {
+        totalRefundPercent: PASS.CATCH_UP.premiumTrackRefundPercent,
+        currencySplit: PASS.CATCH_UP.premiumTrackRefundCurrencySplit,
+        distribution: PASS.CATCH_UP.premiumTrackRefundDistribution,
+      },
     } : null,
     playerPass: status.playerPass ? {
       id: status.playerPass.id,

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomUUID, createHash } from "crypto";
 import { pool } from "../index.js";
-import { STAGE4 } from "../config/balance.js";
+import { STAGE4, TAP_MECHANICS } from "../config/balance.js";
 import {
   getEffectiveRecoveryIntervalSeconds,
   getRecoveryEtaSeconds,
@@ -18,7 +18,12 @@ import { getContextOffer, recordOfferImpression } from "../utils/offers.js";
 import { getPassStatus, getActivePass } from "../utils/pass.js";
 import { logPassXp } from "../utils/passXpLog.js";
 import { getProductById } from "../utils/shopCatalog.js";
+import { buildGeneratorStatus } from '../utils/generatorState.js';
+import { recoverPassiveLoc } from '../utils/generatorEconomy.js';
+import { getBanScoreTier, normalizeAntiCheatState } from '../utils/anticheat.js';
+import { getGeneratorCostMultiplierFromEventState } from '../utils/randomEventState.js';
 import { getMyTeam } from "../utils/teams.js";
+import { getDailyFarmSummary } from '../utils/farmLog.js';
 import { processLoginReward } from "../utils/loginReward.js";
 import {
   getTeamBattleStatus,
@@ -291,6 +296,7 @@ router.get("/", async (req, res, next) => {
         [user.id]
       );
       const officeCatEquipped = officeCatResult.rows.length > 0;
+      const myTeam = await getMyTeam(client, user.id);
 
       const progression = await recoverProgression(
         client,
@@ -299,24 +305,31 @@ router.get("/", async (req, res, next) => {
         skinRecoveryMult,
         officeCatEquipped,
       );
+      const accountAgeMinutes = user?.created_at
+        ? Math.max(0, Math.floor((Date.now() - new Date(user.created_at).getTime()) / 60000))
+        : 61;
+      const passiveProgression = await recoverPassiveLoc(client, progression, {
+        accountAgeMinutes,
+        passiveMultiplier: Number(myTeam?.passiveLocMultiplier || 1)
+      });
 
       // Phase 6: prune expired active effects
-      const prunedEffects = pruneExpiredEffects(progression.active_effects || {});
-      if (JSON.stringify(prunedEffects) !== JSON.stringify(progression.active_effects || {})) {
+      const prunedEffects = pruneExpiredEffects(passiveProgression.active_effects || {});
+      if (JSON.stringify(prunedEffects) !== JSON.stringify(passiveProgression.active_effects || {})) {
         await client.query(
           `UPDATE progression SET active_effects = $2 WHERE user_id = $1`,
           [user.id, JSON.stringify(prunedEffects)]
         );
       }
-      progression.active_effects = prunedEffects;
+      passiveProgression.active_effects = prunedEffects;
       const activeEffects = getActiveEffects(prunedEffects);
 
-      const idleRecovery = progression?._idleRecovery || null;
+      const idleRecovery = passiveProgression?._idleRecovery || null;
       const careerStory = await ensureCareerStoryUnlocked(
         client,
         user.id,
-        progression?.career_story || progressRow?.career_story || {},
-        Number(level.resolved?.rank || progression?.tier || 1),
+        passiveProgression?.career_story || progressRow?.career_story || {},
+        Number(level.resolved?.rank || passiveProgression?.tier || 1),
       );
 
       const sessionResult = await client.query(
@@ -384,11 +397,10 @@ router.get("/", async (req, res, next) => {
         ? await getEventContribution(client, user.id, event.id)
         : null;
       const passStatus = await getPassStatus(client, user.id);
-      const myTeam = await getMyTeam(client, user.id);
       const contextOffer = await getContextOffer(client, user.id, {
-        energy: progression.energy,
+        energy: passiveProgression.energy,
         maxEnergy: rankMeta.maxEnergy,
-        depression: progression.depression_level,
+        depression: passiveProgression.depression_level,
         xpProgress: level.resolved.progressInLevel,
         xpRequiredForNext: level.resolved.requiredForNextLevel,
         featureFlags: userFeatureFlags,
@@ -412,15 +424,17 @@ router.get("/", async (req, res, next) => {
       const achievements = await getUserAchievements(client, user.id);
       const crunchTime = await getActiveCrunchTime(client);
       const referralChain = await getReferralChain(client, user.id);
-      const isBurnout = Number(progression.depression_level ?? 0) >= 100;
+      const depressionLevel = Number(passiveProgression.depression_level ?? 0);
+      const isAfflicted = depressionLevel >= TAP_MECHANICS.afflictionDepression;
+      const isBurnout = depressionLevel >= TAP_MECHANICS.maxDepression;
       if (isBurnout) {
         await checkAchievement(client, user.id, 'burnout');
       }
 
       // Phase 5: Auto-grant invited referral reward when anti-farm threshold reached
-      const referralState = progression.referral_state || {};
+      const referralState = passiveProgression.referral_state || {};
       if (referralState.invitedBy && !referralState.invitedRewardGranted) {
-        if (isReferralActive(progression)) {
+        if (isReferralActive(passiveProgression)) {
           const invitedReward = STAGE3.REFERRAL.MILESTONE_REWARDS[1]?.invited || {};
           await client.query(
             `UPDATE progression
@@ -437,13 +451,19 @@ router.get("/", async (req, res, next) => {
         }
       }
 
-      const recoveryIntervalSeconds = getEffectiveRecoveryIntervalSeconds(progression, new Date(), skinRecoveryMult);
+      const recoveryIntervalSeconds = getEffectiveRecoveryIntervalSeconds(passiveProgression, new Date(), skinRecoveryMult);
       const recoveryEtaSeconds = getRecoveryEtaSeconds(
-        progression,
+        passiveProgression,
         rankMeta.maxEnergy,
         new Date(),
         skinRecoveryMult,
       );
+      const generatorState = buildGeneratorStatus(passiveProgression?.generator_state || {}, accountAgeMinutes, {
+        costMultiplier: getGeneratorCostMultiplierFromEventState(passiveProgression?.event_state || {})
+      });
+      const antiCheatState = normalizeAntiCheatState(passiveProgression?.anti_cheat_state || {});
+      const antiCheatTier = getBanScoreTier(antiCheatState.banScore);
+      const dailyFarm = await getDailyFarmSummary(client, user.id);
 
       await client.query("COMMIT");
 
@@ -460,34 +480,36 @@ router.get("/", async (req, res, next) => {
         },
         featureFlags: userFeatureFlags,
         stressCohort: userFeatureFlags?.stress_v2 ? "test" : "control",
-        progression: progression
+        progression: passiveProgression
           ? {
-              tier: progression.tier,
-              tierName: getTierName(progression.tier),
-              commitsTotal: parseInt(progression.commits_total),
-              commitsCurrent: parseInt(progression.commits_current),
-              energy: progression.energy,
-              depressionLevel: progression.depression_level,
-              streakDays: progression.streak_days,
-              updatedAt: progression.updated_at,
-              onboardingCompleted: progression.onboarding_completed === true,
-              inventory: progression.inventory || {},
+              tier: passiveProgression.tier,
+              tierName: getTierName(passiveProgression.tier),
+              commitsTotal: parseInt(passiveProgression.commits_total),
+              commitsCurrent: parseInt(passiveProgression.commits_current),
+              energy: passiveProgression.energy,
+              depressionLevel: passiveProgression.depression_level,
+              streakDays: passiveProgression.streak_days,
+              updatedAt: passiveProgression.updated_at,
+              onboardingCompleted: passiveProgression.onboarding_completed === true,
+              inventory: passiveProgression.inventory || {},
+              isAfflicted,
               isBurnout,
             }
           : null,
         game: {
-          tier: progression.tier,
-          commits_total: parseInt(progression.commits_total),
-          commits_current: parseInt(progression.commits_current),
-          energy: progression.energy,
-          depression_level: progression.depression_level,
-          streak_days: progression.streak_days,
-          updated_at: progression.updated_at,
-          onboarding_completed: progression.onboarding_completed === true,
-          inventory: progression.inventory || {},
+          tier: passiveProgression.tier,
+          commits_total: parseInt(passiveProgression.commits_total),
+          commits_current: parseInt(passiveProgression.commits_current),
+          energy: passiveProgression.energy,
+          depression_level: passiveProgression.depression_level,
+          streak_days: passiveProgression.streak_days,
+          updated_at: passiveProgression.updated_at,
+          onboarding_completed: passiveProgression.onboarding_completed === true,
+          inventory: passiveProgression.inventory || {},
+          is_afflicted: isAfflicted,
           is_burnout: isBurnout,
         },
-        progressionUpdatedAt: progression?.updated_at ?? null,
+        progressionUpdatedAt: passiveProgression?.updated_at ?? null,
         serverNow: new Date().toISOString(),
         level: level.resolved,
         maxEnergy: rankMeta.maxEnergy,
@@ -548,8 +570,23 @@ router.get("/", async (req, res, next) => {
         crunchTime,
         referralChain,
         careerStory,
+        generatorState,
+        randomEventState: passiveProgression?.event_state?.randomEventState || null,
+        dailyFarm,
+        antiCheat: {
+          banScore: antiCheatState.banScore,
+          leaderboardHidden: antiCheatState.leaderboardHidden,
+          lastViolationAt: antiCheatState.lastViolationAt,
+          sanctionTier: antiCheatTier.id,
+          sanctionAction: antiCheatTier.action,
+          sanctionEffects: antiCheatTier.effects,
+          appealAvailable: antiCheatState.banScore >= 50,
+          appealLocation: 'Settings -> Account -> Appeal Ban',
+        },
+        isAfflicted,
         isBurnout,
         idleRecovery,
+        passiveLocRecovery: passiveProgression?._passiveLocRecovery || null,
       });
     } catch (err) {
       await client.query("ROLLBACK");

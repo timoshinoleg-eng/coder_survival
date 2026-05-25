@@ -1,8 +1,10 @@
+import { detectCpsViolation, detectCvViolation, getBanScoreIncrement } from '../utils/anticheat.js';
+
 const TAP_HISTORY_SIZE = 30;
 const ENTROPY_SOFT_THRESHOLD = 2.5;
 const ENTROPY_HARD_THRESHOLD = 1.5;
-const CV_SOFT_THRESHOLD = 0.15;
-const CV_HARD_THRESHOLD = 0.05;
+const CV_SOFT_THRESHOLD = 0.3;
+const CV_HARD_THRESHOLD = 0.1;
 const MIN_TAPS_FOR_ANALYSIS = 10;
 const BAN_COOLDOWN_MS = 60 * 1000;
 const INTERVAL_BUCKET_MS = 50;
@@ -11,7 +13,7 @@ const tapHistory = new Map();
 
 function getOrCreate(userId) {
   if (!tapHistory.has(userId)) {
-    tapHistory.set(userId, { timestamps: [], bannedUntil: 0 });
+    tapHistory.set(userId, { timestamps: [], bannedUntil: 0, banScore: 0 });
   }
   return tapHistory.get(userId);
 }
@@ -68,25 +70,29 @@ export function analyzeAndRecordTap(userId) {
 
   const entropy = shannonEntropy(intervals);
   const cv = coefficientOfVariation(intervals);
+  const cpsViolation = detectCpsViolation(intervals);
 
-  const isHardBlock = entropy < ENTROPY_HARD_THRESHOLD || cv < CV_HARD_THRESHOLD;
+  const isHardBlock = cpsViolation || entropy < ENTROPY_HARD_THRESHOLD || cv < CV_HARD_THRESHOLD;
   const isSoftFlag = !isHardBlock && (entropy < ENTROPY_SOFT_THRESHOLD || cv < CV_SOFT_THRESHOLD);
 
   if (isHardBlock) {
     history.bannedUntil = now + BAN_COOLDOWN_MS;
+    history.banScore += getBanScoreIncrement(cpsViolation ? 'layer1_cps_over_20' : 'layer2_cv_below_0_1');
     console.warn('[AntiCheat] Pattern ban:', { userId, entropy: entropy.toFixed(3), cv: cv.toFixed(3) });
     return {
       allowed: false,
       reason: 'pattern_ban',
       retryAfter: BAN_COOLDOWN_MS / 1000,
-      metrics: { entropy, cv }
+      metrics: { entropy, cv, cpsViolation, banScore: history.banScore },
+      incrementReason: cpsViolation ? 'layer1_cps_over_20' : 'layer2_cv_below_0_1'
     };
   }
 
   return {
     allowed: true,
     suspicious: isSoftFlag,
-    metrics: isSoftFlag ? { entropy, cv } : undefined
+    metrics: isSoftFlag ? { entropy, cv, cvViolation: detectCvViolation(cv), banScore: history.banScore } : undefined,
+    incrementReason: isSoftFlag && detectCvViolation(cv) ? 'layer2_cv_below_0_1' : null
   };
 }
 

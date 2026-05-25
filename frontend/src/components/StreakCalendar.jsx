@@ -15,13 +15,14 @@ function getRandomBreakMessage() {
 }
 
 export default function StreakCalendar() {
-  const { streak, claimStreak, recoverStreak, showToast } = useGameState();
+  const { streak, claimStreak, recoverStreak, showToast, setShopOpen } = useGameState();
   const [claiming, setClaiming] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const days = streak?.calendar || [];
   const loggedInToday = streak?.loggedInToday === true;
   const canRecover = streak?.canRecover === true;
   const recoveryCost = streak?.recoveryCost || 5;
+  const streakSaverOffer = streak?.streakSaverOffer || null;
 
   async function handleClaim() {
     if (claiming || loggedInToday) return;
@@ -30,6 +31,8 @@ export default function StreakCalendar() {
       const result = await claimStreak();
       if (result?.status === 'streak_broken') {
         showToast(getRandomBreakMessage(), 'error', 3000);
+      } else if (result?.status === 'streak_saved_paid') {
+        showToast(`Экстренный кофе спас стрик: ${result?.currentStreak || 0} дней!`, 'success', 2500);
       } else if (result?.status === 'streak_saved_free') {
         showToast('Серия спасена бесплатно! Завтра новый день.', 'success', 2500);
       } else if (result?.status === 'streak_saved_team') {
@@ -136,6 +139,33 @@ export default function StreakCalendar() {
         color: '#60a5fa',
         fontWeight: 800,
       },
-    }, recovering ? 'Восстанавливаем...' : `💎 ${recoveryCost} Stars — Восстановить серию`),
+      }, recovering ? 'Восстанавливаем...' : `💎 ${recoveryCost} Stars — Восстановить серию`),
+    streakSaverOffer && h('div', {
+      style: {
+        marginTop: '8px',
+        padding: '10px',
+        border: '1px solid #f59e0b',
+        borderRadius: '8px',
+        background: '#3b2f10',
+        color: '#fde68a',
+        fontSize: '12px',
+        fontWeight: 700,
+      },
+    }, [
+      h('div', { style: { marginBottom: '8px' } }, streakSaverOffer.body),
+      h('button', {
+        type: 'button',
+        onClick: () => setShopOpen(true),
+        style: {
+          width: '100%',
+          minHeight: '40px',
+          border: '1px solid #facc15',
+          borderRadius: '8px',
+          background: '#5b4311',
+          color: '#fde68a',
+          fontWeight: 800,
+        },
+      }, `Открыть магазин · ⭐ ${streakSaverOffer.stars}`),
+    ]),
   ]);
 }

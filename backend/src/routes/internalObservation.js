@@ -36,6 +36,13 @@ router.get("/economy", async (req, res, next) => {
         sprintPass: await getSprintPassSlice(client),
         shopPurchases: await getShopPurchasesSlice(client, days),
         economyHealth: await getEconomyHealthSlice(client),
+        dailyFarm: await getDailyFarmSlice(client, days),
+        antiCheat: await getAntiCheatSlice(client),
+        generatorEconomy: await getGeneratorEconomySlice(client),
+        premiumReferral: await getPremiumReferralSlice(client),
+        appeals: await getAppealsSlice(client, days),
+        burnout: await getBurnoutSlice(client),
+        randomEventState: await getRandomEventStateSlice(client),
       };
 
       return res.json({
@@ -256,6 +263,208 @@ async function getDailyQuestsSlice(client, days) {
   };
 }
 
+async function getDailyFarmSlice(client, days) {
+  const [byDayResult, topFarmersResult] = await Promise.all([
+    client.query(
+      `SELECT farm_date, SUM(loc_earned) AS total_loc, COUNT(DISTINCT user_id) AS users
+       FROM daily_farm_log
+       WHERE farm_date >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       GROUP BY farm_date
+       ORDER BY farm_date DESC`,
+      [days]
+    ),
+    client.query(
+      `SELECT user_id, SUM(loc_earned) AS total_loc
+       FROM daily_farm_log
+       WHERE farm_date >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       GROUP BY user_id
+       ORDER BY total_loc DESC
+       LIMIT 10`,
+      [days]
+    )
+  ]);
+
+  return {
+    byDay: byDayResult.rows.map((row) => ({
+      farmDate: row.farm_date,
+      totalLoc: Number(row.total_loc || 0),
+      users: Number(row.users || 0),
+      avgLocPerUser: ratio(Number(row.total_loc || 0), Number(row.users || 0), 1),
+    })),
+    topFarmers: topFarmersResult.rows.map((row) => ({
+      userId: Number(row.user_id || 0),
+      totalLoc: Number(row.total_loc || 0),
+    }))
+  };
+}
+
+async function getAntiCheatSlice(client) {
+  const [distributionResult, alertsResult] = await Promise.all([
+    client.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE COALESCE((anti_cheat_state->>'banScore')::int, 0) BETWEEN 20 AND 49) AS tier1,
+         COUNT(*) FILTER (WHERE COALESCE((anti_cheat_state->>'banScore')::int, 0) BETWEEN 50 AND 79) AS tier2,
+         COUNT(*) FILTER (WHERE COALESCE((anti_cheat_state->>'banScore')::int, 0) >= 80) AS tier3,
+         COUNT(*) FILTER (WHERE COALESCE((anti_cheat_state->>'banScore')::int, 0) >= 50) AS appeal_ready,
+         ROUND(AVG(COALESCE((anti_cheat_state->>'banScore')::int, 0)), 1) AS avg_ban_score
+       FROM progression`
+    ),
+    client.query(
+      `SELECT user_id, context, created_at
+       FROM audit_logs
+       WHERE action IN ('anticheat_pattern_ban', 'anticheat_pattern_flag', 'balance_audit_violation')
+       ORDER BY created_at DESC
+       LIMIT 20`
+    )
+  ]);
+
+  const row = distributionResult.rows[0] || {};
+  return {
+    distribution: {
+      tier1: Number(row.tier1 || 0),
+      tier2: Number(row.tier2 || 0),
+      tier3: Number(row.tier3 || 0),
+      appealReady: Number(row.appeal_ready || 0),
+      avgBanScore: Number(row.avg_ban_score || 0),
+    },
+    recentAlerts: alertsResult.rows.map((alert) => ({
+      userId: Number(alert.user_id || 0),
+      context: alert.context || {},
+      createdAt: alert.created_at,
+    }))
+  };
+}
+
+async function getGeneratorEconomySlice(client) {
+  const [ownershipResult, passiveResult] = await Promise.all([
+    client.query(
+      `SELECT generator_state
+       FROM progression
+       WHERE generator_state != '{}'::jsonb`
+    ),
+    client.query(
+      `SELECT COALESCE(SUM(loc_earned), 0) AS total_loc
+       FROM daily_farm_log
+       WHERE farm_date = CURRENT_DATE`
+    )
+  ]);
+
+  const totals = {};
+  for (const row of ownershipResult.rows) {
+    const owned = row.generator_state?.owned || {};
+    for (const [tierId, count] of Object.entries(owned)) {
+      totals[tierId] = Number(totals[tierId] || 0) + Number(count || 0);
+    }
+  }
+
+  return {
+    ownershipTotals: totals,
+    todayLoggedLoc: Number(passiveResult.rows[0]?.total_loc || 0),
+    playersWithGenerators: ownershipResult.rows.length,
+  };
+}
+
+async function getPremiumReferralSlice(client) {
+  const [premiumBindResult, premiumActiveResult] = await Promise.all([
+    client.query(
+      `SELECT COUNT(*) AS premium_referred
+       FROM referrals
+       WHERE is_referred_premium = TRUE`
+    ),
+    client.query(
+      `SELECT COUNT(*) AS premium_active
+       FROM referrals r
+       LEFT JOIN progression p ON p.user_id = r.referred_id
+       WHERE r.is_referred_premium = TRUE
+         AND COALESCE(p.commits_total, 0) >= 20`
+    )
+  ]);
+
+  return {
+    premiumReferred: Number(premiumBindResult.rows[0]?.premium_referred || 0),
+    premiumActive: Number(premiumActiveResult.rows[0]?.premium_active || 0),
+  };
+}
+
+async function getAppealsSlice(client, days) {
+  const [statusResult, recentResult] = await Promise.all([
+    client.query(
+      `SELECT status, COUNT(*) AS count
+       FROM appeal_requests
+       WHERE created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       GROUP BY status
+       ORDER BY status`,
+      [days]
+    ),
+    client.query(
+      `SELECT user_id, ban_score_snapshot, sanction_tier, status, created_at
+       FROM appeal_requests
+       ORDER BY created_at DESC
+       LIMIT 20`
+    )
+  ]);
+
+  return {
+    byStatus: statusResult.rows.map((row) => ({
+      status: row.status,
+      count: Number(row.count || 0),
+    })),
+    recent: recentResult.rows.map((row) => ({
+      userId: Number(row.user_id || 0),
+      banScoreSnapshot: Number(row.ban_score_snapshot || 0),
+      sanctionTier: row.sanction_tier,
+      status: row.status,
+      createdAt: row.created_at,
+    })),
+  };
+}
+
+async function getBurnoutSlice(client) {
+  const [summaryResult, topResult] = await Promise.all([
+    client.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE is_burnout = TRUE) AS current_burnout,
+         COUNT(*) FILTER (WHERE COALESCE((inventory->>'burnout_count')::int, 0) > 0) AS users_with_burnout_history,
+         ROUND(AVG(COALESCE((inventory->>'burnout_count')::int, 0)), 2) AS avg_burnout_count
+       FROM progression`
+    ),
+    client.query(
+      `SELECT user_id, COALESCE((inventory->>'burnout_count')::int, 0) AS burnout_count
+       FROM progression
+       WHERE COALESCE((inventory->>'burnout_count')::int, 0) > 0
+       ORDER BY burnout_count DESC, user_id ASC
+       LIMIT 10`
+    )
+  ]);
+
+  const row = summaryResult.rows[0] || {};
+  return {
+    currentBurnout: Number(row.current_burnout || 0),
+    usersWithBurnoutHistory: Number(row.users_with_burnout_history || 0),
+    avgBurnoutCount: Number(row.avg_burnout_count || 0),
+    topBurnoutUsers: topResult.rows.map((item) => ({
+      userId: Number(item.user_id || 0),
+      burnoutCount: Number(item.burnout_count || 0),
+    })),
+  };
+}
+
+async function getRandomEventStateSlice(client) {
+  const result = await client.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE COALESCE((event_state->'randomEventState'->>'legacyCodeClicksRemaining')::int, 0) > 0) AS legacy_code_active,
+       COUNT(*) FILTER (WHERE event_state->'randomEventState'->>'productionAlertUntil' IS NOT NULL) AS production_alert_flagged,
+       COUNT(*) FILTER (WHERE event_state->'randomEventState'->>'hotStreakUntil' IS NOT NULL) AS hot_streak_flagged
+     FROM progression`
+  );
+  const row = result.rows[0] || {};
+  return {
+    legacyCodeActive: Number(row.legacy_code_active || 0),
+    productionAlertFlagged: Number(row.production_alert_flagged || 0),
+    hotStreakFlagged: Number(row.hot_streak_flagged || 0),
+  };
+}
+
 async function getContextOffersSlice(client, days) {
   const [
     impressionsResult,
@@ -312,7 +521,7 @@ async function getContextOffersSlice(client, days) {
       `WITH offer_map(offer_type, item_type) AS (
          VALUES
            ('low_energy', 'energy_refill'),
-           ('high_stress', 'depression_cure'),
+           ('stress_warning', 'depression_cure'),
            ('near_rank', 'tier_boost')
        ),
        impressions AS (
@@ -386,7 +595,7 @@ async function getContextOffersSlice(client, days) {
       `WITH offer_map(offer_type, item_type) AS (
          VALUES
            ('low_energy', 'energy_refill'),
-           ('high_stress', 'depression_cure'),
+           ('stress_warning', 'depression_cure'),
            ('near_rank', 'tier_boost')
        ),
        impressions AS (
@@ -1255,6 +1464,14 @@ function ratioPct(numerator, denominator) {
   }
 
   return Number(((numerator * 100) / denominator).toFixed(2));
+}
+
+function ratio(numerator, denominator, digits = 1) {
+  if (!denominator) {
+    return 0;
+  }
+
+  return Number((numerator / denominator).toFixed(digits));
 }
 
 function average(total, count, digits) {

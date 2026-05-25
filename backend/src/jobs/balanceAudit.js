@@ -1,4 +1,5 @@
 import { pool } from '../index.js';
+import { DEPRESSION_SCALE } from '../config/balance.js';
 
 const AUDIT_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_POSSIBLE_ENERGY = 220;
@@ -32,7 +33,8 @@ async function runBalanceAudit() {
     const depressionViolations = await client.query(
       `SELECT user_id, depression_level
        FROM progression
-       WHERE depression_level < 0 OR depression_level > 100`
+       WHERE depression_level < 0 OR depression_level > $1`,
+      [DEPRESSION_SCALE.MAX]
     );
 
     for (const row of depressionViolations.rows) {

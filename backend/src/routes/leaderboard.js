@@ -35,6 +35,8 @@ router.get('/', async (req, res, next) => {
         ? `JOIN player_levels pl ON pl.user_id = u.id AND ${rankWhere}`
         : '';
 
+      const antiCheatWhere = `COALESCE((p.anti_cheat_state->>'banScore')::int, 0) < 50`;
+
       if (period === 'today') {
         query = `
           SELECT 
@@ -50,6 +52,7 @@ router.get('/', async (req, res, next) => {
           LEFT JOIN sessions s ON s.user_id = u.id AND s.started_at >= CURRENT_DATE
           LEFT JOIN progression p ON p.user_id = u.id
           ${rankJoin}
+          WHERE ${antiCheatWhere}
           GROUP BY u.id, u.telegram_id, u.username, u.first_name, p.tier, p.streak_days
           HAVING COALESCE(SUM(s.commits_earned), 0) > 0
           ORDER BY commits_today DESC
@@ -69,6 +72,7 @@ router.get('/', async (req, res, next) => {
           LEFT JOIN sessions s ON s.user_id = u.id AND s.started_at >= CURRENT_DATE - INTERVAL '7 days'
           LEFT JOIN progression p ON p.user_id = u.id
           ${rankJoin}
+          WHERE ${antiCheatWhere}
           GROUP BY u.id, u.telegram_id, u.username, u.first_name, p.tier, p.streak_days
           HAVING COALESCE(SUM(s.commits_earned), 0) > 0
           ORDER BY commits_week DESC
@@ -87,6 +91,7 @@ router.get('/', async (req, res, next) => {
           FROM users u
           JOIN progression p ON p.user_id = u.id
           ${rankJoin}
+          WHERE ${antiCheatWhere}
           ORDER BY p.commits_total DESC
           LIMIT $1
         `;

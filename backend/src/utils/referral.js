@@ -87,3 +87,15 @@ export function checkReferralMilestones(referralState, totalCommits, firstActive
     newlyUnlocked: [{ milestone: 1, rewards }]
   };
 }
+
+export function buildReferralClaimReward(inviterReward = {}, premiumEligible = false) {
+  const reward = { ...inviterReward };
+  if (!premiumEligible) return reward;
+  for (const key of ['commits', 'energy', 'stars']) {
+    if (typeof reward[key] === 'number') {
+      reward[key] = reward[key] * 5;
+    }
+  }
+  reward.skin = 'dark_mode_ide';
+  return reward;
+}

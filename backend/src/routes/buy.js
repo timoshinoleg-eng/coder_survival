@@ -5,6 +5,7 @@ import { ensurePlayerPass, getActivePass, unlockPremiumPass } from '../utils/pas
 import { applyReward } from '../utils/rewards.js';
 import { getProductById } from '../utils/shopCatalog.js';
 import { SHOP_ITEM_EFFECTS } from '../config/balance.js';
+import { armStreakSaver } from '../utils/streak.js';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ const router = Router();
  * POST /api/buy — регистрация намерения покупки.
  * Реальная выдача предмета должна идти только после Telegram successful_payment.
  * Body: { item_type: string }
- * item_type: 'energy_refill', 'depression_cure', 'tier_boost', 'streak_protect'
+ * item_type: 'energy_refill', 'depression_cure', 'tier_boost', 'streak_protect', 'streak_saver'
  */
 router.post('/', async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
@@ -153,6 +154,21 @@ export async function applyItemEffect(client, userId, itemType) {
     case 'streak_protect':
       // TODO: логика защиты стрика
       return { streakProtected: true };
+
+    case 'streak_saver': {
+      const streakResult = await client.query(
+        `SELECT streak_state FROM progression WHERE user_id = $1 FOR UPDATE`,
+        [userId]
+      );
+      const streakState = streakResult.rows[0]?.streak_state || {};
+      const todayDate = new Date().toISOString().slice(0, 10);
+      const nextState = armStreakSaver(streakState, todayDate, new Date());
+      await client.query(
+        `UPDATE progression SET streak_state = $2, updated_at = NOW() WHERE user_id = $1`,
+        [userId, JSON.stringify(nextState)]
+      );
+      return { streakSaverArmed: true, saverArmedForDate: nextState.saverArmedForDate };
+    }
 
     case 'office_cat': {
       await client.query(

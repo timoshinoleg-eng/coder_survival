@@ -1,5 +1,7 @@
 import { canPlay, calculateCooldownRemaining, validateScore, updateMinigameState, buildReward } from '../src/utils/minigame.js';
 import { getActiveEffects, pruneExpiredEffects, addEffect, applyTapBoost } from '../src/utils/activeEffects.js';
+import { applyBanScoreIncrement, applyLocPenalty, applyRewardPenaltyToPayload, decayBanScore, detectCpsViolation, detectMissingFatigue, getBanScoreTier } from '../src/utils/anticheat.js';
+import { applyProductionAlertDrain, applyRandomEventChoiceState, getRandomEventTapMultiplier, reduceLegacyCodeClick } from '../src/utils/randomEventState.js';
 import { calculateTapDelta } from '../src/utils/tap.js';
 
 describe('Phase 6: Mini-Game Engine', () => {
@@ -144,5 +146,69 @@ describe('Phase 6: Tap Delta with Tap Boost', () => {
     const result = calculateTapDelta(10, 100, 0, 0, 1);
     Math.random = originalRandom;
     expect(result.commitsDelta).toBe(10);
+  });
+});
+
+describe('Anticheat policy layer', () => {
+  test('detectCpsViolation flags >20 clicks per second', () => {
+    expect(detectCpsViolation([40, 50, 45])).toBe(true);
+    expect(detectCpsViolation([80, 90, 100])).toBe(false);
+  });
+
+  test('detectMissingFatigue follows BALANCE v2 thresholds', () => {
+    expect(detectMissingFatigue({ firstFiveMinCps: 10, lastThreeMinCps: 9.6, sessionDurationMs: 16 * 60 * 1000 })).toBe(true);
+    expect(detectMissingFatigue({ firstFiveMinCps: 10, lastThreeMinCps: 7.0, sessionDurationMs: 16 * 60 * 1000 })).toBe(false);
+  });
+
+  test('getBanScoreTier returns graduated sanctions', () => {
+    expect(getBanScoreTier(10).id).toBe('none');
+    expect(getBanScoreTier(20).id).toBe('tier_1');
+    expect(getBanScoreTier(50).id).toBe('tier_2');
+    expect(getBanScoreTier(80).id).toBe('tier_3');
+  });
+
+  test('decayBanScore reduces score only for honest active day', () => {
+    expect(decayBanScore(40, { noNewViolationsToday: true, tapsToday: 60 })).toBe(35);
+    expect(decayBanScore(40, { noNewViolationsToday: false, tapsToday: 60 })).toBe(40);
+  });
+
+  test('applyBanScoreIncrement persists leaderboard hide at 50+', () => {
+    const next = applyBanScoreIncrement({ banScore: 45 }, 'layer1_cps_over_20', new Date('2026-05-25T00:00:00Z'));
+    expect(next.banScore).toBe(50);
+    expect(next.leaderboardHidden).toBe(true);
+  });
+
+  test('applyLocPenalty applies graduated reward cuts', () => {
+    expect(applyLocPenalty(100, 0)).toBe(100);
+    expect(applyLocPenalty(100, 20)).toBe(90);
+    expect(applyLocPenalty(100, 50)).toBe(50);
+  });
+
+  test('applyRewardPenaltyToPayload scales numeric quest/ad rewards', () => {
+    const penalized = applyRewardPenaltyToPayload({ energy: 10, xp: 5, passXp: 5, stars: 5, commitsCurrent: 20 }, 50);
+    expect(penalized).toEqual({ energy: 5, xp: 2, passXp: 2, stars: 2, commitsCurrent: 10 });
+  });
+
+  test('getRandomEventTapMultiplier returns x3 during hot streak', () => {
+    expect(getRandomEventTapMultiplier({ randomEventState: { hotStreakUntil: '2999-01-01T00:00:00.000Z' } }, new Date('2026-05-25T00:00:00Z'))).toBe(3);
+  });
+
+  test('applyProductionAlertDrain applies 8% maxEnergy per minute tick', () => {
+    const result = applyProductionAlertDrain({ randomEventState: { productionAlertUntil: '2026-05-25T00:10:00.000Z', productionAlertLastAppliedAt: '2026-05-25T00:00:00.000Z' } }, 100, new Date('2026-05-25T00:02:10.000Z'));
+    expect(result.energyDrain).toBe(16);
+  });
+
+  test('applyRandomEventChoiceState activates legacy_code and hot_streak states', () => {
+    const now = new Date('2026-05-25T00:00:00Z');
+    const legacy = applyRandomEventChoiceState({}, 'legacy_code', 'solve', now);
+    const hot = applyRandomEventChoiceState({}, 'hot_streak', 'solve', now);
+    expect(legacy.legacyCodeClicksRemaining).toBe(10);
+    expect(hot.hotStreakUntil).toBe('2026-05-25T00:01:00.000Z');
+  });
+
+  test('reduceLegacyCodeClick decrements and floors at zero', () => {
+    expect(reduceLegacyCodeClick({ legacyCodeClicksRemaining: 2 }).legacyCodeClicksRemaining).toBe(1);
+    expect(reduceLegacyCodeClick({ legacyCodeClicksRemaining: 1 }).legacyCodeClicksRemaining).toBe(0);
+    expect(reduceLegacyCodeClick({ legacyCodeClicksRemaining: 0 }).legacyCodeClicksRemaining).toBe(0);
   });
 });

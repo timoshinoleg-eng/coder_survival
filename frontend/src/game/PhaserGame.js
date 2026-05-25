@@ -16,7 +16,7 @@ export default function PhaserGame({ onReady }) {
     const height = container.clientHeight || 600;
 
     const config = {
-      type: Phaser.AUTO,
+      type: Phaser.CANVAS,
       width,
       height,
       parent: container,
