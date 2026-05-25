@@ -80,6 +80,34 @@ export default function PassPanel() {
       h('span', null, `${currentLevelXp} / ${nextLevelXp} XP`),
       h('span', null, `${progress}%`),
     ]),
+    pass?.pass?.refund && h('div', {
+      style: {
+        padding: '0 12px 6px',
+        color: '#8ba1bb',
+        fontSize: '11px',
+      },
+    }, 'Сезонный пропуск: XP, catch-up и возврат premium собраны в одном месте.'),
+    pass?.catchUp && h('div', {
+      style: {
+        padding: '6px 12px 0',
+        color: '#c7ddf5',
+        fontSize: '11px',
+      },
+    }, `Catch-up: +${pass.catchUp.catchUpXp} XP за ${pass.catchUp.missedDays} дн.`),
+    pass?.pass?.refund && h('div', {
+      style: {
+        padding: '4px 12px 8px',
+        color: '#8ba1bb',
+        fontSize: '11px',
+      },
+    }, `Refund: ${Math.round((pass.pass.refund.totalRefundPercent || 0) * 100)}% · stars ${Math.round(((pass.pass.refund.currencySplit?.stars || 0) * 100))}% · ton ${Math.round(((pass.pass.refund.currencySplit?.ton || 0) * 100))}%`),
+    pass?.weekendDoubleXpActive && h('div', {
+      style: {
+        padding: '0 12px 8px',
+        color: '#4ade80',
+        fontSize: '11px',
+      },
+    }, 'Weekend x2 XP активно сейчас'),
     h('div', { style: { height: '6px', background: '#0f3460' } },
       h('div', {
         style: {

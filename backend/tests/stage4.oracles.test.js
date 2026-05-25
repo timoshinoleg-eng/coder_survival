@@ -3,7 +3,12 @@ import {
   generateEventBonusQuest,
   getCurrentEvent,
   getEventRecoveryMultiplier,
-  isEventActiveToday
+  getFtueEventSuppression,
+  getRandomEventBalanceGaps,
+  getRandomEventDefinitions,
+  getRandomEventWeightSummary,
+  isEventActiveToday,
+  pickRandomEvent
 } from '../src/utils/events.js';
 import { isFullClearAvailable } from '../src/utils/dailyQuests.js';
 import { STAGE4 } from '../src/config/balance.js';
@@ -73,4 +78,35 @@ test('Oracle 7: full clear ignores optional event quest', () => {
   };
   expect(isFullClearAvailable([...baseQuests, eventQuest], false)).toBe(true);
   expect(isFullClearAvailable([...baseQuests.slice(0, 3), { id: 'q_3', completed: false }, eventQuest], false)).toBe(false);
+});
+
+test('Oracle 8: random event config preserves explicit prompt weights', () => {
+  const events = getRandomEventDefinitions();
+  const golden = events.find((event) => event.id === 'golden_commit');
+  const legacy = events.find((event) => event.id === 'legacy_code');
+  const deploy = events.find((event) => event.id === 'deploy_friday');
+  expect(golden.effect.locPerSecMultiplier).toBe(7);
+  expect(golden.effect.durationSeconds).toBe(77);
+  expect(golden.weight).toBe(10);
+  expect(legacy.effect.upgradeCostMultiplier).toBe(2);
+  expect(legacy.effect.refactorClicksRequired).toBe(10);
+  expect(deploy.effect.locLossRisk).toBe(0.25);
+});
+
+test('Oracle 9: random event balance gaps expose TBD items instead of inventing values', () => {
+  expect(getRandomEventWeightSummary()).toEqual({ negative: 40, neutral: 45, positive: 15 });
+  expect(getRandomEventBalanceGaps()).toEqual([]);
+});
+
+test('Oracle 10: random event picker uses resolved BALANCE v2 pool', () => {
+  expect(getRandomEventWeightSummary({ includeBalanceBlocked: false })).toEqual({ negative: 40, neutral: 45, positive: 15 });
+  expect(pickRandomEvent(0)?.id).toBe('golden_commit');
+  expect(pickRandomEvent(0.999)?.id).toBe('zoom_call');
+});
+
+test('Oracle 11: FTUE event suppression blocks or dampens negative events', () => {
+  expect(getFtueEventSuppression(3).rule).toBe('no_negative_events');
+  expect(getFtueEventSuppression(10).rule).toBe('negative_events_at_50_percent_weight');
+  expect(getFtueEventSuppression(16).rule).toBe('full_event_pool');
+  expect(pickRandomEvent(0.2, { accountAgeMinutes: 3 }).type).not.toBe('negative');
 });

@@ -143,4 +143,43 @@ describeIfDb("phase 1 regression smoke", () => {
     expect(state.body?.game?.commits_total).toBeGreaterThan(0);
     expect(state.body?.featureFlags?.stress_v2).toBe(true);
   });
+
+  test("POST /api/tap applies heroically_fired rank-up tap boost", async () => {
+    const telegramId = 900000023;
+    const initData = createInitData(telegramId, { username: "heroic_rankup" });
+
+    const userResult = await testPool.query(
+      `INSERT INTO users (telegram_id, username) VALUES ($1, $2) RETURNING id`,
+      [telegramId, "heroic_rankup"]
+    );
+    const userId = userResult.rows[0].id;
+
+    await testPool.query(
+      `INSERT INTO progression (user_id, energy, depression_level, commits_total, active_effects)
+       VALUES ($1, 100, 0, 0, '{}'::jsonb)`,
+      [userId]
+    );
+    await testPool.query(
+      `INSERT INTO player_levels (user_id, xp_total) VALUES ($1, 399)`,
+      [userId]
+    );
+    await testPool.query(
+      `INSERT INTO user_skins (user_id, skin_id, equipped) VALUES ($1, 'heroically_fired', true)`,
+      [userId]
+    );
+
+    const tap = await server.request("/api/tap", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+      body: {},
+    });
+
+    expect(tap.status).toBe(200);
+
+    const progress = await testPool.query(
+      `SELECT active_effects FROM progression WHERE user_id = $1`,
+      [userId]
+    );
+    expect(progress.rows[0]?.active_effects?.tapBoost?.percent).toBe(10);
+  });
 });

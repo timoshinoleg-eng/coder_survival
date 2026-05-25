@@ -3,7 +3,7 @@
  *
  * Covers:
  *   1. GET /api/state does not reset last_energy_activity_at.
- *   2. 10 minutes idle gives +15 energy for a newbie user (40s interval).
+ *   2. 10 minutes idle gives +6 energy for a newbie user (90s interval).
  *   3. An intermediate empty visit does not double-apply the same idle window.
  */
 
@@ -80,7 +80,7 @@ describeIfDb("idle energy regen smoke", () => {
       headers: { "X-Telegram-Init-Data": initData },
     });
     expect(firstState.status).toBe(200);
-    expect(firstState.body?.game?.energy).toBe(65);
+    expect(firstState.body?.game?.energy).toBe(56);
 
     const afterFirst = await testPool.query(
       `SELECT energy, last_energy_activity_at, energy_recovery_checkpoint_at
@@ -89,7 +89,7 @@ describeIfDb("idle energy regen smoke", () => {
       [userId],
     );
     const persistedEnergyAfterFirstVisit = afterFirst.rows[0].energy;
-    expect(persistedEnergyAfterFirstVisit).toBeGreaterThanOrEqual(65);
+    expect(persistedEnergyAfterFirstVisit).toBeGreaterThanOrEqual(56);
     expect(new Date(afterFirst.rows[0].last_energy_activity_at).getTime()).toBe(anchor.getTime());
     expect(new Date(afterFirst.rows[0].energy_recovery_checkpoint_at).getTime()).toBeGreaterThan(anchor.getTime());
 

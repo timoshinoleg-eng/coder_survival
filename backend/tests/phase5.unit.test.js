@@ -1,6 +1,7 @@
-import { processDailyLogin, starRecover, calculateRecoveryCost } from '../src/utils/streak.js';
-import { checkReferralMilestones, isReferralActive, getUnlockedReferralMilestones } from '../src/utils/referral.js';
+import { armStreakSaver, processDailyLogin, shouldOfferStreakSaver, starRecover, calculateRecoveryCost } from '../src/utils/streak.js';
+import { buildReferralClaimReward, checkReferralMilestones, isReferralActive, getUnlockedReferralMilestones } from '../src/utils/referral.js';
 import { STAGE2, STAGE3 } from '../src/config/balance.js';
+import { evaluateFtueAdAvailability } from '../src/utils/adsPolicy.js';
 
 describe('Phase 5: Streaks Polish & Recovery', () => {
   test('processDailyLogin: streak continues when last login was yesterday', () => {
@@ -75,6 +76,28 @@ describe('Phase 5: Streaks Polish & Recovery', () => {
     expect(result.reason).toBe('no_streak');
   });
 
+  test('shouldOfferStreakSaver: true near UTC midnight with zero energy and active streak', () => {
+    const streakState = {
+      currentStreak: 5,
+      lastLoginDate: '2026-05-20'
+    };
+    const now = new Date('2026-05-21T22:30:00Z');
+    expect(shouldOfferStreakSaver({ streakState, energy: 0, todayDate: '2026-05-21', now })).toBe(true);
+  });
+
+  test('armStreakSaver + processDailyLogin: saves next missed day as paid save', () => {
+    const armed = armStreakSaver({
+      currentStreak: 5,
+      maxStreak: 5,
+      lastLoginDate: '2026-05-20',
+      protection: { freeUsed: true }
+    }, '2026-05-21', new Date('2026-05-21T22:30:00Z'));
+    const result = processDailyLogin(armed, '2026-05-22');
+    expect(result.status).toBe('streak_saved_paid');
+    expect(result.streakState.currentStreak).toBe(6);
+    expect(result.streakState.saverArmedForDate).toBeNull();
+  });
+
   test('streak milestones: 7/14/30 only exist', () => {
     const milestones = STAGE2.STREAK.MILESTONES;
     expect(Object.keys(milestones).map(Number).sort((a, b) => a - b)).toEqual([7, 14, 30]);
@@ -143,10 +166,30 @@ describe('Phase 5: Referral Rebalancing & Anti-Farm', () => {
     expect(rewards[5].inviter).toMatchObject({ skin: 'team_lead', energy: 100 });
     expect(rewards[5].invited).toMatchObject({ commits: 100, stars: 5 });
   });
+
+  test('buildReferralClaimReward: premium referral gets 5x and dark_mode_ide skin', () => {
+    const reward = buildReferralClaimReward({ commits: 50, energy: 25 }, true);
+    expect(reward).toMatchObject({ commits: 250, energy: 125, skin: 'dark_mode_ide' });
+  });
 });
 
 describe('Phase 5: Anti-farm days config', () => {
   test('ANTI_FARM_DAYS is set to 2', () => {
     expect(STAGE3.REFERRAL.ANTI_FARM_DAYS).toBe(2);
+  });
+});
+
+describe('FTUE ad suppression', () => {
+  test('blocks ads during first 30 minutes', () => {
+    const createdAt = new Date(Date.now() - 20 * 60000).toISOString();
+    expect(evaluateFtueAdAvailability({ createdAt, adsClaimedToday: 0 }).allowed).toBe(false);
+    expect(evaluateFtueAdAvailability({ createdAt, adsClaimedToday: 0 }).reason).toBe('ftue_ads_blocked');
+  });
+
+  test('allows at most one ad between 30 and 60 minutes', () => {
+    const createdAt = new Date(Date.now() - 40 * 60000).toISOString();
+    expect(evaluateFtueAdAvailability({ createdAt, adsClaimedToday: 0 }).allowed).toBe(true);
+    expect(evaluateFtueAdAvailability({ createdAt, adsClaimedToday: 1 }).allowed).toBe(false);
+    expect(evaluateFtueAdAvailability({ createdAt, adsClaimedToday: 1 }).reason).toBe('ftue_ads_limited');
   });
 });

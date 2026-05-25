@@ -45,15 +45,17 @@ function TierBadge({ label, active }) {
 
 export default function TeamPanel({ open: controlledOpen, onClose }) {
   const game = useGameState();
-  const { initData } = useTelegram();
+  const { initData, shareUrl } = useTelegram();
   const [localOpen, setLocalOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [teamName, setTeamName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [copiedInvite, setCopiedInvite] = useState(false);
 
   const open = controlledOpen ?? localOpen;
   const hackathon = game.teamHackathon;
+  const teamMeta = game.team;
   const inTeam = hackathon?.inTeam === true;
   const progressPercent = Number(hackathon?.progressPercent || 0);
 
@@ -61,6 +63,19 @@ export default function TeamPanel({ open: controlledOpen, onClose }) {
     if (onClose) onClose();
     setLocalOpen(false);
   }, [onClose]);
+
+  const copyInviteCode = useCallback(() => {
+    if (!teamMeta?.team?.invite_code) return;
+    navigator.clipboard?.writeText(teamMeta.team.invite_code).then(() => {
+      setCopiedInvite(true);
+      setTimeout(() => setCopiedInvite(false), 1500);
+    }).catch(() => null);
+  }, [teamMeta?.team?.invite_code]);
+
+  const shareInviteCode = useCallback(() => {
+    if (!teamMeta?.team?.invite_code) return;
+    shareUrl(window.location.href, `Вступай в мою команду Coder Survival по коду: ${teamMeta.team.invite_code}`);
+  }, [shareUrl, teamMeta?.team?.invite_code]);
 
   const mutateTeam = useCallback(async (path, body) => {
     setBusy(true);
@@ -126,6 +141,46 @@ export default function TeamPanel({ open: controlledOpen, onClose }) {
       ]),
       error && h('div', { style: { color: '#fca5a5', fontSize: '12px', marginBottom: '10px' } }, error),
       inTeam ? h('div', { style: { display: 'grid', gap: '12px' } }, [
+        teamMeta?.passiveLocMultiplier && h('div', {
+          style: {
+            padding: '8px',
+            borderRadius: '6px',
+            background: teamMeta.socialObligationActive ? '#3b2b11' : '#13263d',
+            color: teamMeta.socialObligationActive ? '#fde68a' : '#93c5fd',
+            fontSize: '12px'
+          }
+        }, [
+          h('div', null, `Пассивный squad bonus: x${teamMeta.passiveLocMultiplier}${teamMeta.socialObligationActive ? ' · social obligation active' : ''}`),
+          h('div', { style: { marginTop: '4px', fontSize: '11px', color: '#b8c7db' } }, `Активных участников: ${teamMeta.activeMembers || 0}/${teamMeta.members?.length || 0} · timezone: ${teamMeta.timezone || 'UTC'}`),
+          h('div', { style: { marginTop: '4px', fontSize: '11px', color: '#b8c7db', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' } }, [
+            h('span', null, `Твоя роль: ${teamMeta.myRole || 'member'}`),
+            teamMeta.team?.invite_code && h('span', null, `код: ${teamMeta.team.invite_code}`),
+            teamMeta.team?.invite_code && h('button', {
+              onClick: copyInviteCode,
+              style: {
+                padding: '3px 8px',
+                borderRadius: '6px',
+                border: '1px solid #315178',
+                background: copiedInvite ? '#1a3f25' : '#0f1b30',
+                color: copiedInvite ? '#4ade80' : '#dbeafe',
+                fontSize: '10px',
+                cursor: 'pointer',
+              }
+            }, copiedInvite ? 'Скопировано' : 'Копировать'),
+            teamMeta.team?.invite_code && h('button', {
+              onClick: shareInviteCode,
+              style: {
+                padding: '3px 8px',
+                borderRadius: '6px',
+                border: '1px solid #315178',
+                background: '#0f1b30',
+                color: '#dbeafe',
+                fontSize: '10px',
+                cursor: 'pointer',
+              }
+            }, 'Поделиться'),
+          ]),
+        ]),
         hackathon.behindAverage && h('div', {
           style: { padding: '8px', borderRadius: '6px', background: '#3b2b11', color: '#fde68a', fontSize: '12px' }
         }, `Команда на ${progressPercent}%. Твой вклад: ${hackathon.myContribution || 0}. Не подведи!`),

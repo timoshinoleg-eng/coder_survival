@@ -336,7 +336,7 @@ export default class GameScene extends Phaser.Scene {
   updateGlow(depression) {
     const { width, height } = this.scale;
     this.glow.clear();
-    const intensity = depression / 100;
+    const intensity = Math.min(1, depression / 200);
     const r = Math.floor(26 + intensity * 80);
     const g = Math.floor(26 + intensity * 10);
     const b = Math.floor(46 - intensity * 20);
@@ -347,15 +347,15 @@ export default class GameScene extends Phaser.Scene {
   updateDepression(depression) {
     const { width, height } = this.scale;
     this.depressionOverlay.clear();
-    if (depression > 50) {
-      const alpha = (depression - 50) / 100;
+    if (depression > 100) {
+      const alpha = Math.min(1, (depression - 100) / 100);
       this.depressionOverlay.fillStyle(0x8b0000, alpha * 0.35);
       this.depressionOverlay.fillRect(0, 0, width, height);
       this.depressionOverlay.lineStyle(Math.max(width, height) * 0.08, 0x2a0000, alpha * 0.5);
       this.depressionOverlay.strokeCircle(width / 2, height / 2, Math.max(width, height) * 0.52);
     }
     // High stress heartbeat pulse
-    if (depression >= 80) {
+    if (depression >= 160) {
       const pulseAlpha = 0.05 + Math.sin(this.time.now / 200) * 0.03;
       this.depressionOverlay.fillStyle(0x550000, pulseAlpha);
       this.depressionOverlay.fillRect(0, 0, width, height);
@@ -371,7 +371,7 @@ export default class GameScene extends Phaser.Scene {
     const energyPercent = maxEnergy > 0 ? (energy / maxEnergy) * 100 : 0;
 
     // Pose selection based on depression
-    const poseIndex = depression < 30 ? 0 : depression < 70 ? 1 : 2;
+    const poseIndex = depression < 60 ? 0 : depression < 140 ? 1 : 2;
     if (poseIndex !== this.prevPoseIndex) {
       this.avatar.setFrame(poseIndex);
       this.prevPoseIndex = poseIndex;
@@ -408,7 +408,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Bug-report rain — high depression
-    this.bugRain.emitting = depression >= 75;
+    this.bugRain.emitting = depression >= 150;
 
     // Update depression overlay
     this.updateDepression(depression);

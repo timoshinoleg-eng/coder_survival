@@ -20,7 +20,7 @@ export default function WeeklySprintPanel() {
 
   if (!weeklySprint) return null;
 
-  const { progress, eligibleTier, tierClaimed, tiers } = weeklySprint;
+  const { progress, eligibleTier, tierClaimed, tiers, narrative } = weeklySprint;
   const tierEntries = Object.entries(tiers || {});
 
   async function handleClaim(tier) {
@@ -56,6 +56,37 @@ export default function WeeklySprintPanel() {
     }, [
       h('strong', { className: 'pixel-text', style: { fontSize: '13px' } }, '🏃 Недельный спринт'),
       h('span', { style: { color: '#8ba1bb', fontSize: '11px' } }, `Неделя ${weeklySprint.weekStart || ''}`),
+    ]),
+
+    narrative && h('div', {
+      style: {
+        border: '1px solid #274267',
+        borderRadius: '8px',
+        background: '#12203a',
+        padding: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+      },
+    }, [
+      h('div', { style: { fontSize: '11px', color: '#8ba1bb' } }, `Арка: ${(narrative.arc || []).join(' -> ')}`),
+      h('div', { style: { fontSize: '12px', color: '#facc15', fontWeight: 700 } }, `Текущий этап: ${narrative.currentStage || 'Planning'}`),
+      narrative.rewardChoice && h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, [
+        h('div', { style: { fontSize: '11px', color: '#c7ddf5' } }, `Награда на финише: выбор ${narrative.rewardChoice.count}`),
+        h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+          narrative.rewardChoice.options.map((option) => h('span', {
+            key: option,
+            style: {
+              padding: '3px 8px',
+              borderRadius: '999px',
+              border: '1px solid #315178',
+              background: '#0f1b30',
+              color: '#dbeafe',
+              fontSize: '11px',
+            }
+          }, option))
+        )
+      ]),
     ]),
 
     // Progress summary

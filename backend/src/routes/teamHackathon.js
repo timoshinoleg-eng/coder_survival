@@ -6,7 +6,8 @@ import {
   getHoursUntilNextLocalMonday,
   getWeekId
 } from '../utils/teamHackathon.js';
-import { addPassXp } from '../utils/pass.js';
+import { getSquadPassiveLocMultiplier, hasMissedYesterday } from '../utils/teams.js';
+import { addPassXp, applyPassXpSourceMultiplier } from '../utils/pass.js';
 import { STAGE3 } from '../config/balance.js';
 
 const router = Router();
@@ -41,7 +42,7 @@ router.get('/', async (req, res, next) => {
       const weekId = getWeekId(new Date(), timezoneOffset);
 
       const membersResult = await client.query(
-        `SELECT tm.user_id, u.username, u.first_name, tm.last_active_at
+        `SELECT tm.user_id, u.username, u.first_name, tm.last_active_at, tm.joined_at
          FROM team_members tm
          JOIN users u ON u.id = tm.user_id
          WHERE tm.team_id = $1
@@ -61,6 +62,8 @@ router.get('/', async (req, res, next) => {
       const activeCount = membersResult.rows.filter((row) => (
         row.last_active_at && new Date(row.last_active_at).getTime() >= sevenDaysAgo
       )).length;
+      const missedYesterdayByAnyMember = membersResult.rows.some((row) => hasMissedYesterday(row.last_active_at, new Date()));
+      const myJoinedAt = membersResult.rows.find((row) => row.user_id === userId)?.joined_at || null;
       const target = calculateHackathonTarget(activeCount);
       const contributions = {};
       let progress = 0;
@@ -99,6 +102,14 @@ router.get('/', async (req, res, next) => {
         hoursRemaining: getHoursUntilNextLocalMonday(timezoneOffset),
         memberCount: memberIds.length,
         activeCount,
+        passiveLocMultiplier: getSquadPassiveLocMultiplier({
+          activeMembers: activeCount,
+          totalMembers: memberIds.length,
+          joinedAt: myJoinedAt,
+          missedYesterdayByAnyMember,
+          now: new Date()
+        }),
+        socialObligationActive: missedYesterdayByAnyMember,
         myContribution,
         behindAverage: myContribution < averageContribution
       });
@@ -198,7 +209,7 @@ router.post('/claim', async (req, res, next) => {
           [userId, reward.xp]
         );
       }
-      if (reward?.passXp) await addPassXp(client, userId, reward.passXp);
+      if (reward?.passXp) await addPassXp(client, userId, applyPassXpSourceMultiplier(reward.passXp, 'event_xp', new Date()));
 
       await client.query('COMMIT');
       return res.json({ success: true, tier, reward });

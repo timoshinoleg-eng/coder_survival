@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { STAGE2 } from '../config/balance.js';
+import { evaluateFtueAdAvailability } from '../utils/adsPolicy.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
 
 const router = Router();
@@ -78,19 +79,25 @@ router.get('/status', async (req, res) => {
     const today = getTodayDate(timezoneOffset);
     const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
     const result = await client.query(
-      `SELECT rewarded_video_state, energy
-       FROM progression
-       WHERE user_id = $1`,
+       `SELECT rewarded_video_state, energy, created_at
+        FROM progression
+        WHERE user_id = $1`,
       [userId]
     );
     const state = normalizeVideoState(result.rows[0]?.rewarded_video_state || {}, today);
+    const ftue = evaluateFtueAdAvailability({
+      createdAt: result.rows[0]?.created_at,
+      adsClaimedToday: state.countToday,
+      now: new Date()
+    });
     return res.json({
       countToday: state.countToday,
       remainingToday: Math.max(0, REWARDED_VIDEO.DAILY_LIMIT - state.countToday),
       dailyLimit: REWARDED_VIDEO.DAILY_LIMIT,
       cooldownSeconds: REWARDED_VIDEO.COOLDOWN_MINUTES * 60,
       triggerEnergyPct: REWARDED_VIDEO.TRIGGER_ENERGY_PCT,
-      buttonText: REWARDED_VIDEO.BUTTON_TEXT
+      buttonText: REWARDED_VIDEO.BUTTON_TEXT,
+      adAvailability: ftue
     });
   } catch (err) {
     console.error('Rewarded video status error:', err);
@@ -115,14 +122,28 @@ router.post('/complete', async (req, res) => {
     const today = getTodayDate(timezoneOffset);
     const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
     const progressionResult = await client.query(
-      `SELECT rewarded_video_state, energy
-       FROM progression
-       WHERE user_id = $1
-       FOR UPDATE`,
+       `SELECT rewarded_video_state, energy, created_at
+        FROM progression
+        WHERE user_id = $1
+        FOR UPDATE`,
       [userId]
     );
     const progression = progressionResult.rows[0] || {};
     const state = normalizeVideoState(progression.rewarded_video_state || {}, today);
+    const ftue = evaluateFtueAdAvailability({
+      createdAt: progression.created_at,
+      adsClaimedToday: state.countToday,
+      now: new Date()
+    });
+
+    if (!ftue.allowed) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        error: ftue.reason === 'ftue_ads_blocked' ? 'Реклама пока недоступна в первые 30 минут' : 'В FTUE доступен только один рекламный просмотр',
+        reason: ftue.reason,
+        rule: ftue.rule
+      });
+    }
 
     if (state.countToday >= REWARDED_VIDEO.DAILY_LIMIT) {
       await client.query('ROLLBACK');

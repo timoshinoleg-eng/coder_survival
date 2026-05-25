@@ -1,18 +1,30 @@
 import assert from 'assert';
 import { STAGE2 } from '../src/config/balance.js';
-import { generateDailyQuests, rollLootBox } from '../src/utils/dailyQuests.js';
-import { addPassXp, calculatePassLevel, getClaimableRewards } from '../src/utils/pass.js';
+import { calculateGeneratorCost, calculateGeneratorOutput, getFtueAcceleration, isGeneratorUnlocked } from '../src/config/generators.js';
+import { generateDailyQuests, getFallbackAvgDailyFarm, rollLootBox } from '../src/utils/dailyQuests.js';
+import { getRollingAvgDailyFarm } from '../src/utils/farmLog.js';
+import { buildGeneratorStatus } from '../src/utils/generatorState.js';
+import {
+  addPassXp,
+  applyPassXpSourceMultiplier,
+  calculateCatchUpXp,
+  calculateCappedCatchUpXp,
+  calculatePassLevel,
+  getClaimableRewards,
+  getPassRequiredXp,
+  getWeekendXpMultiplier
+} from '../src/utils/pass.js';
 import { processDailyLogin } from '../src/utils/streak.js';
 
 test('Oracle 1: quest determinism', () => {
-  const q1 = generateDailyQuests('test_user', '2026-05-10', 1);
-  const q2 = generateDailyQuests('test_user', '2026-05-10', 1);
+  const q1 = generateDailyQuests('test_user', '2026-05-10', 1, 1);
+  const q2 = generateDailyQuests('test_user', '2026-05-10', 1, 1);
   assert.deepStrictEqual(q1.map((quest) => quest.id), q2.map((quest) => quest.id));
-  assert.deepStrictEqual(q1.map((quest) => quest.id), ['q_login', 'q_tap50', 'q_commit100', 'q_bonus_crit']);
+  assert.deepStrictEqual(q1.map((quest) => quest.id), ['q_login', 'q_tap300', 'q_earn10000', 'q_bonus_buy_generator']);
 });
 
 test('Oracle 2: pass XP conservation', () => {
-  const result = addPassXp({ currentXp: 0, claimedLevels: [] }, 11500);
+  const result = addPassXp({ currentXp: 0, claimedLevels: [] }, 21000);
   assert.strictEqual(calculatePassLevel(result.newState).currentLevel, 20);
   assert.strictEqual(calculatePassLevel(result.newState).progressToNext, 1.0);
 });
@@ -41,16 +53,64 @@ test('Oracle 4: loot box weights are stable under deterministic RNG sweep', () =
 });
 
 test('quest generation returns exactly 4 quests and scales base targets', () => {
-  const quests = generateDailyQuests('user_42', '2026-05-10', 5);
+  const quests = generateDailyQuests('user_42', '2026-05-10', 5, 1);
   assert.strictEqual(quests.length, 4);
-  assert.strictEqual(quests.find((quest) => quest.id === 'q_tap50').target, 75);
+  assert.strictEqual(quests.find((quest) => quest.id === 'q_tap300').target, 300);
+  assert.strictEqual(quests.find((quest) => quest.id === 'q_login').reward.commitsCurrent, 1250);
 });
 
-test('pass boundary: 199/200 XP plus 2 XP unlocks level 1 claimable reward', () => {
-  const result = addPassXp({ currentXp: 199, claimedLevels: [] }, 2);
+test('daily quest fallback avg farm follows BALANCE v2 values', () => {
+  assert.strictEqual(getFallbackAvgDailyFarm(1), 5000);
+  assert.strictEqual(getFallbackAvgDailyFarm(2), 12000);
+  assert.strictEqual(getFallbackAvgDailyFarm(3), 25000);
+});
+
+test('getRollingAvgDailyFarm: averages 7 day total', async () => {
+  const client = {
+    query: async () => ({ rows: [{ total_loc: 70000 }] })
+  };
+  const avg = await getRollingAvgDailyFarm(client, 1);
+  assert.strictEqual(avg, 10000);
+});
+
+test('pass boundary: 99/100 XP plus 2 XP unlocks level 1 claimable reward', () => {
+  const result = addPassXp({ currentXp: 99, claimedLevels: [] }, 2);
   assert.strictEqual(result.newLevel, 1);
   assert.strictEqual(result.leveledUp, true);
   assert.strictEqual(getClaimableRewards(result.newState).length, 1);
+});
+
+test('sprint pass config uses linear level * 100 XP', () => {
+  assert.strictEqual(STAGE2.PASS.SEASON_DAYS, 30);
+  assert.strictEqual(STAGE2.PASS.LEVELS.length, 20);
+  assert.deepStrictEqual(STAGE2.PASS.LEVELS.map((level) => level.requiredXp), Array.from({ length: 20 }, (_, index) => (index + 1) * 100));
+  assert.strictEqual(getPassRequiredXp(1), 100);
+  assert.strictEqual(getPassRequiredXp(20), 2000);
+});
+
+test('catch-up and weekend XP helpers follow prompt formulas', () => {
+  assert.strictEqual(calculateCatchUpXp(3, 120), 180);
+  assert.strictEqual(calculateCappedCatchUpXp(5, 120), 180);
+  assert.strictEqual(getWeekendXpMultiplier(new Date('2026-05-09T00:00:00Z')), 2.0);
+  assert.strictEqual(getWeekendXpMultiplier(new Date('2026-05-11T00:00:00Z')), 1.0);
+  assert.strictEqual(applyPassXpSourceMultiplier(10, 'tap_xp', new Date('2026-05-09T00:00:00Z')), 20);
+  assert.strictEqual(applyPassXpSourceMultiplier(10, 'ad_xp', new Date('2026-05-09T00:00:00Z')), 10);
+});
+
+test('generator defaults use BALANCE v2 FTUE acceleration', () => {
+  assert.strictEqual(getFtueAcceleration(3).incomeMultiplier, 3.0);
+  assert.strictEqual(calculateGeneratorCost('junior_dev', 0, 3), 25);
+  assert.strictEqual(calculateGeneratorOutput('junior_dev', 6, 3), 18);
+  assert.strictEqual(calculateGeneratorCost('middle_dev', 0, 61), 400);
+  assert.strictEqual(calculateGeneratorOutput('middle_dev', 1, 61), 7);
+  assert.strictEqual(isGeneratorUnlocked('middle_dev', { junior_dev: 5 }), true);
+  assert.strictEqual(isGeneratorUnlocked('senior_dev', { middle_dev: 4 }), false);
+});
+
+test('generator status aggregates passive LOC/sec across owned tiers', () => {
+  const status = buildGeneratorStatus({ owned: { junior_dev: 5, middle_dev: 1 } }, 61);
+  assert.strictEqual(status.passiveLocPerSecond, 12);
+  assert.strictEqual(status.tiers.find((tier) => tier.id === 'senior_dev').unlocked, false);
 });
 
 test('streak free save is used once then next missed day breaks', () => {

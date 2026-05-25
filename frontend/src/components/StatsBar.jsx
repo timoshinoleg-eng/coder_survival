@@ -18,6 +18,8 @@ import MiniGameLauncher from "./MiniGameLauncher.jsx";
 import AudioSettings from "./AudioSettings.jsx";
 import AchievementsPanel from "./AchievementsPanel.jsx";
 import DailySummaryPanel from "./DailySummaryPanel.jsx";
+import GeneratorsPanel from './GeneratorsPanel.jsx';
+import AppealPanel from './AppealPanel.jsx';
 
 export default function StatsBar() {
   const {
@@ -45,6 +47,11 @@ export default function StatsBar() {
     user,
     drinkCoffee,
     achievements,
+    generatorState,
+    randomEventState,
+    dailyFarm,
+    antiCheat,
+    passiveLocRecovery,
   } = useGameState();
 
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -60,6 +67,8 @@ export default function StatsBar() {
   const [teamBattleOpen, setTeamBattleOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [dailySummaryOpen, setDailySummaryOpen] = useState(false);
+  const [generatorsOpen, setGeneratorsOpen] = useState(false);
+  const [appealOpen, setAppealOpen] = useState(false);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const [adLoading, setAdLoading] = useState(false);
   const { initData, haptic } = useTelegram();
@@ -136,6 +145,12 @@ export default function StatsBar() {
   }, [displayRank]);
 
   const energyCountdownLabel = useMemo(() => {
+    const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
+    if (productionAlertActive) {
+      const secondsLeft = Math.max(0, Math.ceil((new Date(randomEventState.productionAlertUntil).getTime() - countdownNowMs) / 1000));
+      return `Production Alert: -8 энергии/мин ещё ${secondsLeft}с`;
+    }
+
     if (energy >= maxEnergy) {
       return "Энергия полна";
     }
@@ -177,8 +192,20 @@ export default function StatsBar() {
     progressionUpdatedAt,
     recoveryEtaSeconds,
     recoveryIntervalSeconds,
+    randomEventState?.productionAlertUntil,
     serverClockOffsetMs,
   ]);
+
+  const runtimeModeLabel = useMemo(() => {
+    const hotStreakActive = randomEventState?.hotStreakUntil && new Date(randomEventState.hotStreakUntil).getTime() > countdownNowMs;
+    const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
+    if (hotStreakActive) return { text: '🔥 Hot Streak active: повышенный темп', color: '#4ade80' };
+    if (productionAlertActive) return { text: '🚨 Production Alert active: энергия убывает', color: '#f87171' };
+    return null;
+  }, [countdownNowMs, randomEventState?.hotStreakUntil, randomEventState?.productionAlertUntil]);
+
+  const hotStreakActive = randomEventState?.hotStreakUntil && new Date(randomEventState.hotStreakUntil).getTime() > countdownNowMs;
+  const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
 
   const handleWatchAd = useCallback(async () => {
     if (adLoading || energy >= maxEnergy) return;
@@ -272,6 +299,23 @@ export default function StatsBar() {
                     ),
                   ],
                 ),
+              antiCheat?.banScore >= 20 &&
+                h(
+                  "span",
+                  {
+                    style: {
+                      fontSize: "10px",
+                      color: antiCheat.banScore >= 50 ? "#fda4af" : "#fde68a",
+                      border: `1px solid ${antiCheat.banScore >= 50 ? '#ef4444' : '#f59e0b'}`,
+                      padding: "3px 6px",
+                      background: antiCheat.banScore >= 50 ? "#3f1a1a" : "#3b2f10",
+                    },
+                    title: antiCheat.appealAvailable
+                      ? `Anti-cheat: ${antiCheat.sanctionTier}. Appeal: ${antiCheat.appealLocation}`
+                      : `Anti-cheat: ${antiCheat.sanctionTier}`,
+                  },
+                  antiCheat.appealAvailable ? `⚠ ${antiCheat.banScore}` : `! ${antiCheat.banScore}`,
+                ),
             ],
           ),
           h(
@@ -282,14 +326,19 @@ export default function StatsBar() {
                 h(
                   "div",
                   {
-                    style: {
-                      fontWeight: "bold",
-                      color: "#4ade80",
-                      fontSize: "13px",
-                    },
+                  style: {
+                    fontWeight: "bold",
+                    color: hotStreakActive ? "#facc15" : "#4ade80",
+                    fontSize: "13px",
                   },
-                  `${commits}`,
-                ),
+                },
+                `${commits}`,
+              ),
+              hotStreakActive && h(
+                "div",
+                { style: { fontSize: "10px", color: "#facc15" } },
+                'Hot Streak',
+              ),
                 h(
                   "div",
                   { style: { fontSize: "10px", color: "#8ba1bb" } },
@@ -323,6 +372,17 @@ export default function StatsBar() {
                     },
                   },
                   "🛒",
+                ),
+                h(
+                  "button",
+                  {
+                    onClick: () => setGeneratorsOpen(true),
+                    className: "pixel-button",
+                    style: {
+                      background: generatorState?.passiveLocPerSecond > 0 ? "#163255" : "#122642",
+                    },
+                  },
+                  "⚙",
                 ),
                 h(
                   "button",
@@ -486,6 +546,19 @@ export default function StatsBar() {
                     },
                     '🐛'
                   ),
+                antiCheat?.banScore >= 20 &&
+                  h(
+                    "button",
+                    {
+                      onClick: () => setAppealOpen(true),
+                      className: "pixel-button",
+                      style: {
+                        background: antiCheat.appealAvailable ? "#3f1a1a" : "#3b2f10",
+                        color: antiCheat.appealAvailable ? "#fda4af" : "#fde68a",
+                      },
+                    },
+                    antiCheat.appealAvailable ? '📝' : '⚠️',
+                  ),
                 h(
                   "div",
                   {
@@ -548,6 +621,43 @@ export default function StatsBar() {
         ],
       ),
 
+      generatorState && h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "10px",
+            fontSize: "11px",
+            color: "#8ba1bb",
+            borderTop: "1px solid #17304f",
+            paddingTop: "6px",
+          },
+        },
+        [
+          h("span", { style: { color: "#60a5fa" } }, `⚙ ${generatorState.passiveLocPerSecond || 0} LOC/сек`),
+          h("span", null, `FTUE: ${generatorState.ftueAcceleration?.id || 'after_60min'}`),
+          dailyFarm?.avgDailyFarm ? h("span", { style: { color: "#8ba1bb" } }, `Ø ${dailyFarm.avgDailyFarm}/день`) : null,
+          passiveLocRecovery?.locEarned
+            ? h("span", { style: { color: "#4ade80" } }, `+${passiveLocRecovery.locEarned} offline`)
+            : null,
+        ],
+      ),
+
+      runtimeModeLabel && h(
+        "div",
+        {
+          style: {
+            fontSize: "11px",
+            color: runtimeModeLabel.color,
+            borderTop: "1px solid #17304f",
+            paddingTop: "6px",
+          },
+        },
+        runtimeModeLabel.text,
+      ),
+
       // Energy bar
       h(
         "div",
@@ -581,7 +691,7 @@ export default function StatsBar() {
               style: {
                 width: `${energyPercent}%`,
                 height: "100%",
-                background: energyColor,
+                background: productionAlertActive ? '#f87171' : energyColor,
                 transition: "width 0.25s ease, background 0.3s ease",
                 boxShadow: isLowEnergy
                   ? "0 0 10px rgba(239,68,68,0.55)"
@@ -882,6 +992,14 @@ export default function StatsBar() {
         open: achievementsOpen,
         onClose: () => setAchievementsOpen(false),
       }),
+      h(GeneratorsPanel, {
+        open: generatorsOpen,
+        onClose: () => setGeneratorsOpen(false),
+      }),
+      h(AppealPanel, {
+        open: appealOpen,
+        onClose: () => setAppealOpen(false),
+      }),
       h(DailySummaryPanel, {
         open: dailySummaryOpen,
         onClose: () => setDailySummaryOpen(false),
@@ -891,6 +1009,6 @@ export default function StatsBar() {
           open: miniGameOpen,
           onClose: () => setMiniGameOpen(false),
         }),
-    ],
+  ],
   );
 }

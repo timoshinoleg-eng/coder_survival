@@ -2,7 +2,7 @@ import { TAP_MECHANICS } from '../config/balance.js';
 
 export function calculateTapDelta(baseCommits, energy, depression, streak, commitMultiplier = 1, tapBoostPercent = 0) {
   const energyMultiplier = energy / 100;
-  const depressionPenalty = depression / 100;
+  const depressionPenalty = Math.min(1, depression / TAP_MECHANICS.afflictionDepression);
   const streakBonus = Math.min(
     streak * TAP_MECHANICS.streakBonusPerDay,
     TAP_MECHANICS.streakBonusCap

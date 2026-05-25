@@ -14,13 +14,17 @@ import {
   updateDailyQuestProgress
 } from '../utils/vnext.js';
 import { recordEventContribution } from '../utils/events.js';
-import { addPassXp, getActivePass } from '../utils/pass.js';
+import { addPassXp, applyPassXpSourceMultiplier, getActivePass } from '../utils/pass.js';
 import { logPassXp } from '../utils/passXpLog.js';
 import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { updateTeamProgress } from '../utils/teams.js';
 import { checkAchievement, ensureAchievementRows } from '../utils/achievements.js';
-import { getActiveEffects } from '../utils/activeEffects.js';
+import { addEffect, getActiveEffects } from '../utils/activeEffects.js';
 import { calculateTapDelta, calculateDepressionDelta } from '../utils/tap.js';
+import { applyBanScoreIncrement, applyLocPenalty, normalizeAntiCheatState } from '../utils/anticheat.js';
+import { applyHeartAttackReset } from '../utils/heartAttack.js';
+import { logDailyFarm } from '../utils/farmLog.js';
+import { getRandomEventTapMultiplier } from '../utils/randomEventState.js';
 import { getActiveCrunchTime } from '../utils/phase2State.js';
 import { applyQuestUpdates, checkQuestProgress } from '../utils/dailyQuests.js';
 import { addHackathonContribution, calculateHackathonTarget, getWeekId } from '../utils/teamHackathon.js';
@@ -113,6 +117,14 @@ router.post('/', async (req, res) => {
         [userId]
       )
     ).rows[0];
+    let antiCheatState = normalizeAntiCheatState(progress.anti_cheat_state || {});
+    if (antiCheat.incrementReason) {
+      antiCheatState = applyBanScoreIncrement(antiCheatState, antiCheat.incrementReason);
+      await client.query(
+        `UPDATE progression SET anti_cheat_state = $2 WHERE user_id = $1`,
+        [userId, JSON.stringify(antiCheatState)]
+      );
+    }
 
     const skinResult = await client.query(
       `SELECT 1 FROM user_skins WHERE user_id = $1 AND skin_id = 'senior_pajamas' AND equipped = true`,
@@ -147,7 +159,7 @@ router.post('/', async (req, res) => {
       currentEnergy,
       currentDepression,
       Number(recoveredProgress.streak_days ?? 0),
-      Number(crunchTime?.commitMultiplier ?? 1),
+      Number(crunchTime?.commitMultiplier ?? 1) * getRandomEventTapMultiplier(recoveredProgress.event_state || {}, new Date()),
       tapBoostPercent
     );
 
@@ -166,6 +178,10 @@ router.post('/', async (req, res) => {
         commitsDelta: Math.round(tapResult.commitsDelta * 1.2)
       };
     }
+    tapResult = {
+      ...tapResult,
+      commitsDelta: applyLocPenalty(tapResult.commitsDelta, antiCheatState.banScore)
+    };
     const depressionDelta = calculateDepressionDelta(
       currentEnergy,
       Number(crunchTime?.depressionMultiplier ?? 1)
@@ -175,6 +191,7 @@ router.post('/', async (req, res) => {
       Math.max(0, currentDepression + depressionDelta)
     );
     const isBurnout = newDepression >= TAP_MECHANICS.maxDepression;
+    let heartAttackReset = null;
 
     if (isBurnout && currentDepression < TAP_MECHANICS.maxDepression) {
       console.log('burnout_entered', { userId, depression: newDepression });
@@ -235,6 +252,15 @@ router.post('/', async (req, res) => {
     );
     recoveredProgress = updatedProgressResult.rows[0];
 
+    if (isBurnout && currentDepression < TAP_MECHANICS.maxDepression) {
+      heartAttackReset = await applyHeartAttackReset(client, userId, { sessionId: session_id || null });
+      const resetProgressionResult = await client.query(
+        `SELECT * FROM progression WHERE user_id = $1`,
+        [userId]
+      );
+      recoveredProgress = resetProgressionResult.rows[0] || recoveredProgress;
+    }
+
     const xpDelta = computeTapXp(levelBefore.resolved.levelInRank);
     const levelAfter = await addTapXp(client, userId, levelBefore.resolved.levelInRank);
     await ensureDailyQuests(client, userId);
@@ -244,13 +270,15 @@ router.post('/', async (req, res) => {
       energyDelta: -1
     });
     const daily = await getDailyQuestSummary(client, userId);
+    await logDailyFarm(client, userId, tapResult.commitsDelta);
 
     const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
-    const passResult = await addPassXp(client, userId, levelAfter.xpDelta ?? xpDelta);
+    const passXpAmount = applyPassXpSourceMultiplier(levelAfter.xpDelta ?? xpDelta, 'tap_xp', new Date());
+    const passResult = await addPassXp(client, userId, passXpAmount);
 
     const activePass = await getActivePass(client);
     if (activePass && passResult?.playerPass) {
-      const tapPassXp = 1; // 1 passXp per tap for attribution tracking
+      const tapPassXp = passXpAmount;
       await logPassXp(client, userId, activePass.id, 'tap', tapPassXp, { commitsDelta: tapResult.commitsDelta });
     }
 
@@ -494,6 +522,7 @@ router.post('/', async (req, res) => {
       depression: Number(recoveredProgress.depression_level ?? 0),
       activeEffects,
       activeEffects,
+      heartAttackReset,
       commitsDelta: tapResult.commitsDelta,
       totalCommits: Number(recoveredProgress.commits_total ?? 0),
       isBurnout,

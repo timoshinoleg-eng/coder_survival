@@ -13,9 +13,12 @@ import {
   determineEligibleTier,
   canClaimTier,
   getTierReward,
+  getWeeklySprintNarrativeMeta,
   updateWeeklySprintState
 } from '../utils/weeklySprint.js';
-import { addPassXp, getActivePass } from '../utils/pass.js';
+import { addPassXp, applyPassXpSourceMultiplier, getActivePass } from '../utils/pass.js';
+import { applyRewardPenaltyToPayload, normalizeAntiCheatState } from '../utils/anticheat.js';
+import { getRollingAvgDailyFarm, logDailyFarm } from '../utils/farmLog.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
 import { logPassXp } from '../utils/passXpLog.js';
 
@@ -68,28 +71,35 @@ async function ensureUserAndProgression(client, telegramUser, timezoneOffset = 1
   return userId;
 }
 
-function initialQuestState(userId, today, rankTier) {
+function initialQuestState(userId, today, rankTier, accountAgeDays = 4, avgDailyFarm = null) {
   return {
     lastDate: today,
-    quests: generateDailyQuests(String(userId), today, rankTier),
+    accountAgeDays,
+    avgDailyFarm,
+    quests: generateDailyQuests(String(userId), today, rankTier, accountAgeDays, avgDailyFarm),
     fullClearClaimed: false
   };
 }
 
 async function getOrCreateQuestState(client, userId, today, lock = false) {
   const result = await client.query(
-    `SELECT daily_quests_state, tier
-     FROM progression
-     WHERE user_id = $1
+     `SELECT daily_quests_state, tier, created_at
+      FROM progression
+      WHERE user_id = $1
      ${lock ? 'FOR UPDATE' : ''}`,
     [userId]
   );
   const row = result.rows[0];
   const rankTier = Number(row?.tier || 1);
+  const createdAt = row?.created_at ? new Date(row.created_at) : null;
+  const accountAgeDays = createdAt && !Number.isNaN(createdAt.getTime())
+    ? Math.max(1, Math.floor((Date.now() - createdAt.getTime()) / 86400000) + 1)
+    : 4;
   let state = row?.daily_quests_state || {};
 
   if (state.lastDate !== today || !Array.isArray(state.quests) || state.quests.length !== 4) {
-    state = initialQuestState(userId, today, rankTier);
+    const avgDailyFarm = await getRollingAvgDailyFarm(client, userId);
+    state = initialQuestState(userId, today, rankTier, accountAgeDays, avgDailyFarm > 0 ? avgDailyFarm : null);
     await client.query(
       `UPDATE progression
        SET daily_quests_state = $2
@@ -149,6 +159,9 @@ function aggregateRewards(quests) {
 }
 
 async function applyStage2Rewards(client, userId, progression, rewards) {
+  const antiCheatState = normalizeAntiCheatState(progression.anti_cheat_state || {});
+  rewards = applyRewardPenaltyToPayload(rewards, antiCheatState.banScore);
+  rewards.passXp = applyPassXpSourceMultiplier(rewards.passXp, 'quest_xp', new Date());
   const levelRow = await ensurePlayerLevel(client, userId);
   const maxEnergy = levelRow.resolved.maxEnergy;
   const inventory = mergeInventory(progression.inventory || {}, rewards);
@@ -186,7 +199,11 @@ async function applyStage2Rewards(client, userId, progression, rewards) {
     ]
   );
 
-  return { passState, passUpdate, inventory };
+  if (Number(rewards.commitsCurrent || 0) > 0) {
+    await logDailyFarm(client, userId, Number(rewards.commitsCurrent || 0));
+  }
+
+  return { passState, passUpdate, inventory, appliedRewards: rewards };
 }
 
 router.get(['/', '/daily'], async (req, res) => {
@@ -207,6 +224,8 @@ router.get(['/', '/daily'], async (req, res) => {
     return res.json({
       date: today,
       quests: state.quests,
+      accountAgeDays: state.accountAgeDays ?? null,
+      avgDailyFarm: state.avgDailyFarm ?? null,
       fullClearAvailable,
       fullClearClaimed: state.fullClearClaimed === true,
       daily: {
@@ -243,10 +262,10 @@ router.post('/claim', async (req, res) => {
     const state = await getOrCreateQuestState(client, userId, today, true);
 
     const progressionResult = await client.query(
-      `SELECT inventory, pass_state
-       FROM progression
-       WHERE user_id = $1
-       FOR UPDATE`,
+       `SELECT inventory, pass_state, anti_cheat_state
+        FROM progression
+        WHERE user_id = $1
+        FOR UPDATE`,
       [userId]
     );
     const progression = progressionResult.rows[0] || {};
@@ -280,7 +299,7 @@ router.post('/claim', async (req, res) => {
 
     const activePass = await getActivePass(client);
     if (activePass && Number(rewards.passXp || 0) > 0) {
-      await logPassXp(client, userId, activePass.id, 'quest', Number(rewards.passXp), { questIds: unclaimed.map(q => q.id) });
+       await logPassXp(client, userId, activePass.id, 'quest', Number(rewardResult.appliedRewards.passXp || 0), { questIds: unclaimed.map(q => q.id) });
     }
 
     await client.query(
@@ -296,8 +315,10 @@ router.post('/claim', async (req, res) => {
     const fullClearAvailable = isFullClearAvailable(state.quests, state.fullClearClaimed);
     return res.json({
       claimedCount: unclaimed.length,
-      rewards,
-      reward: rewards,
+      rewards: rewardResult.appliedRewards,
+      reward: rewardResult.appliedRewards,
+      accountAgeDays: state.accountAgeDays ?? null,
+      avgDailyFarm: state.avgDailyFarm ?? null,
       passUpdate: rewardResult.passUpdate,
       quests: state.quests,
       fullClearAvailable,
@@ -341,21 +362,19 @@ router.post('/full-clear', async (req, res) => {
     }
 
     const progressionResult = await client.query(
-      `SELECT inventory, pass_state
-       FROM progression
-       WHERE user_id = $1
-       FOR UPDATE`,
+       `SELECT inventory, pass_state, anti_cheat_state
+        FROM progression
+        WHERE user_id = $1
+        FOR UPDATE`,
       [userId]
     );
     const progression = progressionResult.rows[0] || {};
     const lootBox = rollLootBox(DAILY_QUEST.FULL_CLEAR.LOOT_BOX.drops);
-    const rewards = {
-      ...DAILY_QUEST.FULL_CLEAR.reward,
-      energy: Number(DAILY_QUEST.FULL_CLEAR.reward.energy || 0) + Number(lootBox.reward.energy || 0),
-      stars: Number(lootBox.reward.stars || 0),
-      skinFragment: lootBox.reward.skinFragment || null,
-      lootBox
-    };
+     const rewards = {
+       stars: Number(DAILY_QUEST.FULL_CLEAR.reward.stars || 0) + Number(lootBox.reward.stars || 0),
+       skinFragment: lootBox.reward.skinFragment || null,
+       lootBox
+     };
 
     state.fullClearClaimed = true;
     const rewardResult = await applyStage2Rewards(client, userId, progression, rewards);
@@ -371,12 +390,14 @@ router.post('/full-clear', async (req, res) => {
     await client.query('COMMIT');
     console.log('full_clear_claimed', { userId, date: today, lootBox: lootBox.id });
 
-    return res.json({
-      rewards,
-      lootBox,
-      passUpdate: rewardResult.passUpdate,
-      fullClearClaimed: true
-    });
+     return res.json({
+       rewards: rewardResult.appliedRewards,
+       lootBox,
+       accountAgeDays: state.accountAgeDays ?? null,
+       avgDailyFarm: state.avgDailyFarm ?? null,
+       passUpdate: rewardResult.passUpdate,
+       fullClearClaimed: true
+     });
   } catch (err) {
     if (client) await client.query('ROLLBACK');
     console.error('Full clear error:', err);
@@ -427,6 +448,7 @@ router.get('/weekly', async (req, res) => {
         minigamesCompleted: state.minigamesCompleted,
         memeShares: state.memeShares
       },
+      narrative: getWeeklySprintNarrativeMeta(state),
       eligibleTier,
       tierClaimed: state.tierClaimed,
       tiers: WEEKLY_SPRINT.TIERS
@@ -491,7 +513,8 @@ router.post('/weekly/claim', async (req, res) => {
       claimedTier: requestedTier,
       rewards,
       passUpdate: rewardResult.passUpdate,
-      sprintState: state
+      sprintState: state,
+      narrative: getWeeklySprintNarrativeMeta(state)
     });
   } catch (err) {
     if (client) await client.query('ROLLBACK');

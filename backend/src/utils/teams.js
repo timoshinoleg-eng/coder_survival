@@ -1,4 +1,7 @@
 import { randomBytes } from "crypto";
+import { DEFAULTS } from '../config/balance.js';
+
+const { SQUADS } = DEFAULTS;
 
 /**
  * Teams / Squads v1
@@ -9,6 +12,37 @@ import { randomBytes } from "crypto";
 
 function generateInviteCode() {
   return randomBytes(4).toString("hex").toUpperCase();
+}
+
+export function hasMissedYesterday(lastActiveAt, now = new Date()) {
+  if (!lastActiveAt) return true;
+  const active = new Date(lastActiveAt);
+  if (Number.isNaN(active.getTime())) return true;
+  const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0);
+  const yesterdayStart = todayStart - 86400000;
+  return active.getTime() < yesterdayStart;
+}
+
+export function getSquadPassiveLocMultiplier({ activeMembers = 0, totalMembers = 0, joinedAt = null, missedYesterdayByAnyMember = false, now = new Date() }) {
+  const active = Math.max(0, Number(activeMembers || 0));
+  const total = Math.max(1, Number(totalMembers || 0));
+  let multiplier = SQUADS.teamBonusTarget.baseMultiplier + (active / total) * 0.5;
+
+  if (missedYesterdayByAnyMember) {
+    multiplier *= (1 - SQUADS.socialObligation.reductionPercent / 100);
+  }
+
+  if (joinedAt) {
+    const joined = new Date(joinedAt);
+    if (!Number.isNaN(joined.getTime())) {
+      const daysSinceJoin = Math.floor((now.getTime() - joined.getTime()) / 86400000);
+      if (daysSinceJoin < 7) {
+        multiplier *= SQUADS.firstSquadBonus.multiplier;
+      }
+    }
+  }
+
+  return Number(multiplier.toFixed(3));
 }
 
 export async function createTeam(client, userId, name) {
@@ -90,7 +124,7 @@ export async function getMyTeam(client, userId) {
   const team = teamResult.rows[0];
 
   const membersResult = await client.query(
-    `SELECT tm.user_id, tm.role, tm.joined_at,
+    `SELECT tm.user_id, tm.role, tm.joined_at, tm.last_active_at,
             u.username, u.first_name,
             COALESCE(p.commits_total, 0) as commits_total
      FROM team_members tm
@@ -101,15 +135,32 @@ export async function getMyTeam(client, userId) {
     [team_id],
   );
 
+  const now = new Date();
+  const activeMembers = membersResult.rows.filter((row) => row.last_active_at && !hasMissedYesterday(row.last_active_at, now)).length;
+  const missedYesterdayByAnyMember = membersResult.rows.some((row) => hasMissedYesterday(row.last_active_at, now));
+  const joinedAt = membersResult.rows.find((row) => row.user_id === userId)?.joined_at || null;
+  const passiveLocMultiplier = getSquadPassiveLocMultiplier({
+    activeMembers,
+    totalMembers: membersResult.rows.length,
+    joinedAt,
+    missedYesterdayByAnyMember,
+    now
+  });
+
   return {
     team,
     myRole: role,
+    passiveLocMultiplier,
+    socialObligationActive: missedYesterdayByAnyMember,
+    activeMembers,
+    timezone: SQUADS.timezone,
     members: membersResult.rows.map((r) => ({
       userId: r.user_id,
       username: r.username,
       firstName: r.first_name,
       role: r.role,
       joinedAt: r.joined_at,
+      lastActiveAt: r.last_active_at,
       commitsTotal: parseInt(r.commits_total, 10),
     })),
   };

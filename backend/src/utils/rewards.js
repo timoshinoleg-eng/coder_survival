@@ -1,5 +1,6 @@
 import { ensurePlayerLevel } from './vnext.js';
 import { updateTeamProgress } from './teams.js';
+import { DEPRESSION_SCALE } from '../config/balance.js';
 
 /**
  * Shared reward applicator.
@@ -60,10 +61,10 @@ export async function applyReward(client, userId, rewardPayload) {
     await client.query(
       `UPDATE progression
        SET depression_level = GREATEST(0, depression_level - $2),
-           is_burnout = GREATEST(0, depression_level - $2) >= 100,
-           updated_at = NOW()
-       WHERE user_id = $1`,
-      [userId, rewardPayload.depressionRelief]
+            is_burnout = GREATEST(0, depression_level - $2) >= $3,
+            updated_at = NOW()
+        WHERE user_id = $1`,
+      [userId, rewardPayload.depressionRelief, DEPRESSION_SCALE.HEART_ATTACK_THRESHOLD]
     );
     updates.push({ type: 'depressionRelief', value: rewardPayload.depressionRelief });
   }

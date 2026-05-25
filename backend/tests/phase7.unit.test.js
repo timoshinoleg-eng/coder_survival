@@ -35,7 +35,7 @@ describe('Phase 7: Daily Summary Scoring', () => {
   test('computeScoreComponents: zero score', () => {
     const result = computeScoreComponents({
       commitsToday: 0,
-      depressionLevel: 100,
+      depressionLevel: 200,
       socialEvents: 0,
       activeReferrals: 0
     });
@@ -49,12 +49,12 @@ describe('Phase 7: Daily Summary Scoring', () => {
   test('computeScoreComponents: mixed values', () => {
     const result = computeScoreComponents({
       commitsToday: 250,
-      depressionLevel: 50,
+      depressionLevel: 100,
       socialEvents: 2,
       activeReferrals: 1
     });
     expect(result.productivity).toBe(20); // 250/500 * 40
-    expect(result.depression).toBe(15); // (100-50)/100 * 30
+    expect(result.depression).toBe(15); // (200-100)/200 * 30
     expect(result.social).toBe(8); // 2/5 * 20
     expect(result.referral).toBeCloseTo(3.33, 1); // 1/3 * 10
     expect(result.total).toBeCloseTo(46.33, 1);
@@ -62,7 +62,7 @@ describe('Phase 7: Daily Summary Scoring', () => {
 
   test('computeScoreComponents: depression inversion works', () => {
     const lowDepression = computeScoreComponents({ commitsToday: 0, depressionLevel: 0, socialEvents: 0, activeReferrals: 0 });
-    const highDepression = computeScoreComponents({ commitsToday: 0, depressionLevel: 100, socialEvents: 0, activeReferrals: 0 });
+    const highDepression = computeScoreComponents({ commitsToday: 0, depressionLevel: 200, socialEvents: 0, activeReferrals: 0 });
     expect(lowDepression.depression).toBe(30);
     expect(highDepression.depression).toBe(0);
   });

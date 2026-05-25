@@ -1,0 +1,5 @@
+ALTER TABLE progression
+ADD COLUMN IF NOT EXISTS generator_state JSONB NOT NULL DEFAULT '{}';
+
+ALTER TABLE progression
+ADD COLUMN IF NOT EXISTS session_started_at TIMESTAMPTZ DEFAULT NOW();

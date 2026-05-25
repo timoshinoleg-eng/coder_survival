@@ -16,6 +16,7 @@ import {
   getUnlockedReferralMilestones,
   trackReferral
 } from '../src/utils/referral.js';
+import { getSquadPassiveLocMultiplier, hasMissedYesterday } from '../src/utils/teams.js';
 import { STAGE3 } from '../src/config/balance.js';
 
 test('Oracle 1: battle escrow conserves energy after resolution', () => {
@@ -86,4 +87,19 @@ test('Oracle 5: pending battle cooldown rejects concurrent duplicate challenges'
   } finally {
     Date.now.mockRestore();
   }
+});
+
+test('Oracle 6: squad passive multiplier and social obligation follow BALANCE v2 formula', () => {
+  expect(getSquadPassiveLocMultiplier({ activeMembers: 5, totalMembers: 5, joinedAt: null, missedYesterdayByAnyMember: false })).toBe(1.5);
+  expect(getSquadPassiveLocMultiplier({ activeMembers: 5, totalMembers: 5, joinedAt: null, missedYesterdayByAnyMember: true })).toBe(1.2);
+});
+
+test('Oracle 7: first squad week applies onboarding multiplier', () => {
+  const joinedAt = new Date(Date.now() - 2 * 86400000).toISOString();
+  expect(getSquadPassiveLocMultiplier({ activeMembers: 5, totalMembers: 5, joinedAt, missedYesterdayByAnyMember: false })).toBe(2.25);
+});
+
+test('Oracle 8: hasMissedYesterday uses UTC day boundary', () => {
+  expect(hasMissedYesterday('2026-05-09T23:30:00Z', new Date('2026-05-10T12:00:00Z'))).toBe(false);
+  expect(hasMissedYesterday('2026-05-08T23:30:00Z', new Date('2026-05-10T12:00:00Z'))).toBe(true);
 });

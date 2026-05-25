@@ -201,8 +201,8 @@ describe("phase4 daily progression overhaul", () => {
           `INSERT INTO pass_rewards (pass_id, level, required_xp, free_reward_payload, premium_reward_payload)
            VALUES ($1, $2, $3, '{}'::jsonb, '{}'::jsonb)
            ON CONFLICT (pass_id, level) DO NOTHING`,
-          [passId, level, 200 + (level - 1) * 15]
-        );
+            [passId, level, level * 100]
+          );
       }
 
       await testPool.query(

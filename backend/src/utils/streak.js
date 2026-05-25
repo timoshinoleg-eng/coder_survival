@@ -28,6 +28,48 @@ export function calculateRecoveryCost(starSavesUsed) {
   return base + (starSavesUsed * increment);
 }
 
+function getNextDate(dateString) {
+  const date = new Date(`${dateString}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+export function shouldOfferStreakSaver({ streakState = {}, energy = 0, todayDate, now = new Date() }) {
+  const currentStreak = Number(streakState.currentStreak || 0);
+  if (currentStreak <= 0) return false;
+  if (Number(energy || 0) > 0) return false;
+  if (streakState.lastLoginDate === todayDate) return false;
+
+  const secondsToMidnightUtc = Math.max(0, Math.floor((Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+    0, 0, 0, 0
+  ) - now.getTime()) / 1000));
+
+  if (secondsToMidnightUtc >= STAGE2.STREAK.SAVER.triggerWindowSeconds) {
+    return false;
+  }
+
+  const lastSavedAt = streakState.lastStreakSaveTimestamp ? new Date(streakState.lastStreakSaveTimestamp) : null;
+  if (lastSavedAt && !Number.isNaN(lastSavedAt.getTime())) {
+    const daysSinceLastSave = Math.floor((now.getTime() - lastSavedAt.getTime()) / 86400000);
+    if (daysSinceLastSave < STAGE2.STREAK.SAVER.minIntervalDays) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function armStreakSaver(streakState = {}, todayDate, now = new Date()) {
+  return {
+    ...streakState,
+    saverArmedForDate: todayDate,
+    lastStreakSaveTimestamp: now.toISOString()
+  };
+}
+
 export function starRecover(streakState, todayDate, starsAvailable) {
   const protection = normalizeProtection(streakState.protection);
   const last = streakState.lastLoginDate || null;
@@ -115,6 +157,24 @@ export function processDailyLogin(streakState = {}, todayDate) {
   }
 
   const missed = Math.max(1, daysBetween(last, todayDate) - 1);
+
+  if (streakState.saverArmedForDate === getYesterday(todayDate)) {
+    return {
+      status: 'streak_saved_paid',
+      streakState: {
+        ...streakState,
+        lastLoginDate: todayDate,
+        currentStreak: current + 1,
+        maxStreak: Math.max(Number(streakState.maxStreak || 0), current + 1),
+        protection,
+        saverArmedForDate: null,
+        brokenStreak: null
+      },
+      rewards: { daily: STREAK.DAILY_REWARD, milestone: STREAK.MILESTONES[current + 1] || null },
+      brokenStreak: null,
+      missedDays: missed
+    };
+  }
 
   if (!protection.freeUsed) {
     const nextProtection = { ...protection, freeUsed: true };

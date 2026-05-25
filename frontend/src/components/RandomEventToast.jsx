@@ -7,9 +7,10 @@ export default function RandomEventToast({ event, onChoice }) {
   useEffect(() => {
     if (!event) return;
     setTimeLeft(100);
+    const timeoutSeconds = Math.max(1, Number(event.timeout || 15));
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
-        const next = prev - (100 / 15); // 15 seconds total
+        const next = prev - (100 / timeoutSeconds);
         return next <= 0 ? 0 : next;
       });
     }, 1000);
@@ -18,18 +19,18 @@ export default function RandomEventToast({ event, onChoice }) {
 
   useEffect(() => {
     if (timeLeft <= 0 && event) {
-      onChoice(event.eventId, 'ignore', event.options.ignore);
+      onChoice(event.eventId, event.type, 'ignore', event.options.ignore);
     }
   }, [timeLeft, event, onChoice]);
 
   const handleSolve = useCallback(() => {
     if (!event) return;
-    onChoice(event.eventId, 'solve', event.options.solve);
+    onChoice(event.eventId, event.type, 'solve', event.options.solve);
   }, [event, onChoice]);
 
   const handleIgnore = useCallback(() => {
     if (!event) return;
-    onChoice(event.eventId, 'ignore', event.options.ignore);
+    onChoice(event.eventId, event.type, 'ignore', event.options.ignore);
   }, [event, onChoice]);
 
   if (!event) return null;

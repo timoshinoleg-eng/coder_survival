@@ -14,6 +14,7 @@ import tapRouter from "./routes/tap.js";
 import stateRouter from "./routes/state.js";
 import buyRouter from "./routes/buy.js";
 import leaderboardRouter from "./routes/leaderboard.js";
+import generatorsRouter from './routes/generators.js';
 import referralRouter from "./routes/referral.js";
 import internalPaymentsRouter from "./routes/internalPayments.js";
 import internalObservationRouter from "./routes/internalObservation.js";
@@ -36,6 +37,7 @@ import rewardedVideoRouter from "./routes/rewardedVideo.js";
 import teamHackathonRouter from "./routes/teamHackathon.js";
 import memeRouter from "./routes/meme.js";
 import achievementsRouter from "./routes/achievements.js";
+import appealRouter from './routes/appeal.js';
 import minigameRouter from "./routes/minigame.js";
 import dailySummaryRouter from "./routes/dailySummary.js";
 import { startDailySummaryCron } from "./jobs/dailySummaryCron.js";
@@ -111,6 +113,7 @@ app.use(
   leaderboardRouter,
 );
 app.use("/api/referral", initDataMiddleware, referralRouter);
+app.use('/api/generators', initDataMiddleware, generatorsRouter);
 app.use("/api/internal/payments", internalPaymentsRouter);
 app.use("/api/internal/observation", internalObservationRouter);
 app.use("/api/player/level", initDataMiddleware, playerLevelRouter);
@@ -133,7 +136,17 @@ app.use("/api/pass", initDataMiddleware, passRouter);
 app.use("/api/team", initDataMiddleware, teamRouter);
 app.use("/api/team/hackathon", initDataMiddleware, teamHackathonRouter);
 app.use("/api/offers", initDataMiddleware, offersRouter);
-app.use("/api/rewards", initDataMiddleware, rewardsRouter);
+app.use(
+  "/api/rewards",
+  (req, res, next) => {
+    if (req.path === '/adsgram_callback' || req.path === '/propeller_callback') {
+      req.telegramUser = null;
+      return next();
+    }
+    return initDataMiddleware(req, res, next);
+  },
+  rewardsRouter,
+);
 app.use("/api/coffee", initDataMiddleware, coffeeRouter);
 app.use("/api/team-battle", initDataMiddleware, teamBattleRouter);
 app.use("/api/skins", initDataMiddleware, skinsRouter);
@@ -142,6 +155,7 @@ app.use("/api/streak", initDataMiddleware, streakRouter);
 app.use("/api/rewarded-video", initDataMiddleware, rewardedVideoRouter);
 app.use("/api/meme", initDataMiddleware, memeRouter);
 app.use("/api/achievements", initDataMiddleware, achievementsRouter);
+app.use('/api/appeal', initDataMiddleware, appealRouter);
 app.use("/api/minigame", initDataMiddleware, minigameRouter);
 app.use("/api/daily-summary", initDataMiddleware, dailySummaryRouter);
 

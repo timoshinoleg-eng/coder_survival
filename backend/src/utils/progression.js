@@ -1,5 +1,12 @@
-import { TAP_MECHANICS, STRESS_V2 } from '../config/balance.js';
+import {
+  DEPRESSION_PASSIVE_RECOVERY_PER_HOUR,
+  MIN_IDLE_THRESHOLD_SECONDS,
+  RECOVERY_INTERVAL_NEWBIE_SECONDS,
+  RECOVERY_INTERVAL_VETERAN_SECONDS,
+  TAP_MECHANICS
+} from '../config/balance.js';
 import { getEventRecoveryMultiplier } from './events.js';
+import { applyProductionAlertDrain } from './randomEventState.js';
 
 function toValidDate(value) {
   if (!value) return null;
@@ -26,7 +33,7 @@ function getRecoveryCheckpoint(progression) {
 
 export function getEffectiveRecoveryIntervalSeconds(progression, now = new Date(), skinRecoveryMult = 1) {
   const createdAt = toValidDate(progression?.created_at);
-  let interval = TAP_MECHANICS.energyRecoveryIntervalSeconds;
+  let interval = RECOVERY_INTERVAL_VETERAN_SECONDS;
 
   if (createdAt) {
     const ageMs = now.getTime() - createdAt.getTime();
@@ -37,7 +44,7 @@ export function getEffectiveRecoveryIntervalSeconds(progression, now = new Date(
         userId: progression?.user_id ?? null,
         createdAt: createdAt.toISOString()
       });
-      interval = Math.floor(interval / TAP_MECHANICS.newbieRecoveryMultiplier);
+      interval = RECOVERY_INTERVAL_NEWBIE_SECONDS;
     }
   }
 
@@ -67,8 +74,6 @@ export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.max
   return remainder === 0 && secondsPassed > 0 ? 0 : interval - remainder;
 }
 
-const MIN_RECOVERY_THRESHOLD_SECONDS = 300;
-
 export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy, skinRecoveryMult = 1, officeCatEquipped = false) {
   if (!progression) return progression;
 
@@ -83,12 +88,14 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
     interval = Math.max(1, Math.floor(interval / recoveryMultiplier));
   }
   const secondsPassed = Math.max(0, Math.floor((now.getTime() - checkpoint.getTime()) / 1000));
+  const productionAlert = applyProductionAlertDrain(progression.event_state || {}, maxEnergy, now);
+  const energyAfterAlert = Math.max(0, energy - productionAlert.energyDrain);
 
-  const shouldRecoverEnergy = secondsPassed >= MIN_RECOVERY_THRESHOLD_SECONDS;
+  const shouldRecoverEnergy = secondsPassed >= MIN_IDLE_THRESHOLD_SECONDS;
   const energyRecovered = shouldRecoverEnergy ? Math.floor(secondsPassed / interval) : 0;
 
   const passiveDepressionDecay = Math.floor(
-    (secondsPassed / 3600) * STRESS_V2.DEPRESSION_PASSIVE_DECAY_PER_HOUR
+    (secondsPassed / 3600) * DEPRESSION_PASSIVE_RECOVERY_PER_HOUR
   );
 
   if (energyRecovered <= 0) {
@@ -99,26 +106,40 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
         `UPDATE progression
          SET depression_level = $2,
              is_burnout = $3,
-             updated_at = NOW()
+             energy = $4,
+             event_state = $5
          WHERE user_id = $1`,
-        [progression.user_id, newDepression, isBurnout]
+        [progression.user_id, newDepression, isBurnout, energyAfterAlert, JSON.stringify({ ...(progression.event_state || {}), randomEventState: productionAlert.randomEventState })]
       );
       return {
         ...progression,
+        energy: energyAfterAlert,
         depression_level: newDepression,
         is_burnout: isBurnout,
+        event_state: { ...(progression.event_state || {}), randomEventState: productionAlert.randomEventState },
         _idleRecovery: null
       };
     }
+    if (productionAlert.energyDrain > 0) {
+      await client.query(
+        `UPDATE progression
+         SET energy = $2,
+             event_state = $3
+         WHERE user_id = $1`,
+        [progression.user_id, energyAfterAlert, JSON.stringify({ ...(progression.event_state || {}), randomEventState: productionAlert.randomEventState })]
+      );
+    }
     return {
       ...progression,
+      energy: energyAfterAlert,
       is_burnout: depression >= TAP_MECHANICS.maxDepression,
+      event_state: { ...(progression.event_state || {}), randomEventState: productionAlert.randomEventState },
       _idleRecovery: null
     };
   }
 
-  const newEnergy = Math.min(maxEnergy, energy + energyRecovered);
-  const actualRecovered = newEnergy - energy;
+  const newEnergy = Math.min(maxEnergy, energyAfterAlert + energyRecovered);
+  const actualRecovered = newEnergy - energyAfterAlert;
 
   if (actualRecovered <= 0) {
     return {
@@ -144,13 +165,13 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
   const result = await client.query(
     `UPDATE progression
      SET energy = $2,
-         depression_level = $3,
-         is_burnout = $4,
-         energy_recovery_checkpoint_at = $5,
-         updated_at = NOW()
-     WHERE user_id = $1
-     RETURNING *`,
-    [progression.user_id, newEnergy, newDepression, isBurnout, nextCheckpoint]
+          depression_level = $3,
+          is_burnout = $4,
+          energy_recovery_checkpoint_at = $5,
+          event_state = $6
+       WHERE user_id = $1
+       RETURNING *`,
+    [progression.user_id, newEnergy, newDepression, isBurnout, nextCheckpoint, JSON.stringify({ ...(progression.event_state || {}), randomEventState: productionAlert.randomEventState })]
   );
 
   console.log('energy_recovery_trusted', {

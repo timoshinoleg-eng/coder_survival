@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { REFERRAL_ACTIVE_THRESHOLD_COMMITS, REFERRAL_MILESTONE_REWARDS, STAGE3 } from '../config/balance.js';
+import { logDailyFarm } from '../utils/farmLog.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
-import { getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
+import { buildReferralClaimReward, getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
 import { checkAchievement } from '../utils/achievements.js';
 
 const router = Router();
@@ -139,7 +140,8 @@ router.get('/status', async (req, res, next) => {
       const activeResult = await client.query(
         `SELECT
            COUNT(*)::int AS total,
-           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days')::int AS active
+           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days')::int AS active,
+           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days' AND r.is_referred_premium = TRUE)::int AS premium_active
          FROM referrals r
          LEFT JOIN progression p ON p.user_id = r.referred_id
          WHERE r.referrer_id = $1`,
@@ -151,6 +153,7 @@ router.get('/status', async (req, res, next) => {
            u.username,
            COALESCE(p.commits_total, 0)::int as commits_total,
            p.first_active_at,
+           r.is_referred_premium,
            (COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days') as is_active
          FROM referrals r
          LEFT JOIN progression p ON p.user_id = r.referred_id
@@ -177,10 +180,12 @@ router.get('/status', async (req, res, next) => {
         antiFarmDays: STAGE3.REFERRAL.ANTI_FARM_DAYS,
         total: Number(activeResult.rows[0]?.total || 0),
         active,
+        premiumActive: Number(activeResult.rows[0]?.premium_active || 0),
         referred: referredResult.rows.map(r => ({
           username: r.username,
           commitsTotal: r.commits_total,
           firstActiveAt: r.first_active_at,
+          isPremium: r.is_referred_premium === true,
           isActive: r.is_active,
           antiFarmStatus: `${Math.min(STAGE3.REFERRAL.ANTI_FARM_DAYS, Math.floor((Date.now() - new Date(r.first_active_at || Date.now()).getTime()) / (1000 * 60 * 60 * 24)))}/${STAGE3.REFERRAL.ANTI_FARM_DAYS} дней · ${r.commits_total}/${STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS} коммитов`
         })),
@@ -237,10 +242,10 @@ router.post('/track', async (req, res, next) => {
       }
 
       await client.query(
-        `INSERT INTO referrals (referrer_id, referred_id, status)
-         VALUES ($1, $2, 'pending')
+        `INSERT INTO referrals (referrer_id, referred_id, status, is_referred_premium)
+         VALUES ($1, $2, 'pending', $3)
          ON CONFLICT (referrer_id, referred_id) DO NOTHING`,
-        [inviterId, invitedId]
+        [inviterId, invitedId, telegramUser.is_premium === true]
       );
 
       const progressResult = await client.query(
@@ -441,11 +446,11 @@ router.post('/', async (req, res, next) => {
 
         // Создаём реферальную связь идемпотентно, без SELECT->INSERT race
         const referralInsertResult = await client.query(
-          `INSERT INTO referrals (referrer_id, referred_id, status)
-           VALUES ($1, $2, 'pending')
+          `INSERT INTO referrals (referrer_id, referred_id, status, is_referred_premium)
+           VALUES ($1, $2, 'pending', $3)
            ON CONFLICT (referrer_id, referred_id) DO NOTHING
            RETURNING *`,
-          [referrerId, referredId]
+          [referrerId, referredId, telegramUser.is_premium === true]
         );
 
         const referralResult =
@@ -563,13 +568,15 @@ router.post('/claim-milestone', async (req, res, next) => {
       const userId = userResult.rows[0].id;
 
       const activeResult = await client.query(
-        `SELECT COUNT(*) as active
+        `SELECT COUNT(*) as active,
+                COUNT(*) FILTER (WHERE r.is_referred_premium = TRUE) as premium_active
          FROM referrals r
          LEFT JOIN progression p ON p.user_id = r.referred_id
          WHERE r.referrer_id = $1 AND COALESCE(p.commits_total, 0) >= $2`,
         [userId, REFERRAL_ACTIVE_THRESHOLD_COMMITS]
       );
       const active = parseInt(activeResult.rows[0].active);
+      const premiumActive = parseInt(activeResult.rows[0].premium_active || 0, 10);
       if (active < milestone) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Milestone not reached' });
@@ -584,7 +591,7 @@ router.post('/claim-milestone', async (req, res, next) => {
         return res.status(409).json({ error: 'Already claimed' });
       }
 
-      const inviterReward = rewardDef.inviter || {};
+      const inviterReward = buildReferralClaimReward(rewardDef.inviter || {}, premiumActive >= milestone);
 
       // Apply commits / energy via progression update
       const level = await ensurePlayerLevel(client, userId);
@@ -610,6 +617,9 @@ router.post('/claim-milestone', async (req, res, next) => {
          WHERE user_id = $1`,
         [userId, inviterReward.commits || 0, maxEnergy, energyAdd, ...inventoryParams]
       );
+      if (Number(inviterReward.commits || 0) > 0) {
+        await logDailyFarm(client, userId, Number(inviterReward.commits || 0));
+      }
 
       // Grant skin if present
       if (inviterReward.skin) {
@@ -633,6 +643,7 @@ router.post('/claim-milestone', async (req, res, next) => {
         success: true,
         milestone,
         reward: inviterReward,
+        premiumApplied: premiumActive >= milestone,
         newEnergy: energyAdd
       });
     } catch (err) {

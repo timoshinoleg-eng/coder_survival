@@ -7,7 +7,7 @@ function rewardText(reward = {}) {
   if (reward.energy) parts.push(`+${reward.energy} энергии`);
   if (reward.xp) parts.push(`+${reward.xp} XP`);
   if (reward.passXp) parts.push(`+${reward.passXp} pass`);
-  if (reward.commitsCurrent) parts.push(`+${reward.commitsCurrent} коммитов`);
+  if (reward.commitsCurrent) parts.push(`+${reward.commitsCurrent} LOC`);
   if (reward.stars) parts.push(`+${reward.stars} Stars`);
   if (reward.inventory?.coffee_cups) parts.push(`+${reward.inventory.coffee_cups} кофе`);
   if (reward.skinFragment) parts.push('фрагмент скина');
@@ -20,22 +20,26 @@ function questTitle(quest) {
     q_login: 'Открыть рабочий день',
     q_tap40: 'Разогнать IDE',
     q_tap50: 'Разогнать IDE',
+    q_tap300: 'Разогнать IDE',
     q_coffee: 'Кофейный спринт',
     q_bugfix: 'Поймать крит',
     q_commit50: 'Закрыть задачу',
     q_commit100: 'Закрыть задачу',
+    q_earn10000: 'Выдать 10k LOC',
     q_review: 'Заглянуть на ревью',
     q_night30: 'Вечерний рывок',
     q_share: 'Поделиться прогрессом',
     q_bonus_tap: 'Бонус: тапы',
     q_bonus_crit: 'Бонус: крит',
     q_bonus_commit: 'Бонус: коммиты',
+    q_bonus_watch_ad: 'Бонус: реклама',
+    q_bonus_buy_generator: 'Бонус: генератор',
   };
   return titles[quest.id] || quest.id;
 }
 
 export default function DailyQuests({ modal = false, open = true, onClose }) {
-  const { daily, quests, claimQuests, claimFullClear, refreshQuests } = useGameState();
+  const { daily, quests, antiCheat, claimQuests, claimFullClear, refreshQuests } = useGameState();
   const [claiming, setClaiming] = useState(false);
   const [openingChest, setOpeningChest] = useState(false);
   const list = quests || daily?.quests || [];
@@ -91,6 +95,29 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
         `${daily?.completed || list.filter((quest) => quest.completed).length}/${list.length || 5}`
       ),
     ]),
+    (daily?.avgDailyFarm || daily?.accountAgeDays) && h('div', {
+      style: {
+        fontSize: '11px',
+        color: '#8ba1bb',
+        padding: '6px 8px',
+        borderRadius: '6px',
+        background: '#0f1b30',
+        border: '1px solid #1f3552',
+      }
+    }, [
+      daily?.avgDailyFarm ? h('div', null, `Средний дневной фарм: ${daily.avgDailyFarm} LOC`) : null,
+      daily?.accountAgeDays ? h('div', null, `Возраст аккаунта: ${daily.accountAgeDays} дн.`) : null,
+    ]),
+    antiCheat?.banScore >= 20 && h('div', {
+      style: {
+        fontSize: '11px',
+        color: '#fca5a5',
+        padding: '6px 8px',
+        borderRadius: '6px',
+        background: '#3f1a1a',
+        border: '1px solid #5a2d2d',
+      }
+    }, `Anti-cheat penalty active: tier ${antiCheat.sanctionTier}. Часть наград сейчас снижена.`),
     list.map((quest) => {
       const progress = quest.target > 0 ? Math.round((quest.progress / quest.target) * 100) : 0;
       const claimable = quest.completed && !quest.claimed;
