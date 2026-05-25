@@ -1,7 +1,37 @@
 import crypto from 'crypto';
-import { STAGE2 } from '../config/balance.js';
+import { STAGE2, DEFAULTS } from '../config/balance.js';
 
 const { DAILY_QUEST } = STAGE2;
+
+export const DAILY_QUESTS_VERSION = 'v1.0';
+
+const FALLBACK = DEFAULTS.DAILY_QUESTS.avgDailyFarm.fallback;
+const REWARD_SPLIT = DEFAULTS.DAILY_QUESTS.rewardSplit;
+const FRONT_LOADING = DEFAULTS.DAILY_QUESTS.frontLoading;
+
+export function getFallbackAvgDailyFarm(accountAgeDays = 4) {
+  if (accountAgeDays <= 1) return FALLBACK.day1;
+  if (accountAgeDays === 2) return FALLBACK.day2;
+  if (accountAgeDays === 3) return FALLBACK.day3;
+  return FALLBACK.day3;
+}
+
+function getMainQuestReward(avgDailyFarm, accountAgeDays) {
+  const multiplier = accountAgeDays <= 3 ? FRONT_LOADING.multiplier : 1.0;
+  const raw = avgDailyFarm * REWARD_SPLIT.mainQuest1 * multiplier;
+  if (!Number.isFinite(raw)) {
+    console.warn('[DailyQuests] Invalid main quest reward calculation:', { avgDailyFarm, accountAgeDays, raw });
+  }
+  return Math.floor(raw);
+}
+
+function getBonusQuestReward(avgDailyFarm) {
+  const raw = avgDailyFarm * REWARD_SPLIT.bonusQuest;
+  if (!Number.isFinite(raw)) {
+    console.warn('[DailyQuests] Invalid bonus quest reward calculation:', { avgDailyFarm, raw });
+  }
+  return Math.floor(raw);
+}
 
 export function hashSeed(userId, dateString) {
   const hex = crypto.createHash('md5').update(`${userId}:${dateString}`).digest('hex');
@@ -20,12 +50,35 @@ export function selectFromPool(pool, hashValue, offset) {
   return pool[idx];
 }
 
-export function generateDailyQuests(userId, dateString, rankTier = 1) {
+export function generateDailyQuests(userId, dateString, rankTier = 1, accountAgeDays = 4, avgDailyFarmOverride = null) {
   const seed = hashSeed(userId, dateString);
+  const avgDailyFarm = Number.isFinite(Number(avgDailyFarmOverride)) && Number(avgDailyFarmOverride) > 0
+    ? Number(avgDailyFarmOverride)
+    : getFallbackAvgDailyFarm(accountAgeDays);
+  const mainQuestReward = getMainQuestReward(avgDailyFarm, accountAgeDays);
+  const bonusQuestReward = getBonusQuestReward(avgDailyFarm);
 
-  const base = DAILY_QUEST.BASE_QUESTS.map((quest) => ({
+  const base = [
+    {
+      id: 'q_login',
+      type: 'login',
+      target: 1,
+      reward: { commitsCurrent: mainQuestReward },
+    },
+    {
+      id: 'q_tap300',
+      type: 'tap_count',
+      target: DAILY_QUEST.TRIGGERS.tapCount,
+      reward: { commitsCurrent: mainQuestReward },
+    },
+    {
+      id: 'q_earn10000',
+      type: 'commit_total',
+      target: DAILY_QUEST.TRIGGERS.earnLoc,
+      reward: { commitsCurrent: mainQuestReward },
+    }
+  ].map((quest) => ({
     ...cloneQuest(quest),
-    target: quest.target + rankTier * 5,
     progress: 0,
     completed: false,
     claimed: false,
@@ -36,13 +89,7 @@ export function generateDailyQuests(userId, dateString, rankTier = 1) {
   const bonus = {
     ...cloneQuest(bonusTemplate),
     isBonus: true,
-    target: bonusTemplate.target * 2 + rankTier * 5,
-    reward: Object.fromEntries(
-      Object.entries(bonusTemplate.reward).map(([key, value]) => [
-        key,
-        typeof value === 'number' ? value * 2 : value
-      ])
-    ),
+    reward: { ...(bonusTemplate.reward || {}), commitsCurrent: bonusQuestReward },
     progress: 0,
     completed: false,
     claimed: false,
@@ -79,6 +126,8 @@ export function checkQuestProgress(quests, eventType, eventValue) {
         break;
       case 'social_visit':
       case 'social_share':
+      case 'watch_ad':
+      case 'buy_generator':
         newProgress += typeof eventValue === 'number' ? eventValue : 1;
         break;
       default:
@@ -112,6 +161,24 @@ export function applyQuestUpdates(quests, updates) {
   });
 
   return { quests: next, changed };
+}
+
+export async function updateDailyQuestStateForEvent(client, userId, eventType, eventValue = 1) {
+  const result = await client.query(
+    `SELECT daily_quests_state FROM progression WHERE user_id = $1 FOR UPDATE`,
+    [userId]
+  );
+  const state = result.rows[0]?.daily_quests_state || {};
+  if (!Array.isArray(state.quests) || state.quests.length === 0) return null;
+  const updates = checkQuestProgress(state.quests, eventType, eventValue);
+  const applied = applyQuestUpdates(state.quests, updates);
+  if (!applied.changed) return { changed: false, state };
+  const nextState = { ...state, quests: applied.quests };
+  await client.query(
+    `UPDATE progression SET daily_quests_state = $2 WHERE user_id = $1`,
+    [userId, JSON.stringify(nextState)]
+  );
+  return { changed: true, state: nextState };
 }
 
 export function isFullClearAvailable(quests, fullClearClaimed) {
