@@ -57,6 +57,9 @@ const DATABASE_URL = buildDatabaseUrl(process.env);
 // --- Пул соединений PostgreSQL ---
 export const pool = new Pool({
   connectionString: DATABASE_URL,
+  max: Number(process.env.DB_POOL_MAX || 50),
+  connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 5000),
+  idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS || 30000),
   ssl:
     process.env.NODE_ENV === "production"
       ? { rejectUnauthorized: false }
@@ -80,10 +83,10 @@ app.use(express.json());
 
 // Health check
 app.get("/health", async (req, res) => {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     await client.query("SELECT 1");
-    client.release();
     res.json({
       status: "ok",
       db: "connected",
@@ -93,6 +96,10 @@ app.get("/health", async (req, res) => {
     res
       .status(503)
       .json({ status: "error", db: "disconnected", error: err.message });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 

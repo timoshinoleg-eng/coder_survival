@@ -21,6 +21,8 @@ export default class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
+    this.lowPowerEffects = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+    this.particleSystems = [];
 
     // Background grid
     this.createGrid(width, height);
@@ -70,10 +72,11 @@ export default class GameScene extends Phaser.Scene {
       scale: { start: 0.3, end: 0 },
       alpha: { start: 0.4, end: 0 },
       lifespan: 1500,
-      frequency: 800,
+      frequency: this.lowPowerEffects ? 1600 : 800,
       quantity: 1,
       tint: 0xaaaaaa
     });
+    this.particleSystems.push(this.steamParticles);
 
     // Commit particles (spawned on tap)
     this.commitParticles = this.add.particles(0, 0, 'commit', {
@@ -85,6 +88,7 @@ export default class GameScene extends Phaser.Scene {
       quantity: 1,
       emitting: false
     });
+    this.particleSystems.push(this.commitParticles);
 
     // Sparkle particles for big hits
     this.sparkleParticles = this.add.particles(0, 0, 'orb', {
@@ -98,6 +102,7 @@ export default class GameScene extends Phaser.Scene {
       tint: 0xfacc15,
       emitting: false
     });
+    this.particleSystems.push(this.sparkleParticles);
 
     // Phase 2: Resource animation emitters
     // Code sparks — high energy (≥70%)
@@ -106,11 +111,12 @@ export default class GameScene extends Phaser.Scene {
       angle: { min: -120, max: -60 },
       scale: { start: 0.8, end: 0 },
       lifespan: 600,
-      frequency: 100,
+      frequency: this.lowPowerEffects ? 240 : 100,
       quantity: 1,
       tint: 0x4ade80,
       emitting: false
     });
+    this.particleSystems.push(this.codeSparks);
 
     // Tremor — low energy (≤20%)
     this.tremorParticles = this.add.particles(0, 0, 'orb', {
@@ -118,12 +124,13 @@ export default class GameScene extends Phaser.Scene {
       scale: { start: 0.3, end: 0 },
       alpha: { start: 0.3, end: 0 },
       lifespan: 800,
-      frequency: 120,
+      frequency: this.lowPowerEffects ? 280 : 120,
       quantity: 1,
       tint: 0x94a3b8,
       gravityY: 0,
       emitting: false
     });
+    this.particleSystems.push(this.tremorParticles);
 
     // Bug-report rain — high depression (≥75%)
     this.bugRain = this.add.particles(0, 0, 'commit', {
@@ -133,11 +140,12 @@ export default class GameScene extends Phaser.Scene {
       angle: { min: 85, max: 95 },
       scale: { start: 0.6, end: 0.2 },
       lifespan: 1200,
-      frequency: 60,
+      frequency: this.lowPowerEffects ? 220 : 60,
       quantity: 1,
       tint: 0xf87171,
       emitting: false
     });
+    this.particleSystems.push(this.bugRain);
 
     // Crash debris — 100% depression burst
     this.crashDebris = this.add.particles(0, 0, 'commit', {
@@ -149,6 +157,7 @@ export default class GameScene extends Phaser.Scene {
       quantity: 1,
       emitting: false
     });
+    this.particleSystems.push(this.crashDebris);
 
     // Tremor shake timer
     this.tremorShakeTimer = null;
@@ -165,10 +174,15 @@ export default class GameScene extends Phaser.Scene {
       this.game.events.off('tap', this.onTap, this);
       this.game.events.off('event_choice', this.onEventChoice, this);
       this.scale.off('resize', this.onResize, this);
+      this.eventManager?.stop();
       if (this.tremorShakeTimer) {
         clearInterval(this.tremorShakeTimer);
         this.tremorShakeTimer = null;
       }
+      for (const particles of this.particleSystems || []) {
+        particles?.destroy?.();
+      }
+      this.particleSystems = [];
     });
 
     // Depression overlay (red vignette)
@@ -203,12 +217,15 @@ export default class GameScene extends Phaser.Scene {
     const strength = data?.strength || 1;
 
     // Emit commit particles from monitor
-    const particleCount = Phaser.Math.Between(5, 8) + Math.min(4, Math.floor(strength / 2));
+    const baseMin = this.lowPowerEffects ? 2 : 5;
+    const baseMax = this.lowPowerEffects ? 4 : 8;
+    const bonusCap = this.lowPowerEffects ? 2 : 4;
+    const particleCount = Phaser.Math.Between(baseMin, baseMax) + Math.min(bonusCap, Math.floor(strength / 2));
     this.commitParticles.emitParticleAt(cx, cy - 20, particleCount);
 
     // Sparkles for strong hits
     if (strength >= 3) {
-      this.sparkleParticles.emitParticleAt(cx, cy - 20, Phaser.Math.Between(3, 6));
+      this.sparkleParticles.emitParticleAt(cx, cy - 20, this.lowPowerEffects ? 2 : Phaser.Math.Between(3, 6));
     }
 
     // Floating code line
@@ -323,14 +340,17 @@ export default class GameScene extends Phaser.Scene {
     });
 
     // Debris explosion (~90 particles)
-    this.crashDebris.emitParticleAt(cx, cy, 90);
+    this.crashDebris.emitParticleAt(cx, cy, this.lowPowerEffects ? 25 : 90);
 
     // Camera shake
     this.cameras.main.shake(500, 0.01);
   }
 
-  onResize() {
-    this.scene.restart();
+  onResize(gameSize) {
+    const width = gameSize?.width || this.scale.width;
+    const height = gameSize?.height || this.scale.height;
+    this.cameras.main.setViewport(0, 0, width, height);
+    this.updateGlow(window.__GAME_STATE__?.depression || 0);
   }
 
   updateGlow(depression) {

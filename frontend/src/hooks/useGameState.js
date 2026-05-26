@@ -124,6 +124,7 @@ export function GameProvider({ children }) {
   const stateRef = useRef(DEFAULT_STATE);
   const pendingTapsRef = useRef(0);
   const processingTapRef = useRef(false);
+  const loadStatePromiseRef = useRef(null);
   const postTapRefreshTimerRef = useRef(null);
   const equippingSkinRef = useRef(false);
   const battlePollingStartedAtRef = useRef(Date.now());
@@ -425,9 +426,14 @@ export function GameProvider({ children }) {
     return payload;
   }, [showToast, telegram?.initData]);
 
-  const loadState = useCallback(async () => {
-    setState((current) => ({ ...current, loading: true, error: null }));
-    try {
+  const loadState = useCallback(() => {
+    if (loadStatePromiseRef.current) {
+      return loadStatePromiseRef.current;
+    }
+
+    const promise = (async () => {
+      setState((current) => ({ ...current, loading: true, error: null }));
+      try {
       const [
         statePayload,
         questsPayload,
@@ -475,7 +481,7 @@ export function GameProvider({ children }) {
         syncing: false,
         error: null,
       }));
-    } catch (err) {
+      } catch (err) {
       setState((current) => ({
         ...current,
         loading: false,
@@ -485,7 +491,17 @@ export function GameProvider({ children }) {
             ? "Telegram авторизация не прошла"
             : "Сервер недоступен",
       }));
-    }
+      }
+    })();
+
+    loadStatePromiseRef.current = promise;
+    promise.finally(() => {
+      if (loadStatePromiseRef.current === promise) {
+        loadStatePromiseRef.current = null;
+      }
+    });
+
+    return promise;
   }, [applyServerState, telegram?.initData]);
 
   const claimPassReward = useCallback(async (level, track = 'free') => {

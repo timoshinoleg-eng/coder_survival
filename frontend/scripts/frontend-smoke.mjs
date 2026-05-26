@@ -167,6 +167,22 @@ function assertRandomEventPollingIsNotAggressive() {
   }
 }
 
+function assertPhaserResizeDoesNotRestartScene() {
+  const file = "src/game/scenes/GameScene.js";
+  const source = read(file);
+  const resizeStart = source.indexOf("onResize(");
+  const resizeEnd = source.indexOf("updateGlow(", resizeStart);
+  const resizeBody = resizeStart !== -1 && resizeEnd !== -1 ? source.slice(resizeStart, resizeEnd) : "";
+
+  if (resizeBody.includes("scene.restart")) {
+    failures.push(`${file}: resize must not restart the scene because it leaks emitters and stalls WebView`);
+  }
+
+  if (!source.includes("this.eventManager?.stop()")) {
+    failures.push(`${file}: EventManager must be stopped during scene shutdown`);
+  }
+}
+
 assertAppComponentReferencesAreImported();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
@@ -175,6 +191,7 @@ assertSprintPassKeyboardStateIsDeclaredBeforeEffect();
 assertTapPathDoesNotRefreshHeavyPanelsPerTap();
 assertStreakClaimDoesNotBlockOnFullStateReload();
 assertRandomEventPollingIsNotAggressive();
+assertPhaserResizeDoesNotRestartScene();
 
 if (failures.length > 0) {
   console.error(failures.join("\n"));
