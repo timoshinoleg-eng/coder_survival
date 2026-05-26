@@ -40,10 +40,6 @@ export function getEffectiveRecoveryIntervalSeconds(progression, now = new Date(
     const newbieWindowMs = TAP_MECHANICS.newbiePeriodHours * 60 * 60 * 1000;
     const isNewbie = ageMs >= 0 && ageMs < newbieWindowMs;
     if (isNewbie) {
-      console.log('newbie_recovery_active', {
-        userId: progression?.user_id ?? null,
-        createdAt: createdAt.toISOString()
-      });
       interval = RECOVERY_INTERVAL_NEWBIE_SECONDS;
     }
   }
@@ -173,15 +169,6 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
        RETURNING *`,
     [progression.user_id, newEnergy, newDepression, isBurnout, nextCheckpoint, JSON.stringify({ ...(progression.event_state || {}), randomEventState: productionAlert.randomEventState })]
   );
-
-  console.log('energy_recovery_trusted', {
-    userId: progression.user_id,
-    energyRecovered: actualRecovered,
-    anchor: anchor.toISOString(),
-    checkpoint: checkpoint.toISOString(),
-    nextCheckpoint: nextCheckpoint.toISOString(),
-    intervalSeconds: interval
-  });
 
   const idleRecovery = { energy: actualRecovered, secondsIdle: secondsPassed };
 

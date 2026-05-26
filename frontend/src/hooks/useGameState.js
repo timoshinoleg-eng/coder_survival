@@ -124,6 +124,7 @@ export function GameProvider({ children }) {
   const stateRef = useRef(DEFAULT_STATE);
   const pendingTapsRef = useRef(0);
   const processingTapRef = useRef(false);
+  const postTapRefreshTimerRef = useRef(null);
   const equippingSkinRef = useRef(false);
   const battlePollingStartedAtRef = useRef(Date.now());
   const prevLevelRef = useRef(null);
@@ -361,6 +362,15 @@ export function GameProvider({ children }) {
     setState((current) => ({ ...current, teamHackathon: payload }));
     return payload;
   }, [telegram?.initData]);
+
+  const schedulePostTapRefresh = useCallback(() => {
+    if (postTapRefreshTimerRef.current) return;
+    postTapRefreshTimerRef.current = window.setTimeout(() => {
+      postTapRefreshTimerRef.current = null;
+      refreshQuests().catch(() => null);
+      refreshTeamHackathon().catch(() => null);
+    }, 2500);
+  }, [refreshQuests, refreshTeamHackathon]);
 
   const refreshBattles = useCallback(async () => {
     const payload = await apiRequest("/api/battle/active", { initData: telegram?.initData });
@@ -647,8 +657,7 @@ export function GameProvider({ children }) {
             ...current,
             totalTaps: current.totalTaps + (payload?.commitsDelta > 0 ? 1 : 0),
           }));
-          refreshQuests().catch(() => null);
-          refreshTeamHackathon().catch(() => null);
+          schedulePostTapRefresh();
         } catch (err) {
           pendingTapsRef.current = 0;
           setState((current) => ({
@@ -665,7 +674,7 @@ export function GameProvider({ children }) {
         setState((current) => ({ ...current, syncing: false }));
       }
     }
-  }, [applyServerState, applyTapState, refreshQuests, refreshTeamHackathon, telegram?.initData]);
+  }, [applyServerState, applyTapState, schedulePostTapRefresh, telegram?.initData]);
 
   const tap = useCallback(() => {
     const currentState = stateRef.current;
@@ -737,7 +746,10 @@ export function GameProvider({ children }) {
       streak: { ...current.streak, ...payload },
       streakDays: Number(payload?.currentStreak ?? current.streakDays),
     }));
-    await Promise.all([refreshPass(), loadState()]).catch(() => null);
+    refreshPass().catch(() => null);
+    window.setTimeout(() => {
+      loadState().catch(() => null);
+    }, 500);
     return payload;
   }, [loadState, refreshPass, telegram?.initData]);
 
