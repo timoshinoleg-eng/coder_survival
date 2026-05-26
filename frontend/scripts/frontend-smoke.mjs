@@ -130,11 +130,51 @@ function assertSprintPassKeyboardStateIsDeclaredBeforeEffect() {
   }
 }
 
+function assertTapPathDoesNotRefreshHeavyPanelsPerTap() {
+  const file = "src/hooks/useGameState.js";
+  const source = read(file);
+
+  if (!source.includes("const schedulePostTapRefresh = useCallback")) {
+    failures.push(`${file}: tap follow-up refreshes must be throttled through schedulePostTapRefresh`);
+  }
+
+  const flushStart = source.indexOf("const flushTapQueue = useCallback");
+  const flushEnd = source.indexOf("const tap = useCallback", flushStart);
+  const flushBody = flushStart !== -1 && flushEnd !== -1 ? source.slice(flushStart, flushEnd) : "";
+
+  if (flushBody.includes("refreshQuests().catch") || flushBody.includes("refreshTeamHackathon().catch")) {
+    failures.push(`${file}: flushTapQueue must not fire heavy refresh requests after every tap`);
+  }
+}
+
+function assertStreakClaimDoesNotBlockOnFullStateReload() {
+  const file = "src/hooks/useGameState.js";
+  const source = read(file);
+  const claimStart = source.indexOf("const claimStreak = useCallback");
+  const claimEnd = source.indexOf("const recoverStreak = useCallback", claimStart);
+  const claimBody = claimStart !== -1 && claimEnd !== -1 ? source.slice(claimStart, claimEnd) : "";
+
+  if (claimBody.includes("await Promise.all") || claimBody.includes("await loadState()")) {
+    failures.push(`${file}: claimStreak must not keep the streak button waiting for a full state reload`);
+  }
+}
+
+function assertRandomEventPollingIsNotAggressive() {
+  const file = "src/game/EventManager.js";
+  const source = read(file);
+  if (!source.includes("const POLL_INTERVAL_MS = 15000")) {
+    failures.push(`${file}: random event polling must stay at 15s or slower for MVP responsiveness`);
+  }
+}
+
 assertAppComponentReferencesAreImported();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
 assertStatsBarRuntimeLabelsAreDeclaredBeforeRender();
 assertSprintPassKeyboardStateIsDeclaredBeforeEffect();
+assertTapPathDoesNotRefreshHeavyPanelsPerTap();
+assertStreakClaimDoesNotBlockOnFullStateReload();
+assertRandomEventPollingIsNotAggressive();
 
 if (failures.length > 0) {
   console.error(failures.join("\n"));

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { apiRequest } from '../utils/api.js';
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 15000;
 
 export default class EventManager {
   constructor(scene) {

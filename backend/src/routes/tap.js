@@ -215,12 +215,6 @@ router.post('/', async (req, res) => {
         );
       }
     }
-    if (tapResult.critTier === 'gold') {
-      console.log('tap_crit_gold', { userId, commitsDelta: tapResult.commitsDelta });
-    } else if (tapResult.critTier === 'silver') {
-      console.log('tap_crit_silver', { userId, commitsDelta: tapResult.commitsDelta });
-    }
-
     const progressionTier = Number(recoveredProgress.tier ?? 1);
     const newTier = Math.max(progressionTier, Math.min(Number(levelBefore.resolved.rank || progressionTier), 5));
     const commitsCurrent = Number(recoveredProgress.commits_current ?? 0);
