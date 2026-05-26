@@ -2,6 +2,8 @@ import { randomBytes } from "crypto";
 import { DEFAULTS } from '../config/balance.js';
 
 const { SQUADS } = DEFAULTS;
+const TEAM_MEMBERSHIP_CACHE_TTL_MS = Number(process.env.TEAM_MEMBERSHIP_CACHE_TTL_MS || 60000);
+const teamMembershipCache = new Map();
 
 /**
  * Teams / Squads v1
@@ -12,6 +14,27 @@ const { SQUADS } = DEFAULTS;
 
 function generateInviteCode() {
   return randomBytes(4).toString("hex").toUpperCase();
+}
+
+function setTeamMembershipCache(userId, teamId) {
+  teamMembershipCache.set(Number(userId), {
+    teamId: teamId ? Number(teamId) : null,
+    expiresAt: Date.now() + TEAM_MEMBERSHIP_CACHE_TTL_MS,
+  });
+}
+
+function getTeamMembershipCache(userId) {
+  const cached = teamMembershipCache.get(Number(userId));
+  if (!cached) return undefined;
+  if (cached.expiresAt <= Date.now()) {
+    teamMembershipCache.delete(Number(userId));
+    return undefined;
+  }
+  return cached.teamId;
+}
+
+function clearTeamMembershipCache(userId) {
+  teamMembershipCache.delete(Number(userId));
 }
 
 export function hasMissedYesterday(lastActiveAt, now = new Date()) {
@@ -69,6 +92,7 @@ export async function createTeam(client, userId, name) {
      VALUES ($1, $2, 'leader')`,
     [team.id, userId],
   );
+  setTeamMembershipCache(userId, team.id);
 
   return { team, status: 200 };
 }
@@ -105,6 +129,7 @@ export async function joinTeam(client, userId, inviteCode) {
      VALUES ($1, $2, 'member')`,
     [team.id, userId],
   );
+  setTeamMembershipCache(userId, team.id);
 
   return { team, status: 200 };
 }
@@ -178,6 +203,7 @@ export async function leaveTeam(client, userId) {
   const { team_id, role } = memberResult.rows[0];
 
   await client.query(`DELETE FROM team_members WHERE user_id = $1`, [userId]);
+  clearTeamMembershipCache(userId);
 
   // If leader left, promote oldest member or delete empty team
   if (role === "leader") {
@@ -224,13 +250,22 @@ export async function updateTeamProgress(client, userId, commitsDelta) {
     return null;
   }
 
-  const memberResult = await client.query(
-    `SELECT team_id FROM team_members WHERE user_id = $1`,
-    [userId],
-  );
-  if (memberResult.rows.length === 0) return null;
+  let teamId = getTeamMembershipCache(userId);
+  if (teamId === null) return null;
 
-  const teamId = memberResult.rows[0].team_id;
+  if (teamId === undefined) {
+    const memberResult = await client.query(
+      `SELECT team_id FROM team_members WHERE user_id = $1`,
+      [userId],
+    );
+    if (memberResult.rows.length === 0) {
+      setTeamMembershipCache(userId, null);
+      return null;
+    }
+    teamId = memberResult.rows[0].team_id;
+    setTeamMembershipCache(userId, teamId);
+  }
+
   await client.query(
     `UPDATE teams
      SET total_commits = total_commits + $2,

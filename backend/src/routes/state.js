@@ -218,8 +218,6 @@ router.get("/", async (req, res, next) => {
   try {
     const client = await pool.connect();
     try {
-      await client.query("BEGIN");
-
       const userResult = await client.query(
         `INSERT INTO users (telegram_id, username, first_name, last_name, photo_url, feature_flags)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb)
@@ -465,8 +463,6 @@ router.get("/", async (req, res, next) => {
       const antiCheatTier = getBanScoreTier(antiCheatState.banScore);
       const dailyFarm = await getDailyFarmSummary(client, user.id);
 
-      await client.query("COMMIT");
-
       res.json({
         user: {
           id: user.id,
@@ -589,7 +585,6 @@ router.get("/", async (req, res, next) => {
         passiveLocRecovery: passiveProgression?._passiveLocRecovery || null,
       });
     } catch (err) {
-      await client.query("ROLLBACK");
       throw err;
     } finally {
       client.release();

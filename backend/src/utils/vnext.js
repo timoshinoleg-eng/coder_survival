@@ -112,14 +112,26 @@ export async function addTapXp(client, userId, levelInRank, boostMult = 1) {
 }
 
 export async function ensureDailyQuests(client, userId) {
-  for (const quest of DAILY_QUEST_DEFS) {
-    await client.query(
-      `INSERT INTO daily_quests (user_id, quest_date, quest_type, target_value, reward_payload)
-       VALUES ($1, CURRENT_DATE, $2, $3, $4::jsonb)
-       ON CONFLICT (user_id, quest_date, quest_type) DO NOTHING`,
-      [userId, quest.questType, quest.targetValue, JSON.stringify(quest.rewardPayload)]
-    );
-  }
+  await client.query(
+    `INSERT INTO daily_quests (user_id, quest_date, quest_type, target_value, reward_payload)
+     SELECT $1, CURRENT_DATE, quest_type, target_value, reward_payload
+     FROM jsonb_to_recordset($2::jsonb) AS quest_def(
+       quest_type text,
+       target_value integer,
+       reward_payload jsonb
+     )
+     ON CONFLICT (user_id, quest_date, quest_type) DO NOTHING`,
+    [
+      userId,
+      JSON.stringify(
+        DAILY_QUEST_DEFS.map((quest) => ({
+          quest_type: quest.questType,
+          target_value: quest.targetValue,
+          reward_payload: quest.rewardPayload,
+        })),
+      ),
+    ],
+  );
 
   const result = await client.query(
     `SELECT id, quest_date, quest_type, target_value, progress_value, reward_payload, completed, claimed
@@ -201,7 +213,15 @@ export async function updateDailyQuestProgress(client, userId, { tapDelta = 0, c
     );
   }
 
-  return ensureDailyQuests(client, userId);
+  const result = await client.query(
+    `SELECT id, quest_date, quest_type, target_value, progress_value, reward_payload, completed, claimed
+     FROM daily_quests
+     WHERE user_id = $1 AND quest_date = CURRENT_DATE
+     ORDER BY id ASC`,
+    [userId],
+  );
+
+  return result.rows.map(normalizeQuestRow);
 }
 
 export async function markLoginQuestComplete(client, userId) {
@@ -288,5 +308,4 @@ export async function claimDailyQuest(client, userId, questId) {
 
   return { reward, bonusReward, summary, status: 200 };
 }
-
 
