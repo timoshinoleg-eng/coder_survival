@@ -10,6 +10,7 @@ import { initDataMiddleware } from "./middleware/initData.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 import { startBalanceAuditJob } from "./jobs/balanceAudit.js";
+import { buildDatabaseUrl, shouldExitOnUnexpectedDbError } from "./config/database.js";
 import tapRouter from "./routes/tap.js";
 import stateRouter from "./routes/state.js";
 import buyRouter from "./routes/buy.js";
@@ -51,11 +52,7 @@ const { Pool } = pg;
 
 // --- Конфигурация ---
 const PORT = process.env.PORT || 3000;
-const DATABASE_URL =
-  (process.env.NODE_ENV === "test" ? process.env.TEST_DATABASE_URL : null) ||
-  process.env.TEST_DATABASE_URL ||
-  process.env.DATABASE_URL ||
-  `postgresql://${process.env.DB_USER}:${process.env.DB_PASS}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+const DATABASE_URL = buildDatabaseUrl(process.env);
 
 // --- Пул соединений PostgreSQL ---
 export const pool = new Pool({
@@ -67,7 +64,9 @@ export const pool = new Pool({
 });
 pool.on("error", (err) => {
   console.error("Unexpected DB error:", err);
-  process.exit(-1);
+  if (shouldExitOnUnexpectedDbError(process.env)) {
+    process.exit(-1);
+  }
 });
 
 // --- Express app ---
