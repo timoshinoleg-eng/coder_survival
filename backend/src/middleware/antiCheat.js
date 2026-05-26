@@ -10,12 +10,20 @@ const BAN_COOLDOWN_MS = 60 * 1000;
 const INTERVAL_BUCKET_MS = 50;
 
 const tapHistory = new Map();
+const MAX_TRACKED_USERS = 100;
 
 function getOrCreate(userId) {
   if (!tapHistory.has(userId)) {
+    if (tapHistory.size >= MAX_TRACKED_USERS) {
+      const oldestKey = tapHistory.keys().next().value;
+      tapHistory.delete(oldestKey);
+    }
     tapHistory.set(userId, { timestamps: [], bannedUntil: 0, banScore: 0 });
   }
-  return tapHistory.get(userId);
+  const history = tapHistory.get(userId);
+  tapHistory.delete(userId);
+  tapHistory.set(userId, history);
+  return history;
 }
 
 function shannonEntropy(intervals) {
@@ -108,4 +116,12 @@ export function analyzeAndRecordTap(userId) {
 
 export function clearUserTapHistory(userId) {
   tapHistory.delete(userId);
+}
+
+export function clearAllTapHistories() {
+  tapHistory.clear();
+}
+
+export function getTapHistorySize() {
+  return tapHistory.size;
 }

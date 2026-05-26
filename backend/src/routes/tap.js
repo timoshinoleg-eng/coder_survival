@@ -9,7 +9,6 @@ import {
   computeTapXp,
   ensureDailyQuests,
   ensurePlayerLevel,
-  getDailyQuestSummary,
   getRankMeta,
   updateDailyQuestProgress
 } from '../utils/vnext.js';
@@ -40,12 +39,19 @@ router.post('/', async (req, res) => {
   }
 
   const { session_id } = req.body || {};
+  const requestedTapCount = Math.max(
+    1,
+    Math.min(20, Math.floor(Number(req.body?.tapCount ?? req.body?.tap_count ?? 1) || 1))
+  );
   const telegramId = telegramUser.id;
   const username = telegramUser.username || null;
   const firstName = telegramUser.first_name || null;
   const lastName = telegramUser.last_name || null;
 
   let client;
+  let contextOffer = null;
+  let contextOfferInput = null;
+  let offerUserId = null;
   try {
     client = await pool.connect();
     await client.query('BEGIN');
@@ -74,7 +80,8 @@ router.post('/', async (req, res) => {
     const rateLimit = await checkTapRateLimit(
       client,
       userId,
-      req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress
+      req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress,
+      requestedTapCount
     );
     if (!rateLimit.allowed) {
       await client.query('ROLLBACK');
@@ -96,11 +103,11 @@ router.post('/', async (req, res) => {
       });
     }
     if (antiCheat.suspicious) {
-      client.query(
+      await client.query(
         `INSERT INTO audit_logs (user_id, action, context, created_at)
          VALUES ($1, 'anticheat_pattern_flag', $2::jsonb, NOW())`,
         [userId, JSON.stringify(antiCheat.metrics)]
-      ).catch(() => {});
+      );
     }
 
     const progressInsertResult = await client.query(
@@ -134,6 +141,7 @@ router.post('/', async (req, res) => {
 
     let recoveredProgress = await recoverProgression(client, progress, rankMeta.maxEnergy, skinRecoveryMult);
     const currentEnergy = Number(recoveredProgress.energy ?? 0);
+    const actualTapCount = Math.max(0, Math.min(requestedTapCount, Math.floor(currentEnergy)));
     const currentDepression = Number(recoveredProgress.depression_level ?? 0);
     const currentCommitsTotal = Number(recoveredProgress.commits_total ?? 0);
 
@@ -182,10 +190,14 @@ router.post('/', async (req, res) => {
       ...tapResult,
       commitsDelta: applyLocPenalty(tapResult.commitsDelta, antiCheatState.banScore)
     };
+    tapResult = {
+      ...tapResult,
+      commitsDelta: tapResult.commitsDelta * actualTapCount
+    };
     const depressionDelta = calculateDepressionDelta(
       currentEnergy,
       Number(crunchTime?.depressionMultiplier ?? 1)
-    );
+    ) * actualTapCount;
     const newDepression = Math.min(
       TAP_MECHANICS.maxDepression,
       Math.max(0, currentDepression + depressionDelta)
@@ -219,7 +231,7 @@ router.post('/', async (req, res) => {
     const newTier = Math.max(progressionTier, Math.min(Number(levelBefore.resolved.rank || progressionTier), 5));
     const commitsCurrent = Number(recoveredProgress.commits_current ?? 0);
     const newCommitsCurrent = newTier > progressionTier ? 0 : commitsCurrent + tapResult.commitsDelta;
-    const newEnergy = Math.max(0, currentEnergy - 1);
+    const newEnergy = Math.max(0, currentEnergy - actualTapCount);
 
     const updatedProgressResult = await client.query(
       `UPDATE progression
@@ -248,22 +260,24 @@ router.post('/', async (req, res) => {
 
     if (isBurnout && currentDepression < TAP_MECHANICS.maxDepression) {
       heartAttackReset = await applyHeartAttackReset(client, userId, { sessionId: session_id || null });
-      const resetProgressionResult = await client.query(
-        `SELECT * FROM progression WHERE user_id = $1`,
-        [userId]
-      );
-      recoveredProgress = resetProgressionResult.rows[0] || recoveredProgress;
+      recoveredProgress = heartAttackReset.progression || recoveredProgress;
     }
 
-    const xpDelta = computeTapXp(levelBefore.resolved.levelInRank);
-    const levelAfter = await addTapXp(client, userId, levelBefore.resolved.levelInRank);
+    const xpDelta = computeTapXp(levelBefore.resolved.levelInRank) * actualTapCount;
+    const levelAfter = await addTapXp(client, userId, levelBefore.resolved.levelInRank, 1, actualTapCount);
     await ensureDailyQuests(client, userId);
-    await updateDailyQuestProgress(client, userId, {
-      tapDelta: 1,
+    const dailyQuestRows = await updateDailyQuestProgress(client, userId, {
+      tapDelta: actualTapCount,
       commitDelta: tapResult.commitsDelta,
-      energyDelta: -1
+      energyDelta: -actualTapCount
     });
-    const daily = await getDailyQuestSummary(client, userId);
+    const daily = {
+      total: dailyQuestRows.length,
+      completed: dailyQuestRows.filter((quest) => quest.completed).length,
+      claimed: dailyQuestRows.filter((quest) => quest.claimed).length,
+      claimable: dailyQuestRows.filter((quest) => quest.completed && !quest.claimed).length,
+      quests: dailyQuestRows,
+    };
     await logDailyFarm(client, userId, tapResult.commitsDelta);
 
     const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
@@ -311,17 +325,15 @@ router.post('/', async (req, res) => {
         recoveredProgress.active_effects = updatedEffects;
       }
     }
-    const contextOffer = await getContextOffer(client, userId, {
+    offerUserId = userId;
+    contextOfferInput = {
       energy: recoveredProgress.energy,
       maxEnergy: rankMeta.maxEnergy,
       depression: recoveredProgress.depression_level,
       xpProgress: levelAfter.record.resolved.progressInLevel,
       xpRequiredForNext: levelAfter.record.resolved.requiredForNextLevel,
       featureFlags: { stress_v2: true }
-    });
-    if (contextOffer?.type) {
-      await recordOfferImpression(client, userId, contextOffer.type, 'tap');
-    }
+    };
 
     try {
       const questResult = await client.query(
@@ -338,7 +350,7 @@ router.post('/', async (req, res) => {
         let quests = questState.quests;
         let changed = false;
 
-        const tapUpdates = checkQuestProgress(quests, 'tap_count', 1);
+        const tapUpdates = checkQuestProgress(quests, 'tap_count', actualTapCount);
         const tapApplied = applyQuestUpdates(quests, tapUpdates);
         quests = tapApplied.quests;
         changed = changed || tapApplied.changed;
@@ -452,20 +464,31 @@ router.post('/', async (req, res) => {
     if (session_id) {
       await client.query(
         `UPDATE sessions
-         SET taps_count = taps_count + 1,
+         SET taps_count = taps_count + $4,
              commits_earned = commits_earned + $2
          WHERE session_id = $1 AND user_id = $3`,
-        [session_id, tapResult.commitsDelta, userId]
+        [session_id, tapResult.commitsDelta, userId, actualTapCount]
       );
     }
 
     await client.query('COMMIT');
 
+    if (contextOfferInput && offerUserId) {
+      try {
+        contextOffer = await getContextOffer(client, offerUserId, contextOfferInput);
+        if (contextOffer?.type) {
+          await recordOfferImpression(client, offerUserId, contextOffer.type, 'tap');
+        }
+      } catch (offerErr) {
+        console.error('Context offer update failed:', offerErr);
+      }
+    }
+
     return res.json({
       success: true,
       delta: {
         commits: tapResult.commitsDelta,
-        energy: -1,
+        energy: -actualTapCount,
         depression: depressionDelta
       },
       state: {
@@ -512,6 +535,7 @@ router.post('/', async (req, res) => {
       crunchTime,
       contextOffer,
       rateLimit: rateLimit.info || null,
+      tapCount: actualTapCount,
       energy: Number(recoveredProgress.energy ?? 0),
       depression: Number(recoveredProgress.depression_level ?? 0),
       activeEffects,

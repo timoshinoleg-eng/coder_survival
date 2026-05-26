@@ -43,4 +43,35 @@ describe('MVP performance guardrails', () => {
     expect(migration).toContain('idx_team_members_team_id');
     expect(migration).toContain('idx_event_contributions_event_id');
   });
+
+  test('tap endpoint accepts capped batches and avoids redundant hot-path work', () => {
+    const source = read('backend/src/routes/tap.js');
+    expect(source).toContain('requestedTapCount');
+    expect(source).toContain('actualTapCount');
+    expect(source).toContain('Math.min(20');
+    expect(source).not.toContain("getDailyQuestSummary");
+    expect(source).not.toContain(".catch(() => {})");
+  });
+
+  test('tap context offers run after the tap transaction commits', () => {
+    const source = read('backend/src/routes/tap.js');
+    const lastCommitIndex = source.lastIndexOf("await client.query('COMMIT');");
+    const offerIndex = source.indexOf('await getContextOffer');
+    expect(lastCommitIndex).toBeGreaterThan(-1);
+    expect(offerIndex).toBeGreaterThan(lastCommitIndex);
+  });
+
+  test('rate limit accounts for batch tap increments', () => {
+    const source = read('backend/src/middleware/rateLimit.js');
+    expect(source).toContain('tapIncrement');
+    expect(source).toContain('rate_limit_user.tap_count + $2');
+    expect(source).toContain('rate_limit_ip.tap_count + $2');
+  });
+
+  test('heart attack reset returns the updated progression row without a follow-up SELECT', () => {
+    const heartAttack = read('backend/src/utils/heartAttack.js');
+    const tap = read('backend/src/routes/tap.js');
+    expect(heartAttack).toContain('RETURNING *');
+    expect(tap).not.toContain('resetProgressionResult');
+  });
 });

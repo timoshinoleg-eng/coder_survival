@@ -1,5 +1,10 @@
 import { jest } from '@jest/globals';
-import { analyzeAndRecordTap, clearUserTapHistory } from '../src/middleware/antiCheat.js';
+import {
+  analyzeAndRecordTap,
+  clearAllTapHistories,
+  clearUserTapHistory,
+  getTapHistorySize,
+} from '../src/middleware/antiCheat.js';
 
 describe('MVP tap anti-cheat false positive guard', () => {
   afterEach(() => {
@@ -42,5 +47,15 @@ describe('MVP tap anti-cheat false positive guard', () => {
       reason: 'pattern_ban',
       incrementReason: 'layer1_cps_over_20',
     });
+  });
+
+  test('bounds in-memory tap history to avoid process lifetime leaks', () => {
+    clearAllTapHistories();
+
+    for (let userId = 800000; userId < 800150; userId += 1) {
+      analyzeAndRecordTap(userId);
+    }
+
+    expect(getTapHistorySize()).toBeLessThanOrEqual(100);
   });
 });
