@@ -33,6 +33,20 @@ npm run dev
 
 The API will be available at `http://localhost:3000`.
 
+### One-command Local MVP
+
+For a fresh local machine with Docker Desktop running:
+
+```powershell
+.\scripts\start-local-mvp.ps1
+```
+
+This creates `backend/.env` if missing, starts local PostgreSQL, applies migrations, starts the backend, and opens the frontend dev server. Check backend health with:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/health
+```
+
 ### Frontend
 
 ```bash
