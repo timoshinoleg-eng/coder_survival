@@ -38,8 +38,15 @@ function questTitle(quest) {
   return titles[quest.id] || quest.id;
 }
 
+function questHint(quest) {
+  if (quest.type === 'watch_ad') return 'Открой рекламную награду, когда энергия просядет.';
+  if (quest.type === 'buy_generator') return 'Купи любого генератора в панели ⚙.';
+  if (quest.type === 'commit_total') return 'Любой earned LOC идёт в прогресс этого задания.';
+  return null;
+}
+
 export default function DailyQuests({ modal = false, open = true, onClose }) {
-  const { daily, quests, antiCheat, claimQuests, claimFullClear, refreshQuests } = useGameState();
+  const { daily, quests, antiCheat, claimQuests, claimFullClear } = useGameState();
   const [claiming, setClaiming] = useState(false);
   const [openingChest, setOpeningChest] = useState(false);
   const list = quests || daily?.quests || [];
@@ -51,7 +58,6 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
     setClaiming(true);
     try {
       await claimQuests();
-      await refreshQuests();
     } finally {
       setClaiming(false);
     }
@@ -141,6 +147,7 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
               isBonus && h('span', { style: { fontSize: '10px', color: '#facc15', fontWeight: 800 } }, '⭐ Бонус'),
             ]),
             h('div', { style: { color: '#8ba1bb', fontSize: '11px', marginTop: '2px' } }, rewardText(quest.reward)),
+            questHint(quest) && h('div', { style: { color: '#60a5fa', fontSize: '10px', marginTop: '4px' } }, questHint(quest)),
           ]),
           h('span', {
             style: {

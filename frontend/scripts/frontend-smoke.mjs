@@ -181,6 +181,99 @@ function assertPhaserResizeDoesNotRestartScene() {
   if (!source.includes("this.eventManager?.stop()")) {
     failures.push(`${file}: EventManager must be stopped during scene shutdown`);
   }
+
+  if (!source.includes("this.depressionOverlay?.destroy?.()") || !source.includes("this.glow?.destroy?.()")) {
+    failures.push(`${file}: Phaser graphics must be destroyed during scene shutdown`);
+  }
+
+  if (!source.includes("resizeTimer")) {
+    failures.push(`${file}: resize handling must be debounced for mobile WebView stability`);
+  }
+}
+
+function assertGameProviderValueIsMemoized() {
+  const file = "src/hooks/useGameState.js";
+  const source = read(file);
+  if (!source.includes("useMemo")) {
+    failures.push(`${file}: GameProvider value must be memoized`);
+  }
+  if (!source.includes("const value = useMemo(() =>")) {
+    failures.push(`${file}: context value must be created through useMemo`);
+  }
+}
+
+function assertBatchTapsAreUsed() {
+  const file = "src/hooks/useGameState.js";
+  const source = read(file);
+  const flushStart = source.indexOf("const flushTapQueue = useCallback");
+  const flushEnd = source.indexOf("const tap = useCallback", flushStart);
+  const flushBody = flushStart !== -1 && flushEnd !== -1 ? source.slice(flushStart, flushEnd) : "";
+
+  if (flushBody.includes("while (pendingTapsRef.current > 0)")) {
+    failures.push(`${file}: flushTapQueue must batch pending taps instead of sending a serial request queue`);
+  }
+  if (!flushBody.includes("tapCount")) {
+    failures.push(`${file}: batched tap request must send tapCount`);
+  }
+}
+
+function assertEventManagerPollIsGuarded() {
+  const file = "src/game/EventManager.js";
+  const source = read(file);
+  if (!source.includes("this.isPolling")) {
+    failures.push(`${file}: active event polling must have an in-flight guard`);
+  }
+}
+
+function assertTimerAndPollingDeduplication() {
+  const statsBar = read("src/components/StatsBar.jsx");
+  const gameState = read("src/hooks/useGameState.js");
+
+  if (statsBar.includes("setInterval(updateNow, 1000)")) {
+    failures.push("src/components/StatsBar.jsx: remove duplicate 1s timer; consume runtimeNow from App");
+  }
+  if (gameState.includes("setInterval(() => {\n      if ((stateRef.current.battles || []).length > 0) return;")) {
+    failures.push("src/hooks/useGameState.js: remove duplicate battle polling interval");
+  }
+  if (!gameState.includes("fetchingGeneratorsRef")) {
+    failures.push("src/hooks/useGameState.js: generator polling must have an in-flight guard");
+  }
+}
+
+function assertPostTapRefreshDebouncesToBurstEnd() {
+  const file = "src/hooks/useGameState.js";
+  const source = read(file);
+  const start = source.indexOf("const schedulePostTapRefresh = useCallback");
+  const end = source.indexOf("const refreshBattles = useCallback", start);
+  const body = start !== -1 && end !== -1 ? source.slice(start, end) : "";
+
+  if (!body.includes("clearTimeout(postTapRefreshTimerRef.current)")) {
+    failures.push(`${file}: post-tap refresh must reset debounce window on each tap burst`);
+  }
+}
+
+function assertDailyQuestClaimDoesNotDoubleRefresh() {
+  const file = "src/components/DailyQuests.jsx";
+  const source = read(file);
+  const claimStart = source.indexOf("async function handleClaim()");
+  const claimEnd = source.indexOf("async function handleFullClear()", claimStart);
+  const claimBody = claimStart !== -1 && claimEnd !== -1 ? source.slice(claimStart, claimEnd) : "";
+
+  if (claimBody.includes("await refreshQuests()")) {
+    failures.push(`${file}: handleClaim must not refresh quests after claimQuests already syncs state`);
+  }
+}
+
+function assertInlineRuntimeObjectsAreMemoized() {
+  const app = read("src/App.jsx");
+  const confetti = read("src/components/Confetti.jsx");
+
+  if (!app.includes("const activeRuntimeEvents = useMemo")) {
+    failures.push("src/App.jsx: activeRuntimeEvents must be memoized");
+  }
+  if (!confetti.includes("useMemo")) {
+    failures.push("src/components/Confetti.jsx: confetti pieces must be memoized for each render burst");
+  }
 }
 
 assertAppComponentReferencesAreImported();
@@ -192,6 +285,13 @@ assertTapPathDoesNotRefreshHeavyPanelsPerTap();
 assertStreakClaimDoesNotBlockOnFullStateReload();
 assertRandomEventPollingIsNotAggressive();
 assertPhaserResizeDoesNotRestartScene();
+assertGameProviderValueIsMemoized();
+assertBatchTapsAreUsed();
+assertEventManagerPollIsGuarded();
+assertTimerAndPollingDeduplication();
+assertPostTapRefreshDebouncesToBurstEnd();
+assertDailyQuestClaimDoesNotDoubleRefresh();
+assertInlineRuntimeObjectsAreMemoized();
 
 if (failures.length > 0) {
   console.error(failures.join("\n"));

@@ -21,7 +21,7 @@ import DailySummaryPanel from "./DailySummaryPanel.jsx";
 import GeneratorsPanel from './GeneratorsPanel.jsx';
 import AppealPanel from './AppealPanel.jsx';
 
-export default function StatsBar() {
+export default function StatsBar({ runtimeNow }) {
   const {
     commits,
     energy,
@@ -69,9 +69,9 @@ export default function StatsBar() {
   const [dailySummaryOpen, setDailySummaryOpen] = useState(false);
   const [generatorsOpen, setGeneratorsOpen] = useState(false);
   const [appealOpen, setAppealOpen] = useState(false);
-  const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const [adLoading, setAdLoading] = useState(false);
   const { initData, haptic } = useTelegram();
+  const countdownNowMs = runtimeNow || Date.now();
 
   const unseenAchievementsCount = useMemo(() => {
     if (!achievements || achievements.length === 0) return 0;
@@ -106,24 +106,6 @@ export default function StatsBar() {
 
   const displayRank = rankName || "Junior";
   const displayLevel = levelInRank || 1;
-
-  useEffect(() => {
-    const updateNow = () => setCountdownNowMs(Date.now());
-    updateNow();
-
-    const intervalId = window.setInterval(updateNow, 1000);
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        updateNow();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, []);
 
   const levelProgress = useMemo(
     () =>
