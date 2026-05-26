@@ -71,28 +71,38 @@ export function analyzeAndRecordTap(userId) {
   const entropy = shannonEntropy(intervals);
   const cv = coefficientOfVariation(intervals);
   const cpsViolation = detectCpsViolation(intervals);
+  const positiveIntervals = intervals.filter((interval) => Number.isFinite(interval) && interval > 0);
+  const meanInterval = positiveIntervals.length > 0
+    ? positiveIntervals.reduce((sum, interval) => sum + interval, 0) / positiveIntervals.length
+    : 0;
+  const averageCps = meanInterval > 0 ? 1000 / meanInterval : 0;
 
-  const isHardBlock = cpsViolation || entropy < ENTROPY_HARD_THRESHOLD || cv < CV_HARD_THRESHOLD;
+  const isHardBlock = cpsViolation && averageCps > 20;
   const isSoftFlag = !isHardBlock && (entropy < ENTROPY_SOFT_THRESHOLD || cv < CV_SOFT_THRESHOLD);
 
   if (isHardBlock) {
     history.bannedUntil = now + BAN_COOLDOWN_MS;
-    history.banScore += getBanScoreIncrement(cpsViolation ? 'layer1_cps_over_20' : 'layer2_cv_below_0_1');
-    console.warn('[AntiCheat] Pattern ban:', { userId, entropy: entropy.toFixed(3), cv: cv.toFixed(3) });
+    history.banScore += getBanScoreIncrement('layer1_cps_over_20');
+    console.warn('[AntiCheat] Pattern ban:', {
+      userId,
+      entropy: entropy.toFixed(3),
+      cv: cv.toFixed(3),
+      averageCps: averageCps.toFixed(2)
+    });
     return {
       allowed: false,
       reason: 'pattern_ban',
       retryAfter: BAN_COOLDOWN_MS / 1000,
-      metrics: { entropy, cv, cpsViolation, banScore: history.banScore },
-      incrementReason: cpsViolation ? 'layer1_cps_over_20' : 'layer2_cv_below_0_1'
+      metrics: { entropy, cv, cpsViolation, averageCps, banScore: history.banScore },
+      incrementReason: 'layer1_cps_over_20'
     };
   }
 
   return {
     allowed: true,
     suspicious: isSoftFlag,
-    metrics: isSoftFlag ? { entropy, cv, cvViolation: detectCvViolation(cv), banScore: history.banScore } : undefined,
-    incrementReason: isSoftFlag && detectCvViolation(cv) ? 'layer2_cv_below_0_1' : null
+    metrics: isSoftFlag ? { entropy, cv, averageCps, cvViolation: detectCvViolation(cv), banScore: history.banScore } : undefined,
+    incrementReason: null
   };
 }
 
