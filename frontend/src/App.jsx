@@ -1,5 +1,5 @@
 import { h } from "preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { TelegramProvider } from "./hooks/useTelegram.js";
 import { GameProvider, useGameState } from "./hooks/useGameState.js";
 import { audioManager } from "./utils/AudioManager.js";
@@ -40,6 +40,7 @@ function AppInner() {
   });
   const [runtimeNow, setRuntimeNow] = useState(() => Date.now());
   const previousLegacyClicksRef = useRef(0);
+  const legacyTapSyncRef = useRef(false);
   const previousHotStreakActiveRef = useRef(false);
   const previousProductionAlertActiveRef = useRef(false);
   const [memeOpen, setMemeOpen] = useState(false);
@@ -94,7 +95,8 @@ function AppInner() {
     const onTap = () => {
       setRuntimeEventState((current) => {
         const next = reduceLegacyCodeClick(current);
-        if (current.legacyCodeClicksRemaining > 0) {
+        if (current.legacyCodeClicksRemaining > 0 && !legacyTapSyncRef.current) {
+          legacyTapSyncRef.current = true;
           apiRequest('/api/events/random/tap', {
             method: 'POST',
             initData: window.Telegram?.WebApp?.initData || '',
@@ -103,7 +105,9 @@ function AppInner() {
             if (payload?.randomEventState) {
               setRuntimeEventState((latest) => ({ ...latest, ...payload.randomEventState }));
             }
-          }).catch(() => null);
+          }).catch(() => null).finally(() => {
+            legacyTapSyncRef.current = false;
+          });
         }
         return next;
       });
@@ -165,17 +169,20 @@ function AppInner() {
     return () => clearInterval(timer);
   }, []);
 
-  const activeRuntimeEvents = [
-    getActiveRuntimeEvents(runtimeEventState, runtimeNow).hotStreakActive
-      ? `🔥 Hot Streak: ${Math.max(0, Math.ceil((new Date(runtimeEventState.hotStreakUntil).getTime() - runtimeNow) / 1000))}с`
-      : null,
-    getActiveRuntimeEvents(runtimeEventState, runtimeNow).productionAlertActive
-      ? `🚨 Production Alert: ${Math.max(0, Math.ceil((new Date(runtimeEventState.productionAlertUntil).getTime() - runtimeNow) / 1000))}с`
-      : null,
-    getActiveRuntimeEvents(runtimeEventState, runtimeNow).legacyCodeActive
-      ? `🧹 Legacy Code: ${runtimeEventState.legacyCodeClicksRemaining} кликов до рефакторинга`
-      : null,
-  ].filter(Boolean);
+  const activeRuntimeEvents = useMemo(() => {
+    const active = getActiveRuntimeEvents(runtimeEventState, runtimeNow);
+    return [
+      active.hotStreakActive
+        ? `🔥 Hot Streak: ${Math.max(0, Math.ceil((new Date(runtimeEventState.hotStreakUntil).getTime() - runtimeNow) / 1000))}с`
+        : null,
+      active.productionAlertActive
+        ? `🚨 Production Alert: ${Math.max(0, Math.ceil((new Date(runtimeEventState.productionAlertUntil).getTime() - runtimeNow) / 1000))}с`
+        : null,
+      active.legacyCodeActive
+        ? `🧹 Legacy Code: ${runtimeEventState.legacyCodeClicksRemaining} кликов до рефакторинга`
+        : null,
+    ].filter(Boolean);
+  }, [runtimeEventState, runtimeNow]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -211,7 +218,7 @@ function AppInner() {
     "div",
     { id: "app" },
     h(StreakCalendar),
-    h(StatsBar),
+    h(StatsBar, { runtimeNow }),
     activeRuntimeEvents.length > 0 && h(
       "div",
       {

@@ -8,6 +8,7 @@ export default class EventManager {
     this.scene = scene;
     this.timer = null;
     this.running = false;
+    this.isPolling = false;
     this.lastEventId = null;
   }
 
@@ -35,6 +36,8 @@ export default class EventManager {
   }
 
   async _pollActiveEvent() {
+    if (this.isPolling) return;
+    this.isPolling = true;
     try {
       const payload = await apiRequest('/api/events/active', {
         initData: window.Telegram?.WebApp?.initData || '',
@@ -49,6 +52,8 @@ export default class EventManager {
       }
     } catch (_err) {
       // Silently ignore poll failures to keep game resilient
+    } finally {
+      this.isPolling = false;
     }
   }
 }

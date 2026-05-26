@@ -21,8 +21,10 @@ export default class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
-    this.lowPowerEffects = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+    this.lowPowerEffects = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '') || (navigator.hardwareConcurrency || 8) < 4;
     this.particleSystems = [];
+    this.resizeTimer = null;
+    this.lastResizeSize = { width, height };
 
     // Background grid
     this.createGrid(width, height);
@@ -179,10 +181,16 @@ export default class GameScene extends Phaser.Scene {
         clearInterval(this.tremorShakeTimer);
         this.tremorShakeTimer = null;
       }
+      if (this.resizeTimer) {
+        clearTimeout(this.resizeTimer);
+        this.resizeTimer = null;
+      }
       for (const particles of this.particleSystems || []) {
         particles?.destroy?.();
       }
       this.particleSystems = [];
+      this.depressionOverlay?.destroy?.();
+      this.glow?.destroy?.();
     });
 
     // Depression overlay (red vignette)
@@ -349,8 +357,20 @@ export default class GameScene extends Phaser.Scene {
   onResize(gameSize) {
     const width = gameSize?.width || this.scale.width;
     const height = gameSize?.height || this.scale.height;
-    this.cameras.main.setViewport(0, 0, width, height);
-    this.updateGlow(window.__GAME_STATE__?.depression || 0);
+    const previous = this.lastResizeSize || { width, height };
+    const widthDelta = Math.abs(width - previous.width) / Math.max(previous.width, 1);
+    const heightDelta = Math.abs(height - previous.height) / Math.max(previous.height, 1);
+    if (widthDelta <= 0.05 && heightDelta <= 0.05) return;
+
+    if (this.resizeTimer) {
+      clearTimeout(this.resizeTimer);
+    }
+    this.resizeTimer = setTimeout(() => {
+      this.resizeTimer = null;
+      this.lastResizeSize = { width, height };
+      this.cameras.main.setViewport(0, 0, width, height);
+      this.updateGlow(window.__GAME_STATE__?.depression || 0);
+    }, 200);
   }
 
   updateGlow(depression) {
