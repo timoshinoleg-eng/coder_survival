@@ -96,8 +96,9 @@ export function computeTapXp(levelInRank, boostMult = 1) {
   return Math.round(BASE_XP * mult * boostMult);
 }
 
-export async function addTapXp(client, userId, levelInRank, boostMult = 1) {
-  const xpDelta = computeTapXp(levelInRank, boostMult);
+export async function addTapXp(client, userId, levelInRank, boostMult = 1, tapCount = 1) {
+  const safeTapCount = Math.max(1, Math.min(20, Math.floor(Number(tapCount) || 1)));
+  const xpDelta = computeTapXp(levelInRank, boostMult) * safeTapCount;
   const result = await client.query(
     `INSERT INTO player_levels (user_id, xp_total)
      VALUES ($1, $2)
@@ -308,4 +309,3 @@ export async function claimDailyQuest(client, userId, questId) {
 
   return { reward, bonusReward, summary, status: 200 };
 }
-
