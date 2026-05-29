@@ -1,155 +1,164 @@
 # Coder Survival — Telegram Mini App
 
-**Coder Survival** is a Telegram Mini App clicker game where players take on the role of a software developer trying to survive deadlines, legacy code, and production alerts. The core loop combines tapping for LOC (lines of code), managing energy and depression, upgrading generators, and participating in weekly squads and battle passes.
+Игра-кликер "Выживание программиста" для Telegram Mini Apps.
 
-## Tech Stack
+## Текущий статус
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Preact 10 + Phaser 3.60 (Canvas 2D renderer) |
-| Backend | Node.js 20 + Express + PostgreSQL |
-| Bot | Grammy (Telegram Bot Framework) |
-| Infrastructure | Docker + Docker Compose, Vercel (frontend/bot), VM (backend + DB) |
-| Analytics | Amplitude |
+- MVP рабочий: `/start` отвечает, Mini App открывается, тапы сохраняются, энергия/коммиты/депрессия обновляются, leaderboard работает.
+- Backend и база работают на VM `111.88.247.195`.
+- Публичный фронтенд Mini App сейчас отдается с Vercel:
+  - `https://frontend-ashy-alpha-77.vercel.app`
+- Публичный API для клиента и бота теперь идет через Vercel frontend domain:
+  - `https://frontend-ashy-alpha-77.vercel.app/api/*`
+- Backend upstream теперь стабилизирован на DuckDNS:
+  - `https://coder-survival-api.duckdns.org`
+- Публичный bot runtime сейчас работает через Vercel webhook:
+  - `https://coder-survival-bot.vercel.app/api/webhook`
 
-## Local Development Setup
+## Текущая схема
 
-### Prerequisites
-
-- Node.js >= 20
-- PostgreSQL 14+
-- npm
-
-### Backend
-
-```bash
-cd backend
-cp .env.example .env
-# Edit .env with your local PostgreSQL credentials
-npm ci
-npm run migrate
-npm run dev
+```text
+Telegram client
+  -> Telegram webhook
+  -> https://coder-survival-bot.vercel.app/api/webhook
+  -> WebApp URL: https://frontend-ashy-alpha-77.vercel.app
+  -> API base: https://frontend-ashy-alpha-77.vercel.app/api
+  -> backend + PostgreSQL on VM 111.88.247.195
 ```
 
-The API will be available at `http://localhost:3000`.
+## Структура проекта
 
-### One-command Local MVP
-
-For a fresh local machine with Docker Desktop running:
-
-```powershell
-.\scripts\start-local-mvp.ps1
+```text
+├── frontend/            # Preact 10 + Phaser 3.60 (Mini App UI)
+├── backend/             # Node.js 20 + Express + PostgreSQL (API)
+├── bot/                 # Grammy bot (Vercel webhook runtime; local polling guarded)
+├── nginx/               # Legacy container-level nginx reference (production uses host nginx + certbot)
+├── observation/         # SELECT-only SQL snippets for manual economy observation
+├── payments/            # Telegram Stars integration docs (legacy payment mocks removed)
+├── analytics/           # Amplitude events
+├── calculator/          # Revenue model
+├── project-status.json  # Машинно-читаемый статус проекта
+└── BOT_RUNTIME_PLAN.md  # План перевода бота в постоянный runtime
 ```
 
-This creates `backend/.env` if missing, starts local PostgreSQL, applies migrations, starts the backend, and opens the frontend dev server. Check backend health with:
+## Быстрый старт
 
-```powershell
-Invoke-RestMethod http://localhost:3000/health
-```
-
-### Frontend
+### Фронтенд
 
 ```bash
 cd frontend
-cp .env.example .env  # if present
 npm ci
-npm run dev
+npm run build
 ```
 
-The dev server will start at `http://localhost:5173`.
+### Бэкенд
+
+```bash
+cd backend
+npm ci
+npm run migrate
+npm run start
+```
 
 ### Bot
 
 ```bash
 cd bot
-cp .env.example .env
-# Set BOT_TOKEN and API_URL
 npm ci
 npm run start
 ```
 
-## Environment Variables
+## Release Ops
 
-All required environment variables are documented in `.env.example` files at the root and in each service directory. **Never commit real secrets to the repository.**
-
-| Variable | Description | Location |
-|----------|-------------|----------|
-| `BOT_TOKEN` | Telegram Bot token from @BotFather | root, backend, bot |
-| `DATABASE_URL` / `DB_HOST` | PostgreSQL connection | root, backend |
-| `BOT_BACKEND_SECRET` | Shared secret for internal API calls | root, backend, bot |
-| `WEBAPP_URL` | Public Mini App URL | root, backend, bot |
-| `INIT_DATA_MAX_AGE_SECONDS` | Max age for Telegram initData validation | root, backend |
-| `RATE_LIMIT_MAX_TAPS_PER_SECOND` | Tap burst limit | backend |
-| `RATE_LIMIT_DAILY_CAP_PER_IP` | Daily tap cap per IP | backend |
-| `ADSGRAM_SECRET` | AdsGram S2S callback secret | backend |
-| `PROPELLER_SECRET` | PropellerAds postback secret | backend |
-
-## Deployment
-
-Production deployment uses Docker Compose for the backend and Vercel for the frontend / bot.
-
-```bash
-# Backend: build and deploy on VM
-cd backend
-docker build --no-cache -t coder-survival-backend:latest .
-docker-compose -f ../docker-compose.backend.yml up -d --force-recreate backend
-
-# Frontend & Bot: deploy to Vercel
-cd frontend
-npx vercel deploy --prod
-
-cd bot
-npx vercel deploy --prod
-```
-
-A hardened release script is also available:
+Production release path:
 
 ```powershell
 pwsh -File scripts/release-prod.ps1
 ```
 
-See [DEPLOY.md](DEPLOY.md) for the full operational runbook.
+Release preflight:
 
-## Balance Tuning
-
-Balance constants are centralized in `backend/src/config/balance.js` (BALANCE v2.0). **Do not edit this file in production.**
-
-For live tuning without redeploying:
-
-1. Use `backend/migrations/006_balance_tuning.sql` as a reference for idempotent balance updates.
-2. For temporary overrides, modify the relevant JSONB fields in the `progression` table via targeted SQL scripts.
-3. All balance changes must be logged in `audit_logs` with action `balance_override`.
-
-## Known Limitations (MVP v0.1.0)
-
-- **Daily Quests v1.0:** Uses a rolling 7-day farm average with static fallback values. Source-aware balancing and a richer bonus quest layer are scheduled for v2.0 post-MVP.
-- **Anti-cheat:** Only L1 (real-time tap pattern analysis + persisted ban_score) is production-ready. L2 (session fatigue pipeline) and L3 (total_minted-grade reconciliation) are deferred.
-- **Premium Referral UX:** Backend is complete; frontend claim UI and post-claim states are functional but will be polished post-MVP.
-- **Random Events:** Server-authoritative state machine is implemented with PostgreSQL persistence. WebSocket push is not implemented; frontend polls every 5s.
-- **Secrets in Git History:** An earlier commit contained local secrets. They were rotated and removed from the working tree. Run `git-filter-repo` before a fully public release if you need to sanitize history.
-
-## Project Structure
-
-```text
-├── frontend/            # Preact 10 + Phaser 3.60 (Mini App UI)
-├── backend/             # Node.js 20 + Express + PostgreSQL (API)
-├── bot/                 # Grammy bot (Vercel webhook runtime)
-├── nginx/               # Legacy container-level nginx reference
-├── observation/         # SELECT-only SQL snippets for manual economy observation
-├── payments/            # Telegram Stars integration docs
-├── analytics/           # Amplitude events schema
-├── scripts/             # Release and smoke-test PowerShell scripts
-└── support/             # Operator FAQ and triage checklists
+```powershell
+pwsh -File scripts/release-preflight.ps1
 ```
 
-## Documentation
+Standalone production smoke:
 
-- [DEPLOY.md](DEPLOY.md) — deployment runbook and infrastructure topology
-- [CHANGELOG.md](CHANGELOG.md) — release history
-- [GAME_RULES.md](GAME_RULES.md) — player-facing rules and mechanics
-- [support/GAMEPLAY_FAQ.md](support/GAMEPLAY_FAQ.md) — support operator FAQ
-- [observation/OPERATOR_CHEATSHEET.md](observation/OPERATOR_CHEATSHEET.md) — economy observation quick reference
+```powershell
+pwsh -File scripts/smoke-prod.ps1
+```
 
-## License
+Economy observation snapshot:
+
+```powershell
+pwsh -File scripts/observe-economy.ps1
+```
+
+Post-cutover domain validation:
+
+```powershell
+pwsh -File scripts/domain-cutover-check.ps1 `
+  -AppBaseUrl https://app.<domain> `
+  -BotWebhookUrl https://bot.<domain>/api/webhook `
+  -ExpectedApiHost api.<domain>
+```
+
+Notes:
+- `release-prod.ps1` can redeploy `frontend` and `bot` on Vercel, sync backend source to VM, rebuild backend with `--no-cache`, run migrations, force-recreate backend, and then run smoke.
+- `release-preflight.ps1` checks git cleanliness, forbidden secret files, compose syntax, package lock alignment, migration continuity, and optional frontend build before release.
+- `smoke-prod.ps1` generates signed Telegram `initData` using the production `BOT_TOKEN` from the VM runtime and checks the public Vercel/API path end to end.
+- `observe-economy.ps1` fetches the backend observation secret from the VM runtime and prints the protected aggregate economy report.
+- `.github/workflows/manual-release.yml` is a draft `workflow_dispatch` wrapper around `release-prod.ps1`; keep it draft until a self-hosted runner or stable SSH path is available.
+- `scripts/release-manual-checklist.md` is the operator checklist companion to the hardened PowerShell release path.
+- `domain-cutover-check.ps1` is the post-DNS/post-TLS validation script for the final permanent domain.
+- `set-api-origin.ps1` switches the frontend Vercel rewrite upstream, including a DuckDNS-based API hostname if you choose the no-purchase path.
+- `duckdns-update.ps1` performs the DuckDNS API update call for the selected no-purchase hostname `coder-survival-api.duckdns.org`.
+- `setup-api-host-on-vm.ps1` provisions the host-level nginx site and `certbot` certificate for that API hostname on the VM.
+
+Manual SQL observation pack:
+- `observation/README.md` documents 7 `SELECT`-only snippets for DAU/retention, quests, offers, weekly hackathon, sprint pass, shop funnel and one-shot economy health.
+
+## Инфраструктура
+
+| Компонент | Статус | Детали |
+|-----------|--------|--------|
+| VM | ✅ Running | `111.88.247.195` |
+| PostgreSQL | ✅ Running | Yandex Managed PostgreSQL |
+| Frontend URL | ✅ Working | `https://frontend-ashy-alpha-77.vercel.app` |
+| Public API URL | ✅ Working | `https://frontend-ashy-alpha-77.vercel.app/api` |
+| Upstream backend URL | ✅ Working | `https://coder-survival-api.duckdns.org` |
+| Telegram `/start` | ✅ Working | Через Vercel webhook runtime |
+| Bot runtime | ✅ Working | `https://coder-survival-bot.vercel.app/api/webhook` |
+| Bot runtime on VM | ⚠️ Disabled | VM не достукивается до `api.telegram.org` |
+
+## Что осталось довести
+
+1. Доротация оставшихся чувствительных секретов перед публичным масштабированием.
+2. Развить платежный контур от базового fulfillment до полноценной витрины/выдачи товаров в UI.
+3. При желании перейти с DuckDNS на собственный primary domain.
+4. При желании вернуть bot runtime на VM после исправления egress к `api.telegram.org`.
+
+## Документация
+
+### Для игроков / операторов поддержки
+- [GAME_RULES.md](GAME_RULES.md) — актуальные правила игры, механики баланса и глоссарий статусов
+- [support/GAMEPLAY_FAQ.md](support/GAMEPLAY_FAQ.md) — операционный FAQ для саппорта (triage expected behavior vs bug)
+
+### Для команды / разработки
+- [HANDOFF.md](HANDOFF.md)
+- [ROADMAP.md](ROADMAP.md) — concrete 2–4 week execution plan after MVP stabilization
+- [TASK_BACKLOG.md](TASK_BACKLOG.md) — detailed backlog by backend / frontend / ops / analytics
+- [DEPLOY.md](DEPLOY.md)
+- [LAUNCH_NEXT_STEPS.md](LAUNCH_NEXT_STEPS.md)
+- [BOT_RUNTIME_PLAN.md](BOT_RUNTIME_PLAN.md)
+- [observation/README.md](observation/README.md)
+- [observation/OPERATOR_CHEATSHEET.md](observation/OPERATOR_CHEATSHEET.md)
+- [analytics/CANONICAL_EVENT_TAXONOMY.md](analytics/CANONICAL_EVENT_TAXONOMY.md)
+- [analytics/WEEKLY_BALANCE_REVIEW_TEMPLATE.md](analytics/WEEKLY_BALANCE_REVIEW_TEMPLATE.md)
+- [scripts/release-manual-checklist.md](scripts/release-manual-checklist.md)
+- [SMOKE_COVERAGE.md](SMOKE_COVERAGE.md) — live smoke test inventory and coverage gaps
+- [SUPPORT_KNOWN_ISSUES.md](SUPPORT_KNOWN_ISSUES.md)
+
+## Лицензия
 
 MIT

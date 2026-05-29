@@ -1,10 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { REFERRAL_ACTIVE_THRESHOLD_COMMITS, REFERRAL_MILESTONE_REWARDS, STAGE3 } from '../config/balance.js';
-import { logDailyFarm } from '../utils/farmLog.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
-import { buildReferralClaimReward, getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
-import { checkAchievement } from '../utils/achievements.js';
+import { getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
 
 const router = Router();
 const REFERRAL_MILESTONES = Object.keys(REFERRAL_MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
@@ -140,29 +138,12 @@ router.get('/status', async (req, res, next) => {
       const activeResult = await client.query(
         `SELECT
            COUNT(*)::int AS total,
-           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days')::int AS active,
-           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days' AND r.is_referred_premium = TRUE)::int AS premium_active
+           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2)::int AS active
          FROM referrals r
          LEFT JOIN progression p ON p.user_id = r.referred_id
          WHERE r.referrer_id = $1`,
         [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
       );
-
-      const referredResult = await client.query(
-        `SELECT
-           u.username,
-           COALESCE(p.commits_total, 0)::int as commits_total,
-           p.first_active_at,
-           r.is_referred_premium,
-           (COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days') as is_active
-         FROM referrals r
-         LEFT JOIN progression p ON p.user_id = r.referred_id
-         LEFT JOIN users u ON u.id = r.referred_id
-         WHERE r.referrer_id = $1
-         ORDER BY r.created_at DESC`,
-        [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
-      );
-
       const claimedResult = await client.query(
         `SELECT referral_state FROM progression WHERE user_id = $1`,
         [ensured.userId]
@@ -177,18 +158,8 @@ router.get('/status', async (req, res, next) => {
         referralCode: ensured.code,
         referralLink: `https://t.me/${getBotUsername()}?startapp=${ensured.code}`,
         activeThresholdCommits: STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS,
-        antiFarmDays: STAGE3.REFERRAL.ANTI_FARM_DAYS,
         total: Number(activeResult.rows[0]?.total || 0),
         active,
-        premiumActive: Number(activeResult.rows[0]?.premium_active || 0),
-        referred: referredResult.rows.map(r => ({
-          username: r.username,
-          commitsTotal: r.commits_total,
-          firstActiveAt: r.first_active_at,
-          isPremium: r.is_referred_premium === true,
-          isActive: r.is_active,
-          antiFarmStatus: `${Math.min(STAGE3.REFERRAL.ANTI_FARM_DAYS, Math.floor((Date.now() - new Date(r.first_active_at || Date.now()).getTime()) / (1000 * 60 * 60 * 24)))}/${STAGE3.REFERRAL.ANTI_FARM_DAYS} дней · ${r.commits_total}/${STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS} коммитов`
-        })),
         milestones: STAGE3_REFERRAL_MILESTONES.map((milestone) => ({
           milestone,
           reward: STAGE3.REFERRAL.MILESTONE_REWARDS[milestone],
@@ -242,10 +213,10 @@ router.post('/track', async (req, res, next) => {
       }
 
       await client.query(
-        `INSERT INTO referrals (referrer_id, referred_id, status, is_referred_premium)
-         VALUES ($1, $2, 'pending', $3)
+        `INSERT INTO referrals (referrer_id, referred_id, status)
+         VALUES ($1, $2, 'pending')
          ON CONFLICT (referrer_id, referred_id) DO NOTHING`,
-        [inviterId, invitedId, telegramUser.is_premium === true]
+        [inviterId, invitedId]
       );
 
       const progressResult = await client.query(
@@ -258,7 +229,6 @@ router.post('/track', async (req, res, next) => {
         [invitedId, JSON.stringify(tracked.state)]
       );
 
-      await checkAchievement(client, inviterId, 'referral');
       await client.query('COMMIT');
       return res.json({ success: true, status: tracked.status });
     } catch (err) {
@@ -326,28 +296,22 @@ router.post('/claim', async (req, res, next) => {
         pendingRewards: (referralState.pendingRewards || []).filter((item) => Number(item.milestone) !== milestone)
       };
 
-      // Build inventory update
-      const inventoryUpdate = {};
-      if (reward.stars) inventoryUpdate.stars = reward.stars;
-      if (reward.skin) inventoryUpdate[`skin_${reward.skin}`] = 1;
-
       await client.query(
         `UPDATE progression
          SET referral_state = $2,
-             energy = LEAST($3, energy + $4),
-             commits_total = commits_total + $5,
-             inventory = COALESCE(inventory, '{}'::jsonb) || $6::jsonb
+             energy = LEAST(100, energy + $3),
+             inventory = inventory || $4::jsonb
          WHERE user_id = $1`,
         [
           userId,
           JSON.stringify(nextState),
-          100, // maxEnergy default; proper cap would need rankMeta but 100 is safe floor
           reward.energy || 0,
-          reward.commits || 0,
-          JSON.stringify(inventoryUpdate)
+          JSON.stringify({
+            stars: reward.stars || 0,
+            skin_fragments: reward.skinFragment ? { [reward.skinFragment]: 1 } : {}
+          })
         ]
       );
-
       if (reward.xp) {
         await client.query(
           `INSERT INTO player_levels (user_id, xp_total)
@@ -446,11 +410,11 @@ router.post('/', async (req, res, next) => {
 
         // Создаём реферальную связь идемпотентно, без SELECT->INSERT race
         const referralInsertResult = await client.query(
-          `INSERT INTO referrals (referrer_id, referred_id, status, is_referred_premium)
-           VALUES ($1, $2, 'pending', $3)
+          `INSERT INTO referrals (referrer_id, referred_id, status)
+           VALUES ($1, $2, 'pending')
            ON CONFLICT (referrer_id, referred_id) DO NOTHING
            RETURNING *`,
-          [referrerId, referredId, telegramUser.is_premium === true]
+          [referrerId, referredId]
         );
 
         const referralResult =
@@ -462,10 +426,6 @@ router.post('/', async (req, res, next) => {
                  WHERE referrer_id = $1 AND referred_id = $2`,
                 [referrerId, referredId]
               );
-
-        if (referralInsertResult.rows.length > 0) {
-          await checkAchievement(client, referrerId, 'referral');
-        }
 
         await client.query('COMMIT');
 
@@ -543,14 +503,11 @@ router.post('/claim-milestone', async (req, res, next) => {
   }
 
   const { milestone } = req.body || {};
-  if (!STAGE3_REFERRAL_MILESTONES.includes(milestone)) {
+  if (!REFERRAL_MILESTONES.includes(milestone)) {
     return res.status(400).json({ error: 'Invalid milestone' });
   }
 
-  const rewardDef = STAGE3.REFERRAL.MILESTONE_REWARDS[milestone];
-  if (!rewardDef) {
-    return res.status(400).json({ error: 'Milestone reward not configured' });
-  }
+  const rewardEnergy = REFERRAL_MILESTONE_REWARDS[milestone]?.energy;
 
   try {
     const client = await pool.connect();
@@ -568,15 +525,13 @@ router.post('/claim-milestone', async (req, res, next) => {
       const userId = userResult.rows[0].id;
 
       const activeResult = await client.query(
-        `SELECT COUNT(*) as active,
-                COUNT(*) FILTER (WHERE r.is_referred_premium = TRUE) as premium_active
+        `SELECT COUNT(*) as active
          FROM referrals r
          LEFT JOIN progression p ON p.user_id = r.referred_id
          WHERE r.referrer_id = $1 AND COALESCE(p.commits_total, 0) >= $2`,
         [userId, REFERRAL_ACTIVE_THRESHOLD_COMMITS]
       );
       const active = parseInt(activeResult.rows[0].active);
-      const premiumActive = parseInt(activeResult.rows[0].premium_active || 0, 10);
       if (active < milestone) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Milestone not reached' });
@@ -591,50 +546,27 @@ router.post('/claim-milestone', async (req, res, next) => {
         return res.status(409).json({ error: 'Already claimed' });
       }
 
-      const inviterReward = buildReferralClaimReward(rewardDef.inviter || {}, premiumActive >= milestone);
-
-      // Apply commits / energy via progression update
-      const level = await ensurePlayerLevel(client, userId);
-      const maxEnergy = level.resolved?.maxEnergy || 100;
-      const energyAdd = inviterReward.energy || 0;
-
-      let inventoryUpdate = '';
-      const inventoryParams = [];
-      let paramIdx = 4;
-
-      if (inviterReward.stars) {
-        inventoryUpdate += `inventory = COALESCE(inventory, '{}') || jsonb_build_object($${paramIdx}, COALESCE((inventory->>$${paramIdx})::int, 0) + $${paramIdx + 1}),`;
-        inventoryParams.push('stars', inviterReward.stars);
-        paramIdx += 2;
+      const progResult = await client.query(
+        `SELECT energy FROM progression WHERE user_id = $1`,
+        [userId]
+      );
+      let newEnergy = rewardEnergy;
+      if (progResult.rows.length > 0) {
+        const { energy } = progResult.rows[0];
+        const level = await ensurePlayerLevel(client, userId);
+        const maxEnergy = level.resolved?.maxEnergy || 100;
+        newEnergy = Math.min(maxEnergy, Number(energy) + rewardEnergy);
       }
 
       await client.query(
-        `UPDATE progression
-         SET commits_total = commits_total + $2,
-             commits_current = commits_current + $2,
-             energy = LEAST($3, energy + $4)
-             ${inventoryUpdate ? `, ${inventoryUpdate}` : ''}
-         WHERE user_id = $1`,
-        [userId, inviterReward.commits || 0, maxEnergy, energyAdd, ...inventoryParams]
+        `UPDATE progression SET energy = $1, updated_at = NOW() WHERE user_id = $2`,
+        [newEnergy, userId]
       );
-      if (Number(inviterReward.commits || 0) > 0) {
-        await logDailyFarm(client, userId, Number(inviterReward.commits || 0));
-      }
-
-      // Grant skin if present
-      if (inviterReward.skin) {
-        await client.query(
-          `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
-           VALUES ($1, $2, false, NOW())
-           ON CONFLICT (user_id, skin_id) DO NOTHING`,
-          [userId, inviterReward.skin]
-        );
-      }
 
       await client.query(
         `INSERT INTO referral_milestone_claims (user_id, milestone, reward_energy)
          VALUES ($1, $2, $3)`,
-        [userId, milestone, energyAdd]
+        [userId, milestone, rewardEnergy]
       );
 
       await client.query('COMMIT');
@@ -642,9 +574,8 @@ router.post('/claim-milestone', async (req, res, next) => {
       res.json({
         success: true,
         milestone,
-        reward: inviterReward,
-        premiumApplied: premiumActive >= milestone,
-        newEnergy: energyAdd
+        reward: { energy: rewardEnergy },
+        newEnergy
       });
     } catch (err) {
       await client.query('ROLLBACK');

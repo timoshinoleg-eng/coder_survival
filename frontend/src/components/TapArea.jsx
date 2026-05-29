@@ -4,9 +4,6 @@ import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
 
-const DEPRESSION_MAX = 200;
-const DEPRESSION_AFFLICTION = 100;
-
 export default function TapArea({ active }) {
   const {
     tap,
@@ -141,7 +138,6 @@ export default function TapArea({ active }) {
   if (!active) return null;
 
   const isExhausted = energy <= 0;
-  const depressionPercent = Math.min(100, Math.max(0, Math.round(((depression || 0) / DEPRESSION_MAX) * 100)));
   const tapZoneClass = [
     isCrit && critTier === 'silver' ? 'crit-flash-silver' : '',
     isCrit && critTier === 'gold' ? 'crit-flash-gold' : '',
@@ -149,13 +145,13 @@ export default function TapArea({ active }) {
   ].filter(Boolean).join(' ');
   const depressionClass =
     isBurnout ? 'depression-burnout'
-      : depression >= DEPRESSION_AFFLICTION ? 'depression-high'
-        : depression >= 60 ? 'depression-med'
+      : depression >= 70 ? 'depression-high'
+        : depression >= 30 ? 'depression-med'
           : 'depression-low';
   const buttonText = isExhausted
     ? '⚡ Нет энергии'
     : isBurnout
-      ? '💥 Session reset'
+      ? '🔥 Горю...'
       : '💻 КОДИТЬ';
 
   return h('div', {
@@ -254,7 +250,7 @@ export default function TapArea({ active }) {
         style: {
           height: '4px',
           width: '100%',
-          borderRadius: '0',
+          borderRadius: '999px',
           background: 'rgba(255,255,255,0.12)',
           overflow: 'hidden'
         }
@@ -271,14 +267,14 @@ export default function TapArea({ active }) {
         style: {
           height: '6px',
           width: '100%',
-          borderRadius: '0',
+          borderRadius: '999px',
           background: 'rgba(255,255,255,0.12)',
           overflow: 'hidden'
         }
       }, h('div', {
         className: depressionClass,
         style: {
-          width: `${depressionPercent}%`,
+          width: `${Math.min(100, Math.max(0, Math.round(depression || 0)))}%`,
           height: '100%',
           transition: 'width 0.25s ease'
         }
@@ -295,7 +291,7 @@ export default function TapArea({ active }) {
         pointerEvents: 'auto',
         width: 'min(260px, 75vw)',
         height: 'min(260px, 75vw)',
-        borderRadius: '0',
+        borderRadius: '50%',
         opacity: isExhausted ? 0.6 : 1,
         background: isExhausted
           ? 'radial-gradient(circle at 40% 40%, #3a2a2a, #2a1a1a)'
@@ -306,8 +302,7 @@ export default function TapArea({ active }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: "'Press Start 2P', 'Courier New', monospace",
-        fontSize: '14px',
+        fontSize: '20px',
         color: isExhausted || isBurnout ? '#ffe4dc' : '#4ade80',
         cursor: isExhausted ? 'not-allowed' : 'pointer',
         position: 'relative',

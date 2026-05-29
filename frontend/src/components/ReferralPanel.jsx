@@ -5,14 +5,6 @@ import { useTelegram } from "../hooks/useTelegram.js";
 import { formatRewardPayload } from "../utils/rewardFormatting.js";
 import ReferralChainPanel from "./ReferralChainPanel.jsx";
 
-function skinLabel(skinId) {
-  const labels = {
-    team_lead: 'Team Lead',
-    dark_mode_ide: 'Dark Mode IDE',
-  };
-  return labels[skinId] || skinId;
-}
-
 export default function ReferralPanel({ open, onClose }) {
   const { initData, shareUrl } = useTelegram();
   const [state, setState] = useState({
@@ -34,21 +26,22 @@ export default function ReferralPanel({ open, onClose }) {
   });
 
   const loadData = useCallback(async () => {
-    const statusPayload = await apiRequest("/api/referral/status", { initData });
+    const [statsPayload, linkPayload] = await Promise.all([
+      apiRequest("/api/referral/stats", { initData }),
+      apiRequest("/api/referral/link", { initData }),
+    ]);
     setState((s) => ({
       ...s,
       loading: false,
-      referralCode: statusPayload?.referralCode || "",
-      referralLink: statusPayload?.referralLink || "",
-      stats: {
-        total: statusPayload?.total ?? 0,
-        active: statusPayload?.active ?? 0,
-        premiumActive: statusPayload?.premiumActive ?? 0,
-        nextMilestone: statusPayload?.nextMilestone ?? null,
-        milestones: statusPayload?.milestones || [],
-        claimedMilestones: statusPayload?.milestones?.filter((m) => m.claimed).map((m) => m.milestone) || [],
-        referred: statusPayload?.referred || [],
-        antiFarmDays: statusPayload?.antiFarmDays || 2,
+      referralCode:
+        statsPayload?.referralCode || linkPayload?.referralCode || "",
+      referralLink: linkPayload?.referralLink || "",
+      stats: statsPayload?.stats || {
+        total: 0,
+        active: 0,
+        nextMilestone: null,
+        milestones: [],
+        claimedMilestones: [],
       },
       error: null,
     }));
@@ -119,22 +112,15 @@ export default function ReferralPanel({ open, onClose }) {
         claimSuccess: null,
       }));
       try {
-        const payload = await apiRequest("/api/referral/claim", {
+        const payload = await apiRequest("/api/referral/claim-milestone", {
           method: "POST",
           initData,
           body: { milestone },
         });
         if (payload?.success) {
-          const reward = payload.reward || {};
-          const parts = [];
-          if (reward.commits) parts.push(`+${reward.commits} коммитов`);
-          if (reward.energy) parts.push(`+${reward.energy} энергии`);
-          if (reward.stars) parts.push(`+${reward.stars} Stars`);
-          if (reward.skin) parts.push(`скин ${skinLabel(reward.skin)}`);
-          if (payload?.premiumApplied) parts.push('Premium x5');
           setState((s) => ({
             ...s,
-            claimSuccess: parts.join(' · ') || 'Награда получена!',
+            claimSuccess: `Получено +${payload.reward.energy} энергии!`,
             claimLoading: null,
           }));
           await loadData();
@@ -271,28 +257,6 @@ export default function ReferralPanel({ open, onClose }) {
                         "div",
                         {
                           style: {
-                            fontSize: "11px",
-                            color: "#60a5fa",
-                            marginBottom: "6px",
-                          },
-                        },
-                        "Твой друг получит +100 коммитов и эспрессо, когда наберёт 20 коммитов за 2 дня",
-                      ),
-                      h(
-                        "div",
-                        {
-                          style: {
-                            fontSize: "11px",
-                            color: "#d8b4fe",
-                            marginBottom: "6px",
-                          },
-                        },
-                        "Premium-друзья усиливают milestone claim: x5 награда и скин dark_mode_ide.",
-                      ),
-                      h(
-                        "div",
-                        {
-                          style: {
                             display: "flex",
                             alignItems: "center",
                             gap: "8px",
@@ -424,102 +388,8 @@ export default function ReferralPanel({ open, onClose }) {
                           ),
                         ],
                       ),
-                      h(
-                        "div",
-                        {
-                          style: {
-                            background: "#131d33",
-                            borderRadius: "8px",
-                            padding: "12px",
-                            textAlign: "center",
-                            border: "1px solid #1f3552",
-                          },
-                        },
-                        [
-                          h(
-                            "div",
-                            {
-                              style: {
-                                fontSize: "20px",
-                                fontWeight: "bold",
-                                color: "#c084fc",
-                              },
-                            },
-                            stats.premiumActive || 0,
-                          ),
-                          h(
-                            "div",
-                            { style: { fontSize: "11px", color: "#8ba1bb" } },
-                            "Premium-активных",
-                          ),
-                        ],
-                      ),
                     ],
                   ),
-
-                  // Referred list with anti-farm status
-                  stats.referred && stats.referred.length > 0 &&
-                    h(
-                      "div",
-                      {
-                        style: {
-                          background: "#131d33",
-                          borderRadius: "8px",
-                          padding: "12px",
-                          border: "1px solid #1f3552",
-                          marginBottom: "10px",
-                        },
-                      },
-                      [
-                        h(
-                          "div",
-                          {
-                            style: {
-                              fontSize: "12px",
-                              fontWeight: 600,
-                              marginBottom: "8px",
-                            },
-                          },
-                          "👥 Приглашённые",
-                        ),
-                        h(
-                          "div",
-                          {
-                            style: {
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "6px",
-                            },
-                          },
-                          stats.referred.map((r, i) =>
-                            h(
-                              "div",
-                              {
-                                key: i,
-                                style: {
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                  padding: "6px 8px",
-                                  borderRadius: "6px",
-                                  background: r.isActive ? "#1a3f25" : "#0f1b30",
-                                  border: r.isActive ? "1px solid #2d5a3e" : "1px solid #1f3552",
-                                },
-                              },
-                              [
-                                h("div", { style: { display: "flex", alignItems: "center", gap: "6px" } }, [
-                                  h("span", { style: { fontSize: "12px", color: "#c7ddf5" } }, r.username || "Аноним"),
-                                  r.isPremium && h("span", { style: { fontSize: "10px", color: "#d8b4fe" } }, '✦ Premium'),
-                                ]),
-                                h("span", { style: { fontSize: "11px", color: r.isActive ? "#4ade80" : "#8ba1bb" } },
-                                  r.isActive ? "✅ Активен" : r.antiFarmStatus || `${r.commitsTotal}/${stats.activeThresholdCommits || 20} коммитов`
-                                ),
-                              ]
-                            )
-                          )
-                        ),
-                      ]
-                    ),
 
                   // Milestones
                   stats.milestones.length > 0 &&
@@ -557,7 +427,6 @@ export default function ReferralPanel({ open, onClose }) {
                           stats.milestones.map((m) => {
                             const canClaim = m.reached && !m.claimed;
                             const rewardLabel = formatRewardPayload(m.reward);
-                            const premiumEligible = (stats.premiumActive || 0) >= m.milestone;
                             return h(
                               "div",
                               {
@@ -605,17 +474,6 @@ export default function ReferralPanel({ open, onClose }) {
                                     },
                                     rewardLabel,
                                   ),
-                                  premiumEligible && h(
-                                    "span",
-                                    {
-                                      style: {
-                                        fontSize: "11px",
-                                        color: "#c084fc",
-                                        marginLeft: "6px",
-                                      },
-                                    },
-                                    'Premium x5 + Dark Mode IDE',
-                                  ),
                                 ]),
                                 canClaim
                                   ? h(
@@ -647,9 +505,7 @@ export default function ReferralPanel({ open, onClose }) {
                                       },
                                       state.claimLoading === m.target
                                         ? "..."
-                                        : premiumEligible
-                                          ? 'Забрать x5'
-                                          : 'Забрать',
+                                        : "Забрать",
                                     )
                                   : h(
                                       "span",
@@ -683,56 +539,6 @@ export default function ReferralPanel({ open, onClose }) {
                           ),
                       ],
                     ),
-
-                  h(
-                    "div",
-                    {
-                      style: {
-                        background: "#131d33",
-                        borderRadius: "8px",
-                        padding: "12px",
-                        border: "1px solid #1f3552",
-                      },
-                    },
-                    [
-                      h(
-                        "div",
-                        {
-                          style: {
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            marginBottom: "8px",
-                            color: "#d8b4fe",
-                          },
-                        },
-                        "✦ Premium рефералы",
-                      ),
-                      h(
-                        "div",
-                        { style: { fontSize: "11px", color: "#c7ddf5", marginBottom: "4px" } },
-                        `Сейчас premium-активных: ${stats.premiumActive || 0}`,
-                      ),
-                      h(
-                        "div",
-                        { style: { fontSize: "11px", color: "#8ba1bb" } },
-                        'Каждый milestone, для которого хватает premium-активных рефералов, даёт x5 награду и скин dark_mode_ide.',
-                      ),
-                      (() => {
-                        const nextPremiumMilestone = (stats.milestones || []).find((m) => (stats.premiumActive || 0) < m.milestone);
-                        return nextPremiumMilestone
-                          ? h(
-                              "div",
-                              { style: { marginTop: "6px", fontSize: "11px", color: "#d8b4fe" } },
-                              `До следующего premium milestone: ${nextPremiumMilestone.milestone - (stats.premiumActive || 0)} premium-активных`,
-                            )
-                          : h(
-                              "div",
-                              { style: { marginTop: "6px", fontSize: "11px", color: "#4ade80" } },
-                              'Все premium milestone уже доступны по количеству premium-активных.',
-                            );
-                      })(),
-                    ],
-                  ),
 
                   h(ReferralChainPanel),
 
@@ -792,11 +598,6 @@ export default function ReferralPanel({ open, onClose }) {
                         "div",
                         null,
                         `Приглашённый друг должен набрать минимум ${stats.activeThresholdCommits} коммитов, чтобы считаться активным.`,
-                      ),
-                      h(
-                        "div",
-                        { style: { marginTop: "4px", color: "#d8b4fe" } },
-                        'Если активный реферал имеет Telegram Premium, milestone claim даёт x5 награду и скин dark_mode_ide.',
                       ),
                     ],
                   ),

@@ -51,23 +51,3 @@ export function getHoursUntilNextLocalMonday(timezoneOffset = 0, now = new Date(
   nextMonday.setUTCHours(0, 0, 0, 0);
   return Math.max(0, Math.floor((nextMonday.getTime() - local.getTime()) / 3600000));
 }
-
-export function buildHackathonFinalMessage(teamName, progress, target, tier, members, success) {
-  const progressPct = target > 0 ? Math.round((progress / target) * 100) : 0;
-  const memberLines = members.map(m => `• ${m.username || m.firstName || 'Anonymous'} — ${m.contribution || 0} коммитов`).join('\n');
-
-  if (success) {
-    return `🏆 *Результаты командного хакатона*\n\n` +
-      `Команда "${teamName}" покорила хакатон!\n` +
-      `Прогресс: *${progressPct}%* (${progress} / ${target} коммитов)\n` +
-      `Тир: *${tier}*\n\n` +
-      `Участники:\n${memberLines}\n\n` +
-      `Всем членам команды выдан скин *"Чемпион хакатона"*!`;
-  }
-
-  return `😅 *Результаты командного хакатона*\n\n` +
-    `Команда "${teamName}" не дотянула до цели.\n` +
-    `Прогресс: *${progressPct}%* (${progress} / ${target} коммитов)\n\n` +
-    `Участники:\n${memberLines}\n\n` +
-    `Менеджер уже знает. #мы_старались`;
-}

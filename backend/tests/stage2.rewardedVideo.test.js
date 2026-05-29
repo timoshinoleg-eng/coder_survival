@@ -21,7 +21,7 @@ describeIfDb("stage2 rewarded video ceiling", () => {
     if (testPool) await testPool.end();
   });
 
-  test("concurrent complete requests leave countToday <= 5", async () => {
+  test("4 concurrent complete requests leave countToday <= 3", async () => {
     const initData = createInitData(760001, { username: "rewarded_ceiling" });
     await server.request("/api/state", {
       headers: { "X-Telegram-Init-Data": initData },
@@ -49,7 +49,7 @@ describeIfDb("stage2 rewarded video ceiling", () => {
        WHERE user_id = $1`,
       [userResult.rows[0].id],
     );
-    expect(Number(progressionResult.rows[0].rewarded_video_state.countToday || 0)).toBeLessThanOrEqual(5);
+    expect(Number(progressionResult.rows[0].rewarded_video_state.countToday || 0)).toBeLessThanOrEqual(3);
   });
 
   test("3 concurrent requests allow exactly 1 success during cooldown window", async () => {

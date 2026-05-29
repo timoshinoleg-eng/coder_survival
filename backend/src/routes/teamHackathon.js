@@ -6,8 +6,7 @@ import {
   getHoursUntilNextLocalMonday,
   getWeekId
 } from '../utils/teamHackathon.js';
-import { getSquadPassiveLocMultiplier, hasMissedYesterday } from '../utils/teams.js';
-import { addPassXp, applyPassXpSourceMultiplier } from '../utils/pass.js';
+import { addPassXp } from '../utils/pass.js';
 import { STAGE3 } from '../config/balance.js';
 
 const router = Router();
@@ -42,7 +41,7 @@ router.get('/', async (req, res, next) => {
       const weekId = getWeekId(new Date(), timezoneOffset);
 
       const membersResult = await client.query(
-        `SELECT tm.user_id, u.username, u.first_name, tm.last_active_at, tm.joined_at
+        `SELECT tm.user_id, u.username, u.first_name, tm.last_active_at
          FROM team_members tm
          JOIN users u ON u.id = tm.user_id
          WHERE tm.team_id = $1
@@ -62,8 +61,6 @@ router.get('/', async (req, res, next) => {
       const activeCount = membersResult.rows.filter((row) => (
         row.last_active_at && new Date(row.last_active_at).getTime() >= sevenDaysAgo
       )).length;
-      const missedYesterdayByAnyMember = membersResult.rows.some((row) => hasMissedYesterday(row.last_active_at, new Date()));
-      const myJoinedAt = membersResult.rows.find((row) => row.user_id === userId)?.joined_at || null;
       const target = calculateHackathonTarget(activeCount);
       const contributions = {};
       let progress = 0;
@@ -102,14 +99,6 @@ router.get('/', async (req, res, next) => {
         hoursRemaining: getHoursUntilNextLocalMonday(timezoneOffset),
         memberCount: memberIds.length,
         activeCount,
-        passiveLocMultiplier: getSquadPassiveLocMultiplier({
-          activeMembers: activeCount,
-          totalMembers: memberIds.length,
-          joinedAt: myJoinedAt,
-          missedYesterdayByAnyMember,
-          now: new Date()
-        }),
-        socialObligationActive: missedYesterdayByAnyMember,
         myContribution,
         behindAverage: myContribution < averageContribution
       });
@@ -161,31 +150,6 @@ router.post('/claim', async (req, res, next) => {
 
       const reward = STAGE3.TEAM_HACKATHON.REWARD_TIERS[tier]?.reward;
       const nextState = { ...state, tierClaimed: tier, currentTier: tier };
-
-      // Find team members for skin grant
-      const memberResult = await client.query(
-        `SELECT tm.user_id, tm.last_active_at
-         FROM team_members tm
-         WHERE tm.team_id = (SELECT team_id FROM team_members WHERE user_id = $1 LIMIT 1)`,
-        [userId]
-      );
-      const sevenDaysAgo = Date.now() - 7 * 86400000;
-      const activeMemberIds = memberResult.rows
-        .filter(r => r.last_active_at && new Date(r.last_active_at).getTime() >= sevenDaysAgo)
-        .map(r => r.user_id);
-
-      // Grant team_champion skin to all active members on GOLD
-      if (tier === 'GOLD' && activeMemberIds.length > 0) {
-        for (const memberId of activeMemberIds) {
-          await client.query(
-            `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
-             VALUES ($1, 'team_champion', false, NOW())
-             ON CONFLICT (user_id, skin_id) DO NOTHING`,
-            [memberId]
-          );
-        }
-      }
-
       await client.query(
         `UPDATE progression
          SET team_hackathon_state = $2,
@@ -209,7 +173,7 @@ router.post('/claim', async (req, res, next) => {
           [userId, reward.xp]
         );
       }
-      if (reward?.passXp) await addPassXp(client, userId, applyPassXpSourceMultiplier(reward.passXp, 'event_xp', new Date()));
+      if (reward?.passXp) await addPassXp(client, userId, reward.passXp);
 
       await client.query('COMMIT');
       return res.json({ success: true, tier, reward });

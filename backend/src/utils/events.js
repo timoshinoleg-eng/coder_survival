@@ -1,5 +1,4 @@
 import { STAGE4 } from '../config/balance.js';
-import { RANDOM_EVENTS_CONFIG } from '../config/events.js';
 
 const { EVENTS } = STAGE4;
 
@@ -149,76 +148,4 @@ export function getEventRecoveryMultiplier(eventState = {}, now = new Date()) {
 
 export function getLocalDateFromOffset(timezoneOffset = 0, now = new Date()) {
   return new Date(now.getTime() + Number(timezoneOffset || 0) * 60000);
-}
-
-export function getRandomEventDefinitions({ includeBalanceBlocked = true } = {}) {
-  return Object.entries(RANDOM_EVENTS_CONFIG.events)
-    .filter(([, event]) => includeBalanceBlocked || event.requiresBalance !== true)
-    .map(([id, event]) => ({ id, ...event }));
-}
-
-export function getFtueEventSuppression(accountAgeMinutes = 0) {
-  const age = Math.max(0, Number(accountAgeMinutes || 0));
-  return RANDOM_EVENTS_CONFIG.ftueEventSuppression.find((window) => age >= window.minMinutes && age < window.maxMinutes)
-    || RANDOM_EVENTS_CONFIG.ftueEventSuppression[RANDOM_EVENTS_CONFIG.ftueEventSuppression.length - 1];
-}
-
-function applyFtueEventSuppression(events, accountAgeMinutes) {
-  const suppression = getFtueEventSuppression(accountAgeMinutes);
-  if (suppression.rule === 'no_negative_events') {
-    return events.filter((event) => event.type !== 'negative');
-  }
-  if (suppression.rule === 'negative_events_at_50_percent_weight') {
-    return events.map((event) => (
-      event.type === 'negative'
-        ? { ...event, weight: Number(event.weight || 0) * 0.5 }
-        : event
-    ));
-  }
-  return events;
-}
-
-export function getRandomEventWeightSummary({ includeBalanceBlocked = true } = {}) {
-  const summary = { negative: 0, neutral: 0, positive: 0 };
-  for (const event of getRandomEventDefinitions({ includeBalanceBlocked })) {
-    summary[event.type] = Number(summary[event.type] || 0) + Number(event.weight || 0);
-  }
-  return summary;
-}
-
-export function getRandomEventBalanceGaps() {
-  const configured = getRandomEventWeightSummary();
-  const gaps = [];
-
-  for (const [type, targetWeight] of Object.entries(RANDOM_EVENTS_CONFIG.targetWeightByType)) {
-    const configuredWeight = Number(configured[type] || 0);
-    if (configuredWeight !== targetWeight) {
-      gaps.push({ type, targetWeight, configuredWeight, missingWeight: targetWeight - configuredWeight });
-    }
-  }
-
-  for (const event of getRandomEventDefinitions()) {
-    if (event.requiresBalance) {
-      gaps.push({ eventId: event.id, tbdBalance: event.tbdBalance || [] });
-    }
-  }
-
-  return gaps;
-}
-
-export function pickRandomEvent(randomValue = Math.random(), options = {}) {
-  const definitions = getRandomEventDefinitions({ includeBalanceBlocked: options.includeBalanceBlocked === true });
-  const events = applyFtueEventSuppression(definitions, options.accountAgeMinutes ?? 61);
-  const totalWeight = events.reduce((sum, event) => sum + Number(event.weight || 0), 0);
-  if (totalWeight <= 0) return null;
-
-  const clampedRandom = Math.max(0, Math.min(0.999999, Number(randomValue) || 0));
-  let cursor = clampedRandom * totalWeight;
-
-  for (const event of events) {
-    cursor -= Number(event.weight || 0);
-    if (cursor < 0) return event;
-  }
-
-  return events[events.length - 1] || null;
 }

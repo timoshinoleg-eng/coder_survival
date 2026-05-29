@@ -27,23 +27,6 @@ export async function verifyAdProof(provider, proof, nonce) {
   }
 }
 
-export function verifyAdsgramCallbackSignature(payload, signature, secret) {
-  if (!secret || typeof signature !== 'string' || !signature.trim()) {
-    return false;
-  }
-  const body = typeof payload === 'string' ? payload : stableStringify(payload);
-  const expected = crypto.createHmac('sha256', secret).update(body, 'utf8').digest('hex');
-  return safeEqual(signature.trim(), expected);
-}
-
-export function verifyPropellerCallbackHash({ eventId, userId, hash, secret }) {
-  if (!secret || !eventId || !userId || !hash) {
-    return false;
-  }
-  const expected = crypto.createHash('md5').update(`${eventId}${userId}${secret}`, 'utf8').digest('hex');
-  return safeEqual(String(hash).trim(), expected);
-}
-
 async function verifyAdMobProof(proof, nonce) {
   const callbackUrl = typeof proof.callbackUrl === 'string' ? proof.callbackUrl : null;
   const rawQuery = typeof proof.rawQuery === 'string'

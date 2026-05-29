@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { applyReward } from '../utils/rewards.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
-import { checkAchievement } from '../utils/achievements.js';
 
 const router = Router();
 const COFFEE_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -67,7 +66,6 @@ router.post('/', async (req, res, next) => {
       }
 
       await applyReward(client, userId, { energy: restored });
-      await checkAchievement(client, userId, 'use_item', { itemId: 'coffee' });
 
       await client.query(
         `UPDATE progression

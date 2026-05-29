@@ -1,5 +1,5 @@
 import { h, createContext } from "preact";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 import { useTelegram } from "./useTelegram.js";
 import { apiRequest } from "../utils/api.js";
 
@@ -56,7 +56,6 @@ const DEFAULT_STATE = {
   referralChain: null,
   achievements: [],
   skins: null,
-  activeEffects: {},
   featureFlags: {},
   stressCohort: "control",
   contextOffer: null,
@@ -65,13 +64,6 @@ const DEFAULT_STATE = {
   critTier: null,
   inventory: {},
   showOnboarding: false,
-  memePrompt: null,
-  weeklySprint: null,
-  generatorState: null,
-  randomEventState: null,
-  dailyFarm: null,
-  passiveLocRecovery: null,
-  antiCheat: null,
 };
 
 const GameContext = createContext(null);
@@ -90,8 +82,6 @@ function normalizeQuestPayload(payload) {
   return {
     date: payload.date,
     quests: payload.quests || payload.daily?.quests || [],
-    avgDailyFarm: payload.avgDailyFarm ?? payload.daily?.avgDailyFarm ?? null,
-    accountAgeDays: payload.accountAgeDays ?? payload.daily?.accountAgeDays ?? null,
     fullClearAvailable: payload.fullClearAvailable ?? payload.daily?.fullClearAvailable ?? false,
     fullClearClaimed: payload.fullClearClaimed ?? payload.daily?.fullClearClaimed ?? false,
     total: payload.daily?.total ?? (payload.quests || []).length,
@@ -124,10 +114,6 @@ export function GameProvider({ children }) {
   const stateRef = useRef(DEFAULT_STATE);
   const pendingTapsRef = useRef(0);
   const processingTapRef = useRef(false);
-  const loadStatePromiseRef = useRef(null);
-  const postTapRefreshTimerRef = useRef(null);
-  const fetchingBattlesRef = useRef(false);
-  const fetchingGeneratorsRef = useRef(false);
   const equippingSkinRef = useRef(false);
   const battlePollingStartedAtRef = useRef(Date.now());
   const prevLevelRef = useRef(null);
@@ -184,22 +170,6 @@ export function GameProvider({ children }) {
 
     const hasContextOffer = Object.prototype.hasOwnProperty.call(payload || {}, "contextOffer");
 
-    if (payload?.idleRecovery?.energy > 0) {
-      showToast(
-        `⚡ Восстановлено +${payload.idleRecovery.energy} энергии за время отсутствия`,
-        "success",
-        1500
-      );
-    }
-
-    if (payload?.passiveLocRecovery?.locEarned > 0) {
-      showToast(
-        `🤖 Генераторы принесли +${payload.passiveLocRecovery.locEarned} LOC`,
-        "success",
-        1800
-      );
-    }
-
     setState((current) => ({
       ...current,
       user: payload?.user ?? current.user ?? null,
@@ -247,12 +217,6 @@ export function GameProvider({ children }) {
       referralChain: payload?.referralChain ?? payload?.referral_chain ?? current.referralChain ?? null,
       achievements: payload?.achievements ?? current.achievements ?? [],
       skins: payload?.skins ?? current.skins ?? null,
-      activeEffects: payload?.activeEffects ?? payload?.active_effects ?? current.activeEffects ?? {},
-      generatorState: payload?.generatorState ?? payload?.generator_state ?? current.generatorState ?? null,
-      randomEventState: payload?.randomEventState ?? payload?.random_event_state ?? current.randomEventState ?? null,
-      dailyFarm: payload?.dailyFarm ?? payload?.daily_farm ?? current.dailyFarm ?? null,
-      passiveLocRecovery: payload?.passiveLocRecovery ?? payload?.passive_loc_recovery ?? current.passiveLocRecovery ?? null,
-      antiCheat: payload?.antiCheat ?? payload?.anti_cheat ?? current.antiCheat ?? null,
       featureFlags: payload?.featureFlags ?? payload?.feature_flags ?? current.featureFlags ?? {},
       stressCohort: payload?.stressCohort ?? payload?.stress_cohort ?? current.stressCohort ?? "control",
       contextOffer: hasContextOffer ? payload.contextOffer : current.contextOffer,
@@ -282,9 +246,6 @@ export function GameProvider({ children }) {
           }
         : current.lastTapDelta,
       levelUp: levelUp ?? current.levelUp,
-      memePrompt: levelUp
-        ? { trigger: 'levelUp', rankName: newRankName }
-        : current.memePrompt,
       sessionId,
       loading: false,
       syncing: false,
@@ -294,9 +255,6 @@ export function GameProvider({ children }) {
 
   const applyTapState = useCallback((payload) => {
     if (!payload) return;
-    if (payload?.heartAttackReset) {
-      showToast('💥 Heart Attack! Сессия сброшена, но прогресс карьеры сохранён.', 'error', 2800);
-    }
     setState((current) => ({
       ...current,
       commits: Number(payload.totalCommits ?? current.commits),
@@ -316,12 +274,9 @@ export function GameProvider({ children }) {
         isBurnout: payload.isBurnout ?? false,
       },
       syncing: false,
-      memePrompt: payload?.heartAttackReset
-        ? { trigger: 'heartAttack', rankName: current.rankName }
-        : current.memePrompt,
       error: null,
     }));
-  }, [showToast]);
+  }, []);
 
   const refreshQuests = useCallback(async () => {
     const payload = await apiRequest(`/api/quests?${timezoneQuery()}`, {
@@ -366,32 +321,15 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
-  const schedulePostTapRefresh = useCallback(() => {
-    if (postTapRefreshTimerRef.current) {
-      clearTimeout(postTapRefreshTimerRef.current);
-    }
-    postTapRefreshTimerRef.current = window.setTimeout(() => {
-      postTapRefreshTimerRef.current = null;
-      refreshQuests().catch(() => null);
-      refreshTeamHackathon().catch(() => null);
-    }, 2500);
-  }, [refreshQuests, refreshTeamHackathon]);
-
   const refreshBattles = useCallback(async () => {
-    if (fetchingBattlesRef.current) return null;
-    fetchingBattlesRef.current = true;
-    try {
-      const payload = await apiRequest("/api/battle/active", { initData: telegram?.initData });
-      setState((current) => ({
-        ...current,
-        battles: payload?.battles || [],
-        battleHistory: payload?.history || [],
-        battleUserId: payload?.userId ?? current.battleUserId,
-      }));
-      return payload;
-    } finally {
-      fetchingBattlesRef.current = false;
-    }
+    const payload = await apiRequest("/api/battle/active", { initData: telegram?.initData });
+    setState((current) => ({
+      ...current,
+      battles: payload?.battles || [],
+      battleHistory: payload?.history || [],
+      battleUserId: payload?.userId ?? current.battleUserId,
+    }));
+    return payload;
   }, [telegram?.initData]);
 
   const refreshReferral = useCallback(async () => {
@@ -413,67 +351,37 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
-  const refreshWeeklySprint = useCallback(async () => {
-    const payload = await apiRequest(`/api/quests/weekly?${timezoneQuery()}`, {
-      initData: telegram?.initData,
-    });
-    setState((current) => ({ ...current, weeklySprint: payload }));
-    return payload;
-  }, [telegram?.initData]);
-
-  const refreshGenerators = useCallback(async () => {
-    if (fetchingGeneratorsRef.current) return null;
-    fetchingGeneratorsRef.current = true;
+  const loadState = useCallback(async () => {
+    setState((current) => ({ ...current, loading: true, error: null }));
     try {
-      const payload = await apiRequest('/api/generators', { initData: telegram?.initData });
-      setState((current) => ({
-        ...current,
-        commits: Number(payload?.commitsTotal ?? current.commits),
-        exp: Number(payload?.commitsCurrent ?? current.exp),
-        generatorState: payload?.generatorState ?? current.generatorState,
-        passiveLocRecovery: payload?.passiveLocRecovery ?? current.passiveLocRecovery,
-      }));
-      if (payload?.passiveLocRecovery?.locEarned > 0) {
-        showToast(`🤖 Генераторы принесли +${payload.passiveLocRecovery.locEarned} LOC`, 'success', 1800);
-      }
-      return payload;
-    } finally {
-      fetchingGeneratorsRef.current = false;
-    }
-  }, [showToast, telegram?.initData]);
-
-  const loadState = useCallback(() => {
-    if (loadStatePromiseRef.current) {
-      return loadStatePromiseRef.current;
-    }
-
-    const promise = (async () => {
-      setState((current) => ({ ...current, loading: true, error: null }));
-      try {
+      const statePayload = await apiRequest("/api/state", { initData: telegram?.initData });
       const [
-        statePayload,
-        questsPayload,
-        streakPayload,
-        passPayload,
-        rewardedPayload,
-        hackathonPayload,
-        battlesPayload,
-        referralPayload,
-        liveEventPayload,
-        weeklySprintPayload,
-      ] =
-        await Promise.all([
-          apiRequest("/api/state", { initData: telegram?.initData }),
-          apiRequest(`/api/quests?${timezoneQuery()}`, { initData: telegram?.initData }),
-          apiRequest(`/api/streak?${timezoneQuery()}`, { initData: telegram?.initData }),
-          apiRequest("/api/pass", { initData: telegram?.initData }),
-          apiRequest(`/api/rewarded-video/status?${timezoneQuery()}`, { initData: telegram?.initData }),
-          apiRequest(`/api/team/hackathon?${timezoneQuery()}`, { initData: telegram?.initData }).catch(() => null),
-          apiRequest("/api/battle/active", { initData: telegram?.initData }).catch(() => null),
-          apiRequest("/api/referral/status", { initData: telegram?.initData }).catch(() => null),
-          apiRequest(`/api/events?${timezoneQuery()}`, { initData: telegram?.initData }).catch(() => null),
-          apiRequest(`/api/quests/weekly?${timezoneQuery()}`, { initData: telegram?.initData }).catch(() => null),
-        ]);
+        questsRes,
+        streakRes,
+        passRes,
+        rewardedRes,
+        hackathonRes,
+        battlesRes,
+        referralRes,
+        liveEventRes,
+      ] = await Promise.allSettled([
+        apiRequest(`/api/quests?${timezoneQuery()}`, { initData: telegram?.initData }),
+        apiRequest(`/api/streak?${timezoneQuery()}`, { initData: telegram?.initData }),
+        apiRequest("/api/pass", { initData: telegram?.initData }),
+        apiRequest(`/api/rewarded-video/status?${timezoneQuery()}`, { initData: telegram?.initData }),
+        apiRequest(`/api/team/hackathon?${timezoneQuery()}`, { initData: telegram?.initData }),
+        apiRequest("/api/battle/active", { initData: telegram?.initData }),
+        apiRequest("/api/referral/status", { initData: telegram?.initData }),
+        apiRequest(`/api/events?${timezoneQuery()}`, { initData: telegram?.initData }),
+      ]);
+      const questsPayload = questsRes.status === 'fulfilled' ? questsRes.value : null;
+      const streakPayload = streakRes.status === 'fulfilled' ? streakRes.value : null;
+      const passPayload = passRes.status === 'fulfilled' ? passRes.value : null;
+      const rewardedPayload = rewardedRes.status === 'fulfilled' ? rewardedRes.value : null;
+      const hackathonPayload = hackathonRes.status === 'fulfilled' ? hackathonRes.value : null;
+      const battlesPayload = battlesRes.status === 'fulfilled' ? battlesRes.value : null;
+      const referralPayload = referralRes.status === 'fulfilled' ? referralRes.value : null;
+      const liveEventPayload = liveEventRes.status === 'fulfilled' ? liveEventRes.value : null;
 
       applyServerState(statePayload);
       const daily = normalizeQuestPayload(questsPayload);
@@ -492,12 +400,11 @@ export function GameProvider({ children }) {
         referral: referralPayload,
         liveEvent: liveEventPayload,
         careerStory: liveEventPayload?.careerStory ?? current.careerStory,
-        weeklySprint: weeklySprintPayload,
         loading: false,
         syncing: false,
         error: null,
       }));
-      } catch (err) {
+    } catch (err) {
       setState((current) => ({
         ...current,
         loading: false,
@@ -507,53 +414,8 @@ export function GameProvider({ children }) {
             ? "Telegram авторизация не прошла"
             : "Сервер недоступен",
       }));
-      }
-    })();
-
-    loadStatePromiseRef.current = promise;
-    promise.finally(() => {
-      if (loadStatePromiseRef.current === promise) {
-        loadStatePromiseRef.current = null;
-      }
-    });
-
-    return promise;
+    }
   }, [applyServerState, telegram?.initData]);
-
-  const claimPassReward = useCallback(async (level, track = 'free') => {
-    const payload = await apiRequest('/api/pass/claim', {
-      method: 'POST',
-      initData: telegram?.initData,
-      body: { level, track },
-    });
-    await refreshPass().catch(() => null);
-    await loadState().catch(() => null);
-    return payload;
-  }, [loadState, refreshPass, telegram?.initData]);
-
-  const claimWeeklySprintTier = useCallback(async (tier) => {
-    const payload = await apiRequest('/api/quests/weekly/claim', {
-      method: 'POST',
-      initData: telegram?.initData,
-      body: withTimezoneBody({ tier }),
-    });
-    setState((current) => ({
-      ...current,
-      weeklySprint: current.weeklySprint
-        ? {
-            ...current.weeklySprint,
-            tierClaimed: payload?.claimedTier ?? current.weeklySprint.tierClaimed,
-            narrative: payload?.narrative ?? current.weeklySprint.narrative,
-          }
-        : current.weeklySprint,
-    }));
-    await loadState().catch(() => null);
-    return payload;
-  }, [loadState, telegram?.initData]);
-
-  const setRandomEventState = useCallback((randomEventState) => {
-    setState((current) => ({ ...current, randomEventState }));
-  }, []);
 
   useEffect(() => {
     loadState();
@@ -608,11 +470,11 @@ export function GameProvider({ children }) {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      if (document.hidden) return;
-      refreshGenerators().catch(() => null);
-    }, 60 * 1000);
+      if ((stateRef.current.battles || []).length > 0) return;
+      refreshBattles().catch(() => null);
+    }, 5 * 60 * 1000);
     return () => clearInterval(timer);
-  }, [refreshGenerators]);
+  }, [refreshBattles]);
 
   useEffect(() => {
     window.__GAME_STATE__ = state;
@@ -654,51 +516,52 @@ export function GameProvider({ children }) {
     processingTapRef.current = true;
 
     try {
-      const currentState = stateRef.current;
-      if (currentState.energy <= 0) {
-        pendingTapsRef.current = 0;
-        setState((current) => ({ ...current, syncing: false }));
-        return;
-      }
-
-      const tapCount = Math.min(20, pendingTapsRef.current, Math.max(1, Math.floor(currentState.energy || 1)));
-      pendingTapsRef.current -= tapCount;
-      setState((current) => ({ ...current, syncing: true, error: null }));
-
-      try {
-        const payload = await apiRequest("/api/tap", {
-          method: "POST",
-          initData: telegram?.initData,
-          body: { session_id: stateRef.current.sessionId, tapCount },
-        });
-
-        if (Object.prototype.hasOwnProperty.call(payload || {}, "commitsDelta")) {
-          applyTapState(payload);
-        } else {
-          applyServerState(payload);
+      while (pendingTapsRef.current > 0) {
+        const currentState = stateRef.current;
+        if (currentState.energy <= 0) {
+          pendingTapsRef.current = 0;
+          setState((current) => ({ ...current, syncing: false }));
+          break;
         }
-        setState((current) => ({
-          ...current,
-          totalTaps: current.totalTaps + (payload?.commitsDelta > 0 ? tapCount : 0),
-        }));
-        schedulePostTapRefresh();
-      } catch (err) {
-        pendingTapsRef.current = 0;
-        setState((current) => ({
-          ...current,
-          syncing: false,
-          error: err.status === 429 ? "Слишком быстро. Подожди секунду." : "Не удалось сохранить тап",
-        }));
+
+        setState((current) => ({ ...current, syncing: true, error: null }));
+        pendingTapsRef.current -= 1;
+
+        try {
+          const payload = await apiRequest("/api/tap", {
+            method: "POST",
+            initData: telegram?.initData,
+            body: { session_id: stateRef.current.sessionId },
+          });
+
+          if (Object.prototype.hasOwnProperty.call(payload || {}, "commitsDelta")) {
+            applyTapState(payload);
+          } else {
+            applyServerState(payload);
+          }
+          setState((current) => ({
+            ...current,
+            totalTaps: current.totalTaps + (payload?.commitsDelta > 0 ? 1 : 0),
+          }));
+          refreshQuests().catch(() => null);
+          refreshTeamHackathon().catch(() => null);
+        } catch (err) {
+          pendingTapsRef.current = 0;
+          setState((current) => ({
+            ...current,
+            syncing: false,
+            error: err.status === 429 ? "Слишком быстро. Подожди секунду." : "Не удалось сохранить тап",
+          }));
+          break;
+        }
       }
     } finally {
       processingTapRef.current = false;
       if (pendingTapsRef.current === 0) {
         setState((current) => ({ ...current, syncing: false }));
-      } else {
-        window.setTimeout(() => flushTapQueue(), 0);
       }
     }
-  }, [applyServerState, applyTapState, schedulePostTapRefresh, telegram?.initData]);
+  }, [applyServerState, applyTapState, refreshQuests, refreshTeamHackathon, telegram?.initData]);
 
   const tap = useCallback(() => {
     const currentState = stateRef.current;
@@ -770,42 +633,9 @@ export function GameProvider({ children }) {
       streak: { ...current.streak, ...payload },
       streakDays: Number(payload?.currentStreak ?? current.streakDays),
     }));
-    refreshPass().catch(() => null);
-    window.setTimeout(() => {
-      loadState().catch(() => null);
-    }, 500);
+    await Promise.all([refreshPass(), loadState()]).catch(() => null);
     return payload;
   }, [loadState, refreshPass, telegram?.initData]);
-
-  const recoverStreak = useCallback(async () => {
-    const payload = await apiRequest("/api/streak/recover", {
-      method: "POST",
-      initData: telegram?.initData,
-      body: withTimezoneBody(),
-    });
-    setState((current) => ({
-      ...current,
-      streak: { ...current.streak, ...payload },
-      streakDays: Number(payload?.currentStreak ?? current.streakDays),
-    }));
-    await loadState().catch(() => null);
-    return payload;
-  }, [loadState, telegram?.initData]);
-
-  const refreshAchievements = useCallback(async () => {
-    const payload = await apiRequest("/api/achievements", {
-      initData: telegram?.initData,
-    });
-    setState((current) => ({ ...current, achievements: payload?.achievements || [] }));
-    return payload;
-  }, [telegram?.initData]);
-
-  const shareAchievement = useCallback(async (achievementId) => {
-    const payload = await apiRequest(`/api/meme/achievement?achievementId=${encodeURIComponent(achievementId)}`, {
-      initData: telegram?.initData,
-    });
-    return payload;
-  }, [telegram?.initData]);
 
   const completeRewardedVideo = useCallback(async () => {
     const payload = await apiRequest("/api/rewarded-video/complete", {
@@ -824,45 +654,9 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
-  const buyGenerator = useCallback(async (tierId) => {
-    const payload = await apiRequest('/api/generators/buy', {
-      method: 'POST',
-      initData: telegram?.initData,
-      body: { tierId },
-    });
-    setState((current) => ({
-      ...current,
-      generatorState: payload?.generatorState ?? current.generatorState,
-      exp: Number(payload?.progression?.commits_current ?? current.exp),
-    }));
-    await loadState().catch(() => null);
-    return payload;
-  }, [loadState, telegram?.initData]);
-
-  const applyEventDeltas = useCallback((deltas) => {
-    setState((current) => {
-      const nextEnergy = Math.min(
-        current.maxEnergy || 100,
-        Math.max(0, (current.energy || 0) + (deltas.energyDelta || 0))
-      );
-      const nextDepression = Math.min(
-        100,
-        Math.max(0, (current.depression || 0) + (deltas.depressionDelta || 0))
-      );
-      const nextCommits = Math.max(0, (current.commits || 0) + (deltas.commitsDelta || 0));
-      return {
-        ...current,
-        energy: nextEnergy,
-        depression: nextDepression,
-        commits: nextCommits,
-      };
-    });
-  }, []);
-
-  const value = useMemo(() => ({
+  const value = {
     ...state,
     tap,
-    applyEventDeltas,
     clearLevelUp,
     showToast,
     setShopOpen,
@@ -872,23 +666,14 @@ export function GameProvider({ children }) {
     claimDailyQuest: claimQuests,
     claimFullClear,
     refreshPass,
-    claimPassReward,
     refreshStreak,
     claimStreak,
-    recoverStreak,
-    refreshAchievements,
-    shareAchievement,
     refreshRewardedVideo,
     refreshTeamHackathon,
     refreshBattles,
     refreshReferral,
     refreshLiveEvent,
-    refreshWeeklySprint,
-    refreshGenerators,
-    claimWeeklySprintTier,
-    setRandomEventState,
     completeRewardedVideo,
-    buyGenerator,
     acceptBattle: async (battleId) => {
       const payload = await apiRequest("/api/battle/accept", {
         method: "POST",
@@ -987,41 +772,8 @@ export function GameProvider({ children }) {
         equippingSkinRef.current = false;
       }
     },
-    setMemePrompt: (prompt) => setState((current) => ({ ...current, memePrompt: prompt })),
-    clearMemePrompt: () => setState((current) => ({ ...current, memePrompt: null })),
     reset: loadState,
-  }), [
-    state,
-    tap,
-    applyEventDeltas,
-    clearLevelUp,
-    showToast,
-    setShopOpen,
-    closeShop,
-    refreshQuests,
-    claimQuests,
-    claimFullClear,
-    refreshPass,
-    claimPassReward,
-    refreshStreak,
-    claimStreak,
-    recoverStreak,
-    refreshAchievements,
-    shareAchievement,
-    refreshRewardedVideo,
-    refreshTeamHackathon,
-    refreshBattles,
-    refreshReferral,
-    refreshLiveEvent,
-    refreshWeeklySprint,
-    refreshGenerators,
-    claimWeeklySprintTier,
-    setRandomEventState,
-    completeRewardedVideo,
-    buyGenerator,
-    loadState,
-    telegram?.initData,
-  ]);
+  };
 
   return h(GameContext.Provider, { value }, children);
 }

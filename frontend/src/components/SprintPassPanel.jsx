@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
 import { useTelegram } from '../hooks/useTelegram.js';
@@ -8,36 +8,9 @@ import { formatRewardPayload } from '../utils/rewardFormatting.js';
 
 export default function SprintPassPanel({ open, onClose }) {
   const { initData } = useTelegram();
-  const { pass, showToast, reset, refreshPass, claimPassReward } = useGameState();
+  const { pass, showToast, reset } = useGameState();
   const [claiming, setClaiming] = useState(null);
   const [unlockingPremium, setUnlockingPremium] = useState(false);
-  const [xpSources, setXpSources] = useState(null);
-  const rewards = pass?.rewards || [];
-  const hasPremium = Boolean(pass?.playerPass?.isPremium);
-
-  useEffect(() => {
-    if (!open) return;
-    apiRequest('/api/pass/xp-sources', { initData }).then(setXpSources).catch(() => null);
-  }, [open, initData]);
-
-  useEffect(() => {
-    if (!open || !rewards) return undefined;
-    const handleKeyDown = (event) => {
-      if (event.key < '1' || event.key > '9') return;
-      const index = Number(event.key) - 1;
-      const claimables = rewards.flatMap((reward) => {
-        const entries = [];
-        if (reward.unlocked && !reward.freeClaimed) entries.push({ level: reward.level, track: 'free' });
-        if (reward.unlocked && hasPremium && !reward.premiumClaimed) entries.push({ level: reward.level, track: 'premium' });
-        return entries;
-      });
-      const target = claimables[index];
-      if (!target || claiming) return;
-      handleClaim(target.level, target.track);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, rewards, hasPremium, claiming]);
 
   if (!open) return null;
 
@@ -73,7 +46,8 @@ export default function SprintPassPanel({ open, onClose }) {
     ]));
   }
 
-  const { pass: passMeta, playerPass, premiumPassProduct } = pass;
+  const { pass: passMeta, playerPass, rewards, premiumPassProduct } = pass;
+  const hasPremium = Boolean(playerPass?.isPremium);
   const premiumPassPrice = premiumPassProduct?.stars ?? null;
   const currentReward = rewards.find((reward) => reward.level === playerPass.currentLevel) || null;
   const currentLevelRequiredXp = currentReward?.requiredXp || 0;
@@ -85,10 +59,14 @@ export default function SprintPassPanel({ open, onClose }) {
   async function handleClaim(level, track) {
     setClaiming(`${level}:${track}`);
     try {
-      const payload = await claimPassReward(level, track);
-      if (payload?.level || payload?.pass) {
+      const payload = await apiRequest('/api/pass/claim', {
+        method: 'POST',
+        initData,
+        body: { level, track }
+      });
+      if (payload?.success) {
         showToast('Награда получена!', 'success', 2000);
-        await refreshPass();
+        window.location.reload();
       }
     } catch (err) {
       showToast(err?.message || 'Не удалось забрать награду', 'error', 2000);
@@ -194,41 +172,6 @@ export default function SprintPassPanel({ open, onClose }) {
           }
         }, unlockingPremium ? '...' : 'Купить Premium')
       ])
-    ]),
-
-    pass.catchUp && h('div', {
-      style: {
-        padding: '8px 14px',
-        fontSize: '11px',
-        color: '#c7ddf5',
-        borderBottom: '1px solid #1f3552',
-        background: '#12203a'
-      }
-    }, `Catch-up: +${pass.catchUp.catchUpXp} XP за ${pass.catchUp.missedDays} пропущ. дн. (avg ${pass.catchUp.avgDailyXP}/день)`),
-
-    h('div', { style: { padding: '8px 14px', fontSize: '11px', color: '#8ba1bb', borderBottom: '1px solid #1f3552' } }, [
-      h('div', null, 'Desktop shortcuts: клавиши 1-9 быстро забирают доступные награды.'),
-      h('div', { style: { color: pass.weekendDoubleXpActive ? '#4ade80' : '#8ba1bb' } }, `Weekend x2: tap_xp, quest_xp, generator_xp, event_xp.${pass.weekendDoubleXpActive ? ' Активно сейчас.' : ''} Catch-up и ad_xp не удваиваются.`),
-    ]),
-
-    passMeta?.refund && h('div', {
-      style: {
-        padding: '8px 14px',
-        fontSize: '11px',
-        color: '#c7ddf5',
-        borderBottom: '1px solid #1f3552',
-        background: '#101a2d'
-      }
-    }, `Premium refund: ${Math.round((passMeta.refund.totalRefundPercent || 0) * 100)}% · stars ${Math.round(((passMeta.refund.currencySplit?.stars || 0) * 100))}% · ton ${Math.round(((passMeta.refund.currencySplit?.ton || 0) * 100))}% · ${passMeta.refund.distribution}`),
-
-    xpSources && h('div', { style: { padding: '8px 14px', fontSize: '11px', color: '#8ba1bb' } }, [
-      h('div', { style: { fontWeight: 700, marginBottom: '4px', color: '#c7ddf5' } }, 'Источники XP пасса'),
-      h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-        Object.entries(xpSources).map(([source, amount]) => {
-          const labels = { quest: 'Квесты', minigame: 'Мини-игры', social: 'Соц.', tap: 'Тапы', other: 'Другое' };
-          return h('span', { key: source, style: { background: '#131d33', padding: '3px 8px', borderRadius: '4px', border: '1px solid #1f3552' } }, `${labels[source] || source}: ${amount}`);
-        })
-      )
     ]),
 
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 14px' } },

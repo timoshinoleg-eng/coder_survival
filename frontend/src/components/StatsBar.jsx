@@ -6,7 +6,7 @@ import { adsManager } from "../utils/AdsManager.js";
 import LeaderboardPanel from "./LeaderboardPanel.jsx";
 import ShopPanel from "./ShopPanel.jsx";
 import ReferralPanel from "./ReferralPanel.jsx";
-import DailyQuests from "./DailyQuests.jsx";
+import DailyQuestsPanel from "./DailyQuestsPanel.jsx";
 import DailyBattlePanel from "./DailyBattlePanel.jsx";
 import EventPanel from "./EventPanel.jsx";
 import SprintPassPanel from "./SprintPassPanel.jsx";
@@ -14,14 +14,10 @@ import TeamPanel from "./TeamPanel.jsx";
 import TeamBattle from "./TeamBattle.jsx";
 import MemeGenerator from "./MemeGenerator.jsx";
 import SkinPanel from "./SkinPanel.jsx";
-import MiniGameLauncher from "./MiniGameLauncher.jsx";
+import MiniGameDebug from "./MiniGameDebug.jsx";
 import AudioSettings from "./AudioSettings.jsx";
-import AchievementsPanel from "./AchievementsPanel.jsx";
-import DailySummaryPanel from "./DailySummaryPanel.jsx";
-import GeneratorsPanel from './GeneratorsPanel.jsx';
-import AppealPanel from './AppealPanel.jsx';
 
-export default function StatsBar({ runtimeNow }) {
+export default function StatsBar() {
   const {
     commits,
     energy,
@@ -46,12 +42,6 @@ export default function StatsBar({ runtimeNow }) {
     featureFlags,
     user,
     drinkCoffee,
-    achievements,
-    generatorState,
-    randomEventState,
-    dailyFarm,
-    antiCheat,
-    passiveLocRecovery,
   } = useGameState();
 
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -65,35 +55,9 @@ export default function StatsBar({ runtimeNow }) {
   const [skinOpen, setSkinOpen] = useState(false);
   const [miniGameOpen, setMiniGameOpen] = useState(false);
   const [teamBattleOpen, setTeamBattleOpen] = useState(false);
-  const [achievementsOpen, setAchievementsOpen] = useState(false);
-  const [dailySummaryOpen, setDailySummaryOpen] = useState(false);
-  const [generatorsOpen, setGeneratorsOpen] = useState(false);
-  const [appealOpen, setAppealOpen] = useState(false);
+  const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
   const [adLoading, setAdLoading] = useState(false);
-  const { initData, haptic } = useTelegram();
-  const countdownNowMs = runtimeNow || Date.now();
-
-  const unseenAchievementsCount = useMemo(() => {
-    if (!achievements || achievements.length === 0) return 0;
-    let seen;
-    try {
-      seen = new Set(JSON.parse(localStorage.getItem('cs_seen_achievements') || '[]'));
-    } catch {
-      seen = new Set();
-    }
-    return achievements.filter((a) => a.completed && !seen.has(a.id)).length;
-  }, [achievements]);
-
-  useEffect(() => {
-    if (achievementsOpen && achievements && achievements.length > 0) {
-      const completedIds = achievements.filter((a) => a.completed).map((a) => a.id);
-      try {
-        localStorage.setItem('cs_seen_achievements', JSON.stringify(completedIds));
-      } catch {
-        // Ignore storage errors
-      }
-    }
-  }, [achievementsOpen, achievements]);
+  const { initData } = useTelegram();
 
   const energyPercent =
     maxEnergy > 0 ? Math.round((energy / maxEnergy) * 100) : 0;
@@ -106,6 +70,24 @@ export default function StatsBar({ runtimeNow }) {
 
   const displayRank = rankName || "Junior";
   const displayLevel = levelInRank || 1;
+
+  useEffect(() => {
+    const updateNow = () => setCountdownNowMs(Date.now());
+    updateNow();
+
+    const intervalId = window.setInterval(updateNow, 1000);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        updateNow();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   const levelProgress = useMemo(
     () =>
@@ -127,12 +109,6 @@ export default function StatsBar({ runtimeNow }) {
   }, [displayRank]);
 
   const energyCountdownLabel = useMemo(() => {
-    const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
-    if (productionAlertActive) {
-      const secondsLeft = Math.max(0, Math.ceil((new Date(randomEventState.productionAlertUntil).getTime() - countdownNowMs) / 1000));
-      return `Production Alert: -8 энергии/мин ещё ${secondsLeft}с`;
-    }
-
     if (energy >= maxEnergy) {
       return "Энергия полна";
     }
@@ -174,20 +150,8 @@ export default function StatsBar({ runtimeNow }) {
     progressionUpdatedAt,
     recoveryEtaSeconds,
     recoveryIntervalSeconds,
-    randomEventState?.productionAlertUntil,
     serverClockOffsetMs,
   ]);
-
-  const runtimeModeLabel = useMemo(() => {
-    const hotStreakActive = randomEventState?.hotStreakUntil && new Date(randomEventState.hotStreakUntil).getTime() > countdownNowMs;
-    const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
-    if (hotStreakActive) return { text: '🔥 Hot Streak active: повышенный темп', color: '#4ade80' };
-    if (productionAlertActive) return { text: '🚨 Production Alert active: энергия убывает', color: '#f87171' };
-    return null;
-  }, [countdownNowMs, randomEventState?.hotStreakUntil, randomEventState?.productionAlertUntil]);
-
-  const hotStreakActive = randomEventState?.hotStreakUntil && new Date(randomEventState.hotStreakUntil).getTime() > countdownNowMs;
-  const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
 
   const handleWatchAd = useCallback(async () => {
     if (adLoading || energy >= maxEnergy) return;
@@ -207,10 +171,11 @@ export default function StatsBar({ runtimeNow }) {
   return h(
     "div",
     {
-      className: "pixel-panel",
       style: {
         position: "relative",
         zIndex: 10,
+        background: "linear-gradient(180deg, #0f1b30 0%, #16213e 100%)",
+        borderBottom: "1px solid #1a3a5c",
         padding: "10px 14px",
         display: "flex",
         flexDirection: "column",
@@ -218,7 +183,7 @@ export default function StatsBar({ runtimeNow }) {
         fontSize: "12px",
         color: "#e0e0e0",
         userSelect: "none",
-        fontFamily: "'Press Start 2P', 'Courier New', monospace",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
       },
     },
     [
@@ -252,11 +217,16 @@ export default function StatsBar({ runtimeNow }) {
               h(
                 "span",
                 {
-                  className: "pixel-badge",
                   style: {
                     background: rankBadgeGradient,
-                    fontSize: "9px",
-                    padding: "4px 8px",
+                    color: "#fff",
+                    padding: "3px 10px",
+                    borderRadius: "12px",
+                    fontSize: "11px",
+                    fontWeight: "bold",
+                    letterSpacing: "0.5px",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    textShadow: "0 1px 2px rgba(0,0,0,0.3)",
                   },
                 },
                 displayRank.toUpperCase(),
@@ -281,23 +251,6 @@ export default function StatsBar({ runtimeNow }) {
                     ),
                   ],
                 ),
-              antiCheat?.banScore >= 20 &&
-                h(
-                  "span",
-                  {
-                    style: {
-                      fontSize: "10px",
-                      color: antiCheat.banScore >= 50 ? "#fda4af" : "#fde68a",
-                      border: `1px solid ${antiCheat.banScore >= 50 ? '#ef4444' : '#f59e0b'}`,
-                      padding: "3px 6px",
-                      background: antiCheat.banScore >= 50 ? "#3f1a1a" : "#3b2f10",
-                    },
-                    title: antiCheat.appealAvailable
-                      ? `Anti-cheat: ${antiCheat.sanctionTier}. Appeal: ${antiCheat.appealLocation}`
-                      : `Anti-cheat: ${antiCheat.sanctionTier}`,
-                  },
-                  antiCheat.appealAvailable ? `⚠ ${antiCheat.banScore}` : `! ${antiCheat.banScore}`,
-                ),
             ],
           ),
           h(
@@ -308,19 +261,14 @@ export default function StatsBar({ runtimeNow }) {
                 h(
                   "div",
                   {
-                  style: {
-                    fontWeight: "bold",
-                    color: hotStreakActive ? "#facc15" : "#4ade80",
-                    fontSize: "13px",
+                    style: {
+                      fontWeight: "bold",
+                      color: "#4ade80",
+                      fontSize: "13px",
+                    },
                   },
-                },
-                `${commits}`,
-              ),
-              hotStreakActive && h(
-                "div",
-                { style: { fontSize: "10px", color: "#facc15" } },
-                'Hot Streak',
-              ),
+                  `${commits}`,
+                ),
                 h(
                   "div",
                   { style: { fontSize: "10px", color: "#8ba1bb" } },
@@ -332,9 +280,15 @@ export default function StatsBar({ runtimeNow }) {
                   "button",
                   {
                     onClick: () => setQuestsOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: daily?.claimable ? "#1a3a5c" : "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                       animation: daily?.claimable
                         ? "pulse 1.6s infinite"
                         : "none",
@@ -347,9 +301,16 @@ export default function StatsBar({ runtimeNow }) {
                   "button",
                   {
                     onClick: () => setShopOpen(true),
-                    className: isLowEnergy ? "pixel-button pixel-button--danger" : "pixel-button",
                     style: {
-                      background: isLowEnergy || isHighStress ? "#1a3a5c" : "#122642",
+                      border: "1px solid #30527e",
+                      background:
+                        isLowEnergy || isHighStress ? "#1a3a5c" : "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                       animation: isLowEnergy ? "pulse 1.6s infinite" : "none",
                     },
                   },
@@ -358,21 +319,16 @@ export default function StatsBar({ runtimeNow }) {
                 h(
                   "button",
                   {
-                    onClick: () => setGeneratorsOpen(true),
-                    className: "pixel-button",
-                    style: {
-                      background: generatorState?.passiveLocPerSecond > 0 ? "#163255" : "#122642",
-                    },
-                  },
-                  "⚙",
-                ),
-                h(
-                  "button",
-                  {
                     onClick: () => setReferralOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "🔗",
@@ -381,9 +337,15 @@ export default function StatsBar({ runtimeNow }) {
                   "button",
                   {
                     onClick: () => setBattleOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "⚔️",
@@ -391,21 +353,16 @@ export default function StatsBar({ runtimeNow }) {
                 h(
                   "button",
                   {
-                    onClick: () => setDailySummaryOpen(true),
-                    className: "pixel-button",
-                    style: {
-                      background: "#122642",
-                    },
-                  },
-                  "🏆",
-                ),
-                h(
-                  "button",
-                  {
                     onClick: () => setEventOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "⚡",
@@ -414,9 +371,15 @@ export default function StatsBar({ runtimeNow }) {
                   "button",
                   {
                     onClick: () => setPassOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "🎯",
@@ -424,43 +387,16 @@ export default function StatsBar({ runtimeNow }) {
                 h(
                   "button",
                   {
-                    onClick: () => setAchievementsOpen(true),
-                    className: "pixel-button",
-                    style: {
-                      background: "#122642",
-                      position: "relative",
-                    },
-                  },
-                  [
-                    "🎖️",
-                    unseenAchievementsCount > 0 && h('span', {
-                      key: 'badge',
-                      style: {
-                        position: 'absolute',
-                        top: '-4px',
-                        right: '-4px',
-                        minWidth: '16px',
-                        height: '16px',
-                        borderRadius: '50%',
-                        background: '#ef4444',
-                        color: '#fff',
-                        fontSize: '10px',
-                        fontWeight: 800,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '0 3px',
-                      },
-                    }, unseenAchievementsCount),
-                  ]
-                ),
-                h(
-                  "button",
-                  {
                     onClick: () => setTeamOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "👥",
@@ -469,9 +405,15 @@ export default function StatsBar({ runtimeNow }) {
                   "button",
                   {
                     onClick: () => setTeamBattleOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "🛡️",
@@ -480,9 +422,15 @@ export default function StatsBar({ runtimeNow }) {
                   "button",
                   {
                     onClick: () => setLeaderboardOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "🏆",
@@ -490,10 +438,16 @@ export default function StatsBar({ runtimeNow }) {
                 h(
                   "button",
                   {
-                    onClick: () => { haptic('light'); setMemeOpen(true); },
-                    className: "pixel-button",
+                    onClick: () => setMemeOpen(true),
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "🎨",
@@ -502,9 +456,15 @@ export default function StatsBar({ runtimeNow }) {
                   "button",
                   {
                     onClick: () => setSkinOpen(true),
-                    className: "pixel-button",
                     style: {
+                      border: "1px solid #30527e",
                       background: "#122642",
+                      color: "#dce9f9",
+                      borderRadius: "8px",
+                      padding: "5px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
                     },
                   },
                   "🎭",
@@ -527,19 +487,6 @@ export default function StatsBar({ runtimeNow }) {
                       }
                     },
                     '🐛'
-                  ),
-                antiCheat?.banScore >= 20 &&
-                  h(
-                    "button",
-                    {
-                      onClick: () => setAppealOpen(true),
-                      className: "pixel-button",
-                      style: {
-                        background: antiCheat.appealAvailable ? "#3f1a1a" : "#3b2f10",
-                        color: antiCheat.appealAvailable ? "#fda4af" : "#fde68a",
-                      },
-                    },
-                    antiCheat.appealAvailable ? '📝' : '⚠️',
                   ),
                 h(
                   "div",
@@ -575,7 +522,7 @@ export default function StatsBar({ runtimeNow }) {
                 flex: 1,
                 height: "6px",
                 background: "#0f3460",
-                borderRadius: "0",
+                borderRadius: "3px",
                 overflow: "hidden",
               },
             },
@@ -603,43 +550,6 @@ export default function StatsBar({ runtimeNow }) {
         ],
       ),
 
-      generatorState && h(
-        "div",
-        {
-          style: {
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "10px",
-            fontSize: "11px",
-            color: "#8ba1bb",
-            borderTop: "1px solid #17304f",
-            paddingTop: "6px",
-          },
-        },
-        [
-          h("span", { style: { color: "#60a5fa" } }, `⚙ ${generatorState.passiveLocPerSecond || 0} LOC/сек`),
-          h("span", null, `FTUE: ${generatorState.ftueAcceleration?.id || 'after_60min'}`),
-          dailyFarm?.avgDailyFarm ? h("span", { style: { color: "#8ba1bb" } }, `Ø ${dailyFarm.avgDailyFarm}/день`) : null,
-          passiveLocRecovery?.locEarned
-            ? h("span", { style: { color: "#4ade80" } }, `+${passiveLocRecovery.locEarned} offline`)
-            : null,
-        ],
-      ),
-
-      runtimeModeLabel && h(
-        "div",
-        {
-          style: {
-            fontSize: "11px",
-            color: runtimeModeLabel.color,
-            borderTop: "1px solid #17304f",
-            paddingTop: "6px",
-          },
-        },
-        runtimeModeLabel.text,
-      ),
-
       // Energy bar
       h(
         "div",
@@ -665,7 +575,7 @@ export default function StatsBar({ runtimeNow }) {
                 flex: 1,
                 height: "8px",
                 background: "#0f3460",
-                borderRadius: "0",
+                borderRadius: "4px",
                 overflow: "hidden",
               },
             },
@@ -673,7 +583,7 @@ export default function StatsBar({ runtimeNow }) {
               style: {
                 width: `${energyPercent}%`,
                 height: "100%",
-                background: productionAlertActive ? '#f87171' : energyColor,
+                background: energyColor,
                 transition: "width 0.25s ease, background 0.3s ease",
                 boxShadow: isLowEnergy
                   ? "0 0 10px rgba(239,68,68,0.55)"
@@ -742,7 +652,7 @@ export default function StatsBar({ runtimeNow }) {
                 flex: 1,
                 height: "8px",
                 background: "#0f3460",
-                borderRadius: "0",
+                borderRadius: "4px",
                 overflow: "hidden",
               },
             },
@@ -902,13 +812,15 @@ export default function StatsBar({ runtimeNow }) {
         h(
           "div",
           {
-            className: "pixel-toast pixel-fade-in",
             style: {
               marginTop: "4px",
               padding: "8px 12px",
-              fontSize: "10px",
+              borderRadius: "8px",
+              fontSize: "12px",
               fontWeight: 600,
               textAlign: "center",
+              animation: "fade-in-up 0.25s ease-out",
+              border: "1px solid rgba(255,255,255,0.1)",
               ...(toast.type === "success"
                 ? {
                     background: "linear-gradient(90deg, #1a3f25, #2d5a3e)",
@@ -932,8 +844,7 @@ export default function StatsBar({ runtimeNow }) {
         open: leaderboardOpen,
         onClose: () => setLeaderboardOpen(false),
       }),
-      h(DailyQuests, {
-        modal: true,
+      h(DailyQuestsPanel, {
         open: questsOpen,
         onClose: () => setQuestsOpen(false),
       }),
@@ -970,27 +881,11 @@ export default function StatsBar({ runtimeNow }) {
         open: skinOpen,
         onClose: () => setSkinOpen(false),
       }),
-      h(AchievementsPanel, {
-        open: achievementsOpen,
-        onClose: () => setAchievementsOpen(false),
-      }),
-      h(GeneratorsPanel, {
-        open: generatorsOpen,
-        onClose: () => setGeneratorsOpen(false),
-      }),
-      h(AppealPanel, {
-        open: appealOpen,
-        onClose: () => setAppealOpen(false),
-      }),
-      h(DailySummaryPanel, {
-        open: dailySummaryOpen,
-        onClose: () => setDailySummaryOpen(false),
-      }),
       featureFlags?.minigameEnabled === true &&
-        h(MiniGameLauncher, {
+        h(MiniGameDebug, {
           open: miniGameOpen,
           onClose: () => setMiniGameOpen(false),
         }),
-  ],
+    ],
   );
 }

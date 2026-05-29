@@ -9,13 +9,10 @@ import { dirname, join } from "path";
 import { initDataMiddleware } from "./middleware/initData.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
-import { startBalanceAuditJob } from "./jobs/balanceAudit.js";
-import { buildDatabaseUrl, shouldExitOnUnexpectedDbError } from "./config/database.js";
 import tapRouter from "./routes/tap.js";
 import stateRouter from "./routes/state.js";
 import buyRouter from "./routes/buy.js";
 import leaderboardRouter from "./routes/leaderboard.js";
-import generatorsRouter from './routes/generators.js';
 import referralRouter from "./routes/referral.js";
 import internalPaymentsRouter from "./routes/internalPayments.js";
 import internalObservationRouter from "./routes/internalObservation.js";
@@ -36,13 +33,6 @@ import onboardingRouter from "./routes/onboarding.js";
 import streakRouter from "./routes/streak.js";
 import rewardedVideoRouter from "./routes/rewardedVideo.js";
 import teamHackathonRouter from "./routes/teamHackathon.js";
-import memeRouter from "./routes/meme.js";
-import achievementsRouter from "./routes/achievements.js";
-import appealRouter from './routes/appeal.js';
-import minigameRouter from "./routes/minigame.js";
-import dailySummaryRouter from "./routes/dailySummary.js";
-import { startDailySummaryCron } from "./jobs/dailySummaryCron.js";
-import { startTeamHackathonCron } from "./jobs/teamHackathonCron.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -52,14 +42,15 @@ const { Pool } = pg;
 
 // --- Конфигурация ---
 const PORT = process.env.PORT || 3000;
-const DATABASE_URL = buildDatabaseUrl(process.env);
+const DATABASE_URL =
+  (process.env.NODE_ENV === "test" ? process.env.TEST_DATABASE_URL : null) ||
+  process.env.TEST_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  `postgresql://${process.env.DB_USER}:${process.env.DB_PASS}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
 
 // --- Пул соединений PostgreSQL ---
 export const pool = new Pool({
   connectionString: DATABASE_URL,
-  max: Number(process.env.DB_POOL_MAX || 50),
-  connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 5000),
-  idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS || 30000),
   ssl:
     process.env.NODE_ENV === "production"
       ? { rejectUnauthorized: false }
@@ -67,9 +58,7 @@ export const pool = new Pool({
 });
 pool.on("error", (err) => {
   console.error("Unexpected DB error:", err);
-  if (shouldExitOnUnexpectedDbError(process.env)) {
-    process.exit(-1);
-  }
+  process.exit(-1);
 });
 
 // --- Express app ---
@@ -83,10 +72,10 @@ app.use(express.json());
 
 // Health check
 app.get("/health", async (req, res) => {
-  let client;
   try {
-    client = await pool.connect();
+    const client = await pool.connect();
     await client.query("SELECT 1");
+    client.release();
     res.json({
       status: "ok",
       db: "connected",
@@ -96,10 +85,6 @@ app.get("/health", async (req, res) => {
     res
       .status(503)
       .json({ status: "error", db: "disconnected", error: err.message });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 
@@ -119,7 +104,6 @@ app.use(
   leaderboardRouter,
 );
 app.use("/api/referral", initDataMiddleware, referralRouter);
-app.use('/api/generators', initDataMiddleware, generatorsRouter);
 app.use("/api/internal/payments", internalPaymentsRouter);
 app.use("/api/internal/observation", internalObservationRouter);
 app.use("/api/player/level", initDataMiddleware, playerLevelRouter);
@@ -142,28 +126,13 @@ app.use("/api/pass", initDataMiddleware, passRouter);
 app.use("/api/team", initDataMiddleware, teamRouter);
 app.use("/api/team/hackathon", initDataMiddleware, teamHackathonRouter);
 app.use("/api/offers", initDataMiddleware, offersRouter);
-app.use(
-  "/api/rewards",
-  (req, res, next) => {
-    if (req.path === '/adsgram_callback' || req.path === '/propeller_callback') {
-      req.telegramUser = null;
-      return next();
-    }
-    return initDataMiddleware(req, res, next);
-  },
-  rewardsRouter,
-);
+app.use("/api/rewards", initDataMiddleware, rewardsRouter);
 app.use("/api/coffee", initDataMiddleware, coffeeRouter);
 app.use("/api/team-battle", initDataMiddleware, teamBattleRouter);
 app.use("/api/skins", initDataMiddleware, skinsRouter);
 app.use("/api/onboarding", initDataMiddleware, onboardingRouter);
 app.use("/api/streak", initDataMiddleware, streakRouter);
 app.use("/api/rewarded-video", initDataMiddleware, rewardedVideoRouter);
-app.use("/api/meme", initDataMiddleware, memeRouter);
-app.use("/api/achievements", initDataMiddleware, achievementsRouter);
-app.use('/api/appeal', initDataMiddleware, appealRouter);
-app.use("/api/minigame", initDataMiddleware, minigameRouter);
-app.use("/api/daily-summary", initDataMiddleware, dailySummaryRouter);
 
 // Error handler
 app.use(errorHandler);
@@ -197,7 +166,4 @@ if (isEntrypoint) {
     console.log(`Coder Survival API running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });
-  startBalanceAuditJob();
-  startDailySummaryCron();
-  startTeamHackathonCron();
 }

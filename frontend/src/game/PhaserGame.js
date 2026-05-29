@@ -16,14 +16,13 @@ export default function PhaserGame({ onReady }) {
     const height = container.clientHeight || 600;
 
     const config = {
-      type: Phaser.CANVAS,
+      type: Phaser.AUTO,
       width,
       height,
       parent: container,
       backgroundColor: '#1a1a2e',
       pixelArt: true,
-      antialias: false,
-      roundPixels: true,
+      roundPixels: false,
       scale: {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH

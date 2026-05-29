@@ -2,12 +2,12 @@ import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { buildDatabaseUrl } from './config/database.js';
 
 const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const DATABASE_URL = buildDatabaseUrl(process.env);
+const DATABASE_URL = process.env.DATABASE_URL || 
+  `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASS || 'postgres'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'coder_survival'}`;
 
 const pool = new Pool({
   connectionString: DATABASE_URL,

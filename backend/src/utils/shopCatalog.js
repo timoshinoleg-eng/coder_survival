@@ -7,17 +7,6 @@ export const PRODUCT_CATALOG = {
     icon: '⚡',
     category: 'energy'
   },
-  coffee_break: {
-    id: 'coffee_break',
-    name: 'Кофе-брейк',
-    description: '+50 энергии и снижает стресс на 10 пунктов',
-    stars: 25,
-    effect: 'restore_50_energy_and_reduce_10_stress',
-    first_purchase_bonus: true,
-    position: 'between_10_and_40',
-    icon: '☕',
-    category: 'bundle'
-  },
   depression_cure: {
     id: 'depression_cure',
     name: 'Терапия',
@@ -41,24 +30,6 @@ export const PRODUCT_CATALOG = {
     stars: 200,
     icon: '🎟️',
     category: 'pass'
-  },
-  streak_saver: {
-    id: 'streak_saver',
-    name: 'Экстренный кофе',
-    description: 'Сохраняет стрик, если день уже почти потерян',
-    stars: 1,
-    effect: 'preserve_streak_next_missed_day',
-    discountPercent: 90,
-    icon: '🛟',
-    category: 'streak'
-  },
-  office_cat: {
-    id: 'office_cat',
-    name: 'Офисный кот',
-    description: '-10 депрессии каждые 5 минут',
-    stars: 100,
-    icon: '🐱',
-    category: 'skin'
   }
 };
 

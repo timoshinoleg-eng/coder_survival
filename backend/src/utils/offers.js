@@ -96,8 +96,8 @@ function matchesOfferSignals(offerType, signals) {
   switch (offerType) {
     case 'low_energy':
       return energyPercent <= CONTEXT_OFFER_RULES.low_energy.energyPercentThreshold;
-    case 'stress_warning': {
-      const threshold = stressV2 ? 20 : CONTEXT_OFFER_RULES.stress_warning.depressionThreshold;
+    case 'high_stress': {
+      const threshold = stressV2 ? 20 : CONTEXT_OFFER_RULES.high_stress.depressionThreshold;
       return depression >= threshold;
     }
     case 'near_rank':

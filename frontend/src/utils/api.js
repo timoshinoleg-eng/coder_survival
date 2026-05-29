@@ -33,7 +33,15 @@ export async function apiRequest(path, { method = 'GET', body, initData } = {}) 
   });
 
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : null;
+  let payload = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch (e) {
+      console.error('API returned non-JSON:', text.substring(0, 200));
+      payload = null;
+    }
+  }
 
   if (!response.ok) {
     throw new ApiError(payload?.error || response.statusText, response.status, payload);

@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { DEPRESSION_SCALE, STAGE2 } from '../config/balance.js';
+import { STAGE2 } from '../config/balance.js';
 import { addPassXp } from '../utils/pass.js';
-import { processDailyLogin, starRecover, calculateRecoveryCost, shouldOfferStreakSaver } from '../utils/streak.js';
-import { getProductById } from '../utils/shopCatalog.js';
+import { processDailyLogin } from '../utils/streak.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
 
 const router = Router();
@@ -65,9 +64,6 @@ function normalizeStreakState(streakState = {}) {
     currentStreak: Number(streakState.currentStreak || 0),
     maxStreak: Number(streakState.maxStreak || 0),
     lastLoginDate: streakState.lastLoginDate || null,
-    brokenStreak: streakState.brokenStreak != null ? Number(streakState.brokenStreak) : null,
-    lastStreakSaveTimestamp: streakState.lastStreakSaveTimestamp || null,
-    saverArmedForDate: streakState.saverArmedForDate || null,
     protection: normalizeProtection(streakState.protection)
   };
 }
@@ -135,45 +131,21 @@ router.get('/', async (req, res) => {
     const today = getTodayDate(timezoneOffset);
     const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
     const result = await client.query(
-      `SELECT streak_state, energy
+      `SELECT streak_state
        FROM progression
        WHERE user_id = $1`,
       [userId]
     );
     const streakState = normalizeStreakState(result.rows[0]?.streak_state || {});
-    const energy = Number(result.rows[0]?.energy || 0);
-
-    const loggedInToday = streakState.lastLoginDate === today;
-    const recoveryCost = calculateRecoveryCost(streakState.protection?.starSavesUsed || 0);
-    const canRecover = !loggedInToday && (streakState.brokenStreak != null);
-
-    const streakSaverOffer = shouldOfferStreakSaver({
-      streakState,
-      energy,
-      todayDate: today,
-      now: new Date()
-    })
-      ? {
-          type: 'streak_saver',
-          productId: 'streak_saver',
-          stars: getProductById('streak_saver')?.stars ?? 1,
-          discountPercent: STAGE2.STREAK.SAVER.discountPercent,
-          body: `Твой стрик ${streakState.currentStreak} дней сгорит через 2 часа! Купи 'Экстренный кофе' за 1⭐ (скидка 90%), чтобы сохранить его.`
-        }
-      : null;
 
     return res.json({
       currentStreak: streakState.currentStreak,
       maxStreak: streakState.maxStreak,
       lastLoginDate: streakState.lastLoginDate,
-      loggedInToday,
+      loggedInToday: streakState.lastLoginDate === today,
       calendar: getCalendar(streakState, today),
       protection: streakState.protection,
-      nextMilestone: STAGE2.STREAK.MILESTONES[streakState.currentStreak + 1] || null,
-      brokenStreak: streakState.brokenStreak || null,
-      recoveryCost,
-      canRecover,
-      streakSaverOffer
+      nextMilestone: STAGE2.STREAK.MILESTONES[streakState.currentStreak + 1] || null
     });
   } catch (err) {
     console.error('Streak GET error:', err);
@@ -238,7 +210,7 @@ router.post('/claim', async (req, res) => {
            pass_state = $3,
            energy = LEAST($4, energy + $5),
            depression_level = GREATEST(0, depression_level - $6),
-            is_burnout = GREATEST(0, depression_level - $6) >= $8,
+           is_burnout = GREATEST(0, depression_level - $6) >= 100,
            inventory = $7
        WHERE user_id = $1`,
       [
@@ -248,8 +220,7 @@ router.post('/claim', async (req, res) => {
         levelRow.resolved.maxEnergy,
         Number(rewards.energy || 0),
         Number(rewards.depressionRelief || 0),
-        JSON.stringify(inventory),
-        DEPRESSION_SCALE.HEART_ATTACK_THRESHOLD
+        JSON.stringify(inventory)
       ]
     );
 
@@ -267,85 +238,6 @@ router.post('/claim', async (req, res) => {
   } catch (err) {
     if (client) await client.query('ROLLBACK');
     console.error('Streak claim error:', err);
-    return res.status(500).json({ error: 'Технический сбой' });
-  } finally {
-    if (client) client.release();
-  }
-});
-
-router.post('/recover', async (req, res) => {
-  const telegramUser = req.telegramUser?.user;
-  if (!telegramUser) {
-    return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
-  }
-
-  let client;
-  try {
-    client = await pool.connect();
-    await client.query('BEGIN');
-
-    const timezoneOffset = getTimezoneOffset(req);
-    const today = getTodayDate(timezoneOffset);
-    const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
-
-    const progressionResult = await client.query(
-      `SELECT streak_state, inventory
-       FROM progression
-       WHERE user_id = $1
-       FOR UPDATE`,
-      [userId]
-    );
-    const progression = progressionResult.rows[0] || {};
-    const streakState = normalizeStreakState(progression.streak_state || {});
-    const inventory = progression.inventory || {};
-
-    if (streakState.lastLoginDate === today) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Сегодня уже заходил — восстановление не нужно' });
-    }
-
-    if (streakState.brokenStreak == null) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Серия не прервана — восстановление не нужно' });
-    }
-
-    const starsAvailable = Number(inventory.stars || 0);
-    const recovery = starRecover(streakState, today, starsAvailable);
-
-    if (!recovery.success) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({
-        error: recovery.reason === 'not_enough_stars'
-          ? 'Не хватает Stars'
-          : recovery.reason === 'not_broken'
-            ? 'Серия не прервана'
-            : 'Восстановление невозможно',
-        reason: recovery.reason,
-        cost: recovery.cost
-      });
-    }
-
-    const newInventory = { ...inventory, stars: starsAvailable - recovery.cost };
-    await client.query(
-      `UPDATE progression
-       SET streak_state = $2,
-           inventory = $3
-       WHERE user_id = $1`,
-      [userId, JSON.stringify(recovery.newState), JSON.stringify(newInventory)]
-    );
-
-    await client.query('COMMIT');
-
-    return res.json({
-      success: true,
-      currentStreak: recovery.newState.currentStreak,
-      cost: recovery.cost,
-      remainingStars: newInventory.stars,
-      calendar: getCalendar(recovery.newState, today)
-    });
-  } catch (err) {
-    if (client) await client.query('ROLLBACK');
-    console.error('Streak recover error:', err);
     return res.status(500).json({ error: 'Технический сбой' });
   } finally {
     if (client) client.release();

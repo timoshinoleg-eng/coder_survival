@@ -3,14 +3,12 @@ import { useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 
 export default function RewardedVideo() {
-  const { energy, maxEnergy, rewardedVideo, antiCheat, completeRewardedVideo, showToast } = useGameState();
+  const { energy, maxEnergy, rewardedVideo, completeRewardedVideo, showToast } = useGameState();
   const [waiting, setWaiting] = useState(false);
   const threshold = maxEnergy * 0.2;
   const remaining = rewardedVideo?.remainingToday ?? 0;
-  const dailyLimit = rewardedVideo?.dailyLimit ?? 5;
-  const adAvailability = rewardedVideo?.adAvailability || null;
 
-  if (energy > threshold || (remaining <= 0 && adAvailability?.allowed !== false)) return null;
+  if (energy > threshold || remaining <= 0) return null;
 
   async function handleClick() {
     if (waiting) return;
@@ -42,22 +40,7 @@ export default function RewardedVideo() {
       justifyContent: 'center',
       pointerEvents: 'none',
     },
-  }, adAvailability?.allowed === false ? h('div', {
-    style: {
-      pointerEvents: 'auto',
-      minHeight: '48px',
-      border: '1px solid #f59e0b',
-      borderRadius: '8px',
-      background: '#2d2a1a',
-      color: '#fde68a',
-      padding: '8px 14px',
-      fontWeight: 900,
-      boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
-      textAlign: 'center',
-    },
-  }, adAvailability.reason === 'ftue_ads_blocked'
-    ? '☕ Реклама откроется после первых 30 минут FTUE'
-    : '☕ В FTUE доступен только 1 рекламный просмотр') : h('button', {
+  }, h('button', {
     type: 'button',
     onClick: handleClick,
     disabled: waiting,
@@ -73,12 +56,9 @@ export default function RewardedVideo() {
       boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
     },
   }, [
-    h('div', null, waiting ? '☕ Перерыв...' : '☕ Кофе-брейк (энергия за рекламу)'),
+    h('div', null, waiting ? '☕ Перерыв...' : '☕ Кофе-брейк (+50% энергии)'),
     h('div', { style: { fontSize: '11px', color: '#fde68a', marginTop: '2px' } },
-      `Осталось: ${remaining}/${dailyLimit}`
-    ),
-    antiCheat?.banScore >= 20 && h('div', { style: { fontSize: '10px', color: '#fca5a5', marginTop: '2px' } },
-      `Anti-cheat tier ${antiCheat.sanctionTier}: награда сейчас снижена`
+      `Осталось: ${remaining}/3`
     ),
   ]));
 }

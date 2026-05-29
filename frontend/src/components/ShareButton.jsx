@@ -15,8 +15,6 @@ const TEMPLATE_ASPECT = {
   manager_npc: '1:1'
 };
 
-const DEPRESSION_MAX = 200;
-
 function canvasToBlob(canvas) {
   return new Promise((resolve, reject) => {
     const fallbackToJpeg = () => {
@@ -84,12 +82,11 @@ export function generateShareCard(templateId, data = {}) {
   const y = aspect === '9:16' ? 520 : 360;
 
   if (templateId === 'depression_scale') {
-    const depression = Math.max(0, Math.min(DEPRESSION_MAX, Number(data.depression || 0)));
-    ctx.fillText(`Моя депрессия: ${depression}/200`, 90, y);
+    ctx.fillText(`Моя депрессия: ${data.depression ?? 0}/100`, 90, y);
     ctx.fillStyle = '#263852';
     ctx.fillRect(90, y + 70, canvas.width - 180, 48);
     ctx.fillStyle = '#f87171';
-    ctx.fillRect(90, y + 70, (canvas.width - 180) * depression / DEPRESSION_MAX, 48);
+    ctx.fillRect(90, y + 70, (canvas.width - 180) * Math.min(100, data.depression ?? 0) / 100, 48);
   } else if (templateId === 'burnout_badge') {
     ctx.fillStyle = '#f97316';
     ctx.fillText('ACHIEVEMENT UNLOCKED', 90, y);
@@ -124,7 +121,7 @@ export default function ShareButton() {
   const template = useMemo(() => {
     if (game.critTier === 'gold') return 'crit_gold';
     if (game.isBurnout) return 'burnout_badge';
-    if (game.depression > 150) return 'depression_coffee';
+    if (game.depression > 75) return 'depression_coffee';
     if (game.teamHackathon?.progressPercent >= 50) return 'hackathon_result';
     return null;
   }, [game.critTier, game.depression, game.isBurnout, game.teamHackathon?.progressPercent]);

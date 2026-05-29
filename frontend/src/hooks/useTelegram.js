@@ -15,8 +15,6 @@ export function TelegramProvider({ children }) {
       } catch (e) {
         // Ignore haptic errors
       }
-    } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(type === 'light' ? 10 : type === 'medium' ? 15 : 20);
     }
   }, [tg]);
 

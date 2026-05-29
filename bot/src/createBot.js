@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard, InputFile } from 'grammy';
+import { Bot, InlineKeyboard } from 'grammy';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://frontend-ashy-alpha-77.vercel.app';
@@ -37,7 +37,6 @@ export function createBot() {
         '4. Соревнуйся с другими программистами.\n\n' +
         'Команды:\n' +
         '/start — открыть игру\n' +
-        '/meme — сгенерировать мем\n' +
         '/leaderboard — топ игроков\n' +
         '/help — помощь'
     );
@@ -67,108 +66,6 @@ export function createBot() {
     } catch (error) {
       console.error(error);
       await ctx.reply('Не удалось загрузить leaderboard. Попробуй позже.');
-    }
-  });
-
-  bot.command('bindchat', async (ctx) => {
-    const chat = ctx.chat;
-    const from = ctx.from;
-    if (!chat || !from) {
-      await ctx.reply('Не удалось определить чат или пользователя.');
-      return;
-    }
-    if (chat.type === 'private') {
-      await ctx.reply('Эту команду нужно отправить в рабочий групповой чат.');
-      return;
-    }
-    if (!BOT_BACKEND_SECRET) {
-      await ctx.reply('Секрет бота не настроен.');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_URL}/api/daily-summary/internal/bind-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Bot-Backend-Secret': BOT_BACKEND_SECRET
-        },
-        body: JSON.stringify({ chatId: chat.id, telegramUserId: from.id })
-      });
-
-      if (response.ok) {
-        await ctx.reply('✅ Рабочий чат привязан. Ежедневная битва будет публиковаться здесь в 18:00 UTC.');
-      } else {
-        const text = await response.text();
-        console.error('bindchat error:', response.status, text);
-        await ctx.reply('Не удалось привязать чат. Попробуй позже.');
-      }
-    } catch (err) {
-      console.error('bindchat exception:', err);
-      await ctx.reply('Ошибка при привязке чата.');
-    }
-  });
-
-  bot.command('meme', async (ctx) => {
-    const keyboard = new InlineKeyboard()
-      .text('Works on my machine', 'meme_template:works_on_my_machine')
-      .text('Deploy on Friday', 'meme_template:deploy_friday')
-      .row()
-      .text('This is fine', 'meme_template:this_is_fine')
-      .text('WTF/min', 'meme_template:wtf_per_minute')
-      .row()
-      .text('Stack Overflow', 'meme_template:stack_overflow');
-    await ctx.reply('Выбери шаблон мема:', { reply_markup: keyboard });
-  });
-
-  bot.callbackQuery(/^meme_template:(.+)$/, async (ctx) => {
-    const templateId = ctx.match[1];
-    const userId = ctx.from?.id;
-    if (!userId) {
-      await ctx.answerCallbackQuery('Не удалось определить пользователя');
-      return;
-    }
-    if (!BOT_BACKEND_SECRET) {
-      await ctx.answerCallbackQuery('Секрет бота не настроен');
-      return;
-    }
-
-    // Generate a short-lived signed token for public image access
-    try {
-      const tokenRes = await fetch(`${API_URL}/api/meme/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, templateId, format: '1:1' }),
-      });
-      if (!tokenRes.ok) throw new Error('Token request failed');
-      const { token } = await tokenRes.json();
-      const photoUrl = `${API_URL}/api/meme/public/${token}`;
-      const playKeyboard = new InlineKeyboard().webApp('Играть в Coder Survival', WEBAPP_URL);
-      await ctx.replyWithPhoto(photoUrl, {
-        caption: `Coder Survival — ${templateId.replace(/_/g, ' ')}\nА ты сколько накодил? 👇`,
-        reply_markup: playKeyboard,
-      });
-      await ctx.answerCallbackQuery();
-    } catch (err) {
-      console.error('Meme share error:', err);
-      await ctx.answerCallbackQuery('Не удалось сгенерировать мем. Попробуй позже.');
-    }
-  });
-
-  bot.command('deadline', async (ctx) => {
-    try {
-      const response = await fetch(`${API_URL}/api/meme/gif/deadline`, {
-        method: 'GET',
-        headers: { 'X-Bot-Backend-Secret': BOT_BACKEND_SECRET }
-      });
-      if (!response.ok) throw new Error('GIF generation failed');
-      const buffer = Buffer.from(await response.arrayBuffer());
-      await ctx.replyWithAnimation(new InputFile(buffer, 'deadline.gif'), {
-        caption: 'Менеджер не дремлет. +1 дедлайн! 📅'
-      });
-    } catch (err) {
-      console.error('Deadline GIF error:', err);
-      await ctx.reply('GIF генератор временно недоступен. Попробуй позже.');
     }
   });
 

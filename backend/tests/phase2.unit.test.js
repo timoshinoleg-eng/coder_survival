@@ -140,7 +140,7 @@ describeIfDb("phase2 unit coverage", () => {
   });
 
   test("burnout remains a soft progression state", () => {
-    const progression = { depression_level: 200 };
-    expect(progression.depression_level >= 200).toBe(true);
+    const progression = { depression_level: 100 };
+    expect(progression.depression_level >= 100).toBe(true);
   });
 });
