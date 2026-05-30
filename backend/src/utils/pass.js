@@ -1,5 +1,6 @@
 import { applyReward } from './rewards.js';
 import { STAGE2 } from '../config/balance.js';
+import { getProductById } from './shopCatalog.js';
 
 const { PASS } = STAGE2;
 
@@ -269,22 +270,19 @@ export async function claimPassReward(client, userId, level, track) {
     return { error: 'Premium not purchased', status: 403 };
   }
 
-  const existing = await client.query(
-    `SELECT 1 FROM pass_claims WHERE user_id = $1 AND pass_id = $2 AND level = $3 AND track = $4`,
+  const payload = track === 'premium' ? rewardDef.premium_reward_payload : rewardDef.free_reward_payload;
+  const claimResult = await client.query(
+    `INSERT INTO pass_claims (user_id, pass_id, level, track)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, pass_id, level, track) DO NOTHING
+     RETURNING id`,
     [userId, pass.id, level, track]
   );
-  if (existing.rows.length > 0) {
+  if (claimResult.rows.length === 0) {
     return { error: 'Already claimed', status: 409 };
   }
 
-  const payload = track === 'premium' ? rewardDef.premium_reward_payload : rewardDef.free_reward_payload;
   const rewardResult = await applyReward(client, userId, payload);
-
-  await client.query(
-    `INSERT INTO pass_claims (user_id, pass_id, level, track)
-     VALUES ($1, $2, $3, $4)`,
-    [userId, pass.id, level, track]
-  );
 
   // Audit hook
   await client.query(
@@ -362,6 +360,7 @@ export function normalizePassStatus(status) {
       nextLevelXp: levelMeta.nextLevelXp,
       remainingXp: levelMeta.remainingXp
     } : null,
-    rewards: status.rewards || []
+    rewards: status.rewards || [],
+    premiumPassProduct: getProductById('premium_pass')
   };
 }

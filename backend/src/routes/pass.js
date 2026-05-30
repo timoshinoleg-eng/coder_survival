@@ -11,8 +11,12 @@ router.get(['/', '/status'], async (req, res) => {
   let client;
   try {
     client = await pool.connect();
+    await client.query('BEGIN');
     const userResult = await client.query('SELECT id FROM users WHERE telegram_id = $1', [telegramUser.id]);
-    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
     const userId = userResult.rows[0].id;
     const progressionResult = await client.query(
       `SELECT pass_state FROM progression WHERE user_id = $1 FOR UPDATE`,
@@ -52,9 +56,17 @@ router.get(['/', '/status'], async (req, res) => {
       [userId, JSON.stringify({ ...passState, lastSeenAt: now.toISOString() })]
     );
     const passStatus = await getPassStatus(client, userId);
+    await client.query('COMMIT');
     if (!passStatus) return res.json({ success: true, status: null });
     return res.json({ ...passStatus, success: true, status: passStatus, catchUp, weekendDoubleXpActive: getWeekendXpMultiplier(new Date()) > 1 });
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_rollbackErr) {
+        // Keep the original pass error as the response cause.
+      }
+    }
     console.error('Pass GET error:', err);
     return res.status(500).json({ error: 'Технический сбой' });
   } finally {
@@ -76,16 +88,29 @@ router.post(['/claim/:level', '/claim'], async (req, res) => {
   let client;
   try {
     client = await pool.connect();
+    await client.query('BEGIN');
     const userResult = await client.query('SELECT id FROM users WHERE telegram_id = $1', [telegramUser.id]);
-    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
     const userId = userResult.rows[0].id;
     const result = await claimPassReward(client, userId, level, track);
     if (result.status !== 200) {
+      await client.query('ROLLBACK');
       return res.status(result.status).json({ error: result.error });
     }
     const passStatus = await getPassStatus(client, userId);
-    return res.json({ level, track, reward: result.reward, applied: result.applied, pass: passStatus });
+    await client.query('COMMIT');
+    return res.json({ success: true, level, track, reward: result.reward, applied: result.applied, pass: passStatus });
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_rollbackErr) {
+        // Keep the original claim error as the response cause.
+      }
+    }
     console.error('Pass claim error:', err);
     return res.status(500).json({ error: 'Технический сбой' });
   } finally {
