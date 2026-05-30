@@ -1,0 +1,44 @@
+{
+  "tracks": [
+    {
+      "id": "bgm_main",
+      "file": "audio/bgm_main.ogg",
+      "bpm": 90,
+      "key": "Amin",
+      "duration_ms": 22000,
+      "loop_start_ms": 0,
+      "loop_end_ms": 22000,
+      "size_bytes": 196133
+    },
+    {
+      "id": "bgm_legacy",
+      "file": "audio/bgm_legacy.ogg",
+      "bpm": 80,
+      "key": "Dmin",
+      "duration_ms": 22000,
+      "loop_start_ms": 0,
+      "loop_end_ms": 22000,
+      "size_bytes": 227346
+    },
+    {
+      "id": "bgm_hackathon",
+      "file": "audio/bgm_hackathon.ogg",
+      "bpm": 100,
+      "key": "Emin",
+      "duration_ms": 22000,
+      "loop_start_ms": 0,
+      "loop_end_ms": 22000,
+      "size_bytes": 297969
+    },
+    {
+      "id": "bgm_coffee",
+      "file": "audio/bgm_coffee.ogg",
+      "bpm": 85,
+      "key": "Fmaj",
+      "duration_ms": 15000,
+      "loop_start_ms": 0,
+      "loop_end_ms": 15000,
+      "size_bytes": 157470
+    }
+  ]
+}

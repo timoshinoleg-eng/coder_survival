@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://89-169-138-23.sslip.io/api/$1"
+    },
+    {
+      "source": "/health",
+      "destination": "https://89-169-138-23.sslip.io/health"
+    }
+  ]
+}

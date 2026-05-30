@@ -11,10 +11,11 @@ export function initDataMiddleware(req, res, next) {
     return res.status(401).json({ error: 'Missing initData' });
   }
 
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const botToken = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) {
-    console.warn('TELEGRAM_BOT_TOKEN not set, skipping initData verification (dev mode)');
-    // В dev режиме парсим без проверки
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(500).json({ error: 'BOT_TOKEN is not configured' });
+    }
     req.telegramUser = parseInitData(initData);
     return next();
   }
@@ -25,7 +26,14 @@ export function initDataMiddleware(req, res, next) {
     return res.status(403).json({ error: 'Invalid initData signature' });
   }
 
-  req.telegramUser = parseInitData(initData);
+  const parsed = parseInitData(initData);
+  const maxAgeSeconds = parseInt(process.env.INIT_DATA_MAX_AGE_SECONDS || '86400', 10);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!parsed.authDate || nowSeconds - parsed.authDate > maxAgeSeconds) {
+    return res.status(403).json({ error: 'Expired initData' });
+  }
+
+  req.telegramUser = parsed;
   next();
 }
 
@@ -39,7 +47,7 @@ function parseInitData(initData) {
   let user = null;
   if (userStr) {
     try {
-      user = JSON.parse(decodeURIComponent(userStr));
+      user = JSON.parse(userStr);
     } catch (e) {
       console.error('Failed to parse user from initData:', e);
     }
@@ -48,6 +56,7 @@ function parseInitData(initData) {
   return {
     queryId: params.get('query_id'),
     user,
+    startParam: params.get('start_param'),
     authDate: parseInt(params.get('auth_date'), 10),
     hash: params.get('hash'),
     raw: initData
@@ -83,5 +92,8 @@ function verifyInitData(initData, botToken) {
     .update(dataCheckString)
     .digest('hex');
 
-  return checkHash === hash;
+  const expected = Buffer.from(checkHash, 'hex');
+  const actual = Buffer.from(hash, 'hex');
+  if (expected.length !== actual.length) return false;
+  return crypto.timingSafeEqual(expected, actual);
 }
