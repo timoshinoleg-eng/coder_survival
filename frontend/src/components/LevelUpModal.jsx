@@ -30,20 +30,24 @@ export default function LevelUpModal() {
   const rankMeta = levelUp.rankMeta || {};
 
   return h('div', {
-    onClick: clearLevelUp,
+    onPointerDown: (e) => {
+      e.stopPropagation();
+      clearLevelUp();
+    },
     style: {
-      position: 'absolute',
+      position: 'fixed',
       inset: 0,
-      zIndex: 50,
+      zIndex: 200,
       background: 'rgba(7, 12, 24, 0.85)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '16px',
-      animation: 'fade-in-up 0.3s ease-out'
+      animation: 'fade-in-up 0.3s ease-out',
+      touchAction: 'manipulation'
     }
   }, h('div', {
-    onClick: (e) => e.stopPropagation(),
+    onPointerDown: (e) => e.stopPropagation(),
     style: {
       position: 'relative',
       width: 'min(360px, 100%)',
@@ -110,7 +114,10 @@ export default function LevelUpModal() {
       h('div', null, `• Макс. энергия: ${rankMeta.maxEnergy ?? '—'}`)
     ]),
     h('button', {
-      onClick: clearLevelUp,
+      onPointerDown: (e) => {
+        e.stopPropagation();
+        clearLevelUp();
+      },
       style: {
         padding: '10px 24px',
         borderRadius: '8px',

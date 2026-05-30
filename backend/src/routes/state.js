@@ -15,6 +15,7 @@ import {
 } from "../utils/vnext.js";
 import { getActiveEvent, getEventContribution } from "../utils/events.js";
 import { getContextOffer, recordOfferImpression } from "../utils/offers.js";
+import { markLoginQuestCompleteInState, getQuestDateString } from "../utils/dailyQuests.js";
 import { getPassStatus, getActivePass } from "../utils/pass.js";
 import { logPassXp } from "../utils/passXpLog.js";
 import { getProductById } from "../utils/shopCatalog.js";
@@ -45,6 +46,18 @@ function getClientIp(req) {
     return forwarded.split(",")[0].trim();
   }
   return req.socket?.remoteAddress || req.ip || null;
+}
+
+// Resolve the timezone offset used to compute the local quest day, so /api/state
+// lands on the same calendar day as /api/quests (which falls back to +180).
+// Precedence: explicit request value, persisted progression.timezone_offset, 180.
+function resolveStateTimezoneOffset(req, progression, fallback = 180) {
+  const raw =
+    req.query?.timezoneOffset ??
+    req.headers["x-timezone-offset"] ??
+    progression?.timezone_offset;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function hashDevice(req) {
@@ -372,7 +385,17 @@ router.get("/", async (req, res, next) => {
       );
 
       await ensureDailyQuests(client, user.id);
+      // SQL `daily_quests` is the analytics mirror; flip the login row there...
       await markLoginQuestComplete(client, user.id);
+      // ...and, critically, in the JSONB SSOT that every player-facing endpoint
+      // reads (/api/state daily block, /api/quests, /api/quests/daily). Without
+      // this the two stores desync: SQL shows login done while the JSONB keeps
+      // q_login incomplete. The helper flips only q_login.completed via an
+      // atomic single-statement UPDATE; it never touches `claimed`, so a
+      // concurrent /api/quests/daily claim cannot be lost or double-rewarded.
+      const loginQuestTimezoneOffset = resolveStateTimezoneOffset(req, passiveProgression);
+      const loginQuestToday = getQuestDateString(loginQuestTimezoneOffset);
+      await markLoginQuestCompleteInState(client, user.id, loginQuestToday);
       const loginReward = await processLoginReward(client, user.id);
 
       const dailyQuestStateResult = await client.query(
