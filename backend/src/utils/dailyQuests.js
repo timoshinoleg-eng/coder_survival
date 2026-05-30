@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { STAGE2, DEFAULTS } from '../config/balance.js';
+import { getRollingAvgDailyFarm } from './farmLog.js';
 
 const { DAILY_QUEST } = STAGE2;
 
@@ -48,6 +49,13 @@ function cloneQuest(quest) {
 export function selectFromPool(pool, hashValue, offset) {
   const idx = (hashValue >>> offset) % pool.length;
   return pool[idx];
+}
+
+// Local calendar date (YYYY-MM-DD) for a given timezone offset in minutes.
+// Shared by /api/state and /api/quests so both resolve the same quest day.
+export function getQuestDateString(timezoneOffset = 180, now = new Date()) {
+  const local = new Date(now.getTime() + timezoneOffset * 60000);
+  return local.toISOString().slice(0, 10);
 }
 
 export function generateDailyQuests(userId, dateString, rankTier = 1, accountAgeDays = 4, avgDailyFarmOverride = null) {
@@ -195,4 +203,118 @@ export function rollLootBox(drops, rng = Math.random) {
     if (roll <= 0) return drop;
   }
   return drops[drops.length - 1];
+}
+
+// JSONB SSOT helpers (progression.daily_quests_state)
+//
+// progression.daily_quests_state is the single source of truth for daily quest
+// status across every player-facing endpoint (/api/state, /api/quests,
+// /api/quests/daily, /api/tap). The SQL `daily_quests` table is an analytics
+// mirror only - never read it for player-facing quest status.
+
+function buildInitialQuestState(userId, today, rankTier, accountAgeDays, avgDailyFarm) {
+  return {
+    lastDate: today,
+    accountAgeDays,
+    avgDailyFarm,
+    quests: generateDailyQuests(String(userId), today, rankTier, accountAgeDays, avgDailyFarm),
+    fullClearClaimed: false
+  };
+}
+
+/**
+ * Resolve (and lazily (re)generate) the JSONB daily quest state for `today`.
+ * This is the ONE generation path shared by /api/state and /api/quests so the
+ * two endpoints can never diverge on quest identity or day boundaries.
+ *
+ * @param {pg.Client} client
+ * @param {number} userId
+ * @param {string} today YYYY-MM-DD in the user's local timezone
+ * @param {boolean} lock acquire FOR UPDATE on the progression row
+ * @returns {Promise<object>} daily_quests_state
+ */
+export async function ensureDailyQuestState(client, userId, today, lock = false) {
+  const result = await client.query(
+    `SELECT daily_quests_state, tier, created_at
+     FROM progression
+     WHERE user_id = $1
+     ${lock ? 'FOR UPDATE' : ''}`,
+    [userId]
+  );
+  const row = result.rows[0];
+  const rankTier = Number(row?.tier || 1);
+  const createdAt = row?.created_at ? new Date(row.created_at) : null;
+  const accountAgeDays = createdAt && !Number.isNaN(createdAt.getTime())
+    ? Math.max(1, Math.floor((Date.now() - createdAt.getTime()) / 86400000) + 1)
+    : 4;
+  let state = row?.daily_quests_state || {};
+
+  if (state.lastDate !== today || !Array.isArray(state.quests) || state.quests.length !== 4) {
+    const avgDailyFarm = await getRollingAvgDailyFarm(client, userId);
+    state = buildInitialQuestState(userId, today, rankTier, accountAgeDays, avgDailyFarm > 0 ? avgDailyFarm : null);
+    await client.query(
+      `UPDATE progression
+       SET daily_quests_state = $2
+       WHERE user_id = $1`,
+      [userId, JSON.stringify(state)]
+    );
+  }
+
+  return state;
+}
+
+/**
+ * Idempotently mark the login quest complete inside a quest-state object.
+ * Pure: returns { state, changed } without touching the DB. Never resets
+ * `claimed`, so re-running after a claim cannot trigger a double reward.
+ */
+export function markLoginCompleteInQuestState(state) {
+  if (!state || !Array.isArray(state.quests)) return { state, changed: false };
+  const updates = checkQuestProgress(state.quests, 'login', 1);
+  const applied = applyQuestUpdates(state.quests, updates);
+  if (!applied.changed) return { state, changed: false };
+  return { state: { ...state, quests: applied.quests }, changed: true };
+}
+
+/**
+ * Race-safe login completion against the JSONB SSOT.
+ *
+ * 1. ensureDailyQuestState lazily (re)generates today's quests.
+ * 2. A single atomic UPDATE flips ONLY the login quest's completed/progress in
+ *    place. Because the read-modify-write happens inside one SQL statement it
+ *    cannot lose a concurrent /api/quests/daily claim's write, and it never
+ *    touches `claimed`, so it can never cause a double reward. This is why we
+ *    avoid a JS read-modify-write here: /api/state runs in autocommit, so a
+ *    FOR UPDATE lock would not survive across statements.
+ *
+ * @returns {Promise<object>} the up-to-date daily_quests_state
+ */
+export async function markLoginQuestCompleteInState(client, userId, today) {
+  await ensureDailyQuestState(client, userId, today, false);
+  const result = await client.query(
+    `UPDATE progression
+     SET daily_quests_state = jsonb_set(
+       daily_quests_state,
+       '{quests}',
+       (
+         SELECT jsonb_agg(
+           CASE
+             WHEN quest->>'id' = 'q_login' OR quest->>'type' = 'login'
+               THEN quest || jsonb_build_object(
+                 'completed', true,
+                 'progress', COALESCE((quest->>'target')::numeric, 1)
+               )
+             ELSE quest
+           END
+         )
+         FROM jsonb_array_elements(daily_quests_state->'quests') AS quest
+       )
+     )
+     WHERE user_id = $1
+       AND daily_quests_state->>'lastDate' = $2
+       AND jsonb_typeof(daily_quests_state->'quests') = 'array'
+     RETURNING daily_quests_state`,
+    [userId, today]
+  );
+  return result.rows[0]?.daily_quests_state || null;
 }

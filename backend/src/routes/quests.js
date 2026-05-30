@@ -3,7 +3,7 @@ import { pool } from '../index.js';
 import { STAGE2 } from '../config/balance.js';
 import {
   applyQuestUpdates,
-  generateDailyQuests,
+  ensureDailyQuestState,
   isFullClearAvailable,
   rollLootBox
 } from '../utils/dailyQuests.js';
@@ -18,7 +18,7 @@ import {
 } from '../utils/weeklySprint.js';
 import { addPassXp, applyPassXpSourceMultiplier, getActivePass } from '../utils/pass.js';
 import { applyRewardPenaltyToPayload, normalizeAntiCheatState } from '../utils/anticheat.js';
-import { getRollingAvgDailyFarm, logDailyFarm } from '../utils/farmLog.js';
+import { logDailyFarm } from '../utils/farmLog.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
 import { logPassXp } from '../utils/passXpLog.js';
 
@@ -71,44 +71,10 @@ async function ensureUserAndProgression(client, telegramUser, timezoneOffset = 1
   return userId;
 }
 
-function initialQuestState(userId, today, rankTier, accountAgeDays = 4, avgDailyFarm = null) {
-  return {
-    lastDate: today,
-    accountAgeDays,
-    avgDailyFarm,
-    quests: generateDailyQuests(String(userId), today, rankTier, accountAgeDays, avgDailyFarm),
-    fullClearClaimed: false
-  };
-}
-
+// Delegates to the shared JSONB SSOT generator in utils/dailyQuests.js so that
+// /api/quests and /api/state resolve identical quest identity and day boundaries.
 async function getOrCreateQuestState(client, userId, today, lock = false) {
-  const result = await client.query(
-     `SELECT daily_quests_state, tier, created_at
-      FROM progression
-      WHERE user_id = $1
-     ${lock ? 'FOR UPDATE' : ''}`,
-    [userId]
-  );
-  const row = result.rows[0];
-  const rankTier = Number(row?.tier || 1);
-  const createdAt = row?.created_at ? new Date(row.created_at) : null;
-  const accountAgeDays = createdAt && !Number.isNaN(createdAt.getTime())
-    ? Math.max(1, Math.floor((Date.now() - createdAt.getTime()) / 86400000) + 1)
-    : 4;
-  let state = row?.daily_quests_state || {};
-
-  if (state.lastDate !== today || !Array.isArray(state.quests) || state.quests.length !== 4) {
-    const avgDailyFarm = await getRollingAvgDailyFarm(client, userId);
-    state = initialQuestState(userId, today, rankTier, accountAgeDays, avgDailyFarm > 0 ? avgDailyFarm : null);
-    await client.query(
-      `UPDATE progression
-       SET daily_quests_state = $2
-       WHERE user_id = $1`,
-      [userId, JSON.stringify(state)]
-    );
-  }
-
-  return state;
+  return ensureDailyQuestState(client, userId, today, lock);
 }
 
 function mergeInventory(current, rewards) {
