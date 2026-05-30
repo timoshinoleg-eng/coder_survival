@@ -1,7 +1,7 @@
 {
   "project": "Coder Survival",
-  "status": "ready_for_deploy",
-  "last_updated": "2026-05-05T18:20:00+08:00",
+  "status": "deploying",
+  "last_updated": "2026-05-05T19:18:00+08:00",
   "components": {
     "frontend": {
       "status": "ready",
@@ -35,14 +35,17 @@
     }
   },
   "git": {
-    "remote": "https://github.com/timoshinoleg-eng/coder_survival.git",
+    "remote": "git@github.com:timoshinoleg-eng/coder_survival.git",
     "branch": "main",
-    "commit": "c5d3ce3",
-    "message": "Initial commit with all fixes"
+    "commits": [
+      "ca3d7eb Add DEPLOY.md and update project status",
+      "ed40b9e Initial commit with all fixes",
+      "cbadd88 Initial commit: frontend + backend + payments + analytics + ads + calculator"
+    ]
   },
   "infrastructure": {
     "yc": {
-      "vm": "fhme7t5q5v3q2b1p8v1q (preemptible, 2CPU/4GB)",
+      "vm": "coder-survival-app (preemptible, 2CPU/4GB)",
       "ip": "111.88.254.2",
       "zone": "ru-central1-a",
       "postgres": "c9qsqk0qa49u3k6rbe5b (managed, 2GB, 10%)",
@@ -50,11 +53,10 @@
     }
   },
   "next_steps": [
-    "1. Commit latest changes to GitHub",
-    "2. Run deploy.sh to build and push Docker images",
-    "3. SSH to VM and run docker-compose.prod.yml",
-    "4. Configure Telegram BotFather with WebApp URL",
-    "5. Test end-to-end: /start → tap → leaderboard"
+    "1. Run deploy.sh to build and push Docker images",
+    "2. SSH to VM and run docker-compose.prod.yml",
+    "3. Configure Telegram BotFather with WebApp URL",
+    "4. Test end-to-end: /start → tap → leaderboard"
   ],
   "blockers": []
 }
