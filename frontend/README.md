@@ -11,14 +11,16 @@
 
 ## Формулы игры
 
-| Параметр | Формула |
-|----------|---------|
-| Коммиты за тап | `1 + floor(level / 5)` × combo |
-| Combo | `<500ms` между тапами = ×2 |
-| Энергия | -2 за тап, +1 каждые 30с |
-| Депрессия | +0.5/мин idle, -1 за тап |
-| Кофе | +30 энергии, -5 депрессии |
-| Level up | каждые 100 XP |
+> **Source of truth:** [`GAME_RULES.md`](../GAME_RULES.md) в корне репозитория.  
+> Нижеследующая таблица — краткая сводка; если возникает расхождение, правятся `GAME_RULES.md` и код бэкенда.
+
+| Параметр | Краткое описание |
+|----------|-----------------|
+| Коммиты за тап | Зависят от ранга (1–8), текущей энергии, стресса и стрика. Серверная формула в `backend/src/routes/tap.js` |
+| Энергия | −1 за тап, +1 каждые `recoveryIntervalSeconds` (default 60 с) **простоя** |
+| Депрессия | +1/2 за тап при низкой энергии (<20/<10); −1 на каждые 5 восстановленных единиц энергии |
+| Shop | `energy_refill`, `depression_cure`, `tier_boost`, `premium_pass` (Telegram Stars) |
+| Level up | По XP thresholds из `backend/src/utils/vnext.js`; 10 уровней в ранге |
 
 ## Установка
 
@@ -59,10 +61,10 @@ frontend/
 │   ├── main.jsx            # Entry: Telegram init + providers
 │   ├── hooks/
 │   │   ├── useTelegram.js  # SDK wrapper, haptic feedback
-│   │   └── useGameState.js # State + localStorage + формулы
+│   │   └── useGameState.js # State + сервер-авторитарный sync
 │   ├── components/
-│   │   ├── StatsBar.jsx    # Коммиты, энергия, депрессия, кофе
-│   │   └── TapArea.jsx     # Tap zone, coffee button, ripples
+│   │   ├── StatsBar.jsx    # Коммиты, энергия, депрессия, countdown
+│   │   └── TapArea.jsx     # Tap zone, ripple feedback, float texts
 │   ├── game/
 │   │   ├── PhaserGame.js   # Phaser config, resize handling
 │   │   └── scenes/

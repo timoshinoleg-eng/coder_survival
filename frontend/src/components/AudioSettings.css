@@ -1,0 +1,62 @@
+/**
+ * @fileoverview AudioSettings.css — Styles for the AudioSettings toggle button.
+ *
+ * A compact circular HUD button with a subtle translucent backdrop.
+ * Designed for overlay placement in the top-right corner of the game screen.
+ */
+
+/* ─── Base button ─── */
+.audio-settings-btn {
+  /* Sizing */
+  width: 40px;
+  height: 40px;
+  padding: 0;
+
+  /* Shape */
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  /* Backdrop — translucent black so it works over any game background */
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  /* Icon */
+  font-size: 20px;
+  line-height: 1;
+
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Interaction */
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Transition for hover/active states */
+  transition:
+    background 0.2s ease,
+    transform  0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+/* ─── Hover state (desktop) ─── */
+.audio-settings-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Active / press state (touch) ─── */
+.audio-settings-btn:active {
+  transform: scale(0.95);
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* ─── Focus outline for accessibility ─── */
+.audio-settings-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}

@@ -1,0 +1,2 @@
+ALTER TABLE progression
+ADD COLUMN IF NOT EXISTS anti_cheat_state JSONB NOT NULL DEFAULT '{}';

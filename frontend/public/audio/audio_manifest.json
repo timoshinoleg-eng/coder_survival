@@ -1,0 +1,186 @@
+{
+  "manifest_version": "1.0.0",
+  "project": "Coder Survival — Telegram Mini App",
+  "synthesized_sfx_count": 14,
+  "external_audio_files": [
+    {
+      "id": "coffee",
+      "file": "public/audio/sfx_coffee.ogg",
+      "format": "ogg",
+      "duration_s": 1.0,
+      "size_bytes": 17180,
+      "description": "Coffee pouring into ceramic mug, office break room ambient",
+      "license": "AI-generated, original work, CC0 / Public Domain"
+    }
+  ],
+  "sfx": [
+    {
+      "id": "tap",
+      "category": "core",
+      "type": "Osc",
+      "frequency_hz": "800 + rand(0,200)",
+      "waveform": "square",
+      "duration_s": 0.05,
+      "randomization": "±200 Hz pitch",
+      "filter": "none",
+      "volume": 0.25,
+      "description": "UI click / button press feedback"
+    },
+    {
+      "id": "critical",
+      "category": "core",
+      "type": "Osc",
+      "frequency_hz": 1200,
+      "waveform": "sine",
+      "duration_s": 0.15,
+      "randomization": "vibrato 8 Hz",
+      "filter": "none",
+      "volume": 0.40,
+      "description": "Warning / alert chime for critical HP or error modals"
+    },
+    {
+      "id": "push",
+      "category": "core",
+      "type": "Osc",
+      "frequency_hz": 800,
+      "waveform": "sine",
+      "duration_s": 0.10,
+      "randomization": "none",
+      "filter": "none",
+      "volume": 0.20,
+      "description": "Short commit-push confirmation blip"
+    },
+    {
+      "id": "typing",
+      "category": "core",
+      "type": "Osc",
+      "frequency_hz": "900 + rand(50)",
+      "waveform": "square",
+      "duration_s": 0.03,
+      "randomization": "±50 Hz",
+      "filter": "none",
+      "volume": 0.15,
+      "description": "Micro-click for keyboard keystrokes"
+    },
+    {
+      "id": "levelup",
+      "category": "progression",
+      "type": "Osc",
+      "frequency_hz": "C5-E5-G5 sequence",
+      "waveform": "triangle",
+      "duration_s": 0.50,
+      "randomization": "none",
+      "filter": "lowpass 3000",
+      "volume": 0.50,
+      "description": "Triumphant ascending arpeggio for character level-up"
+    },
+    {
+      "id": "questDone",
+      "category": "progression",
+      "type": "Osc",
+      "frequency_hz": "C5-E5-G5-C6",
+      "waveform": "sine",
+      "duration_s": 0.30,
+      "randomization": "none",
+      "filter": "none",
+      "volume": 0.40,
+      "description": "Bright resolution for completed quests"
+    },
+    {
+      "id": "streakBreak",
+      "category": "progression",
+      "type": "Osc",
+      "frequency_hz": "600→300 sweep",
+      "waveform": "triangle",
+      "duration_s": 0.40,
+      "randomization": "none",
+      "filter": "none",
+      "volume": 0.30,
+      "description": "Disappointing downward slide when a streak is broken"
+    },
+    {
+      "id": "purchase",
+      "category": "actions",
+      "type": "Osc+Noise",
+      "frequency_hz": "1500 + noise burst",
+      "waveform": "square",
+      "duration_s": 0.30,
+      "randomization": "noise burst 0.05s",
+      "filter": "highpass 1000",
+      "volume": 0.45,
+      "description": "Cash-register chime for shop transactions"
+    },
+    {
+      "id": "bugSuccess",
+      "category": "actions",
+      "type": "Osc",
+      "frequency_hz": "1000→1500 arpeggio",
+      "waveform": "square",
+      "duration_s": 0.30,
+      "randomization": "none",
+      "filter": "none",
+      "volume": 0.40,
+      "description": "Victory jingle for successfully fixing a bug"
+    },
+    {
+      "id": "bugFail",
+      "category": "actions",
+      "type": "Osc",
+      "frequency_hz": 200,
+      "waveform": "square",
+      "duration_s": 0.40,
+      "randomization": "none",
+      "filter": "lowpass 600",
+      "volume": 0.25,
+      "description": "Failure thud for bug-fix attempt gone wrong"
+    },
+    {
+      "id": "energy0",
+      "category": "states",
+      "type": "Osc",
+      "frequency_hz": "400→200 sweep",
+      "waveform": "sawtooth",
+      "duration_s": 0.20,
+      "randomization": "none",
+      "filter": "lowpass 800",
+      "volume": 0.35,
+      "description": "Dangerous downward sweep for critical energy depletion"
+    },
+    {
+      "id": "burnout",
+      "category": "states",
+      "type": "Osc",
+      "frequency_hz": "80 + LFO 0.5 Hz",
+      "waveform": "sine",
+      "duration_s": 2.00,
+      "randomization": "LFO depth 10 Hz",
+      "filter": "lowpass 200",
+      "volume": 0.15,
+      "description": "Throbbing ambient drone for developer burnout state"
+    },
+    {
+      "id": "gameover",
+      "category": "states",
+      "type": "Osc+Noise",
+      "frequency_hz": "1000→0 sweep",
+      "waveform": "sawtooth",
+      "duration_s": 1.00,
+      "randomization": "noise tail 0.3s",
+      "filter": "lowpass 1000→100",
+      "volume": 0.45,
+      "description": "Game-over dirge with descending sweep and noise tail"
+    },
+    {
+      "id": "modalOpen",
+      "category": "states",
+      "type": "Noise",
+      "frequency_hz": "pink noise",
+      "waveform": "—",
+      "duration_s": 0.15,
+      "randomization": "exponential decay",
+      "filter": "bandpass 2000",
+      "volume": 0.20,
+      "description": "Soft filtered noise whoosh for modal / dialog appearance"
+    }
+  ]
+}

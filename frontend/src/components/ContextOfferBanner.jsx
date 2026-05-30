@@ -1,0 +1,120 @@
+import { h } from 'preact';
+import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useGameState } from '../hooks/useGameState.js';
+import { useTelegram } from '../hooks/useTelegram.js';
+import { startTelegramPurchase } from '../utils/purchases.js';
+
+export default function ContextOfferBanner() {
+  const {
+    loading, contextOffer, dismissContextOffer, setShopOpen
+  } = useGameState();
+  const { initData } = useTelegram();
+  const [buying, setBuying] = useState(false);
+
+  const handleDismiss = useCallback(() => {
+    if (contextOffer?.type) {
+      dismissContextOffer(contextOffer.type).catch((err) => {
+        console.warn('Context offer dismiss failed:', err);
+      });
+    }
+  }, [contextOffer, dismissContextOffer]);
+
+  const handleGoShop = useCallback(() => {
+    if (contextOffer?.type) {
+      dismissContextOffer(contextOffer.type).catch((err) => {
+        console.warn('Context offer dismiss before shop failed:', err);
+      });
+    }
+    setShopOpen(true);
+  }, [contextOffer, dismissContextOffer, setShopOpen]);
+
+  const handleBuy = useCallback(async () => {
+    if (!contextOffer) return;
+    setBuying(true);
+    try {
+      const result = await startTelegramPurchase(contextOffer.productId, initData);
+      if (result.success) {
+        await dismissContextOffer(contextOffer.type);
+      }
+    } catch (err) {
+      console.warn('Context offer buy failed:', err);
+    } finally {
+      setBuying(false);
+    }
+  }, [contextOffer, dismissContextOffer, initData]);
+
+  useEffect(() => {
+    if (!contextOffer) {
+      setBuying(false);
+    }
+  }, [contextOffer]);
+
+  if (loading || !contextOffer) return null;
+
+  return h('div', {
+    style: {
+      position: 'absolute',
+      top: '8px',
+      left: '8px',
+      right: '8px',
+      zIndex: 45,
+      background: 'linear-gradient(90deg, #1a3a5c, #274267)',
+      border: '1px solid #30527e',
+      borderRadius: '10px',
+      padding: '10px 12px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
+      animation: 'fade-in-up 0.3s ease-out'
+    }
+  }, [
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } }, [
+      h('div', { style: { flex: 1, minWidth: 0 } }, [
+        h('div', { style: { fontWeight: 700, fontSize: '12px', color: '#facc15', marginBottom: '2px' } }, contextOffer.title),
+        h('div', { style: { fontSize: '11px', color: '#c7ddf5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, contextOffer.body)
+      ]),
+      h('button', {
+        onClick: handleBuy,
+        disabled: buying,
+        style: {
+          padding: '5px 10px',
+          borderRadius: '6px',
+          border: 'none',
+          background: buying ? '#274267' : '#facc15',
+          color: buying ? '#8ba1bb' : '#1a1a2e',
+          fontWeight: 'bold',
+          fontSize: '11px',
+          cursor: buying ? 'not-allowed' : 'pointer',
+          whiteSpace: 'nowrap'
+        }
+      }, buying ? '...' : `${contextOffer.action} · ⭐ ${contextOffer.stars}`)
+    ]),
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' } }, [
+      h('button', {
+        onClick: handleGoShop,
+        style: {
+          padding: '4px 10px',
+          borderRadius: '6px',
+          border: '1px solid #30527e',
+          background: 'transparent',
+          color: '#9eb6d2',
+          fontSize: '11px',
+          cursor: 'pointer'
+        }
+      }, 'Открыть магазин'),
+      h('button', {
+        onClick: handleDismiss,
+        style: {
+          padding: '4px 10px',
+          borderRadius: '6px',
+          border: 'none',
+          background: 'transparent',
+          color: '#6b7f99',
+          fontSize: '11px',
+          cursor: 'pointer'
+        }
+      }, 'Закрыть')
+    ])
+  ]);
+}
