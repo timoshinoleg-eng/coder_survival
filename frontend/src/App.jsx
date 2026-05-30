@@ -24,8 +24,25 @@ import ShareButton from "./components/ShareButton.jsx";
 import AudioToggle from "./components/AudioToggle.jsx";
 import CareerModal from "./components/CareerModal.jsx";
 import MemeGenerator from "./components/MemeGenerator.jsx";
-import { getActiveRuntimeEvents, reduceLegacyCodeClick } from './utils/randomEventRuntime.js';
+import { applyRandomEventChoice, getActiveRuntimeEvents, reduceLegacyCodeClick } from './utils/randomEventRuntime.js';
 import { apiRequest } from './utils/api.js';
+
+function normalizeRuntimeEventState(state = {}) {
+  const source = state || {};
+  return {
+    legacyCodeClicksRemaining: Number(source.legacyCodeClicksRemaining || 0),
+    productionAlertUntil: source.productionAlertUntil || null,
+    hotStreakUntil: source.hotStreakUntil || null,
+  };
+}
+
+function runtimeEventStatesEqual(left, right) {
+  const normalizedLeft = normalizeRuntimeEventState(left);
+  const normalizedRight = normalizeRuntimeEventState(right);
+  return normalizedLeft.legacyCodeClicksRemaining === normalizedRight.legacyCodeClicksRemaining
+    && normalizedLeft.productionAlertUntil === normalizedRight.productionAlertUntil
+    && normalizedLeft.hotStreakUntil === normalizedRight.hotStreakUntil;
+}
 
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
@@ -47,7 +64,10 @@ function AppInner() {
 
   useEffect(() => {
     if (!persistedRandomEventState) return;
-    setRuntimeEventState((current) => ({ ...current, ...persistedRandomEventState }));
+    setRuntimeEventState((current) => {
+      const next = normalizeRuntimeEventState({ ...current, ...persistedRandomEventState });
+      return runtimeEventStatesEqual(current, next) ? current : next;
+    });
   }, [persistedRandomEventState]);
 
   useEffect(() => {
@@ -103,7 +123,10 @@ function AppInner() {
             body: {},
           }).then((payload) => {
             if (payload?.randomEventState) {
-              setRuntimeEventState((latest) => ({ ...latest, ...payload.randomEventState }));
+              setRuntimeEventState((latest) => {
+                const next = normalizeRuntimeEventState({ ...latest, ...payload.randomEventState });
+                return runtimeEventStatesEqual(latest, next) ? latest : next;
+              });
             }
           }).catch(() => null).finally(() => {
             legacyTapSyncRef.current = false;
@@ -117,11 +140,14 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
+    const next = normalizeRuntimeEventState(runtimeEventState);
     if (window.__GAME_STATE__) {
-      window.__GAME_STATE__.runtimeEventState = runtimeEventState;
+      window.__GAME_STATE__.runtimeEventState = next;
     }
-    setRandomEventState(runtimeEventState);
-  }, [runtimeEventState]);
+    if (!runtimeEventStatesEqual(persistedRandomEventState, next)) {
+      setRandomEventState(next);
+    }
+  }, [persistedRandomEventState, runtimeEventState, setRandomEventState]);
 
   useEffect(() => {
     const previous = previousLegacyClicksRef.current;

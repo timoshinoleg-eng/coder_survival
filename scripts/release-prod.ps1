@@ -61,7 +61,8 @@ function Invoke-SshScript {
     [string]$Script
   )
 
-  $output = $Script | ssh $SshHost bash -s
+  $normalizedScript = $Script -replace "`r`n", "`n"
+  $output = $normalizedScript | ssh $SshHost bash -s
   if ($LASTEXITCODE -ne 0) {
     throw "ssh script failed on $SshHost"
   }

@@ -61,6 +61,25 @@ describe('MVP performance guardrails', () => {
     expect(offerIndex).toBeGreaterThan(lastCommitIndex);
   });
 
+  test('sprint pass claim inserts the claim before applying reward', () => {
+    const route = read('backend/src/routes/pass.js');
+    const util = read('backend/src/utils/pass.js');
+    const claimRouteStart = route.indexOf("router.post(['/claim/:level', '/claim']");
+    const claimRoute = route.slice(claimRouteStart);
+    expect(claimRoute).toContain("await client.query('BEGIN');");
+    expect(claimRoute).toContain("await client.query('COMMIT');");
+    expect(claimRoute).toContain("await client.query('ROLLBACK');");
+
+    const insertIndex = util.indexOf('INSERT INTO pass_claims');
+    const rewardIndex = util.indexOf('const rewardResult = await applyReward');
+    expect(insertIndex).toBeGreaterThan(-1);
+    expect(rewardIndex).toBeGreaterThan(insertIndex);
+    expect(util).toContain('ON CONFLICT (user_id, pass_id, level, track) DO NOTHING');
+    expect(util).toContain('RETURNING id');
+    expect(route).toContain('success: true, level, track');
+    expect(util).toContain("premiumPassProduct: getProductById('premium_pass')");
+  });
+
   test('rate limit accounts for batch tap increments', () => {
     const source = read('backend/src/middleware/rateLimit.js');
     expect(source).toContain('tapIncrement');

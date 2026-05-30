@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$VmHost = "ubuntu@111.88.247.195",
+  [string]$VmHost = "ubuntu@89.169.140.107",
   [string]$RemoteAppDir = "/opt/coder-survival/app",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
   [string]$BaseUrl = "https://frontend-ashy-alpha-77.vercel.app",
@@ -27,6 +27,28 @@ function Get-OptionalValue {
   foreach ($candidate in $Candidates) {
     if ($Object.PSObject.Properties.Name -contains $candidate) {
       return $Object.$candidate
+    }
+  }
+  return $null
+}
+
+function Get-QuestField {
+  param(
+    $Quest,
+    [string[]]$Candidates
+  )
+  return Get-OptionalValue -Object $Quest -Candidates $Candidates
+}
+
+function Find-QuestByType {
+  param(
+    [array]$Quests,
+    [string]$Type
+  )
+  foreach ($quest in @($Quests)) {
+    $questType = Get-QuestField -Quest $quest -Candidates @('questType', 'quest_type', 'type')
+    if ($questType -eq $Type) {
+      return $quest
     }
   }
   return $null
@@ -178,7 +200,8 @@ try {
     $null -ne $state.pass -and
     $null -ne $state.pass.premiumPassProduct
   )
-  Add-Result -Results $results -Name "state" -Ok $stateOk -Detail "energy=$($state.game.energy); daily=$($state.daily.quests.Count); event=$($state.event.type); passLevel=$passLevel; countdown=$countdownOk"
+  $stateEventType = Get-OptionalValue -Object $state.event -Candidates @('type')
+  Add-Result -Results $results -Name "state" -Ok $stateOk -Detail "energy=$($state.game.energy); daily=$($state.daily.quests.Count); event=$stateEventType; passLevel=$passLevel; countdown=$countdownOk"
 } catch {
   Add-Result -Results $results -Name "state" -Ok $false -Detail $_.Exception.Message
 }
@@ -212,7 +235,8 @@ try {
     $null -ne $tap.daily -and
     $null -ne $tap.pass
   )
-  Add-Result -Results $results -Name "tap" -Ok $tapOk -Detail "commitsDelta=$($tap.delta.commits); eventTarget=$($tap.event.target); passXp=$passXp; countdown=$tapCountdownOk; progressionChanged=$tapProgressionChanged"
+  $tapEventTarget = Get-OptionalValue -Object $tap.event -Candidates @('target', 'targetCommits', 'target_commits')
+  Add-Result -Results $results -Name "tap" -Ok $tapOk -Detail "commitsDelta=$($tap.delta.commits); eventTarget=$tapEventTarget; passXp=$passXp; countdown=$tapCountdownOk; progressionChanged=$tapProgressionChanged"
 } catch {
   Add-Result -Results $results -Name "tap" -Ok $false -Detail $_.Exception.Message
 }
@@ -220,18 +244,21 @@ try {
 # ---------- quests/daily ----------
 try {
   $quests = Invoke-RestMethod "$BaseUrl/api/quests/daily" -Headers $headers -Method Get
-  $tapQuest = $quests.daily.quests | Where-Object { $_.questType -eq 'tap_count' }
-  $commitQuest = $quests.daily.quests | Where-Object { $_.questType -eq 'commit_count' }
-  $loginQuest = $quests.daily.quests | Where-Object { $_.questType -eq 'login' }
+  $tapQuest = Find-QuestByType -Quests $quests.daily.quests -Type 'tap_count'
+  $commitQuest = Find-QuestByType -Quests $quests.daily.quests -Type 'commit_count'
+  $loginQuest = Find-QuestByType -Quests $quests.daily.quests -Type 'login'
   $bonusEnergy = $quests.daily.allCompletedBonusReward.energy
+  $tapTarget = Get-QuestField -Quest $tapQuest -Candidates @('targetValue', 'target_value', 'target')
+  $commitTarget = Get-QuestField -Quest $commitQuest -Candidates @('targetValue', 'target_value', 'target')
+  $loginTarget = Get-QuestField -Quest $loginQuest -Candidates @('targetValue', 'target_value', 'target')
   $questsOk = (
     $quests.daily.quests.Count -ge 3 -and
-    $tapQuest.targetValue -eq 40 -and
-    $commitQuest.targetValue -eq 80 -and
-    $loginQuest.targetValue -eq 1 -and
+    $tapTarget -eq 40 -and
+    $commitTarget -eq 80 -and
+    $loginTarget -eq 1 -and
     $bonusEnergy -eq 25
   )
-  Add-Result -Results $results -Name "quests/daily" -Ok $questsOk -Detail "count=$($quests.daily.quests.Count); tap=$($tapQuest.targetValue); commits=$($commitQuest.targetValue); login=$($loginQuest.targetValue); bonusEnergy=$bonusEnergy"
+  Add-Result -Results $results -Name "quests/daily" -Ok $questsOk -Detail "count=$($quests.daily.quests.Count); tap=$tapTarget; commits=$commitTarget; login=$loginTarget; bonusEnergy=$bonusEnergy"
 } catch {
   Add-Result -Results $results -Name "quests/daily" -Ok $false -Detail $_.Exception.Message
 }
@@ -253,15 +280,17 @@ try {
 # ---------- event/active ----------
 try {
   $event = Invoke-RestMethod "$BaseUrl/api/event/active" -Headers $headers -Method Get
-  $progress = if ($null -ne $event.myContribution) { $event.myContribution.progressPercent } else { "n/a" }
-  $eventReward = $event.event.rewardPayload
+  $eventContribution = Get-OptionalValue -Object $event -Candidates @('myContribution', 'my_contribution', 'contribution')
+  $progress = if ($null -ne $eventContribution) { Get-OptionalValue -Object $eventContribution -Candidates @('progressPercent', 'progress_percent') } else { "n/a" }
+  $eventReward = Get-OptionalValue -Object $event.event -Candidates @('rewardPayload', 'reward_payload', 'reward')
+  $eventTarget = Get-OptionalValue -Object $event.event -Candidates @('targetCommits', 'target_commits', 'target')
   $eventOk = (
-    $event.event.targetCommits -eq 650 -and
+    $eventTarget -eq 650 -and
     $eventReward.energy -eq 80 -and
     $eventReward.commitsCurrent -eq 60 -and
     $eventReward.depressionRelief -eq 15
   )
-  Add-Result -Results $results -Name "event/active" -Ok $eventOk -Detail "event=$($event.event.type); target=$($event.event.targetCommits); reward=$($eventReward.energy)/$($eventReward.commitsCurrent)/$($eventReward.depressionRelief); progress=$progress"
+  Add-Result -Results $results -Name "event/active" -Ok $eventOk -Detail "event=$($event.event.type); target=$eventTarget; reward=$($eventReward.energy)/$($eventReward.commitsCurrent)/$($eventReward.depressionRelief); progress=$progress"
 } catch {
   Add-Result -Results $results -Name "event/active" -Ok $false -Detail $_.Exception.Message
 }
@@ -448,7 +477,7 @@ if (-not $SkipMutationTests) {
   # ---------- quests/claim ----------
   try {
     $dailyQuests = Invoke-RestMethod "$BaseUrl/api/quests/daily" -Headers $fresh.headers -Method Get
-    $loginQuest = $dailyQuests.daily.quests | Where-Object { $_.questType -eq 'login' }
+    $loginQuest = Find-QuestByType -Quests $dailyQuests.daily.quests -Type 'login'
     if (-not $loginQuest) {
       throw "Login quest not found"
     }
@@ -513,7 +542,7 @@ if (-not $SkipMutationTests) {
     if ($null -eq $freshState) { throw "Fresh state unavailable" }
     $userId = $freshState.user.id
     $eventId = $eventActive.event.id
-    $targetCommits = $eventActive.event.targetCommits
+    $targetCommits = Get-OptionalValue -Object $eventActive.event -Candidates @('targetCommits', 'target_commits', 'target')
 
     # Test-only SQL boost to reach target without breaking real player data
     $sql = 'INSERT INTO event_contributions (user_id, event_id, commits_contributed, claimed) VALUES ($1, $2, $3, false) ON CONFLICT (user_id, event_id) DO UPDATE SET commits_contributed = EXCLUDED.commits_contributed, claimed = false RETURNING *'
