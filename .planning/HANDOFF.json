@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-31T14:05:06+03:00",
+  "phase": null,
+  "phase_name": null,
+  "phase_dir": null,
+  "context": "default",
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Strategy document analysis (4 files)", "status": "done"},
+    {"id": 2, "name": "Repository audit (18 files)", "status": "done"},
+    {"id": 3, "name": "Gap Analysis Matrix (16 rows)", "status": "done"},
+    {"id": 4, "name": "90-Day Launch Roadmap", "status": "done"},
+    {"id": 5, "name": "17 Prompt Packages (PP-01..PP-17)", "status": "done"},
+    {"id": 6, "name": "Balance & Economy Audit", "status": "done"},
+    {"id": 7, "name": "Prompts for Kimi Code, Cloud Opus 4.8, Kimi Deep Research", "status": "done"},
+    {"id": 8, "name": "Bug 1: Canvas viewport fix (index.html)", "status": "done"},
+    {"id": 9, "name": "Bug 2: LevelUpModal root cause (useGameState.js) + onPointerDown (LevelUpModal.jsx)", "status": "done"},
+    {"id": 10, "name": "Bug 3: MemeGenerator blob URL (deployed by migration model)", "status": "done"},
+    {"id": 11, "name": "Frontend build + Vercel deploy (all 3 fixes on prod)", "status": "done"}
+  ],
+  "remaining_tasks": [
+    {"id": 12, "name": "PP-04: Avatar expansion 3->5 states (BootScene + GameScene)", "status": "not_started"},
+    {"id": 13, "name": "PP-05: Combo System (5/10/20/50 thresholds)", "status": "not_started"},
+    {"id": 14, "name": "PP-06..PP-17: Remaining 12 Prompt Packages", "status": "not_started"},
+    {"id": 15, "name": "Deep Research PDF analysis (strategy/coder_survival_deep_research.pdf)", "status": "not_started"},
+    {"id": 16, "name": "Migration cutover monitoring (YC staging up, prod not cutover)", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [],
+  "decisions": [
+    {"decision": "Combined Kimi Code + Cloud Opus fixes for Bug 1 (viewport)", "rationale": "Kimi's 100dvh fixes Telegram WebView, Opus's min-height fixes panel overflow. Both needed."},
+    {"decision": "Opus's useGameState.js:284 fix is root cause for Bug 2", "rationale": "onClick->onPointerDown was superficial; levelUp ?? current.levelUp kept restoring the modal. levelUp ?? null is the real fix."},
+    {"decision": "MemeGenerator already deployed by migration model", "rationale": "Other model fixed and deployed blob URL fix before we reached Bug 3. Only needed download consistency improvement."}
+  ],
+  "uncommitted_files": [
+    "backend/src/routes/state.js",
+    "frontend/index.html",
+    "frontend/src/components/LevelUpModal.jsx",
+    "frontend/src/components/MemeGenerator.jsx",
+    "frontend/src/hooks/useGameState.js",
+    "scripts/smoke-prod.ps1"
+  ],
+  "next_action": "Run /gsd-resume-work in new session to restore context, then proceed to PP-04 (Avatar expansion) or analyze Deep Research PDF.",
+  "context_notes": "All 3 bugs fixed and deployed to Vercel production. PP-04..PP-05 are the next priority (visual core). Migration model is doing YC staging setup (VM at 89.169.140.219, Buckets, Lockbox). Production still on old VM (89.169.140.107 DuckDNS). Cutover NOT done — do not switch production."
+}
