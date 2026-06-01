@@ -107,6 +107,29 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
     expect(final.resolved).toBe(true);
   });
 
+  test('legacy_code solve creates a flat active-event state and resolves on the 10th tap only', async () => {
+    const { userId } = await createUser(1010);
+    await testPool.query(
+      `INSERT INTO active_random_events (user_id, event_type, event_id, started_at, expires_at, state)
+       VALUES ($1, 'legacy_code', 'lc_solve_then_tap', NOW(), NOW() + INTERVAL '1 hour', '{}')`,
+      [userId]
+    );
+
+    const solved = await resolveRandomEvent(testPool, userId, 'lc_solve_then_tap', 'solve');
+    expect(solved.resolved).toBe(false);
+    expect(solved.nextState.legacyCodeClicksRemaining).toBe(10);
+
+    for (let i = 0; i < 9; i++) {
+      const result = await resolveRandomEvent(testPool, userId, 'lc_solve_then_tap', 'tap');
+      expect(result.resolved).toBe(false);
+      expect(result.nextState.legacyCodeClicksRemaining).toBe(9 - i);
+    }
+
+    const final = await resolveRandomEvent(testPool, userId, 'lc_solve_then_tap', 'tap');
+    expect(final.resolved).toBe(true);
+    expect(final.nextState.legacyCodeClicksRemaining).toBe(0);
+  });
+
   test('expireRandomEvents auto-resolves stale events', async () => {
     const { userId } = await createUser(1006);
     await testPool.query(
@@ -148,7 +171,6 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
     const payload = buildActiveEventPayload(active);
     expect(payload.type).toBe('hot_streak');
     expect(payload.timeout).toBeGreaterThan(0);
-    // 15 s interval + Math.ceil can drift to 16-17 s due to server/client clock skew
-    expect(payload.timeout).toBeLessThanOrEqual(20);
+    expect(payload.timeout).toBeLessThanOrEqual(16);
   });
 });
