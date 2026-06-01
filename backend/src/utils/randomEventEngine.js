@@ -260,7 +260,7 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
     if (clicksLeft <= 0) {
       await client.query(
         `UPDATE active_random_events
-         SET resolved_at = NOW(), resolution = $4, state = $5, deltas = $6
+         SET resolved_at = NOW(), resolution = $3, state = $4, deltas = $5
          WHERE user_id = $1 AND event_id = $2`,
         [userId, eventId, action, JSON.stringify(nextEventState), JSON.stringify(nextDeltas)]
       );
@@ -279,7 +279,7 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
 
   await client.query(
     `UPDATE active_random_events
-     SET resolved_at = NOW(), resolution = $4, state = $5, deltas = $6
+     SET resolved_at = NOW(), resolution = $3, state = $4, deltas = $5
      WHERE user_id = $1 AND event_id = $2`,
     [userId, eventId, action, JSON.stringify(nextEventState), JSON.stringify(nextDeltas)]
   );
