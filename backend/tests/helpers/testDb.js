@@ -76,23 +76,26 @@ export async function resetTestDatabase() {
     return;
   }
 
-  // Delete rows in dependency order (child tables first) to avoid FK errors
-  // and avoid the multi-table AccessExclusiveLock deadlock that TRUNCATE causes.
   const result = await testPool.query(`
     SELECT c.relname AS table_name
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
-    LEFT JOIN pg_constraint con ON con.conrelid = c.oid AND con.contype = 'f'
     WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname <> 'schema_migrations'
-    GROUP BY c.relname
-    ORDER BY COUNT(con.oid) DESC
+    ORDER BY c.relname
   `);
+  if (result.rows.length === 0) return;
 
-  for (const row of result.rows) {
-    await testPool.query(`DELETE FROM "public"."${row.table_name}"`);
+  const tables = result.rows
+    .map((row) => `"public"."${String(row.table_name).replaceAll('"', '""')}"`)
+    .join(", ");
+
+  await testPool.query("BEGIN");
+  try {
+    await testPool.query(`SET LOCAL lock_timeout = '5s'`);
+    await testPool.query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);
+    await testPool.query("COMMIT");
+  } catch (error) {
+    await testPool.query("ROLLBACK");
+    throw error;
   }
-
-  // Brief pause so that any concurrent autocommit transactions from the
-  // previous test become visible before the next test starts.
-  await new Promise((resolve) => setTimeout(resolve, 300));
 }
