@@ -1,0 +1,34 @@
+# PP-18 Recovery Context — Safe to Resume
+
+## Current State (2026-06-01)
+- Backend: 57/57 unit tests PASS (pp18.prestige.unit.test.js)
+- Backend syntax: node --check OK for prestige.js, vnext.js, tap.js, routes/prestige.js
+- Frontend: npm run build OK (75 modules, Vite)
+- Migration: 044_add_prestige.sql ready
+- Git tag: pp18-safe-checkpoint-2026-06-01
+
+## What was completed before freeze
+1. DeepSeek: QA + 57 tests passed
+2. Kimi: backend P0 fixes (SQL reads progression.commits_total, no phantom columns)
+3. Integration owner: fixed BUG-1..BUG-3, safe computePrestige, consistent applyPrestigeBonuses(p=0)
+4. Opus: capped prestige at MAX_PRESTIGE_LEVEL=20, currency formula accepted as-is
+5. Frontend agent: PrestigeModal.jsx patched (contexts, initData, confirm flow, mobile overlay)
+
+## What remains (DO NOT deploy to prod yet)
+- [ ] Apply migration 044_add_prestige.sql on staging/dev DB
+- [ ] HTTP smoke: POST /api/prestige/preview → /execute → GET /api/state → /api/tap → /shop
+- [ ] Use test Telegram user ID only for destructive /execute
+- [ ] Prepare deploy checklist
+- [ ] Do NOT touch YC/DNS/.env/vercel scripts
+
+## Files modified (last known)
+- backend/src/routes/prestige.js
+- backend/src/utils/prestige.js
+- backend/src/utils/vnext.js
+- backend/src/utils/tap.js
+- backend/tests/pp18.prestige.unit.test.js
+- frontend/src/components/PrestigeModal.jsx
+
+## Resume instruction for Codex
+Continue from staging smoke. Do NOT rebuild Docker image via long SSH sync. 
+Use pre-built base image or CI/CD. If build needed, use `screen` + detached mode.
