@@ -1,7 +1,7 @@
 {
   "project": "Coder Survival",
   "status": "working_mvp_with_vercel_webhook_bot_runtime",
-  "last_updated": "2026-05-07T18:45:00+03:00",
+  "last_updated": "2026-06-01T18:15:00+03:00",
   "components": {
     "frontend": {
       "status": "live",
@@ -48,6 +48,13 @@
         "scripts/duckdns-update.ps1",
         "scripts/setup-api-host-on-vm.ps1",
         "scripts/set-api-origin.ps1"
+      ],
+      "pending_commits": [
+        "ba60665 fix: normalize login reward dates — UTC boundary guard for daily login rewards",
+        "1dac8e8 fix: keep legacy random events active until refactor taps — preserves legacy random-event lifecycle",
+        "f9e86c4 refactor: centralize idle progression persistence — consolidates passive stress/energy decay",
+        "db69639 test: reset database without sleep — removes sleep from test teardown",
+        "e2393fa fix: render illustrated meme cards — restores illustrated meme scene rendering"
       ],
       "last_release_notes": [
         "VM backend source synced from current repo workspace",
