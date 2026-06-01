@@ -5,8 +5,9 @@
 - Branch: `main`
 - Remote: `origin https://github.com/timoshinoleg-eng/coder_survival.git`
 - Current pushed HEAD: `c3801e7 test: align backend integration contracts`
+- Local branch `main` is **ahead of `origin/main` by 5 commits** — these fixes are committed locally and **awaiting push / deploy**.
 - Release tag pushed: `prod-pp18-yc-2026-06-01`
-- Current expected dirty worktree: only this `HANDOFF.md` if not committed.
+- Current expected dirty worktree: docs/support updates (this file, `support/*.md`, `project-status.json`).
 
 ## Production Status
 PP-18 Prestige and the Yandex Cloud backend migration are live in production.
@@ -35,6 +36,26 @@ PP-18 Prestige and the Yandex Cloud backend migration are live in production.
   - stale integration test contracts updated.
 - Built/patched/restarted YC backend container and pushed current image to YC Container Registry.
 - Created and pushed release tag `prod-pp18-yc-2026-06-01`.
+
+## Pending Release — 5 Local Commits Awaiting Push/Deploy
+
+The following commits are on `main` but **not yet pushed** to `origin/main`.
+They should go out together as a low-risk docs + backend hardening patch.
+
+| Commit | Message | Scope | Risk |
+|--------|---------|-------|------|
+| `ba60665` | fix: normalize login reward dates | `backend/src/utils/date.js`, `loginReward.js` + tests | Low — guards UTC boundary for daily login rewards |
+| `1dac8e8` | fix: keep legacy random events active until refactor taps | `backend/src/utils/randomEventEngine.js` + tests | Low — preserves legacy random-event lifecycle until tap refactor lands |
+| `f9e86c4` | refactor: centralize idle progression persistence | `backend/src/utils/progression.js` + tests | Low — consolidates passive stress/energy decay into one code path |
+| `db69639` | test: reset database without sleep | `backend/tests/helpers/testDb.js` | Low — removes `sleep` from test teardown, speeds up suite |
+| `e2393fa` | fix: render illustrated meme cards | `backend/src/utils/memeRenderer.js` + tests | Low — restores illustrated meme scene rendering instead of blank cards |
+
+### Release readiness for these 5 commits
+- Full backend suite was run locally before the last commit:
+  - `npm --prefix backend test -- --runInBand`
+  - Result: `28/28` suites passed, `295/295` tests passed (baseline from `c3801e7`).
+- These 5 commits touch only `backend/src/utils/*` and `backend/tests/*` — no frontend or infra changes.
+- **Next step:** push `main` to `origin/main`, then run `scripts/release-prod.ps1` or manual YC deploy if backend image rebuild is required.
 
 ## Verification Evidence
 - Local full backend suite:

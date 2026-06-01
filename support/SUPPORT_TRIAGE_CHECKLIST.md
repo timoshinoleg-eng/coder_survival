@@ -190,6 +190,70 @@
 
 ---
 
+## 6. Meme generator — «Мем пустой / чёрный / не генерируется»
+
+### Quick checks
+
+1. **Check meme render audit trail**
+   ```sql
+   SELECT action, context, created_at
+   FROM audit_logs
+   WHERE user_id = :userId
+     AND action = 'meme_render'
+   ORDER BY created_at DESC
+   LIMIT 5;
+   ```
+
+2. **Verify backend commit/deploy date**
+   - Meme illustrated-scene fix is in commit `e2393fa`.
+   - If production backend image was built **before** this commit, the fix is not yet live.
+   - Confirm with: `SELECT NOW() - INTERVAL '1 hour'` vs backend deploy time.
+
+3. **Quick API smoke**
+   ```powershell
+   Invoke-RestMethod "https://coder-survival-api.duckdns.org/api/meme?telegramId=:tgId" `
+     -Headers @{ 'X-Telegram-Init-Data' = ':initData' } `
+     -TimeoutSec 15
+   ```
+   - HTTP 200 + body length > 10 KB → likely OK.
+   - HTTP 200 + body length < 5 KB → possibly blank card; escalate.
+   - HTTP 4xx/5xx → backend error; escalate.
+
+### Escalate to backend if
+- Response is HTTP 200 but PNG is visually blank/black after decode.
+- `audit_logs` shows `meme_render` entries but no `meme_share` follow-ups despite player action.
+- Error appears in backend logs related to `memeRenderer.js` or canvas/image buffers.
+
+---
+
+## 7. Onboarding / Help — «Не понятно, что делать» / «Обучение не появилось»
+
+### Quick checks
+
+1. **Is this a first-time player?**
+   ```sql
+   SELECT created_at, sessions_count
+   FROM users
+   WHERE telegram_id = :tgId;
+   ```
+   - `created_at` within last 24 hours + `sessions_count <= 2` → new player.
+
+2. **Check if onboarding was dismissed/completed**
+   - Ask player: «Видели ли вы всплывающие подсказки при первом входе?»
+   - If yes and dismissed → expected; direct to `?` help button if available.
+   - If no and account is new → possible frontend state issue.
+
+3. **Verify frontend build version**
+   - Ask player to перезайти в Mini App (закрыть и открыть заново).
+   - Check if `?` help button is visible in HUD after reload.
+
+### Escalate to backend if
+- Onboarding is entirely missing for a brand-new account on a fresh open.
+- Help button (`?`) is missing across multiple sessions for the same user.
+- Frontend build is confirmed current but onboarding component fails to mount (check browser console for JS errors).
+
+---
+
 ## Generic escalation template
 
 When a case is **not** expected behavior, include:
