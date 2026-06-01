@@ -1,5 +1,6 @@
 process.env.BOT_BACKEND_SECRET = "test-secret-for-memes";
 
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { renderMeme, MEME_TEMPLATE_IDS, getTemplateLabel } from "../src/utils/memeRenderer.js";
 import { signMemeToken, verifyMemeToken } from "../src/utils/memeToken.js";
 
@@ -27,6 +28,28 @@ describe("phase3 meme engine", () => {
       expect(Buffer.isBuffer(buffer)).toBe(true);
       expect(buffer.length).toBeGreaterThan(1000);
       expect(buffer.slice(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    });
+
+    test("renderMeme includes a visible illustrated scene instead of a mostly empty dark card", async () => {
+      const buffer = await renderMeme("this_is_fine", "1:1", stats);
+      const image = await loadImage(buffer);
+      const canvas = createCanvas(image.width, image.height);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(image, 0, 0);
+      const pixels = ctx.getImageData(0, 0, image.width, image.height).data;
+
+      let orangeScenePixels = 0;
+      let blackPixels = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
+        if (r < 20 && g < 20 && b < 20) blackPixels += 1;
+        if (r > 180 && g > 70 && g < 190 && b < 80) orangeScenePixels += 1;
+      }
+
+      expect(orangeScenePixels).toBeGreaterThan(12000);
+      expect(blackPixels / (image.width * image.height)).toBeLessThan(0.10);
     });
 
     test("renderMeme throws on unknown template", async () => {

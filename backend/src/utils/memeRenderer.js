@@ -3,36 +3,36 @@ import { createCanvas } from '@napi-rs/canvas';
 const TEMPLATES = {
   works_on_my_machine: {
     label: 'Works on my machine',
-    topText: '— У меня работает',
-    bottomText: '— А у тебе?',
+    topText: 'Works on my machine',
+    bottomText: 'Ship it anyway',
     bgGradient: ['#1a3a5c', '#0f1b30'],
     accentColor: '#facc15',
   },
   deploy_friday: {
     label: 'Deploy on Friday',
-    topText: 'Деплой в пятницу',
-    bottomText: 'Что может пойти не так?',
+    topText: 'Friday deploy',
+    bottomText: 'What could go wrong?',
     bgGradient: ['#5a2d2d', '#3f1a1a'],
     accentColor: '#ef4444',
   },
   this_is_fine: {
     label: 'This is fine',
-    topText: 'Всё нормально',
-    bottomText: '(внутренний крик)',
+    topText: 'This is fine',
+    bottomText: 'internal screaming',
     bgGradient: ['#5a3e2d', '#3f2a1a'],
     accentColor: '#fb923c',
   },
   wtf_per_minute: {
     label: 'WTF per minute',
-    topText: 'WTF в минуту: over 9000',
-    bottomText: 'Code review пройден',
+    topText: 'WTF per minute: over 9000',
+    bottomText: 'Code review approved',
     bgGradient: ['#2d5a3e', '#1a3f25'],
     accentColor: '#4ade80',
   },
   stack_overflow: {
     label: 'Stack Overflow',
     topText: 'Stack Overflow copy-paste',
-    bottomText: 'Если работает — не трогай',
+    bottomText: 'If it works, do not touch',
     bgGradient: ['#30527e', '#1a3a5c'],
     accentColor: '#60a5fa',
   },
@@ -56,6 +56,134 @@ function drawTextShadow(ctx, text, x, y, maxWidth) {
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
   ctx.fillText(text, x + 2, y + 2, maxWidth);
   ctx.restore();
+}
+
+function drawMonitor(ctx, x, y, w, h, accentColor) {
+  drawPixelShadow(ctx, x, y, w, h, 'rgba(0,0,0,0.35)', 6);
+  ctx.fillStyle = '#0b1220';
+  ctx.fillRect(x, y, w, h);
+  drawPixelBorder(ctx, x, y, w, h, accentColor, 3);
+  ctx.fillStyle = '#111c31';
+  ctx.fillRect(x + 12, y + 12, w - 24, h - 28);
+  ctx.fillStyle = accentColor;
+  ctx.fillRect(x + w * 0.35, y + h + 6, w * 0.3, 10);
+  ctx.fillRect(x + w * 0.25, y + h + 18, w * 0.5, 8);
+}
+
+function drawCodeLines(ctx, x, y, widths, color) {
+  ctx.fillStyle = color;
+  widths.forEach((width, index) => {
+    ctx.fillRect(x, y + index * 14, width, 6);
+  });
+}
+
+function drawPixelPerson(ctx, x, y, color, accentColor) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x + 18, y, 34, 34);
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(x + 25, y + 11, 6, 6);
+  ctx.fillRect(x + 39, y + 11, 6, 6);
+  ctx.fillStyle = accentColor;
+  ctx.fillRect(x + 18, y + 42, 34, 44);
+  ctx.fillStyle = '#172033';
+  ctx.fillRect(x + 4, y + 48, 14, 30);
+  ctx.fillRect(x + 52, y + 48, 14, 30);
+}
+
+function drawFlame(ctx, x, y, scale = 1) {
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.moveTo(x, y + 72 * scale);
+  ctx.lineTo(x + 24 * scale, y + 18 * scale);
+  ctx.lineTo(x + 42 * scale, y + 72 * scale);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#fb923c';
+  ctx.beginPath();
+  ctx.moveTo(x + 9 * scale, y + 72 * scale);
+  ctx.lineTo(x + 26 * scale, y + 4 * scale);
+  ctx.lineTo(x + 36 * scale, y + 72 * scale);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#facc15';
+  ctx.beginPath();
+  ctx.moveTo(x + 18 * scale, y + 72 * scale);
+  ctx.lineTo(x + 28 * scale, y + 34 * scale);
+  ctx.lineTo(x + 34 * scale, y + 72 * scale);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawTemplateScene(ctx, templateId, template, width, sceneY, sceneH) {
+  const x = 42;
+  const y = sceneY;
+  const w = width - 84;
+  const h = sceneH;
+
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  ctx.fillRect(x, y, w, h);
+  drawPixelBorder(ctx, x, y, w, h, 'rgba(255,255,255,0.14)', 2);
+
+  if (templateId === 'this_is_fine') {
+    ctx.fillStyle = '#fb923c';
+    ctx.fillRect(x + 18, y + 58, w - 36, h - 84);
+    ctx.fillStyle = '#5a2b14';
+    ctx.fillRect(x + 20, y + h - 48, w - 40, 22);
+    drawFlame(ctx, x + 30, y + 18, 1.1);
+    drawFlame(ctx, x + w - 82, y + 24, 1);
+    drawFlame(ctx, x + w / 2 - 20, y + 8, 1.25);
+    drawPixelPerson(ctx, x + w / 2 - 34, y + h - 118, '#f8d0a8', '#3b82f6');
+    ctx.fillStyle = '#fb923c';
+    ctx.fillRect(x + 18, y + h - 26, w - 36, 14);
+    return;
+  }
+
+  if (templateId === 'works_on_my_machine') {
+    drawMonitor(ctx, x + 34, y + 20, w - 68, h - 64, template.accentColor);
+    drawCodeLines(ctx, x + 70, y + 54, [150, 96, 176, 122], '#4ade80');
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(x + w - 78, y + 36, 26, 26);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(x + w - 70, y + 44, 10, 4);
+    ctx.fillRect(x + w - 70, y + 56, 16, 4);
+    return;
+  }
+
+  if (templateId === 'deploy_friday') {
+    drawMonitor(ctx, x + 28, y + 18, w - 56, h - 58, template.accentColor);
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(x + 72, y + 58, w - 144, 34);
+    ctx.fillStyle = '#fff7ed';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('DEPLOY', width / 2, y + 82);
+    drawFlame(ctx, x + 28, y + h - 88, 0.72);
+    drawFlame(ctx, x + w - 62, y + h - 88, 0.72);
+    return;
+  }
+
+  if (templateId === 'wtf_per_minute') {
+    drawMonitor(ctx, x + 30, y + 18, w - 60, h - 58, template.accentColor);
+    drawCodeLines(ctx, x + 64, y + 50, [170, 130, 190, 80, 156], '#86efac');
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(x + 58, y + h - 46);
+    ctx.lineTo(x + 118, y + h - 82);
+    ctx.lineTo(x + 178, y + h - 62);
+    ctx.lineTo(x + 242, y + h - 104);
+    ctx.stroke();
+    return;
+  }
+
+  drawMonitor(ctx, x + 34, y + 18, w - 68, h - 58, template.accentColor);
+  ctx.fillStyle = '#f97316';
+  ctx.fillRect(x + 70, y + 52, 34, 34);
+  ctx.fillRect(x + 112, y + 52, 128, 10);
+  ctx.fillRect(x + 112, y + 74, 92, 10);
+  ctx.fillStyle = '#60a5fa';
+  ctx.fillRect(x + 70, y + 106, 176, 8);
+  ctx.fillRect(x + 70, y + 124, 136, 8);
 }
 
 export async function renderMeme(templateId, format, stats) {
@@ -106,17 +234,21 @@ export async function renderMeme(templateId, format, stats) {
   ctx.stroke();
 
   // Stats block
-  const statsY = dividerY + (isTall ? 36 : 28);
-  const lineHeight = isTall ? 28 : 24;
-  const statsFontSize = isTall ? 18 : 16;
+  const sceneY = dividerY + (isTall ? 30 : 22);
+  const sceneH = isTall ? 300 : 150;
+  drawTemplateScene(ctx, templateId, template, width, sceneY, sceneH);
+
+  const statsY = sceneY + sceneH + (isTall ? 34 : 26);
+  const lineHeight = isTall ? 28 : 19;
+  const statsFontSize = isTall ? 18 : 14;
   ctx.font = `bold ${statsFontSize}px sans-serif`;
   ctx.fillStyle = '#e6edf7';
 
   const lines = [
-    `${stats.rankName || 'Junior'} | ${stats.commits || 0} коммитов`,
-    `Дней подряд: ${stats.streakDays || 0}`,
-    `Стресс: ${Math.round(stats.depression || 0)}%`,
-    `Энергия: ${Math.round(stats.energy || 0)}/${stats.maxEnergy || 100}`,
+    `${stats.rankName || 'Junior'} | ${stats.commits || 0} commits`,
+    `Streak: ${stats.streakDays || 0}`,
+    `Stress: ${Math.round(stats.depression || 0)}%`,
+    `Energy: ${Math.round(stats.energy || 0)}/${stats.maxEnergy || 100}`,
   ];
 
   lines.forEach((line, i) => {
@@ -124,8 +256,8 @@ export async function renderMeme(templateId, format, stats) {
   });
 
   // Bottom text
-  const bottomFontSize = isTall ? 26 : 22;
-  const bottomY = height - pad - (isTall ? 80 : 50);
+  const bottomFontSize = isTall ? 26 : 18;
+  const bottomY = height - pad - (isTall ? 80 : 30);
   ctx.font = `bold ${bottomFontSize}px sans-serif`;
   ctx.fillStyle = template.accentColor;
   drawTextShadow(ctx, template.bottomText, width / 2, bottomY, contentW);
