@@ -1,4 +1,5 @@
 import { LOGIN_STREAK_BONUS } from '../config/balance.js';
+import { todayUtcDateOnly, toUtcDateOnly } from './date.js';
 import { applyReward } from './rewards.js';
 
 /**
@@ -8,8 +9,7 @@ import { applyReward } from './rewards.js';
  * the reward info for frontend toast.
  */
 export async function processLoginReward(client, userId) {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const today = todayUtcDateOnly();
 
   const claimResult = await client.query(
     `SELECT last_claimed_date, streak_days
@@ -31,12 +31,9 @@ export async function processLoginReward(client, userId) {
     record = { last_claimed_date: null, streak_days: 0 };
   }
 
-  const lastClaimedRaw = record.last_claimed_date ? new Date(record.last_claimed_date) : null;
   // pg parses DATE as local-midnight Date; normalize to UTC-date-only to avoid
   // timezone-shift bugs when setUTCHours(0,0,0,0) pushes the date backwards.
-  const lastClaimed = lastClaimedRaw
-    ? new Date(Date.UTC(lastClaimedRaw.getFullYear(), lastClaimedRaw.getMonth(), lastClaimedRaw.getDate()))
-    : null;
+  const lastClaimed = toUtcDateOnly(record.last_claimed_date);
 
   if (lastClaimed && lastClaimed.getTime() === today.getTime()) {
     // Already claimed today — return current streak without reward
