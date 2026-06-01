@@ -1,0 +1,669 @@
+diff --git a/backend/src/routes/pass.js b/backend/src/routes/pass.js
+index edac5bc..af1923b 100644
+--- a/backend/src/routes/pass.js
++++ b/backend/src/routes/pass.js
+@@ -11,12 +11,8 @@ router.get(['/', '/status'], async (req, res) => {
+   let client;
+   try {
+     client = await pool.connect();
+-    await client.query('BEGIN');
+     const userResult = await client.query('SELECT id FROM users WHERE telegram_id = $1', [telegramUser.id]);
+-    if (userResult.rows.length === 0) {
+-      await client.query('ROLLBACK');
+-      return res.status(404).json({ error: 'User not found' });
+-    }
++    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+     const userId = userResult.rows[0].id;
+     const progressionResult = await client.query(
+       `SELECT pass_state FROM progression WHERE user_id = $1 FOR UPDATE`,
+@@ -56,17 +52,9 @@ router.get(['/', '/status'], async (req, res) => {
+       [userId, JSON.stringify({ ...passState, lastSeenAt: now.toISOString() })]
+     );
+     const passStatus = await getPassStatus(client, userId);
+-    await client.query('COMMIT');
+     if (!passStatus) return res.json({ success: true, status: null });
+     return res.json({ ...passStatus, success: true, status: passStatus, catchUp, weekendDoubleXpActive: getWeekendXpMultiplier(new Date()) > 1 });
+   } catch (err) {
+-    if (client) {
+-      try {
+-        await client.query('ROLLBACK');
+-      } catch (_rollbackErr) {
+-        // Keep the original pass error as the response cause.
+-      }
+-    }
+     console.error('Pass GET error:', err);
+     return res.status(500).json({ error: 'Технический сбой' });
+   } finally {
+@@ -88,29 +76,16 @@ router.post(['/claim/:level', '/claim'], async (req, res) => {
+   let client;
+   try {
+     client = await pool.connect();
+-    await client.query('BEGIN');
+     const userResult = await client.query('SELECT id FROM users WHERE telegram_id = $1', [telegramUser.id]);
+-    if (userResult.rows.length === 0) {
+-      await client.query('ROLLBACK');
+-      return res.status(404).json({ error: 'User not found' });
+-    }
++    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+     const userId = userResult.rows[0].id;
+     const result = await claimPassReward(client, userId, level, track);
+     if (result.status !== 200) {
+-      await client.query('ROLLBACK');
+       return res.status(result.status).json({ error: result.error });
+     }
+     const passStatus = await getPassStatus(client, userId);
+-    await client.query('COMMIT');
+-    return res.json({ success: true, level, track, reward: result.reward, applied: result.applied, pass: passStatus });
++    return res.json({ level, track, reward: result.reward, applied: result.applied, pass: passStatus });
+   } catch (err) {
+-    if (client) {
+-      try {
+-        await client.query('ROLLBACK');
+-      } catch (_rollbackErr) {
+-        // Keep the original claim error as the response cause.
+-      }
+-    }
+     console.error('Pass claim error:', err);
+     return res.status(500).json({ error: 'Технический сбой' });
+   } finally {
+diff --git a/backend/src/utils/pass.js b/backend/src/utils/pass.js
+index 728a9fb..a34af29 100644
+--- a/backend/src/utils/pass.js
++++ b/backend/src/utils/pass.js
+@@ -1,6 +1,5 @@
+ import { applyReward } from './rewards.js';
+ import { STAGE2 } from '../config/balance.js';
+-import { getProductById } from './shopCatalog.js';
+ 
+ const { PASS } = STAGE2;
+ 
+@@ -270,20 +269,23 @@ export async function claimPassReward(client, userId, level, track) {
+     return { error: 'Premium not purchased', status: 403 };
+   }
+ 
+-  const payload = track === 'premium' ? rewardDef.premium_reward_payload : rewardDef.free_reward_payload;
+-  const claimResult = await client.query(
+-    `INSERT INTO pass_claims (user_id, pass_id, level, track)
+-     VALUES ($1, $2, $3, $4)
+-     ON CONFLICT (user_id, pass_id, level, track) DO NOTHING
+-     RETURNING id`,
++  const existing = await client.query(
++    `SELECT 1 FROM pass_claims WHERE user_id = $1 AND pass_id = $2 AND level = $3 AND track = $4`,
+     [userId, pass.id, level, track]
+   );
+-  if (claimResult.rows.length === 0) {
++  if (existing.rows.length > 0) {
+     return { error: 'Already claimed', status: 409 };
+   }
+ 
++  const payload = track === 'premium' ? rewardDef.premium_reward_payload : rewardDef.free_reward_payload;
+   const rewardResult = await applyReward(client, userId, payload);
+ 
++  await client.query(
++    `INSERT INTO pass_claims (user_id, pass_id, level, track)
++     VALUES ($1, $2, $3, $4)`,
++    [userId, pass.id, level, track]
++  );
++
+   // Audit hook
+   await client.query(
+     `INSERT INTO audit_logs (user_id, action, context)
+@@ -360,7 +362,6 @@ export function normalizePassStatus(status) {
+       nextLevelXp: levelMeta.nextLevelXp,
+       remainingXp: levelMeta.remainingXp
+     } : null,
+-    rewards: status.rewards || [],
+-    premiumPassProduct: getProductById('premium_pass')
++    rewards: status.rewards || []
+   };
+ }
+diff --git a/backend/tests/mvp.performanceStatic.test.js b/backend/tests/mvp.performanceStatic.test.js
+index 2f2ab4c..b93098c 100644
+--- a/backend/tests/mvp.performanceStatic.test.js
++++ b/backend/tests/mvp.performanceStatic.test.js
+@@ -61,25 +61,6 @@ describe('MVP performance guardrails', () => {
+     expect(offerIndex).toBeGreaterThan(lastCommitIndex);
+   });
+ 
+-  test('sprint pass claim inserts the claim before applying reward', () => {
+-    const route = read('backend/src/routes/pass.js');
+-    const util = read('backend/src/utils/pass.js');
+-    const claimRouteStart = route.indexOf("router.post(['/claim/:level', '/claim']");
+-    const claimRoute = route.slice(claimRouteStart);
+-    expect(claimRoute).toContain("await client.query('BEGIN');");
+-    expect(claimRoute).toContain("await client.query('COMMIT');");
+-    expect(claimRoute).toContain("await client.query('ROLLBACK');");
+-
+-    const insertIndex = util.indexOf('INSERT INTO pass_claims');
+-    const rewardIndex = util.indexOf('const rewardResult = await applyReward');
+-    expect(insertIndex).toBeGreaterThan(-1);
+-    expect(rewardIndex).toBeGreaterThan(insertIndex);
+-    expect(util).toContain('ON CONFLICT (user_id, pass_id, level, track) DO NOTHING');
+-    expect(util).toContain('RETURNING id');
+-    expect(route).toContain('success: true, level, track');
+-    expect(util).toContain("premiumPassProduct: getProductById('premium_pass')");
+-  });
+-
+   test('rate limit accounts for batch tap increments', () => {
+     const source = read('backend/src/middleware/rateLimit.js');
+     expect(source).toContain('tapIncrement');
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index 03b577e..bd7f2bb 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -24,26 +24,9 @@ import ShareButton from "./components/ShareButton.jsx";
+ import AudioToggle from "./components/AudioToggle.jsx";
+ import CareerModal from "./components/CareerModal.jsx";
+ import MemeGenerator from "./components/MemeGenerator.jsx";
+-import { applyRandomEventChoice, getActiveRuntimeEvents, reduceLegacyCodeClick } from './utils/randomEventRuntime.js';
++import { getActiveRuntimeEvents, reduceLegacyCodeClick } from './utils/randomEventRuntime.js';
+ import { apiRequest } from './utils/api.js';
+ 
+-function normalizeRuntimeEventState(state = {}) {
+-  const source = state || {};
+-  return {
+-    legacyCodeClicksRemaining: Number(source.legacyCodeClicksRemaining || 0),
+-    productionAlertUntil: source.productionAlertUntil || null,
+-    hotStreakUntil: source.hotStreakUntil || null,
+-  };
+-}
+-
+-function runtimeEventStatesEqual(left, right) {
+-  const normalizedLeft = normalizeRuntimeEventState(left);
+-  const normalizedRight = normalizeRuntimeEventState(right);
+-  return normalizedLeft.legacyCodeClicksRemaining === normalizedRight.legacyCodeClicksRemaining
+-    && normalizedLeft.productionAlertUntil === normalizedRight.productionAlertUntil
+-    && normalizedLeft.hotStreakUntil === normalizedRight.hotStreakUntil;
+-}
+-
+ function AppInner() {
+   const [gameReady, setGameReady] = useState(false);
+   const { loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast, memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState, setRandomEventState } = useGameState();
+@@ -64,10 +47,7 @@ function AppInner() {
+ 
+   useEffect(() => {
+     if (!persistedRandomEventState) return;
+-    setRuntimeEventState((current) => {
+-      const next = normalizeRuntimeEventState({ ...current, ...persistedRandomEventState });
+-      return runtimeEventStatesEqual(current, next) ? current : next;
+-    });
++    setRuntimeEventState((current) => ({ ...current, ...persistedRandomEventState }));
+   }, [persistedRandomEventState]);
+ 
+   useEffect(() => {
+@@ -123,10 +103,7 @@ function AppInner() {
+             body: {},
+           }).then((payload) => {
+             if (payload?.randomEventState) {
+-              setRuntimeEventState((latest) => {
+-                const next = normalizeRuntimeEventState({ ...latest, ...payload.randomEventState });
+-                return runtimeEventStatesEqual(latest, next) ? latest : next;
+-              });
++              setRuntimeEventState((latest) => ({ ...latest, ...payload.randomEventState }));
+             }
+           }).catch(() => null).finally(() => {
+             legacyTapSyncRef.current = false;
+@@ -140,14 +117,11 @@ function AppInner() {
+   }, []);
+ 
+   useEffect(() => {
+-    const next = normalizeRuntimeEventState(runtimeEventState);
+     if (window.__GAME_STATE__) {
+-      window.__GAME_STATE__.runtimeEventState = next;
+-    }
+-    if (!runtimeEventStatesEqual(persistedRandomEventState, next)) {
+-      setRandomEventState(next);
++      window.__GAME_STATE__.runtimeEventState = runtimeEventState;
+     }
+-  }, [persistedRandomEventState, runtimeEventState, setRandomEventState]);
++    setRandomEventState(runtimeEventState);
++  }, [runtimeEventState]);
+ 
+   useEffect(() => {
+     const previous = previousLegacyClicksRef.current;
+diff --git a/frontend/vercel.json b/frontend/vercel.json
+index 0303cd4..d291502 100644
+--- a/frontend/vercel.json
++++ b/frontend/vercel.json
+@@ -2,11 +2,11 @@
+   "rewrites": [
+     {
+       "source": "/api/(.*)",
+-      "destination": "https://coder-survival-api.duckdns.org/api/$1"
++      "destination": "https://89-169-138-23.sslip.io/api/$1"
+     },
+     {
+       "source": "/health",
+-      "destination": "https://coder-survival-api.duckdns.org/health"
++      "destination": "https://89-169-138-23.sslip.io/health"
+     }
+   ]
+ }
+diff --git a/scripts/release-prod.ps1 b/scripts/release-prod.ps1
+index 6c2660c..8acff8d 100644
+--- a/scripts/release-prod.ps1
++++ b/scripts/release-prod.ps1
+@@ -61,8 +61,7 @@ function Invoke-SshScript {
+     [string]$Script
+   )
+ 
+-  $normalizedScript = $Script -replace "`r`n", "`n"
+-  $output = $normalizedScript | ssh $SshHost bash -s
++  $output = $Script | ssh $SshHost bash -s
+   if ($LASTEXITCODE -ne 0) {
+     throw "ssh script failed on $SshHost"
+   }
+diff --git a/scripts/smoke-prod.ps1 b/scripts/smoke-prod.ps1
+index daa3add..2db7867 100644
+--- a/scripts/smoke-prod.ps1
++++ b/scripts/smoke-prod.ps1
+@@ -1,6 +1,6 @@
+ [CmdletBinding()]
+ param(
+-  [string]$VmHost = "ubuntu@89.169.140.107",
++  [string]$VmHost = "ubuntu@111.88.247.195",
+   [string]$RemoteAppDir = "/opt/coder-survival/app",
+   [string]$BackendComposeFile = "docker-compose.backend.yml",
+   [string]$BaseUrl = "https://frontend-ashy-alpha-77.vercel.app",
+@@ -32,28 +32,6 @@ function Get-OptionalValue {
+   return $null
+ }
+ 
+-function Get-QuestField {
+-  param(
+-    $Quest,
+-    [string[]]$Candidates
+-  )
+-  return Get-OptionalValue -Object $Quest -Candidates $Candidates
+-}
+-
+-function Find-QuestByType {
+-  param(
+-    [array]$Quests,
+-    [string]$Type
+-  )
+-  foreach ($quest in @($Quests)) {
+-    $questType = Get-QuestField -Quest $quest -Candidates @('questType', 'quest_type', 'type')
+-    if ($questType -eq $Type) {
+-      return $quest
+-    }
+-  }
+-  return $null
+-}
+-
+ function Add-Result {
+   param(
+     [System.Collections.ArrayList]$Results,
+@@ -200,8 +178,7 @@ try {
+     $null -ne $state.pass -and
+     $null -ne $state.pass.premiumPassProduct
+   )
+-  $stateEventType = Get-OptionalValue -Object $state.event -Candidates @('type')
+-  Add-Result -Results $results -Name "state" -Ok $stateOk -Detail "energy=$($state.game.energy); daily=$($state.daily.quests.Count); event=$stateEventType; passLevel=$passLevel; countdown=$countdownOk"
++  Add-Result -Results $results -Name "state" -Ok $stateOk -Detail "energy=$($state.game.energy); daily=$($state.daily.quests.Count); event=$($state.event.type); passLevel=$passLevel; countdown=$countdownOk"
+ } catch {
+   Add-Result -Results $results -Name "state" -Ok $false -Detail $_.Exception.Message
+ }
+@@ -235,8 +212,7 @@ try {
+     $null -ne $tap.daily -and
+     $null -ne $tap.pass
+   )
+-  $tapEventTarget = Get-OptionalValue -Object $tap.event -Candidates @('target', 'targetCommits', 'target_commits')
+-  Add-Result -Results $results -Name "tap" -Ok $tapOk -Detail "commitsDelta=$($tap.delta.commits); eventTarget=$tapEventTarget; passXp=$passXp; countdown=$tapCountdownOk; progressionChanged=$tapProgressionChanged"
++  Add-Result -Results $results -Name "tap" -Ok $tapOk -Detail "commitsDelta=$($tap.delta.commits); eventTarget=$($tap.event.target); passXp=$passXp; countdown=$tapCountdownOk; progressionChanged=$tapProgressionChanged"
+ } catch {
+   Add-Result -Results $results -Name "tap" -Ok $false -Detail $_.Exception.Message
+ }
+@@ -244,21 +220,18 @@ try {
+ # ---------- quests/daily ----------
+ try {
+   $quests = Invoke-RestMethod "$BaseUrl/api/quests/daily" -Headers $headers -Method Get
+-  $tapQuest = Find-QuestByType -Quests $quests.daily.quests -Type 'tap_count'
+-  $commitQuest = Find-QuestByType -Quests $quests.daily.quests -Type 'commit_count'
+-  $loginQuest = Find-QuestByType -Quests $quests.daily.quests -Type 'login'
++  $tapQuest = $quests.daily.quests | Where-Object { $_.questType -eq 'tap_count' }
++  $commitQuest = $quests.daily.quests | Where-Object { $_.questType -eq 'commit_count' }
++  $loginQuest = $quests.daily.quests | Where-Object { $_.questType -eq 'login' }
+   $bonusEnergy = $quests.daily.allCompletedBonusReward.energy
+-  $tapTarget = Get-QuestField -Quest $tapQuest -Candidates @('targetValue', 'target_value', 'target')
+-  $commitTarget = Get-QuestField -Quest $commitQuest -Candidates @('targetValue', 'target_value', 'target')
+-  $loginTarget = Get-QuestField -Quest $loginQuest -Candidates @('targetValue', 'target_value', 'target')
+   $questsOk = (
+     $quests.daily.quests.Count -ge 3 -and
+-    $tapTarget -eq 40 -and
+-    $commitTarget -eq 80 -and
+-    $loginTarget -eq 1 -and
++    $tapQuest.targetValue -eq 40 -and
++    $commitQuest.targetValue -eq 80 -and
++    $loginQuest.targetValue -eq 1 -and
+     $bonusEnergy -eq 25
+   )
+-  Add-Result -Results $results -Name "quests/daily" -Ok $questsOk -Detail "count=$($quests.daily.quests.Count); tap=$tapTarget; commits=$commitTarget; login=$loginTarget; bonusEnergy=$bonusEnergy"
++  Add-Result -Results $results -Name "quests/daily" -Ok $questsOk -Detail "count=$($quests.daily.quests.Count); tap=$($tapQuest.targetValue); commits=$($commitQuest.targetValue); login=$($loginQuest.targetValue); bonusEnergy=$bonusEnergy"
+ } catch {
+   Add-Result -Results $results -Name "quests/daily" -Ok $false -Detail $_.Exception.Message
+ }
+@@ -280,17 +253,15 @@ try {
+ # ---------- event/active ----------
+ try {
+   $event = Invoke-RestMethod "$BaseUrl/api/event/active" -Headers $headers -Method Get
+-  $eventContribution = Get-OptionalValue -Object $event -Candidates @('myContribution', 'my_contribution', 'contribution')
+-  $progress = if ($null -ne $eventContribution) { Get-OptionalValue -Object $eventContribution -Candidates @('progressPercent', 'progress_percent') } else { "n/a" }
+-  $eventReward = Get-OptionalValue -Object $event.event -Candidates @('rewardPayload', 'reward_payload', 'reward')
+-  $eventTarget = Get-OptionalValue -Object $event.event -Candidates @('targetCommits', 'target_commits', 'target')
++  $progress = if ($null -ne $event.myContribution) { $event.myContribution.progressPercent } else { "n/a" }
++  $eventReward = $event.event.rewardPayload
+   $eventOk = (
+-    $eventTarget -eq 650 -and
++    $event.event.targetCommits -eq 650 -and
+     $eventReward.energy -eq 80 -and
+     $eventReward.commitsCurrent -eq 60 -and
+     $eventReward.depressionRelief -eq 15
+   )
+-  Add-Result -Results $results -Name "event/active" -Ok $eventOk -Detail "event=$($event.event.type); target=$eventTarget; reward=$($eventReward.energy)/$($eventReward.commitsCurrent)/$($eventReward.depressionRelief); progress=$progress"
++  Add-Result -Results $results -Name "event/active" -Ok $eventOk -Detail "event=$($event.event.type); target=$($event.event.targetCommits); reward=$($eventReward.energy)/$($eventReward.commitsCurrent)/$($eventReward.depressionRelief); progress=$progress"
+ } catch {
+   Add-Result -Results $results -Name "event/active" -Ok $false -Detail $_.Exception.Message
+ }
+@@ -477,7 +448,7 @@ if (-not $SkipMutationTests) {
+   # ---------- quests/claim ----------
+   try {
+     $dailyQuests = Invoke-RestMethod "$BaseUrl/api/quests/daily" -Headers $fresh.headers -Method Get
+-    $loginQuest = Find-QuestByType -Quests $dailyQuests.daily.quests -Type 'login'
++    $loginQuest = $dailyQuests.daily.quests | Where-Object { $_.questType -eq 'login' }
+     if (-not $loginQuest) {
+       throw "Login quest not found"
+     }
+@@ -542,7 +513,7 @@ if (-not $SkipMutationTests) {
+     if ($null -eq $freshState) { throw "Fresh state unavailable" }
+     $userId = $freshState.user.id
+     $eventId = $eventActive.event.id
+-    $targetCommits = Get-OptionalValue -Object $eventActive.event -Candidates @('targetCommits', 'target_commits', 'target')
++    $targetCommits = $eventActive.event.targetCommits
+ 
+     # Test-only SQL boost to reach target without breaking real player data
+     $sql = 'INSERT INTO event_contributions (user_id, event_id, commits_contributed, claimed) VALUES ($1, $2, $3, false) ON CONFLICT (user_id, event_id) DO UPDATE SET commits_contributed = EXCLUDED.commits_contributed, claimed = false RETURNING *'
+diff --git a/support/PREMIUM_SUPPORT_DEBUG_CHECKLIST.md b/support/PREMIUM_SUPPORT_DEBUG_CHECKLIST.md
+deleted file mode 100644
+index 89cb1fa..0000000
+--- a/support/PREMIUM_SUPPORT_DEBUG_CHECKLIST.md
++++ /dev/null
+@@ -1,278 +0,0 @@
+-# Premium Support & Debug Checklist
+-
+-> Operational triage for monetization complaints: premium pass, entitlement confusion, and duplicate payment edge cases.  
+-> Use together with `support/SUPPORT_TRIAGE_CHECKLIST.md` (general payment/quest triage) and `support/GAMEPLAY_FAQ.md`.  
+-> All SQL is `SELECT`-only. No secrets or `.env` references.  
+-> **Last updated:** 2026-05-29
+-
+----
+-
+-## How to Use This Doc
+-
+-- **Expected behavior** — not a bug; explain to player.
+-- **Possible bug** — collect all SQL outputs and escalate to backend with the generic template at the end.
+-- Replace `:tgId` with player's Telegram ID and `:userId` with internal `users.id`.
+-
+----
+-
+-## 1. Premium Pass Not Active — "Купил, а premium не виден"
+-
+-### Step 1 — Identify the user
+-```sql
+-SELECT id, username, created_at
+-FROM users
+-WHERE telegram_id = :tgId;
+--- Save :userId from this query for all steps below.
+-```
+-
+-### Step 2 — Find the latest premium_pass purchase
+-```sql
+-SELECT
+-  id AS purchase_id,
+-  item_type,
+-  stars_amount,
+-  status,
+-  created_at
+-FROM purchases
+-WHERE user_id = :userId
+-  AND item_type = 'premium_pass'
+-ORDER BY id DESC
+-LIMIT 5;
+-```
+-
+-### Step 3 — Interpret purchase status
+-
+-| Status | Meaning | Next Step |
+-|--------|---------|-----------|
+-| `pending` | Payment webhook from Telegram not yet received. | Ask player to wait 1–2 min and reopen the app. If still pending after 10 min → investigate webhook path. |
+-| `completed` | Purchase row confirmed. | Go to Step 4. |
+-| `failed` | Payment failed or was cancelled. | No entitlement should exist. Ask player to check Telegram payment history. |
+-
+-### Step 4 — Verify payment record
+-```sql
+-SELECT
+-  telegram_payment_charge_id,
+-  status,
+-  created_at
+-FROM star_payments
+-WHERE purchase_id = :purchaseId
+-ORDER BY id DESC;
+-```
+-
+-- **Missing record** → webhook lost or confirm not executed. May need manual backend intervention.
+-- **Record exists** → go to Step 5.
+-
+-### Step 5 — Check entitlement on the active pass
+-```sql
+--- Current active pass season
+-SELECT id AS pass_id, start_date, end_date
+-FROM passes
+-WHERE end_date >= CURRENT_DATE
+-ORDER BY start_date DESC
+-LIMIT 1;
+-
+--- Player entitlement on that pass
+-SELECT
+-  pass_id,
+-  is_premium,
+-  current_level,
+-  created_at,
+-  updated_at
+-FROM player_passes
+-WHERE user_id = :userId
+-  AND pass_id = (SELECT id FROM passes WHERE end_date >= CURRENT_DATE ORDER BY start_date DESC LIMIT 1);
+-```
+-
+-### Step 6 — Interpret entitlement state
+-
+-| `is_premium` | `pass_id` matches active season | Meaning | Action |
+-|--------------|--------------------------------|---------|--------|
+-| `true` | Yes | Premium is active for current season. | Ask player to reload Mini App. Check frontend state sync. |
+-| `true` | No (old pass) | Premium was active for a **previous** season. | Explain v1 limitation: premium is season-scoped. A new purchase is needed for the new season. |
+-| `false` | Yes | Purchase completed but entitlement flag not set. | **Escalate to backend.** |
+-| `false` | No | No entitlement at all. | If purchase is `completed` + `star_payments` exists → **escalate to backend.** |
+-
+-### Step 7 — Audit trail for premium
+-```sql
+-SELECT
+-  action,
+-  context,
+-  created_at
+-FROM audit_logs
+-WHERE user_id = :userId
+-  AND action IN ('payment_confirm', 'pass_premium_unlock', 'purchase_intent')
+-ORDER BY created_at DESC
+-LIMIT 10;
+-```
+-
+-### Escalate to backend if
+-- `purchases.status = 'completed'` + `star_payments` record exists + `player_passes.is_premium = false` for active pass.
+-- `player_passes.is_premium = true` for active pass, but player still cannot claim premium track rewards (possible frontend desync after reload).
+-- Multiple `premium_pass` purchases in `pending` status older than 10 minutes.
+-- Audit trail shows `pass_premium_unlock` but `player_passes` row does not reflect it.
+-
+----
+-
+-## 2. Purchase Applied but Not Visible — "Купил энергию/буст, а эффекта не вижу"
+-
+-> For non-premium items (`energy_refill`, `depression_cure`, `tier_boost`), also see `SUPPORT_TRIAGE_CHECKLIST.md` §1.  
+-> This section adds premium-specific visibility checks.
+-
+-### Step 1 — Confirm purchase and payment
+-Same as §1 Step 2–4, but filter by the actual `item_type` the player bought.
+-
+-### Step 2 — Check expected effect vs actual state
+-
+-| Item | Expected State Change | SQL Check |
+-|------|----------------------|-----------|
+-| `energy_refill` | `progression.energy = maxEnergy` | `SELECT energy, max_energy FROM progression JOIN player_levels USING(user_id) WHERE user_id = :userId;` |
+-| `depression_cure` | `progression.depression` down by ~60 (capped at 0) | `SELECT depression FROM progression WHERE user_id = :userId;` |
+-| `tier_boost` | `player_levels.xp_total` +40, `progression.commits_current` +50 | `SELECT xp_total FROM player_levels WHERE user_id = :userId; SELECT commits_current FROM progression WHERE user_id = :userId;` |
+-| `premium_pass` | `player_passes.is_premium = true`, premium track unlocked | See §1 Step 5. |
+-
+-### Step 3 — Check for unclaimed pass rewards (premium-specific)
+-If player bought `premium_pass` and `is_premium = true`, but says "nothing changed":
+-```sql
+--- Which premium rewards are already unlocked but unclaimed?
+-SELECT
+-  pr.level,
+-  pr.reward_payload,
+-  pc.claimed_at
+-FROM pass_rewards pr
+-LEFT JOIN pass_claims pc
+-  ON pc.pass_id = pr.pass_id
+- AND pc.level = pr.level
+- AND pc.track = 'premium'
+- AND pc.user_id = :userId
+-WHERE pr.pass_id = (SELECT id FROM passes WHERE end_date >= CURRENT_DATE ORDER BY start_date DESC LIMIT 1)
+-  AND pr.track = 'premium'
+-  AND pr.level <= (SELECT current_level FROM player_passes WHERE user_id = :userId AND pass_id = pr.pass_id)
+-ORDER BY pr.level;
+-```
+-
+-- If rows exist with `claimed_at IS NULL` → **expected behavior**. Premium Pass unlocks the track; player must still claim each level manually.
+-- Explain: "Premium открывает премиум-награды, но их всё равно нужно забирать вручную на каждом уровне."
+-
+-### Escalate to backend if
+-- `purchases.status = 'completed'` + `star_payments` exists + audit shows `payment_confirm`, **but** player state is unchanged (energy, depression, xp, or commits did not move).
+-- `premium_pass` entitlement is correct, but unclaimed premium rewards do not show claim buttons in UI after reload.
+-
+----
+-
+-## 3. Duplicate Confirm Confusion — "Сняли деньги дважды / два чека"
+-
+-### Context for Support
+-Telegram may send `successful_payment` webhook more than once if the first callback times out. The backend is **idempotent** by `telegram_payment_charge_id`. A duplicate callback does **not** create a duplicate entitlement or delivery.
+-
+-However, the player may see:
+-- Two Telegram payment receipts.
+-- Two Stars deductions in their Telegram wallet history.
+-- One item delivery.
+-
+-### Step 1 — Check for duplicate charge IDs
+-```sql
+-SELECT
+-  telegram_payment_charge_id,
+-  COUNT(*) AS occurrence_count,
+-  ARRAY_AGG(purchase_id ORDER BY purchase_id) AS purchase_ids,
+-  MIN(created_at) AS first_seen,
+-  MAX(created_at) AS last_seen
+-FROM star_payments
+-WHERE purchase_id IN (
+-  SELECT id FROM purchases WHERE user_id = :userId ORDER BY id DESC LIMIT 20
+-)
+-GROUP BY telegram_payment_charge_id
+-HAVING COUNT(*) > 1;
+-```
+-
+-- **Result > 0** → duplicate confirm detected. This is handled safely by idempotency, but player may be confused by wallet UI.
+-- **Result = 0** → no duplicate charge IDs. Player likely mistook two different purchases or Telegram UI artifact.
+-
+-### Step 2 — Check purchase rows for the same item type
+-```sql
+-SELECT
+-  id,
+-  item_type,
+-  stars_amount,
+-  status,
+-  created_at
+-FROM purchases
+-WHERE user_id = :userId
+-  AND item_type = :itemType
+-ORDER BY created_at DESC
+-LIMIT 10;
+-```
+-
+-- If two `completed` rows with **different** `id` and **different** `created_at` → player bought twice intentionally or by mistake.
+-- If two rows but one is `pending` and one is `completed` → normal flow; the pending row may be old.
+-
+-### Step 3 — Verify actual entitlement count
+-```sql
+--- For premium_pass: how many times was premium unlocked?
+-SELECT
+-  purchase_id,
+-  item_type,
+-  COUNT(*) OVER (PARTITION BY item_type) AS total_count
+-FROM purchases
+-WHERE user_id = :userId
+-  AND item_type = 'premium_pass'
+-  AND status = 'completed'
+-ORDER BY purchase_id DESC;
+-```
+-
+-### What to tell the player
+-> "Сервер зафиксировал вашу покупку один раз. Иногда Telegram может отображать две транзакции в интерфейсе из-за повторной отправки подтверждения, но сама игра выдаёт предмет только один раз. Если с вашего счёта списались Stars дважды по ошибке — это refund-запрос в поддержку Telegram, а не в игру."
+-
+-### Escalate to backend if
+-- Duplicate `telegram_payment_charge_id` returned **different** `purchase_id`s (should never happen; possible mapping bug).
+-- Two `completed` purchases with **different** `telegram_payment_charge_id` for the same item within 1 minute, and player claims they tapped buy only once (possible double-submit bug).
+-- Player requests a refund or Stars credit — this is outside game scope and should go to Telegram support, but escalate if pattern suggests a frontend bug.
+-
+----
+-
+-## 4. Quick Reference: Premium Entitlement State Matrix
+-
+-Use this as a one-glance decision tree during live chat.
+-
+-| Purchase Status | Star Payment | `is_premium` Active Pass | Interpretation | Player Message |
+-|-----------------|--------------|--------------------------|----------------|----------------|
+-| `pending` | Missing | N/A | Payment in flight | "Подождите 1–2 минуты и перезайдите в приложение." |
+-| `completed` | Exists | `true` | Premium active | "Перезагрузите приложение. Premium открывает премиум-награды, которые нужно забирать вручную." |
+-| `completed` | Exists | `false` | Entitlement bug | Gather data and escalate. |
+-| `completed` | Missing | — | Webhook lost | Escalate for manual confirm check. |
+-| `failed` | Missing | — | Payment failed | "Платёж не прошёл. Проверьте историю платежей в Telegram." |
+-| `completed` | Exists | `true` (old pass) | Expired season | "Premium действует только на сезон, в котором он куплен. Новый сезон требует новой покупки." |
+-
+----
+-
+-## 5. Generic Escalation Template
+-
+-When a case is **not** expected behavior, include the following in the backend ticket:
+-
+-**Required:**
+-- `telegram_id`: ______
+-- `user_id` (from `users.id`): ______
+-- Time of complaint (UTC): ______
+-- Screenshot of player's pass panel / shop / wallet
+-- Item type involved: `energy_refill` / `depression_cure` / `tier_boost` / `premium_pass`
+-
+-**SQL results (paste all):**
+-- [ ] `SELECT * FROM purchases WHERE user_id = :userId ORDER BY id DESC LIMIT 5;`
+-- [ ] `SELECT * FROM star_payments WHERE purchase_id = :purchaseId;`
+-- [ ] `SELECT * FROM player_passes WHERE user_id = :userId ORDER BY pass_id DESC LIMIT 3;`
+-- [ ] `SELECT * FROM audit_logs WHERE user_id = :userId AND action IN ('payment_confirm','pass_premium_unlock','purchase_intent','offer_dismiss') ORDER BY created_at DESC LIMIT 10;`
+-- [ ] For non-premium items: `SELECT energy, depression, commits_current FROM progression WHERE user_id = :userId;`
+-
+-**Optional but helpful:**
+-- API error response (if player saw an error message)
+-- Device / platform (iOS, Android, Desktop)
+-- Whether issue persists after app reload
+-
+----
+-
+-## Related Files
+-
+-- `support/SUPPORT_TRIAGE_CHECKLIST.md` — general payment, quest, event, team, referral triage
+-- `support/GAMEPLAY_FAQ.md` — player-facing rules and expected behavior
+-- `analytics/CANONICAL_EVENT_TAXONOMY.md` — event names for purchase/offer funnel
+-- `observation/06_shop_purchases.sql` — deep-dive SQL for shop metrics

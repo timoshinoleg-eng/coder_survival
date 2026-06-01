@@ -1,0 +1,120 @@
+🚀 CODER SURVIVAL: MASTER EXECUTION STRATEGY (v3.0 Final)
+Target Executors: AI Coding Agents, Backend/Frontend Devs, Game Designers, LiveOps
+Repository: timoshinoleg-eng/coder_survival
+North Star Metrics: D1 ≥ 45% | D7 ≥ 20% | D30 ≥ 8% | ARPDAU ≥ $0.03 | LTV/CAC ≥ 3.0
+
+🚨 PHASE 1: P0 — Критический триаж кода и экономики (Недели 1-2)
+Аудит репозитория выявил математические и архитектурные дефекты, которые убьют D1-Retention и монетизацию еще до старта. Исправляются в первую очередь.
+1.1. Фикс бага «Сброс Offline-восстановления» (Blocker)
+Проблема: Триггер trg_progression_updated сбрасывает updated_at при любом read-only визите. Игрок заходит проверить статус, таймер сбрасывается, энергия не копится. Игрок воспринимает это как баг и уходит. Решение (Backend):
+Разделить концепции last_active (для математики оффлайна) и updated_at (для БД).
+Внедрить MIN_IDLE_THRESHOLD_SECONDS = 300 (5 минут). Если игрок был в оффлайне меньше 5 минут, не пересчитывать offline gain, чтобы избежать микрочтения сессий.
+Пассивное снижение стресса: Добавить DEPRESSION_PASSIVE_RECOVERY_PER_HOUR: 5, чтобы стресс падал от времени, а не только от восстановления энергии.
+1.2. Активация «Мёртвых» контекстных офферов (Blocker)
+Проблема: Оффер high_stress имеет порог 55. При стандартном паттерне (3 сессии по 40 тапов) стресс никогда не превышает 0. Оффер технически мёртв. Решение (Backend offers.js):
+Снизить порог с 55 до 20.
+Переименовать в stress_warning (превентивный оффер).
+Добавить low_energy порог с 25% до 15% (создание urgency «последнего шанса»).
+1.3. Ликвидация Pricing Cliff и F2P-моста
+Проблема: Скачок цен 10⭐ -> 40⭐ (в 4 раза) ломает импульсные покупки. F2P-игроки не имеют альтернативы ожиданию энергии. Решение:
+Shop Catalog: Добавить бандл coffee_break за 25⭐ (Эспрессо + Антидепрессант).
+Rewarded Video: Интегрировать AdsGram/PropellerAds. Награда за просмотр = 50% от IAP-эквивалента (например, +15 энергии). Лимит: 5 просмотров в день.
+1.4. Фикс утечки Audio Context (iOS WebView)
+Проблема: При сворачивании Telegram WebView JS-контекст приостанавливается, аудио зацикливается или течет память. Решение (Frontend AudioManager.js):
+javascript
+1
+2
+3
+4
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) this.audioContext.suspend();
+  else this.audioContext.resume();
+});
+Правило: AudioContext инициализируется только после первого touchstart (обход Autoplay Policy iOS).
+
+⚙️ PHASE 2: Core Loop & Meta-Progression (Недели 3-4)
+Переход от «кликера» к Idle/Simulation. Удержание строится на математике и эмоциональном пейсинге.
+2.1. Матрица Генераторов (Idle-экономика)
+Growth Rate: Строго 1.15. (Ниже 1.10 — слишком быстро, выше 1.25 — фрустрация).
+Линейка: Junior Dev (50 LOC) -> Middle -> Senior -> Tech Lead -> Staff Engineer.
+Autonomy Moment: Первый Junior Dev должен покупаться за ~8 кликов (первые 2 минуты игры), чтобы игрок сразу увидел пассивный доход.
+2.2. Шкала Депрессии (Second Health Bar)
+Диапазон: 0–200 единиц.
+Триггеры роста: Баги, Failed Deploy, Code Review с критикой, энергия < 20%.
+Порог 100 (Affliction): Накладываются дебаффы (например, Selfish — кофе стоит х2, Hopeless — 50% шанс провала компиляции).
+Порог 200 (Heart Attack): Game Over текущей сессии. Сброс накопленных за сессию LOC, но lifetime LOC и престиж-валюта сохраняются. Триггерит UGC-мем «Поделиться позором».
+2.3. Случайные события (Systemic Suspense)
+Частота: Каждые 60–120 секунд.
+Баланс EV (Expected Value): ~40% негативных, ~45% нейтральных, ~15% позитивных.
+Примеры:
+Golden Commit (10%): x7 LOC/s на 77 секунд (Positive FOMO).
+Legacy Code (12%): Апгрейды дорожают в 2х, нужно кликнуть 10 раз для рефакторинга.
+Deploy Friday (12%): Риск потери 25% LOC, но шанс получить бейдж.
+
+💰 PHASE 3: Монетизация и LiveOps (Недели 5-6)
+Гибридная модель: 55% IAP / 45% Ads. Учет специфики IT-аудитории (Desktop vs Mobile).
+3.1. Desktop-First Strategy для High-Ticket IAP
+Инсайт: Desktop-покупки в Telegram дают разработчику ~$0.97 с $1 (против $0.62 на Mobile из-за 30% Apple/Google Tax). IT-аудитория сидит в Telegram Desktop.
+Действие: Интерфейс Battle Pass, Season Pass и бандлов от $10+ должен иметь горизонтальную раскладку, клавиатурные шорткаты и агрессивно пушиться в Desktop-версию.
+3.2. Battle Pass (Сезонный Спринт)
+Длительность: 30 дней, 20 уровней.
+Математика: Линейный рост XP. Без бустеров проходится за ~175 дней (математическая стена).
+Catch-Up Механики (Обязательно):
+catchUpXP = missedDays * avgDailyXP * 0.5 (для пропустивших дни).
+Double XP Weekends (суббота-воскресенье).
+Валюта возврата: Premium-трек возвращает ~70% своей стоимости в Stars/TON при полном прохождении (Self-funding pass).
+3.3. Ежедневные и Еженедельные квесты
+Daily: 3 основных + 1 бонусный (Social/Ads). Награда = 30% от дневного фарма. Front-loading: в первые 3 дня награда x2.5.
+Weekly (Спринт): Нарративная дуга (Планирование -> Кодинг -> Тесты -> Деплой). Награда: выбор из 3 вариантов (Скин, Бустер, Валюта).
+
+🌐 PHASE 4: Виральный двигатель и Social (Недели 7-8)
+Органический рост (K-factor ≥ 1.2) через боль, юмор и социальные обязательства.
+4.1. UGC Мемогенератор («Share Shame»)
+Триггер: Экран смерти (Heart Attack) или провал мини-игры.
+Механика: Кнопка «Поделиться позором» генерирует PNG 1080x1920 через Canvas API с подстановкой переменных (${username}, ${cause_of_death}, ${streak}).
+Шаблоны: "It works on my machine", "404: Sleep not found", "TODO: fix before prod".
+Психология: IT-аудитория шерит self-deprecating humor (стыд/ирония) в 3 раза охотнее, чем хвастовство.
+4.2. Squads (Интеграция с Telegram Чатами)
+Админ чата создает Squad. Бот публикует в чат Daily Leaderboard.
+Team Hackathon: Еженедельная цель на общий LOC. Награда: Squad-only скины и бустеры.
+Социальное давление: Пропуск дня одним игроком снижает бонус всей команде (Social Obligation).
+4.3. Реферальная система с Premium-фильтром
+Базовый реферал: +1 Coffee, +50% к пассивному LOC.
+Premium-реферал: 5x мультипликатор + эксклюзивный скин «Dark Mode IDE». (Защита от ферм: боты не покупают Telegram Premium).
+Анти-абуз: REFERRAL_ACTIVE_THRESHOLD_COMMITS = 20 (награда капает только когда друг реально начал играть).
+
+🛡️ PHASE 5: Архитектура и Античит (Параллельно)
+Защита от ботов, которые убили Hamster Kombat.
+5.1. Технический стек (Hard Limits)
+Frontend: Preact 10 + Phaser 3. СТРОГО type: Phaser.CANVAS. (WebGL вызывает reload loop в iOS WebView при >300MB).
+Backend: Cloudflare Workers + D1 (SQLite) + KV (Rate limits).
+Auth: HMAC-SHA256 валидация initData на стороне сервера. Никаких токенов на клиенте.
+5.2. Трёхслойный Античит (Graduated Sanctions)
+Вместо мгновенных банов (которые вызывают бунт комьюнити) используем систему ban_score (0-100):
+Layer 1 (Real-time): Rate Limiting (>20 CPS = флаг), Pixel-perfect clicking (dist < 0.001).
+Layer 2 (Async ML): Анализ энтропии интервалов (человек: CV 0.3-0.8, бот: <0.1), отсутствие фазы усталости.
+Layer 3 (Server Recon): Ежечасная сверка SUM(user_balances) vs total_minted.
+Санкции: 20-49 (Warn, -10% наград) -> 50-79 (Restrict, -50% наград, бан в лидербордах) -> 80+ (Ban 7 дней + кнопка "Апелляция" для human review).
+
+📅 90-Дневная Дорожная Карта (Go-To-Market)
+
+⚠️ Аварийные Триггеры (Kill / Pivot Plan)
+Команда и AI-агенты должны мониторить эти метрики ежедневно. При их достижении запускается протокол экстренного реагирования:
+D1 Retention < 20% (Смерть Core Loop):
+Действие: Немедленная остановка Paid UA. Полный редизайн FTUE. Внедрение "Early Wow Moment" (покупка первого генератора на 1-й минуте).
+K-Factor < 0.5 (Смерть Виральности):
+Действие: Отказ от рефералок как основного драйвера. Переход на Content-First стратегию (ежедневные dev-квизы с шерингом результатов в LinkedIn/Twitter/Telegram).
+ARPDAU < $0.01 на Неделе 10 (Смерть Экономики):
+Действие: Агрессивное внедрение мультивалютности (TON/USDT). Расширение косметической линейки (IDE Themes, Mechanical Keyboards). Если не помогает — перевод проекта в режим "Community Hobby" (1 FTE).
+Crash Rate > 1% (Техническая смерть):
+Действие: Откат бандла. Проверка лимитов памяти iOS WebView (строгий лимит < 150MB heap). Переход на Service Workers для оффлайн-кеширования.
+
+📋 Definition of Done (Для AI-Агента / Разработчика)
+Перед созданием Pull Request в main агент должен проверить:
+trg_progression_updated больше не сбрасывает last_active при read-only запросах.
+high_stress оффер триггерится на 20, а не на 55.
+В shopCatalog.js присутствует бандл за 25⭐.
+Phaser инициализирован с type: Phaser.CANVAS.
+Добавлен visibilitychange listener для аудио.
+Реферальная ссылка использует Telegram.WebApp.openTelegramLink с pre-filled текстом.
+Все константы баланса вынесены в backend/src/config/balance.js и не зашиты в логику.

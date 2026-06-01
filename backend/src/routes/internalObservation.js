@@ -1210,7 +1210,8 @@ async function getEconomyHealthSlice(client) {
          p.energy,
          p.depression_level,
          p.commits_total,
-         COALESCE(pl.xp_total, 0) AS xp_total
+         COALESCE(pl.xp_total, 0) AS xp_total,
+         COALESCE(pl.prestige_level, 0) AS prestige_level
        FROM progression p
        LEFT JOIN player_levels pl ON pl.user_id = p.user_id`,
     ),
@@ -1231,7 +1232,7 @@ async function getEconomyHealthSlice(client) {
   ]);
 
   const players = playersResult.rows.map((row) => {
-    const resolved = resolveLevelState(Number(row.xp_total || 0));
+    const resolved = resolveLevelState(Number(row.xp_total || 0), Number(row.prestige_level || 0));
     return {
       energy: Number(row.energy || 0),
       maxEnergy: Number(resolved.maxEnergy || 0),

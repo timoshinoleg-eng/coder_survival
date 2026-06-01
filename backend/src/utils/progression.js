@@ -51,7 +51,7 @@ export function getEffectiveRecoveryIntervalSeconds(progression, now = new Date(
   return interval;
 }
 
-export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.maxEnergy, now = new Date(), skinRecoveryMult = 1) {
+export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.maxEnergy, now = new Date(), skinRecoveryMult = 1, prestigeRecoveryMult = 1) {
   if (!progression) return null;
 
   const energy = Number(progression.energy ?? 0);
@@ -60,6 +60,9 @@ export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.max
   const anchor = getRecoveryAnchor(progression);
   const checkpoint = getRecoveryCheckpoint(progression);
   let interval = getEffectiveRecoveryIntervalSeconds(progression, now, skinRecoveryMult);
+  if (prestigeRecoveryMult > 1) {
+    interval = Math.max(1, Math.floor(interval / prestigeRecoveryMult));
+  }
   const recoveryMultiplier = getEventRecoveryMultiplier(progression.event_state || {}, now);
   if (recoveryMultiplier > 1) {
     interval = Math.max(1, Math.floor(interval / recoveryMultiplier));
@@ -70,7 +73,7 @@ export function getRecoveryEtaSeconds(progression, maxEnergy = TAP_MECHANICS.max
   return remainder === 0 && secondsPassed > 0 ? 0 : interval - remainder;
 }
 
-export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy, skinRecoveryMult = 1, officeCatEquipped = false) {
+export async function recoverProgression(client, progression, maxEnergy = TAP_MECHANICS.maxEnergy, skinRecoveryMult = 1, officeCatEquipped = false, prestigeRecoveryMult = 1) {
   if (!progression) return progression;
 
   const now = new Date();
@@ -79,6 +82,9 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
   const anchor = getRecoveryAnchor(progression);
   const checkpoint = getRecoveryCheckpoint(progression);
   let interval = getEffectiveRecoveryIntervalSeconds(progression, now, skinRecoveryMult);
+  if (prestigeRecoveryMult > 1) {
+    interval = Math.max(1, Math.floor(interval / prestigeRecoveryMult));
+  }
   const recoveryMultiplier = getEventRecoveryMultiplier(progression.event_state || {}, now);
   if (recoveryMultiplier > 1) {
     interval = Math.max(1, Math.floor(interval / recoveryMultiplier));

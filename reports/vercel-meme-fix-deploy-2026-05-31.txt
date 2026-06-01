@@ -1,0 +1,63 @@
+Vercel CLI 54.6.1 (Node.js 22.16.0)
+Retrieving project…
+Deploying olegs-projects-bfc4e11a/frontend
+Uploading [--------------------] (0.0B/269.1KB)
+Uploading [=====---------------] (76.9KB/269.1KB)
+Uploading [==========----------] (140.9KB/269.1KB)
+Uploading [===============-----] (204.9KB/269.1KB)
+Uploading [====================] (269.1KB/269.1KB)
+  Inspect     https://vercel.com/olegs-projects-bfc4e11a/frontend/2KHoGH44tagt8XPtfRmfpzEwBvg3
+▲ Production  https://frontend-1s1nq431u-olegs-projects-bfc4e11a.vercel.app
+Building…
+Building…
+Running build in Washington, D.C., USA (East) – iad1
+Build machine configuration: 2 cores, 8 GB
+Retrieving list of deployment files...
+Downloading 96 deployment files...
+Restored build cache from previous deployment (GGEbxTccdypitU8XGZo3L1uTbYuJ)
+Running "vercel build"
+Vercel CLI 54.4.1
+Installing dependencies...
+up to date in 523ms
+22 packages are looking for funding
+run `npm fund` for details
+Running "npm run build"
+> coder-survival@0.1.0 build
+> vite build
+vite v5.4.21 building for production...
+transforming...
+✓ 74 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     1.27 kB │ gzip:   0.65 kB
+dist/assets/index-DcSdscqg.css      3.85 kB │ gzip:   1.19 kB
+dist/assets/index-B9ToP6qr.js     235.67 kB │ gzip:  66.30 kB
+dist/assets/phaser-CaWnzXme.js  1,478.57 kB │ gzip: 339.68 kB
+✓ built in 6.64s
+Build Completed in /vercel/output [8s]
+Deploying outputs...
+[2K[1A[2K[G▲ Production  https://frontend-1s1nq431u-olegs-projects-bfc4e11a.vercel.app
+Completing…
+▲ Aliased     https://frontend-ashy-alpha-77.vercel.app
+{
+  "status": "ok",
+  "deployment": {
+    "id": "dpl_2KHoGH44tagt8XPtfRmfpzEwBvg3",
+    "url": "https://frontend-1s1nq431u-olegs-projects-bfc4e11a.vercel.app",
+    "inspectorUrl": "https://vercel.com/olegs-projects-bfc4e11a/frontend/2KHoGH44tagt8XPtfRmfpzEwBvg3",
+    "readyState": "READY",
+    "target": "production",
+    "deploymentApiUrl": "https://api.vercel.com/v13/deployments/dpl_2KHoGH44tagt8XPtfRmfpzEwBvg3"
+  },
+  "message": "Deployment frontend-1s1nq431u-olegs-projects-bfc4e11a.vercel.app ready.",
+  "next": [
+    {
+      "command": "vercel inspect frontend-1s1nq431u-olegs-projects-bfc4e11a.vercel.app",
+      "when": "Inspect deployment"
+    },
+    {
+      "command": "vercel deploy --prod",
+      "when": "Promote to production"
+    }
+  ]
+}

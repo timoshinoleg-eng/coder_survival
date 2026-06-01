@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomUUID, createHash } from "crypto";
 import { pool } from "../index.js";
-import { STAGE4, TAP_MECHANICS } from "../config/balance.js";
+import { STAGE4, TAP_MECHANICS, PRESTIGE } from "../config/balance.js";
 import {
   getEffectiveRecoveryIntervalSeconds,
   getRecoveryEtaSeconds,
@@ -16,6 +16,7 @@ import {
 import { getActiveEvent, getEventContribution } from "../utils/events.js";
 import { getContextOffer, recordOfferImpression } from "../utils/offers.js";
 import { markLoginQuestCompleteInState, getQuestDateString } from "../utils/dailyQuests.js";
+import { parseTimezoneOffset } from "../utils/timezone.js";
 import { getPassStatus, getActivePass } from "../utils/pass.js";
 import { logPassXp } from "../utils/passXpLog.js";
 import { getProductById } from "../utils/shopCatalog.js";
@@ -56,8 +57,7 @@ function resolveStateTimezoneOffset(req, progression, fallback = 180) {
     req.query?.timezoneOffset ??
     req.headers["x-timezone-offset"] ??
     progression?.timezone_offset;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return parseTimezoneOffset(raw, fallback);
 }
 
 function hashDevice(req) {
@@ -294,6 +294,7 @@ router.get("/", async (req, res, next) => {
 
       const level = await ensurePlayerLevel(client, user.id);
       await ensureAchievementRows(client, user.id);
+      const levelRecord = level.record || level;
       const rankMeta = level.resolved;
       const userFeatureFlags = user.feature_flags || {};
       const skinResult = await client.query(
@@ -307,6 +308,7 @@ router.get("/", async (req, res, next) => {
         [user.id]
       );
       const officeCatEquipped = officeCatResult.rows.length > 0;
+      const prestigeRecoveryMult = rankMeta.energyRecoveryMult || 1;
       const myTeam = await getMyTeam(client, user.id);
 
       const progression = await recoverProgression(
@@ -315,6 +317,7 @@ router.get("/", async (req, res, next) => {
         rankMeta.maxEnergy,
         skinRecoveryMult,
         officeCatEquipped,
+        prestigeRecoveryMult,
       );
       const accountAgeMinutes = user?.created_at
         ? Math.max(0, Math.floor((Date.now() - new Date(user.created_at).getTime()) / 60000))
@@ -478,6 +481,7 @@ router.get("/", async (req, res, next) => {
         rankMeta.maxEnergy,
         new Date(),
         skinRecoveryMult,
+        prestigeRecoveryMult,
       );
       const generatorState = buildGeneratorStatus(passiveProgression?.generator_state || {}, accountAgeMinutes, {
         costMultiplier: getGeneratorCostMultiplierFromEventState(passiveProgression?.event_state || {})
@@ -531,6 +535,20 @@ router.get("/", async (req, res, next) => {
         progressionUpdatedAt: passiveProgression?.updated_at ?? null,
         serverNow: new Date().toISOString(),
         level: level.resolved,
+        prestige: {
+          level: rankMeta.prestigeLevel || 0,
+          currency: Number(levelRecord.prestige_currency ?? 0),
+          shopPurchases: levelRecord.prestige_shop_purchases?.items || [],
+          available: (levelRecord.xp_total ?? 0) >= PRESTIGE.THRESHOLD_XP,
+          requiredXp: PRESTIGE.THRESHOLD_XP,
+          bonuses: {
+            commitsPerTap: rankMeta.commitsPerTap,
+            energyRecoveryMult: rankMeta.energyRecoveryMult || 1,
+            critChanceAdd: rankMeta.critChanceAdd || 0,
+            maxEnergy: rankMeta.maxEnergy,
+            depressionResistanceMult: rankMeta.depressionResistanceMult || 1,
+          },
+        },
         maxEnergy: rankMeta.maxEnergy,
         recoveryIntervalSeconds,
         recoveryEtaSeconds,

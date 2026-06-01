@@ -41,6 +41,7 @@ import achievementsRouter from "./routes/achievements.js";
 import appealRouter from './routes/appeal.js';
 import minigameRouter from "./routes/minigame.js";
 import dailySummaryRouter from "./routes/dailySummary.js";
+import prestigeRouter from "./routes/prestige.js";
 import { startDailySummaryCron } from "./jobs/dailySummaryCron.js";
 import { startTeamHackathonCron } from "./jobs/teamHackathonCron.js";
 
@@ -164,6 +165,7 @@ app.use("/api/achievements", initDataMiddleware, achievementsRouter);
 app.use('/api/appeal', initDataMiddleware, appealRouter);
 app.use("/api/minigame", initDataMiddleware, minigameRouter);
 app.use("/api/daily-summary", initDataMiddleware, dailySummaryRouter);
+app.use("/api/prestige", initDataMiddleware, prestigeRouter);
 
 // Error handler
 app.use(errorHandler);
