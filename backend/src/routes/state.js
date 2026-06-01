@@ -524,7 +524,7 @@ router.get("/", async (req, res, next) => {
           commits_total: parseInt(passiveProgression.commits_total),
           commits_current: parseInt(passiveProgression.commits_current),
           energy: passiveProgression.energy,
-          depression_level: passiveProgression.depression_level,
+          depression_level: Number(passiveProgression.depression_level ?? 0),
           streak_days: passiveProgression.streak_days,
           updated_at: passiveProgression.updated_at,
           onboarding_completed: passiveProgression.onboarding_completed === true,

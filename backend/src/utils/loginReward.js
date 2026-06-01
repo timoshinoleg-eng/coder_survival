@@ -31,10 +31,12 @@ export async function processLoginReward(client, userId) {
     record = { last_claimed_date: null, streak_days: 0 };
   }
 
-  const lastClaimed = record.last_claimed_date ? new Date(record.last_claimed_date) : null;
-  if (lastClaimed) {
-    lastClaimed.setUTCHours(0, 0, 0, 0);
-  }
+  const lastClaimedRaw = record.last_claimed_date ? new Date(record.last_claimed_date) : null;
+  // pg parses DATE as local-midnight Date; normalize to UTC-date-only to avoid
+  // timezone-shift bugs when setUTCHours(0,0,0,0) pushes the date backwards.
+  const lastClaimed = lastClaimedRaw
+    ? new Date(Date.UTC(lastClaimedRaw.getFullYear(), lastClaimedRaw.getMonth(), lastClaimedRaw.getDate()))
+    : null;
 
   if (lastClaimed && lastClaimed.getTime() === today.getTime()) {
     // Already claimed today — return current streak without reward
