@@ -26,9 +26,15 @@ describeIfDb("stage2 rewarded video ceiling", () => {
     await server.request("/api/state", {
       headers: { "X-Telegram-Init-Data": initData },
     });
+    // Age user past FTUE 30-minute ad block so the ceiling logic is tested
+    await testPool.query(
+      `UPDATE progression SET created_at = NOW() - INTERVAL '2 hours'
+       WHERE user_id = (SELECT id FROM users WHERE telegram_id = $1)`,
+      [760001],
+    );
 
     const responses = await Promise.all(
-      Array.from({ length: 4 }, () =>
+      Array.from({ length: 6 }, () =>
         server.request("/api/rewarded-video/complete", {
           method: "POST",
           headers: { "X-Telegram-Init-Data": initData },
@@ -57,6 +63,12 @@ describeIfDb("stage2 rewarded video ceiling", () => {
     await server.request("/api/state", {
       headers: { "X-Telegram-Init-Data": initData },
     });
+    // Age user past FTUE ad block so cooldown logic is tested
+    await testPool.query(
+      `UPDATE progression SET created_at = NOW() - INTERVAL '2 hours'
+       WHERE user_id = (SELECT id FROM users WHERE telegram_id = $1)`,
+      [760002],
+    );
 
     const responses = await Promise.all(
       Array.from({ length: 3 }, () =>

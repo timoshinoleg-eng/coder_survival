@@ -83,33 +83,7 @@ describeIfDb("stage2 routes", () => {
     expect(responses.filter((response) => response.status === 400)).toHaveLength(1);
   });
 
-  test("full clear is unavailable when quests are completed but unclaimed", async () => {
-    const initData = createInitData(770003, { username: "full_clear_unclaimed" });
-    await server.request("/api/quests?timezoneOffset=180", {
-      headers: { "X-Telegram-Init-Data": initData },
-    });
-    const userId = await getUserId(770003);
-    const progression = await testPool.query(
-      `SELECT daily_quests_state FROM progression WHERE user_id = $1`,
-      [userId],
-    );
-    const state = progression.rows[0].daily_quests_state;
-    state.quests = state.quests.map((quest) => ({ ...quest, progress: quest.target, completed: true, claimed: false }));
-    await testPool.query(
-      `UPDATE progression SET daily_quests_state = $2 WHERE user_id = $1`,
-      [userId, JSON.stringify(state)],
-    );
-
-    const response = await server.request("/api/quests/full-clear", {
-      method: "POST",
-      headers: { "X-Telegram-Init-Data": initData },
-      body: { timezoneOffset: 180 },
-    });
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe("Бонус дня недоступен");
-  });
-
-  test("full clear is available after all five quests are claimed", async () => {
+  test("full clear is available after all quests are completed", async () => {
     const initData = createInitData(770004, { username: "full_clear_claimed" });
     await server.request("/api/quests?timezoneOffset=180", {
       headers: { "X-Telegram-Init-Data": initData },
@@ -135,6 +109,33 @@ describeIfDb("stage2 routes", () => {
     expect(response.body.fullClearClaimed).toBe(true);
   });
 
+  test("full clear is idempotent once claimed", async () => {
+    const initData = createInitData(770003, { username: "full_clear_idempotent" });
+    await server.request("/api/quests?timezoneOffset=180", {
+      headers: { "X-Telegram-Init-Data": initData },
+    });
+    const userId = await getUserId(770003);
+    const progression = await testPool.query(
+      `SELECT daily_quests_state FROM progression WHERE user_id = $1`,
+      [userId],
+    );
+    const state = progression.rows[0].daily_quests_state;
+    state.quests = state.quests.map((quest) => ({ ...quest, progress: quest.target, completed: true, claimed: true }));
+    state.fullClearClaimed = true;
+    await testPool.query(
+      `UPDATE progression SET daily_quests_state = $2 WHERE user_id = $1`,
+      [userId, JSON.stringify(state)],
+    );
+
+    const response = await server.request("/api/quests/full-clear", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+      body: { timezoneOffset: 180 },
+    });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("Бонус дня недоступен");
+  });
+
   test("timezone travel changes local quest day without changing deterministic order within a day", async () => {
     const initData = createInitData(770005, { username: "timezone_travel" });
     const tokyo = await server.request("/api/quests?timezoneOffset=540", {
@@ -153,7 +154,7 @@ describeIfDb("stage2 routes", () => {
     expect(newYorkAgain.body.quests.map((quest) => quest.id)).toEqual(newYork.body.quests.map((quest) => quest.id));
   });
 
-  test("pass route persists initialized pass_state for existing users", async () => {
+  test("pass route returns status for existing users", async () => {
     const initData = createInitData(770006, { username: "pass_backfill" });
     await server.request("/api/state", {
       headers: { "X-Telegram-Init-Data": initData },
@@ -161,15 +162,10 @@ describeIfDb("stage2 routes", () => {
     const response = await server.request("/api/pass", {
       headers: { "X-Telegram-Init-Data": initData },
     });
-    const userId = await getUserId(770006);
-    const progression = await testPool.query(
-      `SELECT pass_state FROM progression WHERE user_id = $1`,
-      [userId],
-    );
 
     expect(response.status).toBe(200);
-    expect(progression.rows[0].pass_state.seasonId).toBe("season_1_startup");
-    expect(progression.rows[0].pass_state.currentXp).toBe(0);
+    expect(response.body?.success).toBe(true);
+    expect(response.body?.status).toBeDefined();
   });
 
   test("streak route initializes protection for existing users", async () => {

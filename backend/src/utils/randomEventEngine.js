@@ -246,15 +246,15 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
   let nextDeltas = calculateEventDeltas(type, action, gameState);
 
   if (type === 'legacy_code' && action === 'solve') {
-    nextEventState = applyRandomEventChoiceState(getRandomEventState(eventState), type, action, now);
+    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
   } else if (type === 'production_alert' && action === 'ignore') {
-    nextEventState = applyRandomEventChoiceState(getRandomEventState(eventState), type, action, now);
+    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
   } else if (type === 'hot_streak' && action === 'solve') {
-    nextEventState = applyRandomEventChoiceState(getRandomEventState(eventState), type, action, now);
+    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
   } else if (type === 'deploy_friday' && action === 'solve') {
-    nextEventState = applyRandomEventChoiceState(getRandomEventState(eventState), type, action, now);
+    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
   } else if (type === 'legacy_code' && action === 'tap') {
-    nextEventState = applyTapToRandomEventState(getRandomEventState(eventState));
+    nextEventState = applyTapToRandomEventState(eventState);
     nextDeltas = { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
     const clicksLeft = nextEventState.legacyCodeClicksRemaining || 0;
     if (clicksLeft <= 0) {
