@@ -39,12 +39,13 @@ describe("phase4 daily progression overhaul", () => {
       expect(bonus.target).toBeGreaterThanOrEqual(bonus.target / 2.5 * 2);
     });
 
-    test("base quest targets scale with rankTier", () => {
+    test("base quest targets stay fixed across rankTier", () => {
       const questsLow = generateDailyQuests("user_42", "2026-05-10", 1);
       const questsHigh = generateDailyQuests("user_42", "2026-05-10", 5);
       const tapLow = questsLow.find((q) => q.type === "tap_count" && !q.isBonus);
       const tapHigh = questsHigh.find((q) => q.type === "tap_count" && !q.isBonus);
-      expect(tapHigh.target).toBe(tapLow.target + 20); // (5-1)*5 = 20
+      expect(tapLow.target).toBe(300);
+      expect(tapHigh.target).toBe(tapLow.target);
     });
   });
 
