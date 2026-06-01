@@ -247,6 +247,15 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
 
   if (type === 'legacy_code' && action === 'solve') {
     nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
+    await client.query(
+      `UPDATE active_random_events
+       SET state = $3,
+           deltas = $4
+       WHERE user_id = $1 AND event_id = $2`,
+      [userId, eventId, JSON.stringify(nextEventState), JSON.stringify(nextDeltas)]
+    );
+    await syncRandomEventStateToProgression(client, userId, nextEventState);
+    return { success: true, resolved: false, nextState: nextEventState, deltas: nextDeltas };
   } else if (type === 'production_alert' && action === 'ignore') {
     nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
   } else if (type === 'hot_streak' && action === 'solve') {
@@ -318,7 +327,7 @@ export function buildActiveEventPayload(row) {
       solve: { label: meta.solveLabel || 'РЕШИТЬ' },
       ignore: { label: meta.ignoreLabel || 'ИГНОР' },
     },
-    timeout: Math.max(0, Math.ceil((new Date(row.expires_at).getTime() - Date.now()) / 1000)),
+    timeout: Math.max(0, Math.floor((new Date(row.expires_at).getTime() - Date.now()) / 1000)),
     startedAt: row.started_at,
     expiresAt: row.expires_at,
     state: row.state || {},
