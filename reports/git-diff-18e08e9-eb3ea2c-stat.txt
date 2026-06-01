@@ -1,0 +1,9 @@
+ backend/src/routes/pass.js                  |  31 +---
+ backend/src/utils/pass.js                   |  21 ++-
+ backend/tests/mvp.performanceStatic.test.js |  19 --
+ frontend/src/App.jsx                        |  38 +---
+ frontend/vercel.json                        |   4 +-
+ scripts/release-prod.ps1                    |   3 +-
+ scripts/smoke-prod.ps1                      |  61 ++----
+ support/PREMIUM_SUPPORT_DEBUG_CHECKLIST.md  | 278 ----------------------------
+ 8 files changed, 39 insertions(+), 416 deletions(-)

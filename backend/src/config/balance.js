@@ -595,3 +595,29 @@ const PHASE10 = {
 };
 
 export { STAGE4, PHASE10 };
+
+// ═══════════════════════════════════════════════════════════════
+// PP-18: PRESTIGE SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+export const PRESTIGE = {
+  THRESHOLD_XP: 3100,
+  // Safety ceiling for prestige bonus scaling. The stored prestige_level keeps
+  // incrementing (trophy count), but bonus multipliers are clamped to this many
+  // levels so crit/recovery/tap stay sane. Balance lever — adjust here only.
+  MAX_PRESTIGE_LEVEL: 20,
+  BONUSES: {
+    TAP_MULT_PER_LEVEL: 0.10,
+    ENERGY_RECOVERY_MULT_PER_LEVEL: 0.05,
+    CRIT_CHANCE_ADD_PER_LEVEL: 0.02,
+    MAX_ENERGY_ADD_PER_LEVEL: 10,
+    DEPRESSION_RESISTANCE_PER_LEVEL: 0.05,
+  },
+  SHOP: {
+    SKIN:         { cost: 50,  id: 'prestige_skin_veteran',   desc: 'Permanent veteran skin' },
+    TAP_BOOST:    { cost: 100, id: 'prestige_tap_boost',       desc: 'Permanent x1.2 tap multiplier' },
+    STREAK_SAVE:  { cost: 30,  id: 'prestige_streak_save',    desc: '+1 streak protection per season' },
+    TITLE:        { cost: 25,  id: 'prestige_title_10x',      desc: '"10x Developer" title badge' },
+    CTO_CAPE:     { cost: 200, id: 'prestige_cto_cape',       desc: 'Rare CTO cape skin' },
+  }
+};

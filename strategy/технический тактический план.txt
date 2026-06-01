@@ -1,0 +1,189 @@
+TECHNICAL EXECUTION SPEC: CODER SURVIVAL
+Target Executor: AI Coding Agent (Cursor / Devin / Copilot) Base Repo: timoshinoleg-eng/coder_survival Rule: Do not invent new mechanics. Implement exactly the logic, formulas, and thresholds defined below.
+
+🚨 PHASE 1: P0 — Core Loop & Energy UX (Критические баги)
+Аудит кода показал, что текущая математика энергии и стресса ломает игровой цикл и генерирует тикеты в поддержку.
+1.1. Фикс бага «Сброс Offline-восстановления»
+Проблема: Триггер trg_progression_updated сбрасывает updated_at при любом SELECT (read-only) визите. Игрок заходит проверить статус, таймер сбрасывается, энергия не копится. Файл: backend/src/utils/progression.js Действие AI:
+Разделить концепции last_active (для оффлайн-дохода) и updated_at (для БД).
+Внедрить защиту от микро-визитов:
+javascript
+1
+2
+3
+4
+5
+6
+7
+8
+// Псевдокод для AI
+const MIN_IDLE_THRESHOLD_SECONDS = 300; // 5 минут
+const secondsSinceLastActive = Math.floor((now - lastActive) / 1000);
+if (secondsSinceLastActive < MIN_IDLE_THRESHOLD_SECONDS) {
+    // Игрок просто обновил страницу. Не сбрасывать таймер оффлайн-дохода.
+    return currentProgression; 
+}
+1.2. Пассивное снижение Депрессии (Стресса)
+Проблема: Стресс снижается только при восстановлении энергии. Если игрок в оффлайне 10 часов, но энергия уже была 100%, стресс не падает. Игрок воспринимает это как баг. Файл: backend/src/config/balance.js Действие AI: Добавить константу и логику тика.
+javascript
+1
+2
+3
+4
+5
+DEPRESSION_PASSIVE_RECOVERY_PER_HOUR: 5, // Снижение стресса за каждый час оффлайна/простоя
+// В функции recoverProgression добавить:
+const hoursIdle = secondsSinceLastActive / 3600;
+const passiveDepressionDrop = Math.floor(hoursIdle * DEPRESSION_PASSIVE_RECOVERY_PER_HOUR);
+newDepression = Math.max(0, progress.depression_level - passiveDepressionDrop);
+1.3. Динамический интервал восстановления для новичков (D1-D3)
+Файл: backend/src/config/balance.js & backend/src/routes/tap.js Действие AI: Изменить хардкод 120 секунд на условную логику.
+javascript
+1
+2
+const isNewbie = (Date.now() - user.created_at) < (3 * 24 * 60 * 60 * 1000); // < 3 дней
+const recoveryInterval = isNewbie ? 90 : 120; // 90 сек для новичков, 120 для veteran
+
+💰 PHASE 2: P1 — Монетизация, Офферы и Pricing Cliff
+Аудит выявил «мертвые» триггеры покупок и психологический обрыв между 10⭐ и 40⭐.
+2.1. Активация «мертвых» контекстных офферов
+Файл: backend/src/utils/offers.js Проблема: Оффер high_stress имеет порог 55, но математика tap.js показывает, что стресс редко превышает 30 при нормальном геймплее. Оффер low_energy (25%) требует 75 тапов без остановки. Действие AI: Переписать CONTEXT_OFFER_RULES:
+javascript
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+const CONTEXT_OFFER_RULES = {
+  low_energy: {
+    threshold: 0.15, // Было 0.25. Теперь триггерится при 15 энергии (15 тапов до смерти)
+    cooldown: 60 * 60 * 1000, // 1 час
+    offer: 'energy_refill_discount'
+  },
+  stress_warning: { // Переименовано из high_stress
+    threshold: 20, // Было 55. Теперь срабатывает при стрессе 20 (превентивный оффер)
+    cooldown: 3 * 60 * 60 * 1000, // 3 часа
+    offer: 'depression_cure'
+  },
+  near_rank: {
+    threshold: 0.85, // Было 0.72. Показываем, когда осталось 15% до нового уровня
+    cooldown: 6 * 60 * 60 * 1000,
+    offer: 'xp_booster'
+  }
+};
+2.2. Ликвидация Pricing Cliff (Ценового обрыва)
+Файл: backend/src/utils/shopCatalog.js Действие AI: Добавить промежуточный бандл coffee_break между 10⭐ и 40⭐.
+javascript
+1
+2
+3
+4
+5
+6
+7
+8
+const PRODUCT_CATALOG = {
+  // ... existing
+  coffee_break: { 
+    stars: 25, 
+    effect: 'restore_50_energy_and_reduce_10_stress',
+    first_purchase_bonus: true // +20% к эффекту, если это первая покупка в жизни
+  }
+};
+2.3. Внедрение Rewarded Video для F2P (Критично для Retention)
+Файл: frontend/src/components/EnergyBar.jsx & backend/src/routes/rewards.js Действие AI:
+Если energy == 0, показать кнопку «Посмотреть рекламу (Restore 50%)».
+На бэкенде добавить эндпоинт /api/rewards/ad_complete, который валидирует событие REWARDED_AD_COMPLETE из аналитики и начисляет maxEnergy * 0.5.
+Установить лимит: MAX_ADS_PER_DAY = 5.
+
+📅 PHASE 3: P2 — LiveOps, Квесты и Battle Pass
+На основе документа «Бенчмарки баланса и лайвопса». AI должен внедрить математические модели удержания.
+3.1. Система Ежедневных Квестов (Daily Quests)
+Файлы: backend/src/config/quests.js, frontend/src/components/QuestPanel.jsx Правила для AI:
+Структура: 3 основных квеста + 1 бонусный (социальный/рекламный).
+Математика наград: Сумма наград за 3 квеста должна составлять ровно 30% от среднего дневного фарма (рассчитывается на основе passiveLOC и clickPower игрока).
+Front-loading (D1-D3):
+javascript
+1
+const questMultiplier = (user.account_age_days <= 3) ? 2.5 : 1.0;
+Примеры триггеров: tap_count >= 500, use_booster >= 2, watch_ad >= 1.
+3.2. Battle Pass (Sprint Pass)
+Файл: backend/src/config/balance.js (Секция SPRINT_PASS_LEVELS) Проблема: Текущая линейная прогрессия (100, 200... 2000 XP) требует 175 дней для прохождения. Действие AI:
+Оставить линейный рост, но ввести Catch-Up Mechanic (Механику нагоняющего).
+Формула Catch-Up: Если игрок не заходил > 24 часов, при следующем входе начислить: catchUpXP = missedDays * avgDailyXP * 0.5
+Double XP Weekends: Добавить cron-джоб, который с 00:00 субботы до 23:59 воскресенья применяет глобальный модификатор xpMultiplier = 2.0.
+
+🚀 PHASE 4: P3 — Вирусность (K-Factor Boosters)
+Текущий K-factor = 0.85. Цель = 1.8. AI должен внедрить механики снижения трения и loss aversion.
+4.1. Deep-Link Invite с Pre-filled Message
+Файл: frontend/src/components/ReferralPanel.jsx Действие AI: Использовать Telegram Web App API shareURL.
+javascript
+1
+2
+3
+const shareText = encodeURIComponent("Я выживаю в IT-офисе. Мой код работает, но я не знаю почему. Спаси меня от дедлайнов!");
+const shareUrl = encodeURIComponent(`https://t.me/codersurvival_bot?start=REF${user_id_hash}`);
+Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${shareUrl}&text=${shareText}`);
+4.2. Механика «Streak Saver» (Спасение стрика)
+Файл: frontend/src/components/StreakPanel.jsx, backend/src/utils/offers.js Логика для AI:
+Триггер: streak_days > 0 AND energy == 0 AND time_to_midnight_utc < 2 hours.
+Действие: Показать модальное окно: «Твой стрик [X] дней сгорит через 2 часа! Купи 'Экстренный кофе' за 1 ⭐ (скидка 90%), чтобы сохранить его».
+Анти-абьюз: Разрешить использование streak_saver не чаще 1 раза в 7 дней (last_streak_save_timestamp).
+
+⚙️ PHASE 5: P4 — Техническая гигиена (WebView & Audio)
+Предотвращение крашей iOS WebView и утечек памяти.
+5.1. Фикс утечки аудио в фоне
+Файл: frontend/src/utils/AudioManager.js Действие AI: Добавить обработчик visibilitychange.
+javascript
+1
+2
+3
+4
+5
+6
+7
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    this.audioContext.suspend(); // Остановка аудио при сворачивании Telegram
+  } else {
+    this.audioContext.resume();
+  }
+});
+5.2. Принудительный Canvas-рендер (Защита от iOS Crash)
+Файл: frontend/src/game/config.js (или где инициализируется Phaser) Действие AI: Найти конфигурацию Phaser и жестко задать type: Phaser.CANVAS.
+javascript
+1
+2
+3
+4
+const config = {
+  type: Phaser.CANVAS, // ЗАПРЕЩЕНО ИСПОЛЬЗОВАТЬ Phaser.AUTO или Phaser.WEBGL
+  // ... остальные параметры
+};
+Обоснование: iOS Telegram WebView имеет лимит ~300MB. WebGL вызывает reload loop и краш приложения. Canvas 2D рендерится через software pipeline и стабилен.
+
+📊 Чек-лист для AI-агента (Definition of Done)
+Перед созданием Pull Request AI должен проверить:
+Тест 1: Создать пользователя, сделать 10 тапов, закрыть вкладку. Подождать 10 минут. Открыть. Убедиться, что energy увеличилась, а updated_at не сбросил оффлайн-таймер.
+Тест 2: Установить depression_level = 20. Убедиться, что триггер stress_warning предлагает depression_cure.
+Тест 3: Проверить, что в shopCatalog.js существует товар за 25⭐.
+Тест 4: Убедиться, что в AudioManager.js присутствует document.addEventListener('visibilitychange'...).
+Тест 5: Проверить, что Phaser инициализируется строго с type: Phaser.CANVAS.
+
+💡 Почему этот план сработает (Резюме для Продюсера)
+Устранение "Фантомных багов": Фикс trg_progression_updated и пассивного стресса уберет 80% тикетов в поддержку и спасет D1-Retention, который сейчас режется из-за непонимания игроками правил оффлайна.
+Монетизация без агрессии: Сдвиг триггера стресса с 55 на 20 и добавление бандла за 25⭐ закроет "ценовую пропасть" и конвертирует F2P игроков в платящих в момент их первой реальной фрустрации (на 3-5 день).
+LiveOps-математика: Внедрение Catch-Up XP и Double XP выходных решит проблему "стены" на 14-м уровне Battle Pass, которую выявил математический аудит.
+Безопасность WebView: Жесткий переход на Canvas спасет от потери 40% iOS-аудитории из-за нехватки памяти в Telegram WebApp.

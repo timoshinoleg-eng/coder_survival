@@ -22,11 +22,12 @@ const FORMATS = [
 
 export default function MemeGenerator({ open, onClose }) {
   const { rankName, commits, streakDays, depression, energy, maxEnergy, user } = useGameState();
-  const { shareText, haptic } = useTelegram();
+  const { shareText, haptic, initData } = useTelegram();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [format, setFormat] = useState('1:1');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [blobUrl, setBlobUrl] = useState(null);
 
   const template = MEME_TEMPLATES[selectedIndex];
   const imgSrc = `${API_BASE_URL}/api/meme?templateId=${template.id}&format=${format}`;
@@ -48,6 +49,41 @@ export default function MemeGenerator({ open, onClose }) {
       setError(false);
     }
   }, [open, selectedIndex, format]);
+
+  useEffect(() => {
+    if (!open) {
+      setBlobUrl(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(false);
+
+    let objectUrl = null;
+
+    fetch(imgSrc, {
+      headers: {
+        'X-Telegram-Init-Data': initData
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Fetch failed');
+        return res.blob();
+      })
+      .then(blob => {
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        setLoading(false);
+        setError(true);
+      });
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setBlobUrl(null);
+    };
+  }, [open, imgSrc, initData]);
 
   const handleImageLoad = useCallback(() => {
     setLoading(false);
@@ -235,7 +271,7 @@ export default function MemeGenerator({ open, onClose }) {
         }, 'ПОВТОРИТЬ')
       ]),
       h('img', {
-        src: imgSrc,
+        src: blobUrl,
         onLoad: handleImageLoad,
         onError: handleImageError,
         style: {

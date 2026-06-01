@@ -72,6 +72,7 @@ const DEFAULT_STATE = {
   dailyFarm: null,
   passiveLocRecovery: null,
   antiCheat: null,
+  prestige: null,
 };
 
 const GameContext = createContext(null);
@@ -253,6 +254,16 @@ export function GameProvider({ children }) {
       dailyFarm: payload?.dailyFarm ?? payload?.daily_farm ?? current.dailyFarm ?? null,
       passiveLocRecovery: payload?.passiveLocRecovery ?? payload?.passive_loc_recovery ?? current.passiveLocRecovery ?? null,
       antiCheat: payload?.antiCheat ?? payload?.anti_cheat ?? current.antiCheat ?? null,
+      prestige: payload?.prestige
+        ? {
+            level: payload.prestige.level ?? 0,
+            currency: payload.prestige.currency ?? 0,
+            available: payload.prestige.available ?? false,
+            requiredXp: payload.prestige.requiredXp ?? 3100,
+            shopPurchases: payload.prestige.shopPurchases ?? [],
+            bonuses: payload.prestige.bonuses ?? {},
+          }
+        : current.prestige,
       featureFlags: payload?.featureFlags ?? payload?.feature_flags ?? current.featureFlags ?? {},
       stressCohort: payload?.stressCohort ?? payload?.stress_cohort ?? current.stressCohort ?? "control",
       contextOffer: hasContextOffer ? payload.contextOffer : current.contextOffer,
@@ -281,7 +292,7 @@ export function GameProvider({ children }) {
             isBurnout: payload?.isBurnout ?? false,
           }
         : current.lastTapDelta,
-      levelUp: levelUp ?? current.levelUp,
+      levelUp: levelUp ?? null,
       memePrompt: levelUp
         ? { trigger: 'levelUp', rankName: newRankName }
         : current.memePrompt,

@@ -1,6 +1,6 @@
 import { TAP_MECHANICS } from '../config/balance.js';
 
-export function calculateTapDelta(baseCommits, energy, depression, streak, commitMultiplier = 1, tapBoostPercent = 0) {
+export function calculateTapDelta(baseCommits, energy, depression, streak, commitMultiplier = 1, tapBoostPercent = 0, critChanceAdd = 0) {
   const energyMultiplier = energy / 100;
   const depressionPenalty = Math.min(1, depression / TAP_MECHANICS.afflictionDepression);
   const streakBonus = Math.min(
@@ -21,10 +21,13 @@ export function calculateTapDelta(baseCommits, energy, depression, streak, commi
   let multiplier = 1;
   let tier = null;
 
-  if (roll < TAP_MECHANICS.critGoldChance) {
+  const goldChance = TAP_MECHANICS.critGoldChance + critChanceAdd;
+  const silverChance = TAP_MECHANICS.critSilverChance;
+
+  if (roll < goldChance) {
     multiplier = 3;
     tier = 'gold';
-  } else if (roll < TAP_MECHANICS.critGoldChance + TAP_MECHANICS.critSilverChance) {
+  } else if (roll < goldChance + silverChance) {
     multiplier = 2;
     tier = 'silver';
   }
@@ -55,5 +58,5 @@ export function calculateDepressionDelta(energy, depressionMultiplier = 1) {
   let delta = TAP_MECHANICS.depressionGainPerTap;
   if (energy < 30) delta += TAP_MECHANICS.depressionGainLowEnergy;
   if (energy < 10) delta += TAP_MECHANICS.depressionGainCriticalEnergy;
-  return delta * depressionMultiplier;
+  return Math.max(0, delta * depressionMultiplier);
 }

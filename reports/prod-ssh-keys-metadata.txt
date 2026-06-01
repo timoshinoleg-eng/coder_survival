@@ -1,0 +1,2 @@
+ubuntu:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOSDrK/2t7diHI0juVkh+nvSSwDu4D/rxX2eke2xjpjS openclaw
+yc-user:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOSDrK/2t7diHI0juVkh+nvSSwDu4D/rxX2eke2xjpjS openclaw

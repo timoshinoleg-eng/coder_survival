@@ -1,5 +1,6 @@
 import { DAILY_QUEST_ALL_CLAIMED_BONUS, DAILY_QUEST_DEFS } from '../config/balance.js';
 import { applyReward } from './rewards.js';
+import { applyPrestigeBonuses } from './prestige.js';
 
 const RANK_ORDER = ['Junior', 'Middle', 'Senior', 'Lead', 'CTO'];
 
@@ -36,7 +37,7 @@ export function getRankXpBounds(rank) {
   };
 }
 
-export function resolveLevelState(xpTotal) {
+export function resolveLevelState(xpTotal, prestigeLevel = 0) {
   let resolvedRank = 1;
   let resolvedLevel = 1;
 
@@ -56,6 +57,16 @@ export function resolveLevelState(xpTotal) {
   const currentThreshold = thresholds[currentIndex];
   const nextThreshold = thresholds[currentIndex + 1] || null;
 
+  const baseMeta = getRankMeta(resolvedRank);
+  const p = Math.max(0, Number(prestigeLevel));
+  const baseState = {
+    ...baseMeta,
+    critChanceAdd: 0,
+    energyRecoveryMult: 1,
+    depressionResistanceMult: 1,
+  };
+  const bonused = applyPrestigeBonuses(baseState, p);
+
   return {
     xpTotal,
     rank: resolvedRank,
@@ -66,7 +77,13 @@ export function resolveLevelState(xpTotal) {
     progressInLevel: xpTotal - currentThreshold,
     requiredForNextLevel: nextThreshold ? nextThreshold - currentThreshold : null,
     isMaxDefinedLevel: nextThreshold === null,
-    ...getRankMeta(resolvedRank)
+    ...baseMeta,
+    commitsPerTap: bonused.commitsPerTap,
+    maxEnergy: bonused.maxEnergy,
+    prestigeLevel: bonused.prestigeLevel,
+    critChanceAdd: bonused.critChanceAdd,
+    energyRecoveryMult: bonused.energyRecoveryMult,
+    depressionResistanceMult: bonused.depressionResistanceMult,
   };
 }
 
@@ -84,10 +101,11 @@ export async function ensurePlayerLevel(client, userId) {
 
 function withResolvedLevel(row) {
   const xpTotal = Number(row.xp_total ?? 0);
+  const prestigeLevel = Number(row.prestige_level ?? 0);
   return {
     ...row,
     xp_total: xpTotal,
-    resolved: resolveLevelState(xpTotal)
+    resolved: resolveLevelState(xpTotal, prestigeLevel)
   };
 }
 

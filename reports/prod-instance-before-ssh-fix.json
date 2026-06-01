@@ -1,0 +1,63 @@
+{
+  "id": "fhmacd128ft9698h080t",
+  "folder_id": "b1g447hnv7s5o74n4qcr",
+  "created_at": "2026-05-05T17:28:13Z",
+  "name": "coder-survival-app-clean",
+  "zone_id": "ru-central1-a",
+  "platform_id": "standard-v3",
+  "resources": {
+    "memory": "4294967296",
+    "cores": "2",
+    "core_fraction": "100"
+  },
+  "status": "RUNNING",
+  "metadata": {
+    "ssh-keys": "ubuntu:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOSDrK/2t7diHI0juVkh+nvSSwDu4D/rxX2eke2xjpjS openclaw",
+    "user-data": "#cloud-config\nusers:\n  - name: ubuntu\n    sudo: ALL=(ALL) NOPASSWD:ALL\n    ssh_authorized_keys:\n      - $(cat ~/.ssh/openclaw_key.pub)\n  - name: root\n    ssh_authorized_keys:\n      - $(cat ~/.ssh/openclaw_key.pub)\nchpasswd:\n  list: |\n    ubuntu:TempPass123!\n  expire: False\n"
+  },
+  "metadata_options": {
+    "gce_http_endpoint": "ENABLED",
+    "aws_v1_http_endpoint": "ENABLED",
+    "gce_http_token": "ENABLED",
+    "aws_v1_http_token": "DISABLED",
+    "aws_v2_http_endpoint": "DISABLED",
+    "aws_v2_http_token": "DISABLED"
+  },
+  "boot_disk": {
+    "mode": "READ_WRITE",
+    "device_name": "fhmdn021pr1oj6omolui",
+    "auto_delete": true,
+    "disk_id": "fhmdn021pr1oj6omolui"
+  },
+  "network_interfaces": [
+    {
+      "index": "0",
+      "mac_address": "d0:0d:a6:34:22:43",
+      "subnet_id": "e9bndfvc91jlubrennim",
+      "primary_v4_address": {
+        "address": "10.128.0.4",
+        "one_to_one_nat": {
+          "address": "89.169.140.107",
+          "ip_version": "IPV4"
+        }
+      }
+    }
+  ],
+  "serial_port_settings": {
+    "ssh_authorization": "INSTANCE_METADATA"
+  },
+  "gpu_settings": {},
+  "fqdn": "coder-survival-app-clean.ru-central1.internal",
+  "scheduling_policy": {},
+  "network_settings": {
+    "type": "STANDARD"
+  },
+  "placement_policy": {},
+  "hardware_generation": {
+    "legacy_features": {
+      "pci_topology": "PCI_TOPOLOGY_V2"
+    }
+  },
+  "application": {}
+}
+

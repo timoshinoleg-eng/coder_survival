@@ -139,7 +139,8 @@ router.post('/', async (req, res) => {
     );
     const skinRecoveryMult = skinResult.rows.length > 0 ? 1.05 : 1;
 
-    let recoveredProgress = await recoverProgression(client, progress, rankMeta.maxEnergy, skinRecoveryMult);
+    const prestigeRecoveryMult = levelBefore.resolved.energyRecoveryMult || 1;
+    let recoveredProgress = await recoverProgression(client, progress, levelBefore.resolved.maxEnergy, skinRecoveryMult, false, prestigeRecoveryMult);
     const currentEnergy = Number(recoveredProgress.energy ?? 0);
     const actualTapCount = Math.max(0, Math.min(requestedTapCount, Math.floor(currentEnergy)));
     const currentDepression = Number(recoveredProgress.depression_level ?? 0);
@@ -162,13 +163,16 @@ router.post('/', async (req, res) => {
     const crunchTime = await getActiveCrunchTime(client);
     const activeEffects = getActiveEffects(recoveredProgress.active_effects || {});
     const tapBoostPercent = activeEffects.tapBoost?.percent || 0;
+    const prestigeCritAdd = levelBefore.resolved.critChanceAdd || 0;
+    const prestigeDepressionResist = levelBefore.resolved.depressionResistanceMult || 1;
     let tapResult = calculateTapDelta(
-      rankMeta.commitsPerTap,
+      levelBefore.resolved.commitsPerTap,
       currentEnergy,
       currentDepression,
       Number(recoveredProgress.streak_days ?? 0),
       Number(crunchTime?.commitMultiplier ?? 1) * getRandomEventTapMultiplier(recoveredProgress.event_state || {}, new Date()),
-      tapBoostPercent
+      tapBoostPercent,
+      prestigeCritAdd
     );
 
     // Query equipped skins for bonus application
@@ -197,7 +201,7 @@ router.post('/', async (req, res) => {
     const depressionDelta = calculateDepressionDelta(
       currentEnergy,
       Number(crunchTime?.depressionMultiplier ?? 1)
-    ) * actualTapCount;
+    ) * actualTapCount * prestigeDepressionResist;
     const newDepression = Math.min(
       TAP_MECHANICS.maxDepression,
       Math.max(0, currentDepression + depressionDelta)

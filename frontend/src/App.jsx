@@ -24,6 +24,7 @@ import ShareButton from "./components/ShareButton.jsx";
 import AudioToggle from "./components/AudioToggle.jsx";
 import CareerModal from "./components/CareerModal.jsx";
 import MemeGenerator from "./components/MemeGenerator.jsx";
+import PrestigeModal from "./components/PrestigeModal.jsx";
 import { applyRandomEventChoice, getActiveRuntimeEvents, reduceLegacyCodeClick } from './utils/randomEventRuntime.js';
 import { apiRequest } from './utils/api.js';
 
@@ -314,6 +315,7 @@ function AppInner() {
       onClose: handleCloseOnboarding,
     }),
     h(LevelUpModal),
+    h(PrestigeModal),
     h(MemeGenerator, {
       open: memeOpen,
       onClose: () => {

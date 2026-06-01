@@ -1,0 +1,49 @@
+{
+  "id": "c9qsqk0qa49u3k6rbe5b",
+  "folder_id": "b1g447hnv7s5o74n4qcr",
+  "created_at": "2026-05-05T07:27:36.935356Z",
+  "name": "coder-survival-db",
+  "environment": "PRESTABLE",
+  "monitoring": [
+    {
+      "name": "Console",
+      "description": "Console charts",
+      "link": "https://console.cloud.yandex.ru/folders/b1g447hnv7s5o74n4qcr/managed-postgresql/cluster/c9qsqk0qa49u3k6rbe5b/monitoring"
+    }
+  ],
+  "config": {
+    "version": "16",
+    "postgresql_config_16": {
+      "user_config": {
+        "password_encryption": "PASSWORD_ENCRYPTION_MD5"
+      }
+    },
+    "resources": {
+      "resource_preset_id": "b1.medium",
+      "disk_size": "21474836480",
+      "disk_type_id": "network-ssd"
+    },
+    "autofailover": true,
+    "backup_window_start": {
+      "hours": 22,
+      "minutes": 15,
+      "seconds": 30,
+      "nanos": 100
+    },
+    "backup_retain_period_days": "7",
+    "access": {},
+    "performance_diagnostics": {
+      "sessions_sampling_interval": "60",
+      "statements_sampling_interval": "600"
+    },
+    "disk_size_autoscaling": {},
+    "full_version": "16.13"
+  },
+  "network_id": "enpkhusu14p5nbigkf2j",
+  "health": "ALIVE",
+  "status": "RUNNING",
+  "maintenance_window": {
+    "anytime": {}
+  }
+}
+
