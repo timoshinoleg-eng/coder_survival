@@ -1,0 +1,68 @@
+# Coder Survival — CODEOWNERS
+
+# Global fallback
+* @timoshinoleg-eng
+
+# Backend code
+backend/* @timoshinoleg-eng
+backend/src/* @timoshinoleg-eng
+backend/src/routes/* @timoshinoleg-eng
+backend/src/middleware/* @timoshinoleg-eng
+backend/src/jobs/* @timoshinoleg-eng
+backend/src/utils/* @timoshinoleg-eng
+backend/src/config/* @timoshinoleg-eng
+backend/src/config/database.js @timoshinoleg-eng
+
+# Frontend code
+frontend/* @kimi-desktop
+frontend/src/* @kimi-desktop
+frontend/src/components/* @kimi-desktop
+frontend/src/hooks/* @kimi-desktop
+frontend/src/game/* @kimi-desktop
+frontend/src/assets/* @kimi-desktop
+
+# Documentation & architecture
+docs/* @hermes
+*.md @hermes
+README.md @hermes
+AGENTS.md @hermes
+CLAUDE.md @hermes
+ANALYSIS.md @hermes
+
+# CI/CD & GitHub config
+.github/* @timoshinoleg-eng
+.github/workflows/* @timoshinoleg-eng
+.github/CODEOWNERS @timoshinoleg-eng
+
+# Docker / infra
+Dockerfile @timoshinoleg-eng
+docker-compose*.yml @timoshinoleg-eng
+nginx/* @timoshinoleg-eng
+scripts/* @timoshinoleg-eng
+
+# Payments / sensitive
+backend/src/routes/internalPayments.js @timoshinoleg-eng
+backend/src/routes/internalObservation.js @timoshinoleg-eng
+backend/src/middleware/initData.js @timoshinoleg-eng
+backend/src/middleware/antiCheat.js @timoshinoleg-eng
+.env* @timoshinoleg-eng
+
+# Analytics
+analytics/* @timoshinoleg-eng
+
+# Ads
+ads/* @timoshinoleg-eng
+backend/src/routes/rewardedVideo.js @timoshinoleg-eng
+
+# Bot
+calculator/* @timoshinoleg-eng
+bot/* @timoshinoleg-eng
+
+# Strategy / product
+strategy/* @hermes
+
+# Observation / monitoring
+observation/* @timoshinoleg-eng
+
+# Support
+support/* @timoshinoleg-eng
