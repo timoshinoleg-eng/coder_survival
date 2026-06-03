@@ -20,19 +20,26 @@ router.get('/', async (req, res, next) => {
     try {
       let query;
       let params = [limit];
+      let paramIndex = 1; // $1 is already used for limit
 
-      // Build rank filter based on actual XP thresholds, not stale player_levels.rank column
-      let rankWhere = '';
+      // Build rank filter using parameterized queries (not template literals)
+      let rankWhereClause = '';
       if (rankFilter) {
         const bounds = getRankXpBounds(rankFilter);
         if (bounds) {
-          const maxClause = bounds.max !== null ? `AND pl.xp_total < ${bounds.max}` : '';
-          rankWhere = `pl.xp_total >= ${bounds.min} ${maxClause}`;
+          paramIndex += 1;
+          params.push(bounds.min);
+          rankWhereClause = ` AND pl.xp_total >= $${paramIndex}`;
+          if (bounds.max !== null) {
+            paramIndex += 1;
+            params.push(bounds.max);
+            rankWhereClause += ` AND pl.xp_total < $${paramIndex}`;
+          }
         }
       }
 
       const rankJoin = rankFilter
-        ? `JOIN player_levels pl ON pl.user_id = u.id AND ${rankWhere}`
+        ? `JOIN player_levels pl ON pl.user_id = u.id${rankWhereClause}`
         : '';
 
       const antiCheatWhere = `COALESCE((p.anti_cheat_state->>'banScore')::int, 0) < 50`;
@@ -121,7 +128,7 @@ router.get('/', async (req, res, next) => {
           const myUserId = userResult.rows[0].id;
           // Find player's rank in the same query context
           const allQuery = query.replace('LIMIT $1', '');
-          const allResult = await client.query(allQuery, []);
+          const allResult = await client.query(allQuery, params);
           const allPlayers = allResult.rows.map((row, index) => ({
             rank: index + 1,
             userId: row.id,
