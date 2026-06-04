@@ -1,0 +1,100 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          npm ci
+          npm test
+        continue-on-error: true
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy to VM
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
+            set -e
+            
+            cd /opt/coder-survival/app
+            
+            # Pull latest code
+            git fetch origin
+            git reset --hard origin/main
+            
+            # Build new image
+            cd backend
+            docker build -t coder-survival-backend:local .
+            
+            # Stop old container
+            docker stop coder-survival-backend 2>/dev/null || true
+            docker rm coder-survival-backend 2>/dev/null || true
+            
+            # Load secrets and run
+            export SOPS_AGE_KEY_FILE=/opt/coder-survival/.sops-age-key
+            SECRETS=*** -d --extract '"'"'["coder_survival"]["db_host"]"'"' "$SECRETS")
+            DB_PORT=$(sops -d --extract '"'"'["coder_survival"]["db_port"]"'"' "$SECRETS")
+            DB_NAME=$(sops -d --extract '"'"'["coder_survival"]["db_name"]"'"' "$SECRETS")
+            DB_USER=$(sops -d --extract '"'"'["coder_survival"]["db_user"]"'"' "$SECRETS")
+            DB_PASSWORD=*** -d --extract '"'"'["coder_survival"]["db_password"]"'"' "$SECRETS")
+            BOT_TOKEN=*** -d --extract '"'"'["coder_survival"]["bot_token"]"'"' "$SECRETS")
+            WEBAPP_URL=$(sops -d --extract '"'"'["coder_survival"]["webapp_url"]"'"' "$SECRETS")
+            BOT_BACKEND_SECRET=*** -d --extract '"'"'["coder_survival"]["bot_backend_secret"]"'"' "$SECRETS")
+            
+            docker run -d \
+              --name coder-survival-backend \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              -e NODE_ENV=production \
+              -e PORT=3000 \
+              -e DB_HOST="$DB_HOST" \
+              -e DB_PORT="$DB_PORT" \
+              -e DB_NAME="$DB_NAME" \
+              -e DB_USER="$DB_USER" \
+              -e DB_PASSWORD=*** \
+              -e BOT_TOKEN=*** \
+              -e WEBAPP_URL="$WEBAPP_URL" \
+              -e BOT_BACKEND_SECRET=*** \
+              coder-survival-backend:local
+            
+            # Health check
+            sleep 5
+            curl -f http://localhost:3000/health || exit 1
+            
+            # Cleanup
+            docker image prune -f
+          '
+
+      - name: Verify deployment
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'docker ps --filter name=coder-survival-backend'
