@@ -144,16 +144,40 @@ export async function applyItemEffect(client, userId, itemType) {
       if (result.error) {
         throw new Error(result.error);
       }
+      // Авто-заморозка стрика при покупке premium pass
+      await client.query(
+        `UPDATE progression
+           SET streak_state = jsonb_set(
+             COALESCE(streak_state, '{}'),
+             '{streakFrozenUntil}',
+             to_jsonb((NOW() + INTERVAL '24 hours')::text)
+           ),
+           updated_at = NOW()
+         WHERE user_id = $1`,
+        [userId]
+      );
       return {
         premiumPass: true,
         alreadyOwned: result.alreadyOwned || false,
-        seasonNumber: result.pass?.season_number || null
+        seasonNumber: result.pass?.season_number || null,
+        streakFrozenUntil: new Date(Date.now() + 86400000).toISOString()
       };
     }
 
-    case 'streak_protect':
-      // TODO: логика защиты стрика
-      return { streakProtected: true };
+    case 'streak_protect': {
+      await client.query(
+        `UPDATE progression
+           SET streak_state = jsonb_set(
+             COALESCE(streak_state, '{}'),
+             '{streakFrozenUntil}',
+             to_jsonb((NOW() + INTERVAL '24 hours')::text)
+           ),
+           updated_at = NOW()
+         WHERE user_id = $1`,
+        [userId]
+      );
+      return { streakFrozenUntil: new Date(Date.now() + 86400000).toISOString() };
+    }
 
     case 'streak_saver': {
       const streakResult = await client.query(
