@@ -77,7 +77,7 @@ jobs:
               -e BOT_BACKEND_SECRET="${{ secrets.BOT_BACKEND_SECRET }}" \
               coder-survival-backend:local
             
-            # Health check with retry
+            # Health check with retry (up to 30s)
             for i in 1 2 3; do
               sleep 10
               curl -f http://localhost:3000/health && break
