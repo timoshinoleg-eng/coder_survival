@@ -1,20 +1,24 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
-RUN apk add --no-cache \
-    cairo-dev \
-    giflib-dev \
-    jpeg-dev \
-    make \
-    pango-dev \
-    pixman-dev \
+RUN apt-get update && apt-get install -y \
     python3 \
-    g++
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-FROM node:20-alpine
+FROM node:20-slim
 WORKDIR /app
-RUN apk add --no-cache cairo giflib libjpeg-turbo pango pixman dumb-init
+RUN apt-get update && apt-get install -y \
+    libcairo2 \
+    libgif7 \
+    libjpeg62-turbo \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libpixman-1-0 \
+    dumb-init \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/node_modules ./node_modules
 COPY src/ ./src/
 COPY migrations/ ./migrations/
