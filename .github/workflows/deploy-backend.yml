@@ -41,50 +41,40 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Deploy to VM
+      - name: Copy code to VM
+        run: |
+          rsync -avz --exclude='node_modules' --exclude='.git' \
+            ./backend/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/coder-survival-backend/
+
+      - name: Build and deploy on VM
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
             set -e
             
-            cd /opt/coder-survival/app
+            cd /tmp/coder-survival-backend
             
-            # Pull latest code
-            git fetch origin
-            git reset --hard origin/main
-            
-            # Build new image
-            cd backend
+            # Build image
             docker build -t coder-survival-backend:local .
             
             # Stop old container
             docker stop coder-survival-backend 2>/dev/null || true
             docker rm coder-survival-backend 2>/dev/null || true
             
-            # Load secrets and run
-            export SOPS_AGE_KEY_FILE=/opt/coder-survival/.sops-age-key
-            SECRETS=*** -d --extract '"'"'["coder_survival"]["db_host"]"'"' "$SECRETS")
-            DB_PORT=$(sops -d --extract '"'"'["coder_survival"]["db_port"]"'"' "$SECRETS")
-            DB_NAME=$(sops -d --extract '"'"'["coder_survival"]["db_name"]"'"' "$SECRETS")
-            DB_USER=$(sops -d --extract '"'"'["coder_survival"]["db_user"]"'"' "$SECRETS")
-            DB_PASSWORD=*** -d --extract '"'"'["coder_survival"]["db_password"]"'"' "$SECRETS")
-            BOT_TOKEN=*** -d --extract '"'"'["coder_survival"]["bot_token"]"'"' "$SECRETS")
-            WEBAPP_URL=$(sops -d --extract '"'"'["coder_survival"]["webapp_url"]"'"' "$SECRETS")
-            BOT_BACKEND_SECRET=*** -d --extract '"'"'["coder_survival"]["bot_backend_secret"]"'"' "$SECRETS")
-            
+            # Run new container with secrets from GitHub
             docker run -d \
               --name coder-survival-backend \
               --restart unless-stopped \
               -p 3000:3000 \
               -e NODE_ENV=production \
               -e PORT=3000 \
-              -e DB_HOST="$DB_HOST" \
-              -e DB_PORT="$DB_PORT" \
-              -e DB_NAME="$DB_NAME" \
-              -e DB_USER="$DB_USER" \
-              -e DB_PASSWORD=*** \
-              -e BOT_TOKEN=*** \
-              -e WEBAPP_URL="$WEBAPP_URL" \
-              -e BOT_BACKEND_SECRET=*** \
+              -e DB_HOST="${{ secrets.DB_HOST }}" \
+              -e DB_PORT="${{ secrets.DB_PORT }}" \
+              -e DB_NAME="${{ secrets.DB_NAME }}" \
+              -e DB_USER="${{ secrets.DB_USER }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e BOT_TOKEN="${{ secrets.BOT_TOKEN }}" \
+              -e WEBAPP_URL="${{ secrets.WEBAPP_URL }}" \
+              -e BOT_BACKEND_SECRET="${{ secrets.BOT_BACKEND_SECRET }}" \
               coder-survival-backend:local
             
             # Health check
@@ -93,6 +83,7 @@ jobs:
             
             # Cleanup
             docker image prune -f
+            rm -rf /tmp/coder-survival-backend
           '
 
       - name: Verify deployment
