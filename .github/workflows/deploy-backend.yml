@@ -77,9 +77,12 @@ jobs:
               -e BOT_BACKEND_SECRET="${{ secrets.BOT_BACKEND_SECRET }}" \
               coder-survival-backend:local
             
-            # Health check
-            sleep 5
-            curl -f http://localhost:3000/health || exit 1
+            # Health check with retry
+            for i in 1 2 3; do
+              sleep 10
+              curl -f http://localhost:3000/health && break
+              if [ $i -eq 3 ]; then exit 1; fi
+            done
             
             # Cleanup
             docker image prune -f
