@@ -107,6 +107,20 @@ export function starRecover(streakState, todayDate, starsAvailable) {
 }
 
 export function processDailyLogin(streakState = {}, todayDate) {
+  // Проверка заморозки стрика
+  const frozenUntil = streakState.streakFrozenUntil;
+  if (frozenUntil) {
+    const frozen = new Date(frozenUntil);
+    if (frozen > new Date()) {
+      return {
+        status: 'streak_frozen',
+        streakState,
+        rewards: null,
+        brokenStreak: null,
+        frozenUntil: frozenUntil
+      };
+    }
+  }
   const last = streakState.lastLoginDate || null;
   const current = Number(streakState.currentStreak || 0);
   const protection = normalizeProtection(streakState.protection);
