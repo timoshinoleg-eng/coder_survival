@@ -1,9 +1,38 @@
 import { h, createContext } from 'preact';
-import { useContext, useCallback } from 'preact/hooks';
+import { useContext, useCallback, useState, useEffect } from 'preact/hooks';
 
 const TelegramContext = createContext(null);
 
 export function TelegramProvider({ children }) {
+  const [tgReady, setTgReady] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    console.log('[TelegramProvider] Checking WebApp...', { hasTelegram: !!window.Telegram, hasWebApp: !!window.Telegram?.WebApp });
+    if (window.Telegram?.WebApp) {
+      console.log('[TelegramProvider] WebApp found immediately, initData length:', window.Telegram.WebApp.initData?.length || 0);
+      setTgReady(true);
+      return;
+    }
+    // Ждём загрузки telegram-web-app.js
+    const checkInterval = setInterval(() => {
+      if (window.Telegram?.WebApp) {
+        console.log('[TelegramProvider] WebApp loaded after poll, initData length:', window.Telegram.WebApp.initData?.length || 0);
+        setTgReady(true);
+        clearInterval(checkInterval);
+      }
+    }, 50);
+    // Таймаут 5 секунд
+    const timeout = setTimeout(() => {
+      console.log('[TelegramProvider] Timeout waiting for WebApp');
+      clearInterval(checkInterval);
+    }, 5000);
+    return () => {
+      clearInterval(checkInterval);
+      clearTimeout(timeout);
+    };
+  }, []);
+
   const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
 
   const haptic = useCallback((type = 'light') => {

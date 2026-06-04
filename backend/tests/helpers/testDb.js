@@ -17,8 +17,10 @@ export const testPool = TEST_DATABASE_URL
     })
   : null;
 
+import crypto from 'crypto';
+
 export function createInitData(userId, options = {}) {
-  return new URLSearchParams({
+  const params = new URLSearchParams({
     user: JSON.stringify({
       id: userId,
       username: options.username || `user_${userId}`,
@@ -26,7 +28,32 @@ export function createInitData(userId, options = {}) {
     }),
     auth_date: String(Math.floor(Date.now() / 1000)),
     ...(options.startParam ? { start_param: options.startParam } : {}),
-  }).toString();
+  });
+
+  const botToken = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+  if (botToken) {
+    const pairs = [];
+    for (const [key, value] of params) {
+      pairs.push(`${key}=${value}`);
+    }
+    pairs.sort((a, b) => {
+      const keyA = a.slice(0, a.indexOf('='));
+      const keyB = b.slice(0, b.indexOf('='));
+      return keyA < keyB ? -1 : keyA > keyB ? 1 : 0;
+    });
+    const dataCheckString = pairs.join('\n');
+    const secretKey = crypto
+      .createHmac('sha256', 'WebAppData')
+      .update(botToken)
+      .digest();
+    const hash = crypto
+      .createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+    params.append('hash', hash);
+  }
+
+  return params.toString();
 }
 
 export async function ensureTestSchema() {

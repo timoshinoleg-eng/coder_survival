@@ -570,6 +570,11 @@ export function GameProvider({ children }) {
     loadState();
   }, [loadState]);
 
+  // Сбрасываем loadStatePromise когда initData меняется (Telegram загрузился)
+  useEffect(() => {
+    loadStatePromiseRef.current = null;
+  }, [telegram?.initData]);
+
   useEffect(() => {
     let timer = null;
     let cancelled = false;
