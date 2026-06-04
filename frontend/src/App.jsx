@@ -47,6 +47,8 @@ function runtimeEventStatesEqual(left, right) {
 
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
+  const [showOnboardingFlow, setShowOnboardingFlow] = useState(false);
   const { loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast, memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState, setRandomEventState } = useGameState();
   const [onboardingDismissedThisSession, setOnboardingDismissedThisSession] =
     useState(false);
@@ -62,6 +64,19 @@ function AppInner() {
   const previousHotStreakActiveRef = useRef(false);
   const previousProductionAlertActiveRef = useRef(false);
   const [memeOpen, setMemeOpen] = useState(false);
+
+  const handleSplashComplete = useCallback(() => {
+    setSplashDone(true);
+    const completed = localStorage.getItem("cs_onboarding_completed") === "1";
+    const skipped = localStorage.getItem("cs_onboarding_skipped");
+    if (!completed) {
+      const skippedTime = skipped ? parseInt(skipped, 10) : 0;
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      if (!skippedTime || skippedTime < weekAgo) {
+        setShowOnboardingFlow(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!persistedRandomEventState) return;
@@ -239,11 +254,17 @@ function AppInner() {
   };
 
   const shouldShowOnboarding =
-    gameReady && !loading && showOnboarding && !onboardingDismissedThisSession;
+    gameReady && !loading && showOnboarding && !onboardingDismissedThisSession && !showOnboardingFlow;
 
   return h(
     "div",
     { id: "app" },
+    !splashDone && h(SplashScreen, { onComplete: handleSplashComplete }),
+    splashDone && h(Onboarding, {
+      visible: showOnboardingFlow,
+      onComplete: () => setShowOnboardingFlow(false),
+      onSkip: () => setShowOnboardingFlow(false),
+    }),
     h(StreakCalendar),
     h(StatsBar, { runtimeNow }),
     activeRuntimeEvents.length > 0 && h(

@@ -1,0 +1,231 @@
+.onboarding {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(10, 16, 30, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: onboarding-fade-in 300ms step-end forwards;
+}
+
+.onboarding--fade-out {
+  animation: onboarding-fade-out 350ms step-end forwards;
+  pointer-events: none;
+}
+
+.onboarding__card {
+  width: min(360px, 100%);
+  background: #16213e;
+  border: 2px solid #334155;
+  box-shadow: 4px 4px 0 #0f172a;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.onboarding__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.onboarding__icon {
+  font-size: 36px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.onboarding__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.onboarding__title {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 12px;
+  color: #e2e8f0;
+  text-shadow: 2px 2px 0 #0f172a;
+  line-height: 1.4;
+}
+
+.onboarding__subtitle {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 9px;
+  color: #94a3b8;
+  text-shadow: 1px 1px 0 #0f172a;
+}
+
+.onboarding__dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.onboarding__dot {
+  width: 8px;
+  height: 8px;
+  background: #334155;
+  transition: background 200ms step-end;
+}
+
+.onboarding__dot--active {
+  background: #4ade80;
+}
+
+.onboarding__content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboarding__description {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 9px;
+  color: #e2e8f0;
+  text-shadow: 1px 1px 0 #0f172a;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.onboarding__demo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #0f172a;
+  border: 2px solid #334155;
+}
+
+.onboarding__demo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f3460;
+  border: 2px solid #4ade80;
+  padding: 10px 20px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 10px;
+  color: #e2e8f0;
+  text-shadow: 2px 2px 0 #0f172a;
+  cursor: pointer;
+  user-select: none;
+}
+
+.onboarding__demo-btn:active {
+  transform: translate(2px, 2px);
+}
+
+.onboarding__demo-counter {
+  font-size: 9px;
+  color: #94a3b8;
+}
+
+.onboarding__demo-done {
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 9px;
+  color: #4ade80;
+  text-shadow: 1px 1px 0 #0f172a;
+  animation: onboarding-fade-in 200ms step-end;
+}
+
+.onboarding__ladder {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: #0f172a;
+  border: 2px solid #334155;
+}
+
+.onboarding__ladder-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #1e293b;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 9px;
+  color: #64748b;
+  transition: all 200ms step-end;
+}
+
+.onboarding__ladder-step--active {
+  background: #0f3460;
+  color: #4ade80;
+  border: 1px solid #4ade80;
+}
+
+.onboarding__ladder-rank {
+  font-size: 9px;
+}
+
+.onboarding__ladder-arrow {
+  font-size: 10px;
+}
+
+.onboarding__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.onboarding__btn {
+  flex: 1;
+  padding: 10px;
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  transition: none;
+  line-height: 1.2;
+}
+
+.onboarding__btn:active {
+  transform: translate(2px, 2px);
+}
+
+.onboarding__btn--primary {
+  background: #0f3460;
+  border: 2px solid #4ade80;
+  color: #e2e8f0;
+  text-shadow: 2px 2px 0 #0f172a;
+}
+
+.onboarding__btn--secondary {
+  background: transparent;
+  border: 2px solid #334155;
+  color: #94a3b8;
+  text-shadow: 1px 1px 0 #0f172a;
+}
+
+@keyframes onboarding-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes onboarding-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Mobile adjustments */
+@media (max-width: 360px) {
+  .onboarding__card {
+    padding: 14px;
+  }
+  .onboarding__title {
+    font-size: 10px;
+  }
+  .onboarding__description {
+    font-size: 8px;
+  }
+  .onboarding__btn {
+    font-size: 8px;
+    padding: 8px;
+  }
+}
