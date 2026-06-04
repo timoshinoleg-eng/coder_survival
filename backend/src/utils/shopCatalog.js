@@ -42,6 +42,15 @@ export const PRODUCT_CATALOG = {
     icon: '🎟️',
     category: 'pass'
   },
+  streak_protect: {
+    id: 'streak_protect',
+    name: 'Защита стрика',
+    description: 'Замораживает стрик на 24 часа',
+    stars: 50,
+    icon: '🧊',
+    category: 'streak',
+    effect: 'freeze_streak'
+  },
   streak_saver: {
     id: 'streak_saver',
     name: 'Экстренный кофе',
