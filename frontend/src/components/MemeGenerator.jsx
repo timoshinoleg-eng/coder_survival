@@ -97,9 +97,40 @@ export default function MemeGenerator({ open, onClose }) {
 
   const handleShare = useCallback(async () => {
     haptic('success');
+    
+    // Пробуем нативный share с файлом (работает в мобильных браузерах и Telegram WebView)
+    if (blobUrl && navigator.canShare) {
+      try {
+        const response = await fetch(blobUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `coder-survival-${template.id}.png`, { type: 'image/png' });
+        
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Coder Survival',
+            text: `${template.label} — ${rankName || 'Junior'} | ${commits || 0} коммитов`
+          });
+          
+          // Аналитика
+          try {
+            await apiRequest('/api/meme/share', {
+              method: 'POST',
+              body: { templateId: template.id, format, sharedTo: 'native_share' }
+            });
+          } catch (e) { /* non-blocking */ }
+          return;
+        }
+      } catch (err) {
+        console.log('Native share failed, falling back to text');
+      }
+    }
+    
+    // Fallback: шарим текст + ссылку
     const url = `${API_BASE_URL}/api/meme?templateId=${template.id}&format=${format}`;
     const text = `Coder Survival — ${template.label}\n${rankName || 'Junior'} | ${commits || 0} коммитов | ${streakDays || 0} дней подряд\nА ты сколько накодил? 👇`;
     shareText(text + '\n' + url);
+    
     try {
       await apiRequest('/api/meme/share', {
         method: 'POST',
@@ -108,7 +139,7 @@ export default function MemeGenerator({ open, onClose }) {
     } catch (e) {
       // Non-blocking analytics
     }
-  }, [haptic, shareText, template, format, rankName, commits, streakDays]);
+  }, [haptic, shareText, template, format, rankName, commits, streakDays, blobUrl]);
 
   const handleDownload = useCallback(async () => {
     haptic('light');
