@@ -1,0 +1,67 @@
+name: Integration Tests (Staging DB)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - ".github/workflows/integration-tests-staging.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - ".github/workflows/integration-tests-staging.yml"
+  workflow_dispatch:
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      NODE_ENV: test
+      TEST_DATABASE_URL: postgresql://test:***@89.169.140.219:5432/coder_survival_test
+      DB_HOST: 89.169.140.219
+      DB_PORT: 5432
+      DB_NAME: coder_survival_test
+      DB_USER: test
+      DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for DB availability
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h 89.169.140.219 -p 5432 -U test; then
+              echo "Database is ready"
+              exit 0
+            fi
+            echo "Waiting for database... ($i/30)"
+            sleep 2
+          done
+          echo "Database not available"
+          exit 1
+
+      - name: Run migrations
+        run: |
+          export DATABASE_URL="postgresql://test:${{ secrets.TEST_DB_PASSWORD }}@89.169.140.219:5432/coder_survival_test"
+          node src/migrate.js
+
+      - name: Run integration tests
+        run: npm test -- --runInBand --testPathPattern=integration
+
+      - name: Run full test suite
+        if: github.ref == 'refs/heads/main'
+        run: npm test -- --runInBand
