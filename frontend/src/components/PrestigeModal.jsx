@@ -162,7 +162,7 @@ export default function PrestigeModal() {
     return h('button', {
       onClick: () => setVisible(true),
       style: {
-        position: 'fixed', top: '12px', right: '12px', zIndex: 45,
+        position: 'fixed', top: '52px', right: '70px', zIndex: 100,
         padding: '6px 14px', borderRadius: '8px',
         border: `1px solid ${prestigeAvailable ? COLORS.accent : COLORS.muted}`,
         background: prestigeAvailable ? 'rgba(245, 158, 11, 0.12)' : 'rgba(136, 153, 170, 0.12)',
