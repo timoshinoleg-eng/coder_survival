@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: coder-survival-api
+    runtime: docker
+    repo: https://github.com/timoshinoleg-eng/coder_survival.git
+    branch: main
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: coder-survival-db
+          property: connectionString
+      - key: BOT_TOKEN
+        sync: false
+      - key: WEBAPP_URL
+        value: https://frontend-ashy-alpha-77.vercel.app
+      - key: BOT_BACKEND_SECRET
+        sync: false
+      - key: INIT_DATA_MAX_AGE_SECONDS
+        value: 3600
+      - key: RATE_LIMIT_MAX_TAPS_PER_SECOND
+        value: 15
+      - key: RATE_LIMIT_SOFT_BAN_THRESHOLD
+        value: 25
+      - key: RATE_LIMIT_DAILY_CAP_PER_IP
+        value: 10000
+    healthCheckPath: /health
+    autoDeploy: true
+
+databases:
+  - name: coder-survival-db
+    databaseName: coder_survival
+    user: postgres
+    plan: free
+    ipAllowList: []
