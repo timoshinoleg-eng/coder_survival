@@ -8,6 +8,9 @@ jobs:
   deploy-preview:
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      VERCEL_ORG_ID: olegs-projects-bfc4e11a
+      VERCEL_PROJECT_ID: prj_6HewqIVhYFQFgim5yQPJjvz6ucHa
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,6 +26,3 @@ jobs:
       - name: Deploy to Vercel
         working-directory: frontend
         run: vercel --yes --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

@@ -9,7 +9,8 @@
   "devDependencies": {
     "concurrently": "^8.2.2",
     "husky": "^9.0.0",
-    "lint-staged": "^15.2.0"
+    "lint-staged": "^15.2.0",
+    "vercel": "^54.9.1"
   },
   "lint-staged": {
     "*.{js,jsx,json,css,md}": "prettier --write"
