@@ -44,6 +44,7 @@ import dailySummaryRouter from "./routes/dailySummary.js";
 import prestigeRouter from "./routes/prestige.js";
 import { startDailySummaryCron } from "./jobs/dailySummaryCron.js";
 import { startTeamHackathonCron } from "./jobs/teamHackathonCron.js";
+import { startAchievementCron } from "./jobs/achievementCron.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -202,4 +203,5 @@ if (isEntrypoint) {
   startBalanceAuditJob();
   startDailySummaryCron();
   startTeamHackathonCron();
+  startAchievementCron();
 }

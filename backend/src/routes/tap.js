@@ -17,7 +17,7 @@ import { addPassXp, applyPassXpSourceMultiplier, getActivePass } from '../utils/
 import { logPassXp } from '../utils/passXpLog.js';
 import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { updateTeamProgress } from '../utils/teams.js';
-import { checkAchievement, ensureAchievementRows } from '../utils/achievements.js';
+import { checkAchievementsForUser } from '../utils/achievementsEngine.js';
 import { addEffect, getActiveEffects } from '../utils/activeEffects.js';
 import { calculateTapDelta, calculateDepressionDelta } from '../utils/tap.js';
 import { applyBanScoreIncrement, applyLocPenalty, normalizeAntiCheatState } from '../utils/anticheat.js';
@@ -69,10 +69,6 @@ router.post('/', async (req, res) => {
     );
     const userId = userResult.rows[0].id;
     const insertedUser = userResult.rows[0].inserted === true;
-
-    if (insertedUser) {
-      await ensureAchievementRows(client, userId);
-    }
 
     const levelBefore = await ensurePlayerLevel(client, userId);
     const rankMeta = getRankMeta(levelBefore.resolved.rank);
@@ -296,10 +292,7 @@ router.post('/', async (req, res) => {
 
     await updateTeamProgress(client, userId, tapResult.commitsDelta);
 
-    await checkAchievement(client, userId, 'tap', { isCrit: tapResult.isCrit });
-    await checkAchievement(client, userId, 'commit_total');
     if (levelAfter.record.resolved.rank > levelBefore.resolved.rank) {
-      await checkAchievement(client, userId, 'rank_up', { rank: levelAfter.record.resolved.rank });
       const newRank = levelAfter.record.resolved.rank;
       // Auto-unlock rank-based skins
       if (newRank >= 3) {
@@ -488,6 +481,27 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Check achievements
+    let achievementsEarned = [];
+    try {
+      const { newlyEarned } = await checkAchievementsForUser(
+        userId,
+        ['tap_count', 'coins_balance', 'xp_total', 'time_pattern'],
+        {
+          currentTaps: Number(recoveredProgress.commits_total ?? 0),
+          currentCoins: Number(recoveredProgress.commits_total ?? 0),
+          currentXp: levelAfter.record.xp_total || 0,
+          currentSkins: null,
+          currentBattles: null,
+          serverHour: new Date().getUTCHours(),
+          serverDay: ['sun','mon','tue','wed','thu','fri','sat'][new Date().getUTCDay()]
+        }
+      );
+      achievementsEarned = newlyEarned;
+    } catch (achErr) {
+      console.error('[Tap] Achievement check failed:', achErr);
+    }
+
     return res.json({
       success: true,
       delta: {
@@ -550,7 +564,8 @@ router.post('/', async (req, res) => {
       isBurnout,
       isCrit: tapResult.isCrit,
       critTier: tapResult.critTier,
-      rank: levelAfter.record.resolved.rankName
+      rank: levelAfter.record.resolved.rankName,
+      achievements_earned: achievementsEarned
     });
   } catch (err) {
     if (client) {
