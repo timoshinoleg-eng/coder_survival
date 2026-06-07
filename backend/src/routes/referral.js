@@ -140,12 +140,12 @@ router.get('/status', async (req, res, next) => {
       const activeResult = await client.query(
         `SELECT
            COUNT(*)::int AS total,
-           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days')::int AS active,
-           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days' AND r.is_referred_premium = TRUE)::int AS premium_active
+           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - ($3::int * INTERVAL '1 day'))::int AS active,
+           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - ($3::int * INTERVAL '1 day') AND r.is_referred_premium = TRUE)::int AS premium_active
          FROM referrals r
          LEFT JOIN progression p ON p.user_id = r.referred_id
          WHERE r.referrer_id = $1`,
-        [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
+        [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS, STAGE3.REFERRAL.ANTI_FARM_DAYS]
       );
 
       const referredResult = await client.query(
@@ -154,13 +154,13 @@ router.get('/status', async (req, res, next) => {
            COALESCE(p.commits_total, 0)::int as commits_total,
            p.first_active_at,
            r.is_referred_premium,
-           (COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - INTERVAL '${STAGE3.REFERRAL.ANTI_FARM_DAYS} days') as is_active
+           (COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - ($3::int * INTERVAL '1 day')) as is_active
          FROM referrals r
          LEFT JOIN progression p ON p.user_id = r.referred_id
          LEFT JOIN users u ON u.id = r.referred_id
          WHERE r.referrer_id = $1
          ORDER BY r.created_at DESC`,
-        [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
+        [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS, STAGE3.REFERRAL.ANTI_FARM_DAYS]
       );
 
       const claimedResult = await client.query(

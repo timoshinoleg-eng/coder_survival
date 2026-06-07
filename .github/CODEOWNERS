@@ -14,20 +14,20 @@ backend/src/config/* @timoshinoleg-eng
 backend/src/config/database.js @timoshinoleg-eng
 
 # Frontend code
-frontend/* @kimi-desktop
-frontend/src/* @kimi-desktop
-frontend/src/components/* @kimi-desktop
-frontend/src/hooks/* @kimi-desktop
-frontend/src/game/* @kimi-desktop
-frontend/src/assets/* @kimi-desktop
+frontend/* @timoshinoleg-eng
+frontend/src/* @timoshinoleg-eng
+frontend/src/components/* @timoshinoleg-eng
+frontend/src/hooks/* @timoshinoleg-eng
+frontend/src/game/* @timoshinoleg-eng
+frontend/src/assets/* @timoshinoleg-eng
 
 # Documentation & architecture
-docs/* @hermes
-*.md @hermes
-README.md @hermes
-AGENTS.md @hermes
-CLAUDE.md @hermes
-ANALYSIS.md @hermes
+docs/* @timoshinoleg-eng
+*.md @timoshinoleg-eng
+README.md @timoshinoleg-eng
+AGENTS.md @timoshinoleg-eng
+CLAUDE.md @timoshinoleg-eng
+ANALYSIS.md @timoshinoleg-eng
 
 # CI/CD & GitHub config
 .github/* @timoshinoleg-eng
@@ -59,7 +59,7 @@ calculator/* @timoshinoleg-eng
 bot/* @timoshinoleg-eng
 
 # Strategy / product
-strategy/* @hermes
+strategy/* @timoshinoleg-eng
 
 # Observation / monitoring
 observation/* @timoshinoleg-eng
