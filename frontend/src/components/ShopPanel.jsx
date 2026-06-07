@@ -5,6 +5,7 @@ import { startTelegramPurchase } from '../utils/purchases.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { useGameState } from '../hooks/useGameState.js';
 import { audioManager } from '../utils/AudioManager.js';
+import { Analytics } from '../utils/analytics.js';
 
 const CATEGORY_LABELS = {
   energy: '⚡ Энергия',
@@ -53,6 +54,7 @@ export default function ShopPanel() {
 
   useEffect(() => {
     if (shopOpen) {
+      Analytics.track('shop_opened');
       audioManager.play('modalOpen');
       audioManager.duckForModal();
     } else {
@@ -63,6 +65,8 @@ export default function ShopPanel() {
   const handleBuy = async (productId) => {
     setBuying(productId);
     setBuyResult(null);
+    const product = products.find(p => p.id === productId);
+    Analytics.track('purchase_initiated', { product_id: productId, price: product?.stars });
     try {
       const result = await startTelegramPurchase(productId, initData);
       setBuyResult({
@@ -80,6 +84,7 @@ export default function ShopPanel() {
         } else {
           showToast('Покупка завершена! Товар скоро будет выдан.', 'success', 3000);
         }
+        Analytics.track('purchase_completed', { product_id: productId, price: product?.stars, currency: 'stars' });
       }
     } catch (err) {
       setBuyResult({ success: false, productId, error: err.payload?.error || err.message || 'Ошибка покупки' });

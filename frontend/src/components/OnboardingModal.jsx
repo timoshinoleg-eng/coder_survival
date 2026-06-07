@@ -1,7 +1,8 @@
 import { h } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useClosingConfirmation } from '../hooks/useClosingConfirmation.js';
+import { Analytics } from '../utils/analytics.js';
 
 const STEPS = [
   { key: 'tap', title: 'Напиши код' },
@@ -24,16 +25,26 @@ export default function OnboardingModal({ visible, onClose }) {
   const [completing, setCompleting] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const current = STEPS[step];
+  const startRef = useRef(null);
+  const prevStepRef = useRef(0);
   useClosingConfirmation(visible);
 
   useEffect(() => {
     if (visible) {
-      console.log('onboarding_started');
+      Analytics.track('onboarding_started');
+      startRef.current = Date.now();
       setStep(0);
       setTutorialTaps(0);
       setTooltipOpen(false);
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (visible && step > 0) {
+      Analytics.track('onboarding_step_completed', { step: prevStepRef.current + 1, total_steps: STEPS.length });
+    }
+    prevStepRef.current = step;
+  }, [step, visible]);
 
   const fakeDepression = useMemo(() => {
     if (step !== 2) return Math.round(depression || 0);
@@ -55,6 +66,8 @@ export default function OnboardingModal({ visible, onClose }) {
     setCompleting(true);
     try {
       await completeOnboarding();
+      const duration_sec = startRef.current ? Math.round((Date.now() - startRef.current) / 1000) : 0;
+      Analytics.track('onboarding_completed', { duration_sec });
       onClose?.({ completed: true });
     } finally {
       setCompleting(false);

@@ -46,6 +46,11 @@ const passClaimSchema = z.object({
   track: z.enum(['free', 'premium']),
 });
 
+const analyticsEventSchema = z.object({
+  eventName: z.string().min(1),
+  properties: z.record(z.any()).default({}),
+});
+
 module.exports = {
   tapSchema,
   buySchema,
@@ -57,4 +62,5 @@ module.exports = {
   achievementReadSchema,
   questClaimSchema,
   passClaimSchema,
+  analyticsEventSchema,
 };

@@ -4,6 +4,7 @@ import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { useAchievements } from '../hooks/useAchievements.js';
 import { audioManager } from '../utils/AudioManager.js';
+import { Analytics } from '../utils/analytics.js';
 
 const DEPRESSION_MAX = 200;
 const DEPRESSION_AFFLICTION = 100;
@@ -19,6 +20,7 @@ export default function TapArea({ active }) {
     lastTapDelta,
     error: gameError,
     showToast,
+    rank,
   } = useGameState();
   const { haptic } = useTelegram();
   const { queueToast } = useAchievements();
@@ -29,6 +31,7 @@ export default function TapArea({ active }) {
   const lastTapPosRef = useRef({ x: 0, y: 0 });
   const prevDeltaRef = useRef(null);
   const prevErrorRef = useRef(null);
+  const energyBeforeRef = useRef(null);
 
   useEffect(() => {
     audioManager.init().catch(() => {});
@@ -61,6 +64,7 @@ export default function TapArea({ active }) {
     audioManager.play('tap');
     setLuckArmed(false);
     window.setTimeout(() => setLuckArmed(true), 220);
+    energyBeforeRef.current = energy;
     tap();
 
     // Ripple — immediate tactile feedback only
@@ -75,6 +79,8 @@ export default function TapArea({ active }) {
   useEffect(() => {
     if (!lastTapDelta || lastTapDelta === prevDeltaRef.current) return;
     prevDeltaRef.current = lastTapDelta;
+
+    Analytics.track('tap', { energy_before: energyBeforeRef.current, energy_after: energy, rank });
 
     const { x, y } = lastTapPosRef.current;
     const { commits: deltaCommits, xp: deltaXp } = lastTapDelta;
@@ -129,7 +135,7 @@ export default function TapArea({ active }) {
     if (lastTapDelta.achievementsEarned?.length > 0) {
       queueToast(lastTapDelta.achievementsEarned);
     }
-  }, [lastTapDelta, addFloatText, haptic, showToast, queueToast]);
+  }, [lastTapDelta, addFloatText, haptic, showToast, queueToast, energy, rank]);
 
   useEffect(() => {
     if (!gameError) {

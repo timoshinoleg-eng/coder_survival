@@ -3,6 +3,8 @@ import { useEffect, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
+import { RANK_ORDER } from '../hooks/usePlayerRank.js';
+import { Analytics } from '../utils/analytics.js';
 import Confetti from './Confetti.jsx';
 
 export default function LevelUpModal() {
@@ -17,6 +19,11 @@ export default function LevelUpModal() {
       audioManager.play('levelup');
       setShowConfetti(true);
       const t = setTimeout(() => setShowConfetti(false), 1500);
+      if (levelUp.isRankUp) {
+        const rankIndex = RANK_ORDER.indexOf(levelUp.rankName);
+        const oldRank = rankIndex > 0 ? RANK_ORDER[rankIndex - 1] : null;
+        Analytics.track('rank_up', { old_rank: oldRank, new_rank: levelUp.rankName });
+      }
       return () => {
         clearTimeout(t);
         audioManager.resumeFromModal();

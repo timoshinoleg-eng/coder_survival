@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import { usePlayerRank } from '../hooks/usePlayerRank.js';
+import { Analytics } from '../utils/analytics.js';
 
 export default function RankBadge({ onClick }) {
   const { rank, progressPercent, rankMeta, nextRankName } = usePlayerRank();
@@ -7,7 +8,10 @@ export default function RankBadge({ onClick }) {
   return h(
     'div',
     {
-      onClick: onClick,
+      onClick: (e) => {
+        Analytics.track('rank_badge_clicked');
+        onClick?.(e);
+      },
       style: {
         display: 'flex',
         alignItems: 'center',
