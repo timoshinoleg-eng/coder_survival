@@ -27,6 +27,8 @@ import MemeGenerator from "./components/MemeGenerator.jsx";
 import PrestigeModal from "./components/PrestigeModal.jsx";
 import { applyRandomEventChoice, getActiveRuntimeEvents, reduceLegacyCodeClick } from './utils/randomEventRuntime.js';
 import { apiRequest } from './utils/api.js';
+import { Analytics } from './utils/analytics.js';
+import { useTelegram } from './hooks/useTelegram.js';
 
 function normalizeRuntimeEventState(state = {}) {
   const source = state || {};
@@ -48,6 +50,7 @@ function runtimeEventStatesEqual(left, right) {
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
   const { loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast, memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState, setRandomEventState } = useGameState();
+  const { user } = useTelegram();
   const [onboardingDismissedThisSession, setOnboardingDismissedThisSession] =
     useState(false);
   const [randomEvent, setRandomEvent] = useState(null);
@@ -62,6 +65,17 @@ function AppInner() {
   const previousHotStreakActiveRef = useRef(false);
   const previousProductionAlertActiveRef = useRef(false);
   const [memeOpen, setMemeOpen] = useState(false);
+
+  useEffect(() => {
+    Analytics.track('app_opened', { source: document.referrer || 'direct' });
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      Analytics.init(import.meta.env.VITE_AMPLITUDE_API_KEY);
+      Analytics.setUser({ telegram_id: user.id, username: user.username });
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!persistedRandomEventState) return;

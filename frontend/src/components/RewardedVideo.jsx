@@ -1,6 +1,8 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import { useAdsGram } from '../hooks/useAdsGram.js';
+import { trackEvent } from '../utils/analytics.js';
 
 export default function RewardedVideo() {
   const { energy, maxEnergy, rewardedVideo, antiCheat, completeRewardedVideo, showToast } = useGameState();
@@ -10,21 +12,46 @@ export default function RewardedVideo() {
   const dailyLimit = rewardedVideo?.dailyLimit ?? 5;
   const adAvailability = rewardedVideo?.adAvailability || null;
 
+  const blockId = import.meta.env?.VITE_ADSGRAM_BLOCK_ID;
+  const { isReady: adsGramReady, showAd: showAdsGramAd } = useAdsGram(blockId);
+
   if (energy > threshold || (remaining <= 0 && adAvailability?.allowed !== false)) return null;
 
   async function handleClick() {
     if (waiting) return;
     setWaiting(true);
+
     const tg = window.Telegram?.WebApp;
+    let provider = 'mock';
+
     try {
       if (tg?.showRewardedVideo) {
+        provider = 'telegram_native';
+        trackEvent('ad_watched', { provider, source: 'rewarded_video' });
         await new Promise((resolve) => tg.showRewardedVideo(resolve));
+      } else if (adsGramReady && showAdsGramAd) {
+        provider = 'adsgram';
+        trackEvent('ad_watched', { provider, source: 'rewarded_video' });
+        await showAdsGramAd();
       } else {
+        provider = 'mock';
+        trackEvent('ad_watched', { provider, source: 'rewarded_video' });
         await new Promise((resolve) => window.setTimeout(resolve, 15000));
       }
+
       const result = await completeRewardedVideo();
+      trackEvent('ad_reward_granted', {
+        provider,
+        rewardEnergy: result?.rewardEnergy,
+        remainingToday: result?.remainingToday,
+      });
       showToast?.(`Кофе-брейк: +${result.rewardEnergy} энергии`, 'success', 2000);
     } catch (err) {
+      trackEvent('ad_error', {
+        provider,
+        source: 'rewarded_video',
+        error: err?.message || 'unknown',
+      });
       showToast?.(err?.message || 'Кофе-брейк пока недоступен', 'error', 2000);
     } finally {
       setWaiting(false);

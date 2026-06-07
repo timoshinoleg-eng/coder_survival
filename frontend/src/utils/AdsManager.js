@@ -3,7 +3,7 @@ import { apiRequest } from './api.js';
 /**
  * AdsManager — provider-agnostic rewarded video abstraction.
  *
- * INTEGRATION CHECKLIST for real ad SDK (e.g., AdMob, MyTarget, Yandex):
+ * INTEGRATION CHECKLIST for real ad SDK (e.g., AdMob, MyTarget, Yandex, AdsGram):
  * 1. Set env VITE_ADS_PROVIDER=<provider_name> and VITE_ENABLE_REWARDED_ADS=true
  * 2. Load provider SDK script in index.html or dynamically in init()
  * 3. Replace showRewardedAd() with provider-specific rewarded flow:
@@ -20,6 +20,7 @@ class AdsManager {
   constructor() {
     this.provider = this.detectProvider();
     this.sessionProviders = new Map();
+    this.adsGramController = null;
   }
 
   detectProvider() {
@@ -39,7 +40,16 @@ class AdsManager {
   }
 
   async init() {
-    // TODO: initialize real ad SDK here
+    if (this.provider === 'adsgram') {
+      const blockId = import.meta.env?.VITE_ADSGRAM_BLOCK_ID;
+      if (typeof window !== 'undefined' && window.AdsGram && blockId) {
+        this.adsGramController = window.AdsGram.init({
+          blockId,
+          debug: import.meta.env.DEV,
+        });
+      }
+    }
+    // TODO: initialize other real ad SDKs here
     // Example: window.adsSdk.init({ appId: import.meta.env.VITE_ADS_APP_ID })
   }
 
@@ -66,7 +76,33 @@ class AdsManager {
       return true;
     }
 
-    // TODO: production flow
+    if (this.provider === 'adsgram') {
+      const blockId = import.meta.env?.VITE_ADSGRAM_BLOCK_ID;
+      if (!this.adsGramController) {
+        if (typeof window !== 'undefined' && window.AdsGram && blockId) {
+          this.adsGramController = window.AdsGram.init({
+            blockId,
+            debug: import.meta.env.DEV,
+          });
+        }
+      }
+      if (!this.adsGramController) {
+        throw new Error('AdsGram SDK not available');
+      }
+      await this.adsGramController.show();
+      return true;
+    }
+
+    if (this.provider === 'telegram_native') {
+      const tg = window.Telegram?.WebApp;
+      if (tg?.showRewardedVideo) {
+        await new Promise((resolve) => tg.showRewardedVideo(resolve));
+        return true;
+      }
+      throw new Error('Telegram native rewarded video not available');
+    }
+
+    // TODO: production flow for other providers
     // 1. Call provider SDK with nonce as custom_data
     // 2. Wait for onRewarded({ proof, signature })
     // 3. Return proof object to caller
