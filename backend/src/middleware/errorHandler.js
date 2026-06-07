@@ -17,14 +17,9 @@ export function errorHandler(err, req, res, next) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-  // Default
+  // Default — never expose stack traces or internal messages to clients
   const statusCode = err.statusCode || err.status || 500;
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Internal server error' 
-    : err.message;
+  const message = 'Internal server error';
 
-  res.status(statusCode).json({ 
-    error: message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
-  });
+  res.status(statusCode).json({ error: message });
 }

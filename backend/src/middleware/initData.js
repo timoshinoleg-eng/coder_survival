@@ -14,7 +14,7 @@ const TELEGRAM_TEST_PUBLIC_KEY_HEX = '40055058a4ee38156a06562e52eece92a771bcd834
  *   - signature → Ed25519 с публичным ключом Telegram (Mini App third-party)
  */
 export function initDataMiddleware(req, res, next) {
-  const initData = req.headers['x-telegram-init-data'] || req.body?.initData;
+  const initData = req.headers['x-telegram-init-data'];
   const path = req.path;
   const method = req.method;
 

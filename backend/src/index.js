@@ -79,9 +79,39 @@ const app = express();
 export { app };
 
 app.set("trust proxy", 1);
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      const whitelist = [
+        /^https?:\/\/([a-zA-Z0-9-]+\.)?t\.me$/,
+        /^https?:\/\/([a-zA-Z0-9-]+\.)?telegram\.org$/,
+        "http://localhost:5173",
+      ];
+      if (process.env.FRONTEND_URL) whitelist.push(process.env.FRONTEND_URL);
+      if (!origin || whitelist.some((w) => (typeof w === "string" ? origin === w : w.test(origin)))) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  }),
+);
+app.use(express.json({ limit: "10kb" }));
 
 // Health check
 app.get("/health", async (req, res) => {
