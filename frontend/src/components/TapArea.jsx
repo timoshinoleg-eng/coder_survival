@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
+import { useAchievements } from '../hooks/useAchievements.js';
 import { audioManager } from '../utils/AudioManager.js';
 
 const DEPRESSION_MAX = 200;
@@ -20,6 +21,7 @@ export default function TapArea({ active }) {
     showToast,
   } = useGameState();
   const { haptic } = useTelegram();
+  const { queueToast } = useAchievements();
   const [ripples, setRipples] = useState([]);
   const [floatTexts, setFloatTexts] = useState([]);
   const [pressed, setPressed] = useState(false);
@@ -122,7 +124,12 @@ export default function TapArea({ active }) {
     if (window.__PHASER_GAME__) {
       window.__PHASER_GAME__.events.emit('tap', { x, y, strength: deltaCommits });
     }
-  }, [lastTapDelta, addFloatText, haptic, showToast]);
+
+    // Queue achievement toasts
+    if (lastTapDelta.achievementsEarned?.length > 0) {
+      queueToast(lastTapDelta.achievementsEarned);
+    }
+  }, [lastTapDelta, addFloatText, haptic, showToast, queueToast]);
 
   useEffect(() => {
     if (!gameError) {

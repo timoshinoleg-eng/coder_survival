@@ -301,7 +301,12 @@ export async function getAchievementsWithProgress(userId) {
        ORDER BY a.sort_order ASC, a.id ASC`,
       [userId]
     );
-    return result.rows;
+    return result.rows.map((r) => ({
+      ...r,
+      current_value: r.current_value == null ? null : Number(r.current_value),
+      target_value: r.target_value == null ? null : Number(r.target_value),
+      percent: r.percent == null ? null : Number(r.percent),
+    }));
   } finally {
     client.release();
   }

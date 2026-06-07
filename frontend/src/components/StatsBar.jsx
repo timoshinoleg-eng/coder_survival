@@ -20,6 +20,8 @@ import AchievementsPanel from "./AchievementsPanel.jsx";
 import DailySummaryPanel from "./DailySummaryPanel.jsx";
 import GeneratorsPanel from './GeneratorsPanel.jsx';
 import AppealPanel from './AppealPanel.jsx';
+import AchievementToast from './AchievementToast.jsx';
+import { useAchievements } from '../hooks/useAchievements.js';
 
 export default function StatsBar({ runtimeNow }) {
   const {
@@ -71,29 +73,18 @@ export default function StatsBar({ runtimeNow }) {
   const [appealOpen, setAppealOpen] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
   const { initData, haptic } = useTelegram();
+  const {
+    achievements: newAchievements,
+    unreadCount,
+    toastQueue,
+    dismissToast,
+    fetchMyAchievements,
+    markRead,
+  } = useAchievements(initData);
+
   const countdownNowMs = runtimeNow || Date.now();
 
-  const unseenAchievementsCount = useMemo(() => {
-    if (!achievements || achievements.length === 0) return 0;
-    let seen;
-    try {
-      seen = new Set(JSON.parse(localStorage.getItem('cs_seen_achievements') || '[]'));
-    } catch {
-      seen = new Set();
-    }
-    return achievements.filter((a) => a.completed && !seen.has(a.id)).length;
-  }, [achievements]);
-
-  useEffect(() => {
-    if (achievementsOpen && achievements && achievements.length > 0) {
-      const completedIds = achievements.filter((a) => a.completed).map((a) => a.id);
-      try {
-        localStorage.setItem('cs_seen_achievements', JSON.stringify(completedIds));
-      } catch {
-        // Ignore storage errors
-      }
-    }
-  }, [achievementsOpen, achievements]);
+  const unseenAchievementsCount = unreadCount;
 
   const energyPercent =
     maxEnergy > 0 ? Math.round((energy / maxEnergy) * 100) : 0;
@@ -972,7 +963,16 @@ export default function StatsBar({ runtimeNow }) {
       }),
       h(AchievementsPanel, {
         open: achievementsOpen,
-        onClose: () => setAchievementsOpen(false),
+        onClose: () => {
+          setAchievementsOpen(false);
+          // Mark earned achievements as read when closing panel
+          const earnedSlugs = newAchievements
+            .filter((a) => a.earned_at && !a.notification_sent)
+            .map((a) => a.slug);
+          if (earnedSlugs.length > 0) {
+            markRead(earnedSlugs);
+          }
+        },
       }),
       h(GeneratorsPanel, {
         open: generatorsOpen,
@@ -991,6 +991,20 @@ export default function StatsBar({ runtimeNow }) {
           open: miniGameOpen,
           onClose: () => setMiniGameOpen(false),
         }),
+
+      // Achievement toasts
+      toastQueue.map((slug, index) => {
+        const ach = newAchievements.find((a) => a.slug === slug);
+        if (!ach) return null;
+        return h(AchievementToast, {
+          key: `${slug}-${index}`,
+          slug: ach.slug,
+          name: ach.name,
+          rarity: ach.rarity,
+          reward: ach.reward,
+          onDismiss: () => dismissToast(),
+        });
+      }),
   ],
   );
 }
