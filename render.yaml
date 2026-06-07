@@ -1,11 +1,12 @@
 services:
   - type: web
     name: coder-survival-api
-    runtime: docker
+    runtime: node
     repo: https://github.com/timoshinoleg-eng/coder_survival.git
     branch: main
     rootDir: backend
-    dockerfilePath: ./Dockerfile
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/index.js
     envVars:
       - key: NODE_ENV
         value: production
