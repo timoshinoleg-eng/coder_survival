@@ -1,4 +1,4 @@
-import { ensurePlayerLevel } from './vnext.js';
+import { ensurePlayerLevel, addPlayerXp } from './vnext.js';
 import { updateTeamProgress } from './teams.js';
 import { DEPRESSION_SCALE } from '../config/balance.js';
 
@@ -47,13 +47,7 @@ export async function applyReward(client, userId, rewardPayload) {
 
   if (typeof rewardPayload.xpTotal === 'number') {
     const xpDelta = Number(rewardPayload.xpTotal);
-    await client.query(
-      `UPDATE player_levels
-       SET xp_total = xp_total + $2,
-           updated_at = NOW()
-       WHERE user_id = $1`,
-      [userId, xpDelta]
-    );
+    await addPlayerXp(client, userId, xpDelta);
     updates.push({ type: 'xpTotal', value: xpDelta });
   }
 

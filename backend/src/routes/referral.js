@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { REFERRAL_ACTIVE_THRESHOLD_COMMITS, REFERRAL_MILESTONE_REWARDS, STAGE3 } from '../config/balance.js';
 import { logDailyFarm } from '../utils/farmLog.js';
-import { ensurePlayerLevel } from '../utils/vnext.js';
+import { ensurePlayerLevel, addPlayerXp } from '../utils/vnext.js';
 import { buildReferralClaimReward, getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
 import { checkAchievement } from '../utils/achievements.js';
 
@@ -349,14 +349,7 @@ router.post('/claim', async (req, res, next) => {
       );
 
       if (reward.xp) {
-        await client.query(
-          `INSERT INTO player_levels (user_id, xp_total)
-           VALUES ($1, $2)
-           ON CONFLICT (user_id) DO UPDATE SET
-             xp_total = player_levels.xp_total + EXCLUDED.xp_total,
-             updated_at = NOW()`,
-          [userId, reward.xp]
-        );
+        await addPlayerXp(client, userId, reward.xp);
       }
 
       await client.query('COMMIT');

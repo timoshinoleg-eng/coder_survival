@@ -8,6 +8,7 @@ import {
 } from '../utils/teamHackathon.js';
 import { getSquadPassiveLocMultiplier, hasMissedYesterday } from '../utils/teams.js';
 import { addPassXp, applyPassXpSourceMultiplier } from '../utils/pass.js';
+import { addPlayerXp } from '../utils/vnext.js';
 import { STAGE3 } from '../config/balance.js';
 
 const router = Router();
@@ -200,14 +201,7 @@ router.post('/claim', async (req, res, next) => {
         ]
       );
       if (reward?.xp) {
-        await client.query(
-          `INSERT INTO player_levels (user_id, xp_total)
-           VALUES ($1, $2)
-           ON CONFLICT (user_id) DO UPDATE SET
-             xp_total = player_levels.xp_total + EXCLUDED.xp_total,
-             updated_at = NOW()`,
-          [userId, reward.xp]
-        );
+        await addPlayerXp(client, userId, reward.xp);
       }
       if (reward?.passXp) await addPassXp(client, userId, applyPassXpSourceMultiplier(reward.passXp, 'event_xp', new Date()));
 

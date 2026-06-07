@@ -73,10 +73,10 @@ router.get("/current", async (req, res, next) => {
         teamRank = idx >= 0 ? idx + 1 : null;
 
         const personalResult = await client.query(
-          `SELECT COALESCE(commits_contributed, 0) as personal
+          `SELECT COALESCE(SUM(commits_contributed), 0) as personal
            FROM team_battle_contributions
-           WHERE season_id = $1 AND user_id = $2`,
-          [season.id, userId],
+           WHERE season_id = $1 AND user_id = $2 AND team_id = $3`,
+          [season.id, userId, myTeam.team.id],
         );
         personalContribution =
           personalResult.rows.length > 0

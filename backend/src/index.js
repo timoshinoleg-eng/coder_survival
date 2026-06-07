@@ -155,6 +155,7 @@ app.use('/api/generators', initDataMiddleware, generatorsRouter);
 app.use("/api/internal/payments", internalPaymentsRouter);
 app.use("/api/internal/observation", internalObservationRouter);
 app.use("/api/player/level", initDataMiddleware, playerLevelRouter);
+app.use("/api/player", initDataMiddleware, playerLevelRouter);
 app.use("/api/quests", initDataMiddleware, questsRouter);
 app.use("/api/shop", shopRouter);
 app.use(

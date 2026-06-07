@@ -4,7 +4,7 @@ import { DEPRESSION_SCALE, STAGE2 } from '../config/balance.js';
 import { addPassXp } from '../utils/pass.js';
 import { processDailyLogin, starRecover, calculateRecoveryCost, shouldOfferStreakSaver } from '../utils/streak.js';
 import { getProductById } from '../utils/shopCatalog.js';
-import { ensurePlayerLevel } from '../utils/vnext.js';
+import { ensurePlayerLevel, addPlayerXp } from '../utils/vnext.js';
 
 const router = Router();
 

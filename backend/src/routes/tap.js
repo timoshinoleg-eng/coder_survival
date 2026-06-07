@@ -29,20 +29,22 @@ import { applyQuestUpdates, checkQuestProgress } from '../utils/dailyQuests.js';
 import { addHackathonContribution, calculateHackathonTarget, getWeekId } from '../utils/teamHackathon.js';
 import { updateWeeklySprintState } from '../utils/weeklySprint.js';
 import { checkReferralMilestones } from '../utils/referral.js';
+import validateModule from '../middleware/validate.js';
+import schemasModule from '../validation/schemas.js';
+
+const { validate } = validateModule;
+const { tapSchema } = schemasModule;
 
 const router = Router();
 
-router.post('/', async (req, res) => {
+router.post('/', validate(tapSchema), async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) {
     return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
   }
 
-  const { session_id } = req.body || {};
-  const requestedTapCount = Math.max(
-    1,
-    Math.min(20, Math.floor(Number(req.body?.tapCount ?? req.body?.tap_count ?? 1) || 1))
-  );
+  const { session_id, tapCount } = req.body;
+  const requestedTapCount = tapCount;
   const telegramId = telegramUser.id;
   const username = telegramUser.username || null;
   const firstName = telegramUser.first_name || null;
