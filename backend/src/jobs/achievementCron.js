@@ -18,7 +18,7 @@ async function runCron() {
     let granted = 0;
 
     const usersResult = await client.query(
-      `SELECT id FROM users WHERE last_active > NOW() - INTERVAL '24 hours'`
+      `SELECT id FROM users WHERE updated_at > NOW() - INTERVAL '24 hours'`
     );
 
     const userIds = usersResult.rows.map((r) => r.id);
@@ -34,7 +34,7 @@ async function runCron() {
         const currentSkins = parseInt(skinsResult.rows[0].cnt, 10);
 
         const battlesResult = await client.query(
-          `SELECT COUNT(DISTINCT season_id) as cnt FROM team_battle_contributions WHERE user_id = $1`,
+          `SELECT COUNT(DISTINCT battle_id) as cnt FROM team_battle_contributions WHERE user_id = $1`,
           [userId]
         );
         const currentBattles = parseInt(battlesResult.rows[0].cnt, 10);

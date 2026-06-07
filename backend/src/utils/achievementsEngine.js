@@ -200,34 +200,29 @@ export async function claimAchievement(userId, slug) {
     const appliedRewards = [];
 
     if (reward.coins) {
-      // No dedicated coins column; use progression.commits_total as proxy
       await client.query(
-        `UPDATE progression SET commits_total = commits_total + $1 WHERE user_id = $2`,
+        `UPDATE users SET coins = coins + $1 WHERE id = $2`,
         [reward.coins, userId]
       );
       appliedRewards.push({ type: 'coins', amount: reward.coins });
     }
 
-    if (reward.xp) {
-      await client.query(
-        `INSERT INTO player_levels (user_id, xp_total)
-         VALUES ($1, $2)
-         ON CONFLICT (user_id) DO UPDATE SET
-           xp_total = player_levels.xp_total + $2,
-           updated_at = NOW()`,
-        [userId, reward.xp]
-      );
-      appliedRewards.push({ type: 'xp', amount: reward.xp });
-    }
-
     if (reward.skin_unlock) {
-      await client.query(
-        `INSERT INTO user_skins (user_id, skin_id, unlocked_at)
-         VALUES ($1, $2, NOW())
-         ON CONFLICT (user_id, skin_id) DO NOTHING`,
-        [userId, reward.skin_unlock]
+      const skinResult = await client.query(
+        `SELECT id FROM skin_definitions WHERE skin_id = $1`,
+        [reward.skin_unlock]
       );
-      appliedRewards.push({ type: 'skin_unlock', skinId: reward.skin_unlock });
+      if (skinResult.rows.length > 0) {
+        await client.query(
+          `INSERT INTO user_skins (user_id, skin_id, unlocked_at)
+           VALUES ($1, $2, NOW())
+           ON CONFLICT (user_id, skin_id) DO NOTHING`,
+          [userId, reward.skin_unlock]
+        );
+        appliedRewards.push({ type: 'skin_unlock', skinId: reward.skin_unlock });
+      } else {
+        console.warn(`[Claim] Skin not found: ${reward.skin_unlock} for user ${userId}`);
+      }
     }
 
     if (reward.title) {
