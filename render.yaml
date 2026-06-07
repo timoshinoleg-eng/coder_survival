@@ -35,6 +35,5 @@ services:
 databases:
   - name: coder-survival-db
     databaseName: coder_survival
-    user: postgres
     plan: free
     ipAllowList: []
