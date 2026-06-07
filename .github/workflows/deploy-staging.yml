@@ -1,0 +1,91 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install and test backend
+        working-directory: backend
+        run: |
+          npm ci
+          npm test -- --runInBand
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync backend to staging
+        run: |
+          rsync -avz --delete \
+            -e "ssh -o StrictHostKeyChecking=yes" \
+            ./backend/ \
+            ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/opt/coder-survival/backend/
+
+      - name: Build and run Docker on staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/coder-survival/backend
+            docker build -t coder-survival-staging:latest .
+            docker stop coder-survival-staging || true
+            docker rm coder-survival-staging || true
+            docker run -d \
+              --name coder-survival-staging \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              -e NODE_ENV=${{ secrets.NODE_ENV }} \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              -e BOT_TOKEN=${{ secrets.BOT_TOKEN }} \
+              -e WEBAPP_URL=${{ secrets.WEBAPP_URL }} \
+              -e BOT_BACKEND_SECRET=${{ secrets.BOT_BACKEND_SECRET }} \
+              -e ADSGRAM_SECRET=${{ secrets.ADSGRAM_SECRET }} \
+              -e PROPELLER_SECRET=${{ secrets.PROPELLER_SECRET }} \
+              -e AMPLITUDE_API_KEY=${{ secrets.AMPLITUDE_API_KEY }} \
+              -e FRONTEND_URL=${{ secrets.FRONTEND_URL }} \
+              coder-survival-staging:latest
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            for i in 1 2 3; do
+              echo "Health check attempt $i..."
+              if curl -fsS http://localhost:3000/health > /dev/null; then
+                echo "Health check passed!"
+                exit 0
+              fi
+              sleep 10
+            done
+            echo "Health check failed after 3 attempts"
+            exit 1

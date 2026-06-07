@@ -15,9 +15,13 @@ tags:
   - name: Game
     description: Core gameplay endpoints
   - name: User
-    description: User management endpoints
+    description: User management and progression endpoints
   - name: Shop
     description: In-game shop and purchases
+  - name: Team
+    description: Team and squad management
+  - name: Analytics
+    description: Analytics and event tracking
 
 paths:
   /health:
@@ -25,7 +29,7 @@ paths:
       tags:
         - Health
       summary: Health check
-      description: Returns the current health status of the API
+      description: Returns the current health status of the API and database connectivity
       operationId: getHealth
       responses:
         '200':
@@ -34,6 +38,1050 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service unavailable — database disconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/state:
+    get:
+      tags:
+        - Game
+      summary: Get current player state
+      description: >
+        Returns the full player state including user profile, progression,
+        level, daily quests, team, skins, achievements, and active effects.
+        Requires Telegram initData authentication.
+      operationId: getState
+      security:
+        - TelegramInitData: []
+      parameters:
+        - name: timezoneOffset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: -720
+            maximum: 720
+          description: >
+            Player timezone offset in minutes. Used to compute the local
+            quest day so /api/state lands on the same calendar day as
+            /api/quests.
+      responses:
+        '200':
+          description: Current player state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserState'
+        '401':
+          description: Unauthorized — missing or invalid Telegram initData
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tap:
+    post:
+      tags:
+        - Game
+      summary: Execute tap action
+      description: >
+        Processes a tap action, deducts energy, calculates commits earned,
+        applies depression/stress mechanics, updates daily quest progress,
+        and checks for level-ups and achievements.
+        Validates against `tapSchema` (zod).
+      operationId: postTap
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TapRequest'
+      responses:
+        '200':
+          description: Tap processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  delta:
+                    type: object
+                    properties:
+                      commits:
+                        type: integer
+                      energy:
+                        type: integer
+                      depression:
+                        type: number
+                  state:
+                    type: object
+                    properties:
+                      userId:
+                        type: integer
+                      telegramId:
+                        type: integer
+                      tier:
+                        type: integer
+                      commitsTotal:
+                        type: integer
+                      commitsCurrent:
+                        type: integer
+                      energy:
+                        type: integer
+                      depressionLevel:
+                        type: number
+                      streakDays:
+                        type: integer
+                      updatedAt:
+                        type: string
+                        format: date-time
+                      isBurnout:
+                        type: boolean
+                  level:
+                    type: object
+                  xpDelta:
+                    type: integer
+                  daily:
+                    type: object
+                  event:
+                    type: object
+                  pass:
+                    type: object
+                  tapCount:
+                    type: integer
+                  isCrit:
+                    type: boolean
+                  critTier:
+                    type: integer
+                    nullable: true
+                  rank:
+                    type: string
+                  achievements_earned:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Bad request — invalid body (fails `tapSchema`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized — missing or invalid Telegram initData
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limited or anti-cheat triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/buy:
+    post:
+      tags:
+        - Shop
+      summary: Create purchase intent
+      description: >
+        Registers a purchase intent. Real item delivery happens only after
+        Telegram `successful_payment`. Validates against `buySchema` (zod).
+      operationId: postBuy
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                  minLength: 1
+                  description: Shop product ID, e.g. `energy_refill`, `coffee_break`, `premium_pass`
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 1
+              required:
+                - productId
+      responses:
+        '202':
+          description: Purchase intent created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  purchase:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      itemType:
+                        type: string
+                      starsAmount:
+                        type: integer
+                      status:
+                        type: string
+                        enum: [pending]
+                  payment:
+                    type: object
+                    properties:
+                      required:
+                        type: boolean
+                      currency:
+                        type: string
+                        enum: [XTR]
+                      payload:
+                        type: string
+        '400':
+          description: Bad request — invalid product or body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict — no active pass or premium already unlocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/leaderboard:
+    get:
+      tags:
+        - Game
+      summary: Get player leaderboard
+      description: >
+        Returns the top players by commits. Supports period filters
+        (`all`, `week`, `today`), rank filters, and an optional
+        `aroundMe` view.
+      operationId: getLeaderboard
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+          description: Maximum number of players to return
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [all, week, today]
+            default: all
+          description: Time period filter
+        - name: rank
+          in: query
+          schema:
+            type: integer
+            enum: [1, 2, 3, 4, 5]
+          description: Filter by career rank
+        - name: aroundMe
+          in: query
+          schema:
+            type: string
+            enum: ['1']
+          description: Set to `1` to include nearby players around the authenticated user
+      responses:
+        '200':
+          description: Leaderboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: string
+                  limit:
+                    type: integer
+                  count:
+                    type: integer
+                  players:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rank:
+                          type: integer
+                        userId:
+                          type: integer
+                        telegramId:
+                          type: integer
+                        username:
+                          type: string
+                        firstName:
+                          type: string
+                        tier:
+                          type: integer
+                        tierName:
+                          type: string
+                        commits:
+                          type: integer
+                        streakDays:
+                          type: integer
+                  myPosition:
+                    type: object
+                    nullable: true
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/shop/products:
+    get:
+      tags:
+        - Shop
+      summary: List shop products
+      description: Returns the full in-game product catalog.
+      operationId: getShopProducts
+      responses:
+        '200':
+          description: Product catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  products:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        stars:
+                          type: integer
+                        icon:
+                          type: string
+                        category:
+                          type: string
+                        effect:
+                          type: string
+                          nullable: true
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/skins/equip:
+    post:
+      tags:
+        - User
+      summary: Equip a skin
+      description: >
+        Equips the specified skin for the authenticated user.
+        Unlocks default skins automatically if not yet owned.
+        Validates against `skinEquipSchema` (zod).
+      operationId: postSkinEquip
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skinId:
+                  type: string
+                  minLength: 1
+              required:
+                - skinId
+      responses:
+        '200':
+          description: Skin equipped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  skinId:
+                    type: string
+                  skins:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Bad request — invalid body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden — skin is not owned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User or skin not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/achievements:
+    get:
+      tags:
+        - Game
+      summary: List achievements
+      description: Returns all achievements with progress for the authenticated user.
+      operationId: getAchievements
+      security:
+        - TelegramInitData: []
+      responses:
+        '200':
+          description: Achievements list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  achievements:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Achievement'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/achievements/{slug}/claim:
+    post:
+      tags:
+        - Game
+      summary: Claim an achievement reward
+      description: Claims the reward for an earned achievement by slug.
+      operationId: postAchievementClaim
+      security:
+        - TelegramInitData: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z0-9_]+$'
+          description: Achievement unique slug identifier
+      responses:
+        '200':
+          description: Achievement claimed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  reward:
+                    type: object
+        '400':
+          description: Bad request — invalid slug format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/quests:
+    get:
+      tags:
+        - Game
+      summary: Get daily quests
+      description: >
+        Returns the current daily quest state for the player,
+        including progress, completion, and claim status.
+      operationId: getQuests
+      security:
+        - TelegramInitData: []
+      parameters:
+        - name: timezoneOffset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: -720
+            maximum: 720
+          description: Player timezone offset in minutes
+      responses:
+        '200':
+          description: Daily quests state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  quests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Quest'
+                  accountAgeDays:
+                    type: integer
+                    nullable: true
+                  avgDailyFarm:
+                    type: number
+                    nullable: true
+                  fullClearAvailable:
+                    type: boolean
+                  fullClearClaimed:
+                    type: boolean
+                  daily:
+                    type: object
+                    properties:
+                      quests:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Quest'
+                      total:
+                        type: integer
+                      completed:
+                        type: integer
+                      claimable:
+                        type: integer
+                      fullClearAvailable:
+                        type: boolean
+                      fullClearClaimed:
+                        type: boolean
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/quests/claim:
+    post:
+      tags:
+        - Game
+      summary: Claim daily quest rewards
+      description: >
+        Claims rewards for all completed and unclaimed daily quests,
+        or a specific quest if `questId` is provided.
+      operationId: postQuestClaim
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                questId:
+                  type: string
+                  minLength: 1
+                  description: Optional specific quest ID to claim
+      responses:
+        '200':
+          description: Rewards claimed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  claimedCount:
+                    type: integer
+                  rewards:
+                    type: object
+                    properties:
+                      energy:
+                        type: integer
+                      xp:
+                        type: integer
+                      passXp:
+                        type: integer
+                      stars:
+                        type: integer
+                      commitsCurrent:
+                        type: integer
+                      inventory:
+                        type: object
+                      skinFragments:
+                        type: array
+                        items:
+                          type: string
+                  passUpdate:
+                    type: object
+                    nullable: true
+                  quests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Quest'
+                  fullClearAvailable:
+                    type: boolean
+                  daily:
+                    type: object
+        '400':
+          description: Bad request — no rewards to claim
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/player/level:
+    get:
+      tags:
+        - User
+      summary: Get player level
+      description: Returns the player's current level and career rank metadata.
+      operationId: getPlayerLevel
+      security:
+        - TelegramInitData: []
+      responses:
+        '200':
+          description: Player level data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  level:
+                    type: object
+                    properties:
+                      rank:
+                        type: integer
+                      rankName:
+                        type: string
+                      levelInRank:
+                        type: integer
+                      progressInLevel:
+                        type: number
+                      requiredForNextLevel:
+                        type: number
+                      xpTotal:
+                        type: integer
+                      maxEnergy:
+                        type: integer
+                      commitsPerTap:
+                        type: integer
+                      critChanceAdd:
+                        type: number
+                      energyRecoveryMult:
+                        type: number
+                      depressionResistanceMult:
+                        type: number
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/player/xp:
+    post:
+      tags:
+        - User
+      summary: Add player XP
+      description: >
+        Adds XP to the player from a valid source.
+        Sources must be one of `tap`, `minigame`, `quest`, `streak`.
+      operationId: postPlayerXp
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: integer
+                  minimum: 1
+                  description: Positive integer amount of XP to add
+                source:
+                  type: string
+                  enum: [tap, minigame, quest, streak]
+                  description: XP source category
+              required:
+                - amount
+                - source
+      responses:
+        '200':
+          description: XP added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  xpTotal:
+                    type: integer
+                  xpDelta:
+                    type: integer
+                  source:
+                    type: string
+                  career:
+                    $ref: '#/components/schemas/RankInfo'
+        '400':
+          description: Bad request — invalid amount or source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/player/rank:
+    get:
+      tags:
+        - User
+      summary: Get player rank info
+      description: Returns the player's career rank, total XP, and active bonuses.
+      operationId: getPlayerRank
+      security:
+        - TelegramInitData: []
+      responses:
+        '200':
+          description: Rank information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  rank:
+                    $ref: '#/components/schemas/RankInfo'
+                  xp:
+                    type: integer
+                  xpToNextRank:
+                    type: integer
+                  activeBonuses:
+                    type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/team/my:
+    get:
+      tags:
+        - Team
+      summary: Get my team
+      description: Returns the authenticated user's current team, members, and passive multipliers.
+      operationId: getMyTeam
+      security:
+        - TelegramInitData: []
+      responses:
+        '200':
+          description: Team details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  team:
+                    $ref: '#/components/schemas/Team'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/team/join:
+    post:
+      tags:
+        - Team
+      summary: Join a team
+      description: Joins a team using an invite code.
+      operationId: postTeamJoin
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                inviteCode:
+                  type: string
+                  minLength: 1
+                  description: Team invite code
+              required:
+                - inviteCode
+      responses:
+        '200':
+          description: Joined team successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  team:
+                    $ref: '#/components/schemas/Team'
+        '400':
+          description: Bad request — invite code is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Team or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict — already in a team or team is full
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/analytics/event:
+    post:
+      tags:
+        - Analytics
+      summary: Track analytics event
+      description: >
+        Forwards a client-side analytics event to Amplitude.
+        Validates against `analyticsEventSchema` (zod).
+      operationId: postAnalyticsEvent
+      security:
+        - TelegramInitData: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyticsEvent'
+      responses:
+        '200':
+          description: Event tracked or dropped gracefully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  forwarded:
+                    type: boolean
+                  reason:
+                    type: string
+                    nullable: true
+        '400':
+          description: Bad request — invalid body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Bad gateway — analytics provider error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   schemas:
@@ -43,8 +1091,16 @@ components:
         status:
           type: string
           example: ok
+        db:
+          type: string
+          example: connected
+        timestamp:
+          type: string
+          format: date-time
       required:
         - status
+        - db
+        - timestamp
 
     Error:
       type: object
@@ -57,6 +1113,325 @@ components:
           description: Error code
       required:
         - error
+
+    UserState:
+      type: object
+      description: Full player state returned by GET /api/state
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            telegramId:
+              type: integer
+            username:
+              type: string
+              nullable: true
+            firstName:
+              type: string
+              nullable: true
+            lastName:
+              type: string
+              nullable: true
+            photoUrl:
+              type: string
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+            lastActive:
+              type: string
+              format: date-time
+        featureFlags:
+          type: object
+        progression:
+          type: object
+          properties:
+            tier:
+              type: integer
+            tierName:
+              type: string
+            commitsTotal:
+              type: integer
+            commitsCurrent:
+              type: integer
+            energy:
+              type: integer
+            depressionLevel:
+              type: number
+            streakDays:
+              type: integer
+            updatedAt:
+              type: string
+              format: date-time
+            onboardingCompleted:
+              type: boolean
+            inventory:
+              type: object
+            isAfflicted:
+              type: boolean
+            isBurnout:
+              type: boolean
+        level:
+          type: object
+          properties:
+            rank:
+              type: integer
+            rankName:
+              type: string
+            levelInRank:
+              type: integer
+            progressInLevel:
+              type: number
+            requiredForNextLevel:
+              type: number
+            xpTotal:
+              type: integer
+        maxEnergy:
+          type: integer
+        recoveryIntervalSeconds:
+          type: number
+        recoveryEtaSeconds:
+          type: number
+        daily:
+          type: object
+        team:
+          $ref: '#/components/schemas/Team'
+        skins:
+          type: array
+          items:
+            type: object
+        achievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Achievement'
+        activeEffects:
+          type: object
+        crunchTime:
+          type: object
+          nullable: true
+        referralChain:
+          type: object
+          nullable: true
+        generatorState:
+          type: object
+        antiCheat:
+          type: object
+          properties:
+            banScore:
+              type: integer
+            leaderboardHidden:
+              type: boolean
+            lastViolationAt:
+              type: string
+              format: date-time
+              nullable: true
+            sanctionTier:
+              type: string
+            sanctionAction:
+              type: string
+            sanctionEffects:
+              type: array
+              items:
+                type: string
+            appealAvailable:
+              type: boolean
+        serverNow:
+          type: string
+          format: date-time
+
+    TapRequest:
+      type: object
+      description: Request body for POST /api/tap. Matches zod `tapSchema`.
+      properties:
+        tapCount:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Number of taps to execute (1–20)
+        session_id:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: Optional active session ID to link taps to
+      required:
+        - tapCount
+
+    RankInfo:
+      type: object
+      description: Career rank metadata derived from total XP
+      properties:
+        rank:
+          type: integer
+        rankName:
+          type: string
+        levelInRank:
+          type: integer
+        progressInLevel:
+          type: number
+        requiredForNextLevel:
+          type: number
+        xpTotal:
+          type: integer
+        maxEnergy:
+          type: integer
+        commitsPerTap:
+          type: integer
+        critChanceAdd:
+          type: number
+        energyRecoveryMult:
+          type: number
+        depressionResistanceMult:
+          type: number
+        prestigeLevel:
+          type: integer
+
+    Achievement:
+      type: object
+      description: Achievement with progress and claim status
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        rarity:
+          type: string
+        trigger_type:
+          type: string
+        is_progressive:
+          type: boolean
+        criteria:
+          type: object
+        reward:
+          type: object
+        earned_at:
+          type: string
+          format: date-time
+          nullable: true
+        claimed_at:
+          type: string
+          format: date-time
+          nullable: true
+        notification_sent:
+          type: boolean
+        current_value:
+          type: integer
+        target_value:
+          type: integer
+        percent:
+          type: integer
+
+    Quest:
+      type: object
+      description: Daily quest entry
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        quest_type:
+          type: string
+        target_value:
+          type: integer
+        progress_value:
+          type: integer
+        completed:
+          type: boolean
+        claimed:
+          type: boolean
+        reward:
+          type: object
+          properties:
+            energy:
+              type: integer
+            xp:
+              type: integer
+            passXp:
+              type: integer
+            stars:
+              type: integer
+            commitsCurrent:
+              type: integer
+            inventory:
+              type: object
+            skinFragment:
+              type: string
+              nullable: true
+
+    Team:
+      type: object
+      description: User's team with members and passive bonuses
+      properties:
+        team:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            invite_code:
+              type: string
+            total_commits:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+        myRole:
+          type: string
+          enum: [leader, member]
+        passiveLocMultiplier:
+          type: number
+        socialObligationActive:
+          type: boolean
+        activeMembers:
+          type: integer
+        timezone:
+          type: string
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: integer
+              username:
+                type: string
+              firstName:
+                type: string
+              role:
+                type: string
+              joinedAt:
+                type: string
+                format: date-time
+              lastActiveAt:
+                type: string
+                format: date-time
+                nullable: true
+              commitsTotal:
+                type: integer
+
+    AnalyticsEvent:
+      type: object
+      description: Request body for POST /api/analytics/event. Matches zod `analyticsEventSchema`.
+      properties:
+        eventName:
+          type: string
+          minLength: 1
+          description: Amplitude event type name
+        properties:
+          type: object
+          additionalProperties: true
+          default: {}
+          description: Arbitrary event properties
+      required:
+        - eventName
 
   securitySchemes:
     TelegramInitData:

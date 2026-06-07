@@ -353,10 +353,28 @@ Coder Survival — Telegram Mini App для программистов, где "
 ## 9. Notable Design Decisions
 <!-- GSD:architecture-end -->
 
+<!-- GSD:agents-start -->
+## Agent Roles
+
+> Post-audit architecture (effective 2026-06). Roles are fixed; optional tools are explicitly noted as optional.
+
+| Agent | Responsibility | Notes |
+|-------|---------------|-------|
+| **Kimi (OpenClaw runtime)** | Backend API, DB migrations, tests, Docker, scripts, CI/CD, security hardening | Sole agent with PostgreSQL / CLI / Docker access. Owns all backend code, migrations, and infrastructure scripts. |
+| **Kimi Desktop** | Frontend specialist (Preact + Phaser), UX polish, onboarding, career ladder UI, ads integration | GUI mode for visual verification of Phaser scenes and Preact components. Can perform final merge to `main`. |
+| **Hermes (ChatGPT 5.5)** | Architect / planner — ADRs, roadmaps, docs, OpenAPI specs | Strategic oversight. No direct code commits to backend or frontend without review. |
+| **Codex** | Automated PR review via `@Codex` tag | Optional. Triggered by PR mention only. Not a coordinator and does not own merge rights. |
+| **Claude Code** | Critical multi-file refactorings only | Optional. Use on-demand for complex cross-cutting refactors that span multiple packages. Not a primary pipeline member. |
+
+### Removed / Deprecated Roles
+- **Codex as coordinator** — removed. Codex no longer coordinates agents, manages the pipeline, or owns merge rights.
+- **Claude Code as primary pipeline member** — removed. Claude is no longer a default active agent; engaged only for specific refactoring tasks.
+<!-- GSD:agents-end -->
+
 <!-- GSD:skills-start source:skills/ -->
 ## Project Skills
 
-No project skills found. Add skills to any of: `.Codex/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
+No project skills found. Add skills to any of: `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
 <!-- GSD:skills-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->

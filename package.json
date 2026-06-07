@@ -13,5 +13,8 @@
   },
   "lint-staged": {
     "*.{js,jsx,json,css,md}": "prettier --write"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0"
   }
 }
