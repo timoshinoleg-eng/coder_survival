@@ -163,18 +163,21 @@ export async function getUserSkins(client, userId) {
 export async function getUserAchievements(client, userId) {
   const result = await client.query(
     `SELECT
-       a.achievement_id,
+       a.slug as achievement_id,
        a.name,
        a.description,
-       a.target_value,
-       a.reward_payload,
-       COALESCE(ua.progress_value, 0) as progress_value,
-       COALESCE(ua.completed, FALSE) as completed,
-       COALESCE(ua.claimed, FALSE) as claimed
+       COALESCE(a.criteria->>'target', a.criteria->>'tap_target', '1')::int as target_value,
+       a.reward as reward_payload,
+       COALESCE(ap.current_value, 0) as progress_value,
+       COALESCE(ua.earned_at IS NOT NULL, FALSE) as completed,
+       COALESCE(ua.claimed_at IS NOT NULL, FALSE) as claimed
      FROM achievements a
      LEFT JOIN user_achievements ua
-       ON ua.achievement_id = a.achievement_id AND ua.user_id = $1
-     ORDER BY a.id ASC`,
+       ON ua.achievement_id = a.id AND ua.user_id = $1
+     LEFT JOIN achievement_progress ap
+       ON ap.achievement_id = a.id AND ap.user_id = $1
+     WHERE a.is_active = TRUE
+     ORDER BY a.sort_order ASC, a.id ASC`,
     [userId]
   );
 
