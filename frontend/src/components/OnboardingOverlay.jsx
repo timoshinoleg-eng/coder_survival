@@ -1,5 +1,6 @@
 import { h } from 'preact';
 import { useState, useCallback } from 'preact/hooks';
+import { useClosingConfirmation } from '../hooks/useClosingConfirmation.js';
 
 const STEPS = [
   {
@@ -43,6 +44,8 @@ export default function OnboardingOverlay({ visible, onDismiss }) {
     onDismiss?.();
   }, [onDismiss]);
 
+  useClosingConfirmation(visible);
+
   if (!visible) return null;
 
   const current = STEPS[step];
@@ -78,7 +81,8 @@ export default function OnboardingOverlay({ visible, onDismiss }) {
   }, [
     h('div', null, [
       h('div', { style: { fontSize: '20px', fontWeight: 'bold', marginBottom: '4px' } }, current.title),
-      h('div', { style: { fontSize: '12px', color: '#8ba1bb' } }, current.subtitle)
+      h('div', { style: { fontSize: '12px', color: '#8ba1bb' } }, current.subtitle),
+      h('div', { style: { fontSize: '12px', color: '#8ba1bb', marginTop: '4px' } }, `Шаг ${step + 1} из ${STEPS.length}`)
     ]),
 
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' } },

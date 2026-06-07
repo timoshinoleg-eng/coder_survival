@@ -219,7 +219,6 @@ function AppInner() {
       if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
       tg.setHeaderColor("#1a1a2e");
       tg.setBackgroundColor("#1a1a2e");
-      if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
     }
   }, []);
 

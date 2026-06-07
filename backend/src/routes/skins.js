@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { getUserSkins } from '../utils/phase2State.js';
+import validateModule from '../middleware/validate.js';
+import schemasModule from '../validation/schemas.js';
+
+const { validate } = validateModule;
+const { skinEquipSchema } = schemasModule;
 
 const router = Router();
 
@@ -35,16 +40,13 @@ router.get('/', async (req, res, next) => {
  * POST /api/skins/equip
  * Body: { skinId: string }
  */
-router.post('/equip', async (req, res, next) => {
+router.post('/equip', validate(skinEquipSchema), async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) {
     return res.status(401).json({ error: 'No user in initData' });
   }
 
-  const skinId = typeof req.body?.skinId === 'string' ? req.body.skinId.trim() : '';
-  if (!skinId) {
-    return res.status(400).json({ error: 'skinId is required' });
-  }
+  const { skinId } = req.body;
 
   try {
     const client = await pool.connect();

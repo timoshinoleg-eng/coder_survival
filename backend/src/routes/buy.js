@@ -6,6 +6,11 @@ import { applyReward } from '../utils/rewards.js';
 import { getProductById } from '../utils/shopCatalog.js';
 import { SHOP_ITEM_EFFECTS } from '../config/balance.js';
 import { armStreakSaver } from '../utils/streak.js';
+import validateModule from '../middleware/validate.js';
+import schemasModule from '../validation/schemas.js';
+
+const { validate } = validateModule;
+const { buySchema } = schemasModule;
 
 const router = Router();
 
@@ -15,13 +20,14 @@ const router = Router();
  * Body: { item_type: string }
  * item_type: 'energy_refill', 'depression_cure', 'tier_boost', 'streak_protect', 'streak_saver'
  */
-router.post('/', async (req, res, next) => {
+router.post('/', validate(buySchema), async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) {
     return res.status(401).json({ error: 'No user in initData' });
   }
 
-  const { item_type } = req.body || {};
+  const { productId } = req.body;
+  const item_type = productId;
 
   const item = getProductById(item_type);
   if (!item) {

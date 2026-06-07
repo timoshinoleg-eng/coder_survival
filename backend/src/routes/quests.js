@@ -19,7 +19,7 @@ import {
 import { addPassXp, applyPassXpSourceMultiplier, getActivePass } from '../utils/pass.js';
 import { applyRewardPenaltyToPayload, normalizeAntiCheatState } from '../utils/anticheat.js';
 import { logDailyFarm } from '../utils/farmLog.js';
-import { ensurePlayerLevel } from '../utils/vnext.js';
+import { ensurePlayerLevel, addPlayerXp } from '../utils/vnext.js';
 import { logPassXp } from '../utils/passXpLog.js';
 
 const router = Router();
@@ -140,12 +140,7 @@ async function applyStage2Rewards(client, userId, progression, rewards) {
   }
 
   if (Number(rewards.xp || 0) > 0) {
-    await client.query(
-      `UPDATE player_levels
-       SET xp_total = xp_total + $2
-       WHERE user_id = $1`,
-      [userId, Number(rewards.xp || 0)]
-    );
+    await addPlayerXp(client, userId, Number(rewards.xp || 0));
   }
 
   await client.query(

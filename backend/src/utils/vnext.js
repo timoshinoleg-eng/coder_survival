@@ -37,6 +37,35 @@ export function getRankXpBounds(rank) {
   };
 }
 
+const CAREER_RANKS = [
+  { name: 'Junior', minXp: 0, maxXp: 999, bonusEnergySpeed: 0, bonusXpMultiplier: 0 },
+  { name: 'Middle', minXp: 1000, maxXp: 4999, bonusEnergySpeed: 0.05, bonusXpMultiplier: 0 },
+  { name: 'Senior', minXp: 5000, maxXp: 14999, bonusEnergySpeed: 0, bonusXpMultiplier: 0.10 },
+  { name: 'Lead', minXp: 15000, maxXp: null, bonusEnergySpeed: 0, bonusXpMultiplier: 0, unlocksSkins: true }
+];
+
+export function resolveCareerRank(xpTotal) {
+  let rank = CAREER_RANKS[0];
+  for (let i = CAREER_RANKS.length - 1; i >= 0; i--) {
+    if (xpTotal >= CAREER_RANKS[i].minXp) {
+      rank = CAREER_RANKS[i];
+      break;
+    }
+  }
+  return {
+    rank: rank.name,
+    xpTotal,
+    xpToNextRank: rank.maxXp !== null ? rank.maxXp + 1 - xpTotal : null,
+    bonuses: {
+      energyRegenerationSpeed: rank.bonusEnergySpeed,
+      minigameXpMultiplier: rank.bonusXpMultiplier,
+      unlocksSkins: rank.unlocksSkins || false
+    },
+    bonusEnergySpeed: rank.bonusEnergySpeed,
+    bonusXpMultiplier: rank.bonusXpMultiplier
+  };
+}
+
 export function resolveLevelState(xpTotal, prestigeLevel = 0) {
   let resolvedRank = 1;
   let resolvedLevel = 1;
@@ -109,6 +138,37 @@ function withResolvedLevel(row) {
   };
 }
 
+export async function addPlayerXp(client, userId, delta) {
+  const result = await client.query(
+    `INSERT INTO player_levels (user_id, xp_total, career_rank, rank_bonus_energy_speed, rank_bonus_xp_multiplier)
+     VALUES ($1, $2,
+       CASE WHEN $2 < 1000 THEN 'Junior' WHEN $2 < 5000 THEN 'Middle' WHEN $2 < 15000 THEN 'Senior' ELSE 'Lead' END,
+       CASE WHEN $2 >= 1000 AND $2 < 5000 THEN 0.05 ELSE 0 END,
+       CASE WHEN $2 >= 5000 AND $2 < 15000 THEN 0.10 ELSE 0 END
+     )
+     ON CONFLICT (user_id) DO UPDATE SET
+       xp_total = player_levels.xp_total + EXCLUDED.xp_total,
+       career_rank = CASE
+         WHEN player_levels.xp_total + EXCLUDED.xp_total < 1000 THEN 'Junior'
+         WHEN player_levels.xp_total + EXCLUDED.xp_total < 5000 THEN 'Middle'
+         WHEN player_levels.xp_total + EXCLUDED.xp_total < 15000 THEN 'Senior'
+         ELSE 'Lead'
+       END,
+       rank_bonus_energy_speed = CASE
+         WHEN player_levels.xp_total + EXCLUDED.xp_total >= 1000 AND player_levels.xp_total + EXCLUDED.xp_total < 5000 THEN 0.05
+         ELSE 0
+       END,
+       rank_bonus_xp_multiplier = CASE
+         WHEN player_levels.xp_total + EXCLUDED.xp_total >= 5000 AND player_levels.xp_total + EXCLUDED.xp_total < 15000 THEN 0.10
+         ELSE 0
+       END,
+       updated_at = NOW()
+     RETURNING *`,
+    [userId, delta]
+  );
+  return withResolvedLevel(result.rows[0]);
+}
+
 export function computeTapXp(levelInRank, boostMult = 1) {
   const mult = 1 + 0.1 * (levelInRank - 1);
   return Math.round(BASE_XP * mult * boostMult);
@@ -117,17 +177,8 @@ export function computeTapXp(levelInRank, boostMult = 1) {
 export async function addTapXp(client, userId, levelInRank, boostMult = 1, tapCount = 1) {
   const safeTapCount = Math.max(1, Math.min(20, Math.floor(Number(tapCount) || 1)));
   const xpDelta = computeTapXp(levelInRank, boostMult) * safeTapCount;
-  const result = await client.query(
-    `INSERT INTO player_levels (user_id, xp_total)
-     VALUES ($1, $2)
-     ON CONFLICT (user_id) DO UPDATE SET
-       xp_total = player_levels.xp_total + $2,
-       updated_at = NOW()
-     RETURNING *`,
-    [userId, xpDelta]
-  );
-
-  return { record: withResolvedLevel(result.rows[0]), xpDelta };
+  const record = await addPlayerXp(client, userId, xpDelta);
+  return { record, xpDelta };
 }
 
 export async function ensureDailyQuests(client, userId) {

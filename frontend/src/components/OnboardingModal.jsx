@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import { useClosingConfirmation } from '../hooks/useClosingConfirmation.js';
 
 const STEPS = [
   { key: 'tap', title: 'Напиши код' },
@@ -23,6 +24,7 @@ export default function OnboardingModal({ visible, onClose }) {
   const [completing, setCompleting] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const current = STEPS[step];
+  useClosingConfirmation(visible);
 
   useEffect(() => {
     if (visible) {
@@ -33,23 +35,17 @@ export default function OnboardingModal({ visible, onClose }) {
     }
   }, [visible]);
 
-  useEffect(() => {
-    if (!visible || step !== 1) return undefined;
-    const timerId = window.setTimeout(() => setStep(2), 3000);
-    return () => window.clearTimeout(timerId);
-  }, [step, visible]);
-
   const fakeDepression = useMemo(() => {
     if (step !== 2) return Math.round(depression || 0);
     return Math.min(100, Math.max(Math.round(depression || 0), tutorialTaps * 2));
   }, [depression, step, tutorialTaps]);
 
   const handleTutorialTap = useCallback(() => {
-    if (tutorialTaps >= 3 || energy <= 0) return;
+    if (tutorialTaps >= 1 || energy <= 0) return;
     tap();
     const next = tutorialTaps + 1;
     setTutorialTaps(next);
-    if (next >= 3) {
+    if (next >= 1) {
       window.setTimeout(() => setStep(1), 350);
     }
   }, [energy, tap, tutorialTaps]);
@@ -169,11 +165,11 @@ export default function OnboardingModal({ visible, onClose }) {
           type: 'button',
           className: 'onboarding-primary',
           onClick: handleTutorialTap,
-          disabled: tutorialTaps >= 3 || energy <= 0,
-          style: { opacity: tutorialTaps >= 3 || energy <= 0 ? 0.65 : 1 },
+          disabled: tutorialTaps >= 1 || energy <= 0,
+          style: { opacity: tutorialTaps >= 1 || energy <= 0 ? 0.65 : 1 },
         }, '💻 КОДИТЬ'),
         h('div', { style: { textAlign: 'center', color: '#cbd5e1', fontWeight: 700 } },
-          `${tutorialTaps}/3`
+          `${tutorialTaps}/1`
         ),
       ]),
 

@@ -22,6 +22,8 @@ import GeneratorsPanel from './GeneratorsPanel.jsx';
 import AppealPanel from './AppealPanel.jsx';
 import AchievementToast from './AchievementToast.jsx';
 import { useAchievements } from '../hooks/useAchievements.js';
+import RankBadge from './RankBadge.jsx';
+import CareerModal from './CareerModal.jsx';
 
 export default function StatsBar({ runtimeNow }) {
   const {
@@ -71,6 +73,7 @@ export default function StatsBar({ runtimeNow }) {
   const [dailySummaryOpen, setDailySummaryOpen] = useState(false);
   const [generatorsOpen, setGeneratorsOpen] = useState(false);
   const [appealOpen, setAppealOpen] = useState(false);
+  const [careerOpen, setCareerOpen] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
   const { initData, haptic } = useTelegram();
   const {
@@ -95,7 +98,6 @@ export default function StatsBar({ runtimeNow }) {
   const isLowEnergy = energyPercent <= 20;
   const isHighStress = depression >= 70;
 
-  const displayRank = rankName || "Junior";
   const displayLevel = levelInRank || 1;
 
   const levelProgress = useMemo(
@@ -105,17 +107,6 @@ export default function StatsBar({ runtimeNow }) {
         : 100,
     [xpProgress, xpRequiredForNext],
   );
-
-  const rankBadgeGradient = useMemo(() => {
-    const map = {
-      Junior: "linear-gradient(135deg, #30527e, #4a7ab8)",
-      Middle: "linear-gradient(135deg, #2d5a3e, #4ade80)",
-      Senior: "linear-gradient(135deg, #5a3e2d, #facc15)",
-      Lead: "linear-gradient(135deg, #5a2d5a, #c084fc)",
-      CTO: "linear-gradient(135deg, #7a1a1a, #ef4444)",
-    };
-    return map[displayRank] || map.Junior;
-  }, [displayRank]);
 
   const energyCountdownLabel = useMemo(() => {
     const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
@@ -240,18 +231,7 @@ export default function StatsBar({ runtimeNow }) {
                     objectFit: "cover",
                   },
                 }),
-              h(
-                "span",
-                {
-                  className: "pixel-badge",
-                  style: {
-                    background: rankBadgeGradient,
-                    fontSize: "9px",
-                    padding: "4px 8px",
-                  },
-                },
-                displayRank.toUpperCase(),
-              ),
+              h(RankBadge, { onClick: () => setCareerOpen(true) }),
               streakDays > 0 &&
                 h(
                   "span",
@@ -985,6 +965,10 @@ export default function StatsBar({ runtimeNow }) {
       h(DailySummaryPanel, {
         open: dailySummaryOpen,
         onClose: () => setDailySummaryOpen(false),
+      }),
+      h(CareerModal, {
+        open: careerOpen,
+        onClose: () => setCareerOpen(false),
       }),
       featureFlags?.minigameEnabled === true &&
         h(MiniGameLauncher, {

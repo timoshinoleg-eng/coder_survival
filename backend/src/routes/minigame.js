@@ -12,6 +12,11 @@ import { addEffect, pruneExpiredEffects } from '../utils/activeEffects.js';
 import { checkAchievement } from '../utils/achievements.js';
 import { logDailyFarm } from '../utils/farmLog.js';
 import { updateWeeklySprintState } from '../utils/weeklySprint.js';
+import validateModule from '../middleware/validate.js';
+import schemasModule from '../validation/schemas.js';
+
+const { validate } = validateModule;
+const { minigameSchema } = schemasModule;
 
 const router = Router();
 const { MINIGAMES } = STAGE2;
@@ -73,14 +78,13 @@ router.post('/start', async (req, res, next) => {
   }
 });
 
-router.post('/complete', async (req, res, next) => {
+router.post('/complete', validate(minigameSchema), async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) {
     return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
   }
 
-  const gameType = req.body?.gameType;
-  const score = Number(req.body?.score ?? -1);
+  const { gameType, score } = req.body;
 
   if (!MINIGAMES[gameType]) {
     return res.status(400).json({ error: 'Unknown mini-game' });
