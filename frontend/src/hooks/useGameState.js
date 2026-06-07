@@ -325,6 +325,7 @@ export function GameProvider({ children }) {
         isCrit: payload.isCrit ?? false,
         critTier: payload.critTier ?? null,
         isBurnout: payload.isBurnout ?? false,
+        achievementsEarned: payload.achievements_earned || [],
       },
       syncing: false,
       memePrompt: payload?.heartAttackReset

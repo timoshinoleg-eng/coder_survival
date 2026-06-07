@@ -1,6 +1,14 @@
-import { app, pool } from "../../src/index.js";
+import { TEST_DATABASE_URL } from "./testDb.js";
 
 export async function startTestServer() {
+  // Ensure the app connects to the same test database
+  if (TEST_DATABASE_URL) {
+    process.env.TEST_DATABASE_URL = TEST_DATABASE_URL;
+  }
+  process.env.NODE_ENV = "test";
+
+  const { app, pool } = await import("../../src/index.js");
+
   const server = await new Promise((resolve) => {
     const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
   });
