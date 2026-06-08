@@ -1,0 +1,73 @@
+name: AI Agent (FreeModel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Режим работы агента'
+        required: false
+        default: 'auto_todo'
+        type: choice
+        options:
+          - auto_todo
+          - refactor
+          - bugfix
+          - review
+      api_type:
+        description: 'Тип API'
+        required: false
+        default: 'openai'
+        type: choice
+        options:
+          - anthropic
+          - openai
+      model:
+        description: 'Модель'
+        required: false
+        default: 'gpt-5.4'
+        type: string
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_run:
+    workflows: ["CI", "Test", "Build", "full-ci"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  ai-agent:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion != 'success' || github.event_name != 'workflow_run' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run AI Agent
+        env:
+          FREEMODEL_API_KEY: ${{ secrets.FREEMODEL_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          REPO_FULL_NAME: ${{ github.repository }}
+          AGENT_MODE: ${{ github.event.inputs.mode || 'auto_todo' }}
+          API_TYPE: ${{ github.event.inputs.api_type || 'openai' }}
+          MODEL: ${{ github.event.inputs.model || 'gpt-5.4' }}
+          CI_FAILED: ${{ github.event.workflow_run.conclusion == 'failure' }}
+          RUN_ID: ${{ github.event.workflow_run.id || '' }}
+        run: |
+          curl -sL "https://raw.githubusercontent.com/timoshinoleg-eng/Jules/main/scripts/agent.py" -o agent.py
+          python agent.py
