@@ -5,6 +5,7 @@ import { useTelegram } from "../hooks/useTelegram.js";
 import { adsManager } from "../utils/AdsManager.js";
 import LeaderboardPanel from "./LeaderboardPanel.jsx";
 import ShopPanel from "./ShopPanel.jsx";
+import BoostersPanel from "./BoostersPanel.jsx";
 import ReferralPanel from "./ReferralPanel.jsx";
 import DailyQuests from "./DailyQuests.jsx";
 import DailyBattlePanel from "./DailyBattlePanel.jsx";
@@ -25,6 +26,7 @@ import { useAchievements } from '../hooks/useAchievements.js';
 import RankBadge from './RankBadge.jsx';
 import CareerModal from './CareerModal.jsx';
 import BurnoutMeter from './BurnoutMeter.jsx';
+import LanguageSelector from './LanguageSelector.jsx';
 
 export default function StatsBar({ runtimeNow }) {
   const {
@@ -48,6 +50,9 @@ export default function StatsBar({ runtimeNow }) {
     shopOpen,
     setShopOpen,
     closeShop,
+    boostersOpen,
+    setBoostersOpen,
+    closeBoosters,
     featureFlags,
     user,
     drinkCoffee,
@@ -57,6 +62,8 @@ export default function StatsBar({ runtimeNow }) {
     dailyFarm,
     antiCheat,
     passiveLocRecovery,
+    dailyBattle,
+    activeLanguage,
   } = useGameState();
 
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -75,6 +82,7 @@ export default function StatsBar({ runtimeNow }) {
   const [generatorsOpen, setGeneratorsOpen] = useState(false);
   const [appealOpen, setAppealOpen] = useState(false);
   const [careerOpen, setCareerOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
   const { initData, haptic } = useTelegram();
   const {
@@ -347,6 +355,17 @@ export default function StatsBar({ runtimeNow }) {
                 h(
                   "button",
                   {
+                    onClick: () => setBoostersOpen(true),
+                    className: "pixel-button",
+                    style: {
+                      background: "#122642",
+                    },
+                  },
+                  "🚀",
+                ),
+                h(
+                  "button",
+                  {
                     onClick: () => setGeneratorsOpen(true),
                     className: "pixel-button",
                     style: {
@@ -372,10 +391,27 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setBattleOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: dailyBattle?.active ? '#1a3a5c' : '#122642',
+                      position: 'relative',
                     },
                   },
-                  "⚔️",
+                  [
+                    "⚔️",
+                    dailyBattle?.active && !dailyBattle?.myParticipation?.joined && h('span', {
+                      key: 'battle-badge',
+                      style: {
+                        position: 'absolute',
+                        top: '-4px',
+                        right: '-4px',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: '#ef4444',
+                        boxShadow: '0 0 6px rgba(239,68,68,0.8)',
+                        animation: 'pulse 1.5s infinite',
+                      }
+                    }),
+                  ]
                 ),
                 h(
                   "button",
@@ -531,6 +567,22 @@ export default function StatsBar({ runtimeNow }) {
                     antiCheat.appealAvailable ? '📝' : '⚠️',
                   ),
                 h(
+                  "button",
+                  {
+                    onClick: () => setLanguageOpen(true),
+                    className: "pixel-button",
+                    style: {
+                      background: activeLanguage ? "#1a3a5c" : "#122642",
+                      fontSize: "13px",
+                      position: "relative",
+                    },
+                    title: activeLanguage
+                      ? `${activeLanguage.name} — ${activeLanguage.effectType}`
+                      : "Языки программирования",
+                  },
+                  activeLanguage?.icon || "💻"
+                ),
+                h(
                   "div",
                   {
                     style: {
@@ -627,6 +679,27 @@ export default function StatsBar({ runtimeNow }) {
           },
         },
         runtimeModeLabel.text,
+      ),
+
+      dailyBattle?.active && !dailyBattle?.myParticipation?.joined && h(
+        "div",
+        {
+          style: {
+            fontSize: "11px",
+            color: "#facc15",
+            borderTop: "1px solid #17304f",
+            paddingTop: "6px",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            cursor: "pointer",
+          },
+          onClick: () => setBattleOpen(true),
+        },
+        [
+          h("span", null, "🎫"),
+          h("span", null, `Daily Deploy активен: ${dailyBattle.battle.bugEmoji} ${dailyBattle.battle.bugName} (${dailyBattle.battle.severity})`),
+        ]
       ),
 
       // Energy bar
@@ -854,6 +927,7 @@ export default function StatsBar({ runtimeNow }) {
         onClose: () => setQuestsOpen(false),
       }),
       h(ShopPanel),
+      h(BoostersPanel),
       h(ReferralPanel, {
         open: referralOpen,
         onClose: () => setReferralOpen(false),
@@ -920,6 +994,10 @@ export default function StatsBar({ runtimeNow }) {
           open: miniGameOpen,
           onClose: () => setMiniGameOpen(false),
         }),
+      h(LanguageSelector, {
+        open: languageOpen,
+        onClose: () => setLanguageOpen(false),
+      }),
 
       // Achievement toasts
       toastQueue.map((slug, index) => {

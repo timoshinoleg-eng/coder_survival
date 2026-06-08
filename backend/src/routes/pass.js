@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { addPassXp, applyPassXpSourceMultiplier, calculateCappedCatchUpXp, claimPassReward, getActivePass, getPassStatus, getWeekendXpMultiplier, unlockPremiumPass } from '../utils/pass.js';
+import { addPassXp, applyPassXpSourceMultiplier, calculateCappedCatchUpXp, claimPassReward, getActivePass, getPassStatus, getWeekendXpMultiplier, unlockPremiumPass, PASS } from '../utils/pass.js';
 import { getXpSourcesAggregate } from '../utils/passXpLog.js';
 
 const router = Router();
@@ -78,7 +78,7 @@ router.post(['/claim/:level', '/claim'], async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
   const level = Number(req.params.level || req.body?.level);
-  if (!Number.isInteger(level) || level < 1 || level > 20) {
+  if (!Number.isInteger(level) || level < 1 || level > PASS.MAX_LEVEL) {
     return res.status(400).json({ error: 'Неверный уровень' });
   }
   const track = req.body?.track || 'free';
@@ -112,6 +112,93 @@ router.post(['/claim/:level', '/claim'], async (req, res) => {
       }
     }
     console.error('Pass claim error:', err);
+    return res.status(500).json({ error: 'Технический сбой' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+router.post('/upgrade', async (req, res) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
+
+  const { currency = 'stars' } = req.body || {};
+  const PRICES = { stars: 499, ton: 399 };
+  const price = PRICES[currency];
+  if (!price) {
+    return res.status(400).json({ error: 'Неверная валюта. Доступны: stars, ton' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const userResult = await client.query('SELECT id FROM users WHERE telegram_id = $1', [telegramUser.id]);
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const userId = userResult.rows[0].id;
+
+    const pass = await getActivePass(client);
+    if (!pass) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Нет активного сезона' });
+    }
+
+    // Payment placeholder: deduct stars if paying via stars; TON is pure placeholder
+    if (currency === 'stars') {
+      const starsResult = await client.query(
+        `SELECT stars FROM progression WHERE user_id = $1 FOR UPDATE`,
+        [userId]
+      );
+      const currentStars = Number(starsResult.rows[0]?.stars || 0);
+      if (currentStars < price) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Недостаточно Stars', required: price, available: currentStars });
+      }
+      await client.query(
+        `UPDATE progression SET stars = stars - $2, updated_at = NOW() WHERE user_id = $1`,
+        [userId, price]
+      );
+    }
+
+    const result = await unlockPremiumPass(client, userId);
+    if (result.error) {
+      await client.query('ROLLBACK');
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    await client.query(
+      `INSERT INTO purchases (user_id, item_type, stars_amount, status)
+       VALUES ($1, 'premium_pass', $2, 'completed')
+       ON CONFLICT DO NOTHING`,
+      [userId, currency === 'stars' ? price : 0]
+    );
+
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, context)
+       VALUES ($1, 'pass_upgrade', $2)`,
+      [userId, JSON.stringify({ passId: pass.id, currency, price, seasonNumber: pass.season_number })]
+    );
+
+    await client.query('COMMIT');
+
+    const passStatus = await getPassStatus(client, userId);
+    return res.json({
+      success: true,
+      upgraded: !result.alreadyOwned,
+      alreadyOwned: result.alreadyOwned,
+      currency,
+      price,
+      pass: passStatus
+    });
+  } catch (err) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+    }
+    console.error('Pass upgrade error:', err);
     return res.status(500).json({ error: 'Технический сбой' });
   } finally {
     if (client) client.release();

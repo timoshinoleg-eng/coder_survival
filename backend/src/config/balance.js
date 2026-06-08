@@ -288,30 +288,54 @@ const STAGE2 = {
   PASS: {
     SEASON_DAYS: 30,
     SEASON_ID: 'season_1_startup',
+    MAX_LEVEL: 50,
     LEVELS: (() => {
       const levels = [];
-      for (let i = 1; i <= 20; i++) {
-        levels.push({ level: i, requiredXp: i * 100 });
+      const tiers = [
+        { start: 1, end: 10, xp: 100 },
+        { start: 11, end: 20, xp: 150 },
+        { start: 21, end: 30, xp: 200 },
+        { start: 31, end: 40, xp: 250 },
+        { start: 41, end: 50, xp: 300 },
+      ];
+      for (const tier of tiers) {
+        for (let i = tier.start; i <= tier.end; i++) {
+          levels.push({ level: i, requiredXp: tier.xp });
+        }
       }
       return levels;
     })(),
     FREE_REWARDS: {
-      1: { energy: 25 },
-      2: { stars: 5 },
-      3: { commitBoostPercent: 5, durationHours: 24 },
-      5: { energy: 20, stars: 10 },
-      10: { energy: 30, stars: 15 },
-      15: { energy: 40, stars: 20 },
-      20: { energy: 50, stars: 25, title: 'Survivor' }
+      1: { energy: 15 },
+      2: { energy: 15 },
+      3: { commitsCurrent: 15 },
+      4: { energy: 20 },
+      5: { energy: 25, commitsCurrent: 20 },
+      10: { energy: 30, stars: 5 },
+      15: { energy: 35, skinFragment: 'pass_rare_1' },
+      20: { energy: 40, stars: 10 },
+      25: { energy: 45, stars: 10 },
+      30: { energy: 50, stars: 15 },
+      35: { energy: 55, skinFragment: 'pass_epic_1' },
+      40: { energy: 60, stars: 20 },
+      45: { energy: 65, stars: 25 },
+      50: { energy: 100, stars: 30, skin: 'season_hero' }
     },
     PREMIUM_REWARDS: {
-      1: { energy: 50, stars: 10 },
-      2: { stars: 15, skinFragment: 1 },
-      3: { commitBoostPercent: 10, durationHours: 24 },
-      5: { skinFragment: 'startup_hoodie' },
-      10: { skin: 'freelancer_pajama' },
-      15: { skin: 'team_lead' },
-      20: { skin: 'cto_cape', title: 'Legendary Dev', stars: 100 }
+      1: { energy: 30, commitsCurrent: 10 },
+      2: { energy: 30, commitsCurrent: 10 },
+      3: { energy: 40, commitsCurrent: 15 },
+      4: { energy: 40, commitsCurrent: 20 },
+      5: { energy: 50, commitsCurrent: 40, skinFragment: 'pass_common_1' },
+      10: { energy: 80, stars: 15, skin: 'pass_junior_hoodie' },
+      15: { energy: 100, avatarFrame: 'gold_coder', stars: 10 },
+      20: { energy: 120, stars: 25, skin: 'pass_middle_blazer', muCurrency: 1 },
+      25: { energy: 130, avatarFrame: 'sprint_master', stars: 15 },
+      30: { energy: 150, stars: 30, skin: 'pass_senior_cape' },
+      35: { energy: 170, avatarFrame: 'bug_hunter', muCurrency: 2, stars: 20 },
+      40: { energy: 200, stars: 40, skin: 'pass_lead_armor' },
+      45: { energy: 220, avatarFrame: 'cto_glow', muCurrency: 3, stars: 25 },
+      50: { energy: 300, stars: 100, skin: 'legendary_architect', muCurrency: 5, title: 'Season Legend' }
     },
     CATCH_UP: {
       missedDayPercent: DEFAULTS.BATTLE_PASS.catchUp.missedDayPercent,
@@ -433,8 +457,8 @@ const STAGE2 = {
 };
 
 const totalStage2PassXp = STAGE2.PASS.LEVELS.reduce((sum, level) => sum + level.requiredXp, 0);
-console.assert(totalStage2PassXp === 21000, `Pass XP mismatch: ${totalStage2PassXp}`);
-console.assert(STAGE2.PASS.LEVELS.length === 20, 'Level count must be 20');
+console.assert(totalStage2PassXp === 10000, `Pass XP mismatch: ${totalStage2PassXp}`);
+console.assert(STAGE2.PASS.LEVELS.length === 50, 'Level count must be 50');
 console.assert(
   STAGE2.DAILY_QUEST.FULL_CLEAR.LOOT_BOX.drops.reduce((sum, drop) => sum + drop.weight, 0) === 100,
   'LootBox weights must sum to 100'

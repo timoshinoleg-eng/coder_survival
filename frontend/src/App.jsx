@@ -2,6 +2,8 @@ import { h } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { TelegramProvider } from "./hooks/useTelegram.js";
 import { GameProvider, useGameState } from "./hooks/useGameState.js";
+import { TonWalletProvider } from "./hooks/useTonWallet.js";
+import WalletConnect from "./components/WalletConnect.jsx";
 import { audioManager } from "./utils/AudioManager.js";
 import StatsBar from "./components/StatsBar.jsx";
 import TapArea from "./components/TapArea.jsx";
@@ -10,6 +12,7 @@ import LevelUpModal from "./components/LevelUpModal.jsx";
 import ContextOfferBanner from "./components/ContextOfferBanner.jsx";
 import EventBanner from "./components/EventBanner.jsx";
 import CrunchTimeBanner from "./components/CrunchTimeBanner.jsx";
+import FlashSaleBanner from "./components/FlashSaleBanner.jsx";
 import PhaserGame from "./game/PhaserGame.js";
 import LoadingOverlay from "./components/LoadingOverlay.jsx";
 import RandomEventToast from "./components/RandomEventToast.jsx";
@@ -65,7 +68,7 @@ function AppInner() {
     loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast,
     memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState,
     setRandomEventState, commits, totalTaps, streakDays, isBurnout, depression,
-    energy, username, rankName, levelUp, team, teamBattle
+    energy, username, rankName, levelUp, team, teamBattle, activeLanguage
   } = useGameState();
   const { user } = useTelegram();
   const [onboardingDismissedThisSession, setOnboardingDismissedThisSession] =
@@ -521,9 +524,19 @@ function AppInner() {
   const shouldShowOnboarding =
     gameReady && !loading && showOnboarding && !onboardingDismissedThisSession;
 
+  const themeColor = activeLanguage?.themeColor || null;
+
   return h(
     "div",
-    { id: "app" },
+    {
+      id: "app",
+      style: themeColor
+        ? {
+            minHeight: '100vh',
+            background: `linear-gradient(180deg, #0b1622 0%, ${themeColor}22 40%, #0b1622 100%)`,
+          }
+        : undefined,
+    },
     h(StreakCalendar),
     h(StatsBar, { runtimeNow }),
     activeRuntimeEvents.length > 0 && h(
@@ -603,6 +616,7 @@ function AppInner() {
         clearMemePrompt?.();
       },
     }),
+    h(FlashSaleBanner),
     h(ContextOfferBanner),
     h(EventBanner),
     h(CrunchTimeBanner),
@@ -715,5 +729,5 @@ function AppInner() {
 }
 
 export default function App() {
-  return h(TelegramProvider, null, h(GameProvider, null, h(AppInner)));
+  return h(TelegramProvider, null, h(GameProvider, null, h(TonWalletProvider, null, h(AppInner))));
 }

@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@amplitude/analytics-browser": "^2.43.0",
+    "@tonconnect/sdk": "^3.4.1",
+    "@tonconnect/ui-react": "^2.4.4",
     "phaser": "^3.60.0",
     "preact": "^10.19.3"
   },

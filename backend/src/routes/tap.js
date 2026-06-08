@@ -20,6 +20,7 @@ import { updateTeamProgress } from '../utils/teams.js';
 import { checkAchievementsForUser } from '../utils/achievementsEngine.js';
 import { addEffect, getActiveEffects } from '../utils/activeEffects.js';
 import { calculateTapDelta, calculateDepressionDelta } from '../utils/tap.js';
+import { getUserActiveLanguage, getLanguageEffectMultipliers } from '../utils/languages.js';
 import { applyBanScoreIncrement, applyLocPenalty, normalizeAntiCheatState } from '../utils/anticheat.js';
 import { applyHeartAttackReset } from '../utils/heartAttack.js';
 import { logDailyFarm } from '../utils/farmLog.js';
@@ -140,7 +141,7 @@ router.post('/', validate(tapSchema), async (req, res) => {
     const prestigeRecoveryMult = levelBefore.resolved.energyRecoveryMult || 1;
     let recoveredProgress = await recoverProgression(client, progress, levelBefore.resolved.maxEnergy, skinRecoveryMult, false, prestigeRecoveryMult);
     const currentEnergy = Number(recoveredProgress.energy ?? 0);
-    const actualTapCount = Math.max(0, Math.min(requestedTapCount, Math.floor(currentEnergy)));
+    let actualTapCount = Math.max(0, Math.min(requestedTapCount, Math.floor(currentEnergy)));
     const currentDepression = Number(recoveredProgress.depression_level ?? 0);
     const currentCommitsTotal = Number(recoveredProgress.commits_total ?? 0);
 
@@ -160,9 +161,18 @@ router.post('/', validate(tapSchema), async (req, res) => {
 
     const crunchTime = await getActiveCrunchTime(client);
     const activeEffects = getActiveEffects(recoveredProgress.active_effects || {});
+    const infiniteEnergy = activeEffects.red_bull_mode?.infiniteEnergy || false;
+    const mechanicalMult = activeEffects.mechanical_keyboard?.locPerClickMult || 1;
+    if (infiniteEnergy) {
+      actualTapCount = Math.max(0, Math.min(requestedTapCount, 20));
+    }
     const tapBoostPercent = activeEffects.tapBoost?.percent || 0;
     const prestigeCritAdd = levelBefore.resolved.critChanceAdd || 0;
     const prestigeDepressionResist = levelBefore.resolved.depressionResistanceMult || 1;
+
+    const activeLanguage = await getUserActiveLanguage(client, userId);
+    const langEffects = getLanguageEffectMultipliers(activeLanguage);
+
     let tapResult = calculateTapDelta(
       levelBefore.resolved.commitsPerTap,
       currentEnergy,
@@ -170,7 +180,8 @@ router.post('/', validate(tapSchema), async (req, res) => {
       Number(recoveredProgress.streak_days ?? 0),
       Number(crunchTime?.commitMultiplier ?? 1) * getRandomEventTapMultiplier(recoveredProgress.event_state || {}, new Date()),
       tapBoostPercent,
-      prestigeCritAdd
+      prestigeCritAdd,
+      langEffects.clickPowerMult
     );
 
     // Query equipped skins for bonus application
@@ -194,7 +205,7 @@ router.post('/', validate(tapSchema), async (req, res) => {
     };
     tapResult = {
       ...tapResult,
-      commitsDelta: tapResult.commitsDelta * actualTapCount
+      commitsDelta: Math.round(tapResult.commitsDelta * actualTapCount * mechanicalMult)
     };
     const depressionDelta = calculateDepressionDelta(
       currentEnergy,
@@ -205,6 +216,15 @@ router.post('/', validate(tapSchema), async (req, res) => {
     let bugEncounterDelta = 0;
     if (currentEnergy < 20 && Math.random() < 0.15) {
       bugEncounterDelta = 5 + Math.floor(Math.random() * 11);
+    }
+    // Rust language: reduce depression from bugs
+    bugEncounterDelta = Math.round(bugEncounterDelta * langEffects.depressionResistMult);
+
+    // Python language: coffee drop chance on tap (base 3%, Python +10%)
+    let coffeeDrop = 0;
+    const coffeeDropChance = 0.03 + langEffects.coffeeDropChanceAdd;
+    if (Math.random() < coffeeDropChance) {
+      coffeeDrop = 1;
     }
 
     let newDepression = Math.min(
@@ -251,7 +271,7 @@ router.post('/', validate(tapSchema), async (req, res) => {
     const newTier = Math.max(progressionTier, Math.min(Number(levelBefore.resolved.rank || progressionTier), 5));
     const commitsCurrent = Number(recoveredProgress.commits_current ?? 0);
     const newCommitsCurrent = newTier > progressionTier ? 0 : commitsCurrent + tapResult.commitsDelta;
-    const newEnergy = Math.max(0, currentEnergy - actualTapCount);
+    const newEnergy = infiniteEnergy ? currentEnergy : Math.max(0, currentEnergy - actualTapCount);
 
     const updatedProgressResult = await client.query(
       `UPDATE progression
@@ -264,6 +284,10 @@ router.post('/', validate(tapSchema), async (req, res) => {
            is_burnout = $7,
            burnout_affliction = $8,
            forced_break_until = COALESCE($9::timestamptz, forced_break_until),
+           inventory = CASE WHEN $10 > 0
+             THEN COALESCE(inventory, '{}') || jsonb_build_object('coffee_cups', COALESCE((inventory->>'coffee_cups')::int, 0) + $10)
+             ELSE inventory
+           END,
            updated_at = GREATEST(NOW(), updated_at + INTERVAL '1 millisecond'),
            last_energy_activity_at = NOW(),
            energy_recovery_checkpoint_at = NOW()
@@ -278,7 +302,8 @@ router.post('/', validate(tapSchema), async (req, res) => {
         newTier,
         isBurnout,
         isAfflicted,
-        forcedBreakUntil
+        forcedBreakUntil,
+        coffeeDrop
       ]
     );
     recoveredProgress = updatedProgressResult.rows[0];

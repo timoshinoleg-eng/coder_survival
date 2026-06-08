@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { buildGeneratorStatus } from '../utils/generatorState.js';
 import { purchaseGenerator, recoverPassiveLoc } from '../utils/generatorEconomy.js';
+import { getUserActiveLanguage, getLanguageEffectMultipliers } from '../utils/languages.js';
 import { updateDailyQuestStateForEvent } from '../utils/dailyQuests.js';
 import { getGeneratorCostMultiplierFromEventState } from '../utils/randomEventState.js';
 
@@ -33,7 +34,9 @@ router.get('/', async (req, res, next) => {
         return res.status(404).json({ error: 'User not found' });
       }
       const accountAgeMinutes = Math.max(0, Math.floor((Date.now() - new Date(row.created_at).getTime()) / 60000));
-      const progression = await recoverPassiveLoc(client, row, { accountAgeMinutes, passiveMultiplier: 1 });
+      const activeLanguage = await getUserActiveLanguage(client, row.id);
+      const langEffects = getLanguageEffectMultipliers(activeLanguage);
+      const progression = await recoverPassiveLoc(client, row, { accountAgeMinutes, passiveMultiplier: langEffects.passiveLocMult });
       await client.query('COMMIT');
       return res.json({
         commitsTotal: Number(progression.commits_total || 0),
@@ -70,7 +73,9 @@ router.post('/buy', async (req, res, next) => {
         return res.status(404).json({ error: 'User not found' });
       }
       const accountAgeMinutes = Math.max(0, Math.floor((Date.now() - new Date(row.created_at).getTime()) / 60000));
-      const progression = await recoverPassiveLoc(client, row, { accountAgeMinutes, passiveMultiplier: 1 });
+      const activeLanguage = await getUserActiveLanguage(client, row.id);
+      const langEffects = getLanguageEffectMultipliers(activeLanguage);
+      const progression = await recoverPassiveLoc(client, row, { accountAgeMinutes, passiveMultiplier: langEffects.passiveLocMult });
       const result = await purchaseGenerator(client, progression, tierId, { accountAgeMinutes });
       if (result.error) {
         await client.query('ROLLBACK');

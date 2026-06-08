@@ -38,6 +38,7 @@ import { checkAchievement, ensureAchievementRows } from "../utils/achievements.j
 import { isReferralActive } from "../utils/referral.js";
 import { STAGE3 } from "../config/balance.js";
 import { pruneExpiredEffects, getActiveEffects } from "../utils/activeEffects.js";
+import { getUserActiveLanguage, getLanguageEffectMultipliers } from '../utils/languages.js';
 import { expireRandomEvents, spawnRandomEvent } from "../utils/randomEventEngine.js";
 
 const router = Router();
@@ -328,9 +329,12 @@ router.get("/", async (req, res, next) => {
       await expireRandomEvents(client);
       await spawnRandomEvent(client, user.id, accountAgeMinutes);
 
+      const activeLanguage = await getUserActiveLanguage(client, user.id);
+      const langEffects = getLanguageEffectMultipliers(activeLanguage);
+
       const passiveProgression = await recoverPassiveLoc(client, progression, {
         accountAgeMinutes,
-        passiveMultiplier: Number(myTeam?.passiveLocMultiplier || 1)
+        passiveMultiplier: Number(myTeam?.passiveLocMultiplier || 1) * langEffects.passiveLocMult
       });
 
       // Phase 6: prune expired active effects
@@ -647,6 +651,16 @@ router.get("/", async (req, res, next) => {
         isForcedBreak,
         idleRecovery,
         passiveLocRecovery: passiveProgression?._passiveLocRecovery || null,
+        activeLanguage: activeLanguage
+          ? {
+              slug: activeLanguage.slug,
+              name: activeLanguage.display_name || activeLanguage.name,
+              icon: activeLanguage.icon,
+              themeColor: activeLanguage.theme_color,
+              effectType: activeLanguage.effect_type,
+              effectValue: Number(activeLanguage.effect_value || 0),
+            }
+          : null,
       });
     } catch (err) {
       throw err;

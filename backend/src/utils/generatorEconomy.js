@@ -3,6 +3,7 @@ import { applyLocPenalty, normalizeAntiCheatState } from './anticheat.js';
 import { logDailyFarm } from './farmLog.js';
 import { getGeneratorCostMultiplierFromEventState, getRandomEventLocMultiplier } from './randomEventState.js';
 import { updateTeamProgress } from './teams.js';
+import { getActiveEffects } from './activeEffects.js';
 
 function toValidDate(value) {
   if (!value) return null;
@@ -23,7 +24,9 @@ export async function recoverPassiveLoc(client, progression, { accountAgeMinutes
   const status = buildGeneratorStatus(generatorState, accountAgeMinutes, {
     costMultiplier: getGeneratorCostMultiplierFromEventState(progression.event_state || {})
   });
-  const effectivePerSecond = Number(status.passiveLocPerSecond || 0) * Math.max(0, Number(passiveMultiplier || 1)) * getRandomEventLocMultiplier(progression.event_state || {}, now);
+  const seniorDev = getActiveEffects(progression.active_effects || {}, now).senior_developer;
+  const seniorDevBonus = seniorDev ? Number(seniorDev.passiveLOC || 0) : 0;
+  const effectivePerSecond = (Number(status.passiveLocPerSecond || 0) + seniorDevBonus) * Math.max(0, Number(passiveMultiplier || 1)) * getRandomEventLocMultiplier(progression.event_state || {}, now);
   const rawLocEarned = Math.floor(effectivePerSecond * elapsedSeconds);
   const antiCheatState = normalizeAntiCheatState(progression.anti_cheat_state || {});
   const locEarned = applyLocPenalty(rawLocEarned, antiCheatState.banScore);

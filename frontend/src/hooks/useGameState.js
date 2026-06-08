@@ -39,6 +39,7 @@ const DEFAULT_STATE = {
   toast: null,
   purchaseStatus: null,
   shopOpen: false,
+  boostersOpen: false,
   event: null,
   pass: null,
   streak: null,
@@ -75,6 +76,8 @@ const DEFAULT_STATE = {
   passiveLocRecovery: null,
   antiCheat: null,
   prestige: null,
+  dailyBattle: null,
+  activeLanguage: null,
 };
 
 const GameContext = createContext(null);
@@ -256,6 +259,7 @@ export function GameProvider({ children }) {
       dailyFarm: payload?.dailyFarm ?? payload?.daily_farm ?? current.dailyFarm ?? null,
       passiveLocRecovery: payload?.passiveLocRecovery ?? payload?.passive_loc_recovery ?? current.passiveLocRecovery ?? null,
       antiCheat: payload?.antiCheat ?? payload?.anti_cheat ?? current.antiCheat ?? null,
+      activeLanguage: payload?.activeLanguage ?? payload?.active_language ?? current.activeLanguage ?? null,
       prestige: payload?.prestige
         ? {
             level: payload.prestige.level ?? 0,
@@ -453,6 +457,16 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
+  const refreshDailyBattle = useCallback(async () => {
+    try {
+      const payload = await apiRequest('/api/daily-battle/current', { initData: telegram?.initData });
+      setState((current) => ({ ...current, dailyBattle: payload }));
+      return payload;
+    } catch (_e) {
+      return null;
+    }
+  }, [telegram?.initData]);
+
   const refreshGenerators = useCallback(async () => {
     if (fetchingGeneratorsRef.current) return null;
     fetchingGeneratorsRef.current = true;
@@ -493,6 +507,7 @@ export function GameProvider({ children }) {
         referralPayload,
         liveEventPayload,
         weeklySprintPayload,
+        dailyBattlePayload,
       ] =
         await Promise.all([
           apiRequest("/api/state", { initData: telegram?.initData }),
@@ -505,6 +520,7 @@ export function GameProvider({ children }) {
           apiRequest("/api/referral/status", { initData: telegram?.initData }).catch(() => null),
           apiRequest(`/api/events?${timezoneQuery()}`, { initData: telegram?.initData }).catch(() => null),
           apiRequest(`/api/quests/weekly?${timezoneQuery()}`, { initData: telegram?.initData }).catch(() => null),
+          apiRequest('/api/daily-battle/current', { initData: telegram?.initData }).catch(() => null),
         ]);
 
       applyServerState(statePayload);
@@ -525,6 +541,7 @@ export function GameProvider({ children }) {
         liveEvent: liveEventPayload,
         careerStory: liveEventPayload?.careerStory ?? current.careerStory,
         weeklySprint: weeklySprintPayload,
+        dailyBattle: dailyBattlePayload,
         loading: false,
         syncing: false,
         error: null,
@@ -652,6 +669,14 @@ export function GameProvider({ children }) {
   }, [refreshGenerators]);
 
   useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      refreshDailyBattle().catch(() => null);
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [refreshDailyBattle]);
+
+  useEffect(() => {
     window.__GAME_STATE__ = state;
     stateRef.current = state;
   }, [state]);
@@ -754,6 +779,14 @@ export function GameProvider({ children }) {
 
   const closeShop = useCallback(() => {
     setState((current) => ({ ...current, shopOpen: false }));
+  }, []);
+
+  const setBoostersOpen = useCallback((open) => {
+    setState((current) => ({ ...current, boostersOpen: Boolean(open) }));
+  }, []);
+
+  const closeBoosters = useCallback(() => {
+    setState((current) => ({ ...current, boostersOpen: false }));
   }, []);
 
   const mergeSkinState = useCallback((nextSkins) => {
@@ -904,6 +937,8 @@ export function GameProvider({ children }) {
     showToast,
     setShopOpen,
     closeShop,
+    setBoostersOpen,
+    closeBoosters,
     refreshQuests,
     claimQuests,
     claimDailyQuest: claimQuests,
@@ -1035,6 +1070,8 @@ export function GameProvider({ children }) {
     showToast,
     setShopOpen,
     closeShop,
+    setBoostersOpen,
+    closeBoosters,
     refreshQuests,
     claimQuests,
     claimFullClear,
@@ -1056,6 +1093,26 @@ export function GameProvider({ children }) {
     setRandomEventState,
     completeRewardedVideo,
     buyGenerator,
+    refreshDailyBattle,
+    refreshLanguages: async () => {
+      const payload = await apiRequest("/api/languages/my", { initData: telegram?.initData });
+      setState((current) => ({ ...current, activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage }));
+      return payload;
+    },
+    equipLanguage: async (languageSlug) => {
+      const payload = await apiRequest("/api/languages/equip", {
+        method: "POST",
+        initData: telegram?.initData,
+        body: { languageSlug },
+      });
+      if (payload?.success) {
+        setState((current) => ({
+          ...current,
+          activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage,
+        }));
+      }
+      return payload;
+    },
     loadState,
     telegram?.initData,
   ]);
