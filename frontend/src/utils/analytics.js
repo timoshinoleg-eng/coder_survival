@@ -20,6 +20,14 @@ export function trackEvent(eventName, properties = {}) {
   }
 }
 
+export function flushAnalytics() {
+  try {
+    amplitude.flush();
+  } catch (err) {
+    console.warn('[Analytics] Failed to flush:', err);
+  }
+}
+
 export function setUserProperties(properties) {
   try {
     const identify = new amplitude.Identify();
@@ -36,4 +44,5 @@ export const Analytics = {
   init: initAnalytics,
   track: trackEvent,
   setUser: setUserProperties,
+  flush: flushAnalytics,
 };

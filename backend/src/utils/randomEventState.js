@@ -14,27 +14,67 @@ export function applyRandomEventChoiceState(currentState = {}, type, action, now
     next.legacyCodeClicksRemaining = 10;
     next.legacyCodeStartedAt = now.toISOString();
   }
+  if (type === 'bug_production' && action === 'solve') {
+    next.bugProductionClicksRemaining = 5;
+    next.bugProductionStartedAt = now.toISOString();
+  }
+  if (type === 'coffee_stain' && action === 'solve') {
+    next.coffeeStainClicksRemaining = 3;
+    next.coffeeStainStartedAt = now.toISOString();
+  }
+  if (type === 'deploy_friday' && action === 'solve') {
+    next.deployFridayClicksRemaining = 3;
+    next.deployFridayStartedAt = now.toISOString();
+  }
   if (type === 'production_alert' && action === 'ignore') {
+    next.productionAlertUntil = new Date(now.getTime() + 180000).toISOString();
+    next.productionAlertLastAppliedAt = now.toISOString();
+  }
+  if (type === 'bug_production' && action === 'ignore') {
     next.productionAlertUntil = new Date(now.getTime() + 180000).toISOString();
     next.productionAlertLastAppliedAt = now.toISOString();
   }
   if (type === 'hot_streak' && action === 'solve') {
     next.hotStreakUntil = new Date(now.getTime() + 60000).toISOString();
   }
-  if (type === 'deploy_friday' && action === 'solve') {
+  if (type === 'golden_commit' && action === 'solve') {
+    next.goldenCommitUntil = new Date(now.getTime() + 77000).toISOString();
+  }
+  if (type === 'stack_overflow_down' && action === 'ignore') {
+    next.stackOverflowDownUntil = new Date(now.getTime() + 30000).toISOString();
+  }
+  if (type === 'deploy_friday' && action === 'ignore') {
     next.deployFridayResolvedAt = now.toISOString();
   }
   return next;
 }
 
 export function applyTapToRandomEventState(currentState = {}) {
-  if (!currentState.legacyCodeClicksRemaining || currentState.legacyCodeClicksRemaining <= 0) {
-    return currentState;
+  if (currentState.legacyCodeClicksRemaining && currentState.legacyCodeClicksRemaining > 0) {
+    return {
+      ...currentState,
+      legacyCodeClicksRemaining: Math.max(0, currentState.legacyCodeClicksRemaining - 1),
+    };
   }
-  return {
-    ...currentState,
-    legacyCodeClicksRemaining: Math.max(0, currentState.legacyCodeClicksRemaining - 1),
-  };
+  if (currentState.bugProductionClicksRemaining && currentState.bugProductionClicksRemaining > 0) {
+    return {
+      ...currentState,
+      bugProductionClicksRemaining: Math.max(0, currentState.bugProductionClicksRemaining - 1),
+    };
+  }
+  if (currentState.coffeeStainClicksRemaining && currentState.coffeeStainClicksRemaining > 0) {
+    return {
+      ...currentState,
+      coffeeStainClicksRemaining: Math.max(0, currentState.coffeeStainClicksRemaining - 1),
+    };
+  }
+  if (currentState.deployFridayClicksRemaining && currentState.deployFridayClicksRemaining > 0) {
+    return {
+      ...currentState,
+      deployFridayClicksRemaining: Math.max(0, currentState.deployFridayClicksRemaining - 1),
+    };
+  }
+  return currentState;
 }
 
 export const reduceLegacyCodeClick = applyTapToRandomEventState;
@@ -47,6 +87,11 @@ export function getGeneratorCostMultiplierFromEventState(eventState = {}, now = 
 export function getRandomEventTapMultiplier(eventState = {}, now = new Date()) {
   const randomState = getRandomEventState(eventState);
   return isRuntimeEventActive(randomState.hotStreakUntil, now) ? 3 : 1;
+}
+
+export function getRandomEventLocMultiplier(eventState = {}, now = new Date()) {
+  const randomState = getRandomEventState(eventState);
+  return isRuntimeEventActive(randomState.goldenCommitUntil, now) ? 7 : 1;
 }
 
 export function applyProductionAlertDrain(eventState = {}, maxEnergy = 100, now = new Date()) {

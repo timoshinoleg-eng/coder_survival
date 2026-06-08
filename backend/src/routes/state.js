@@ -38,6 +38,7 @@ import { checkAchievement, ensureAchievementRows } from "../utils/achievements.j
 import { isReferralActive } from "../utils/referral.js";
 import { STAGE3 } from "../config/balance.js";
 import { pruneExpiredEffects, getActiveEffects } from "../utils/activeEffects.js";
+import { expireRandomEvents, spawnRandomEvent } from "../utils/randomEventEngine.js";
 
 const router = Router();
 
@@ -322,6 +323,11 @@ router.get("/", async (req, res, next) => {
       const accountAgeMinutes = user?.created_at
         ? Math.max(0, Math.floor((Date.now() - new Date(user.created_at).getTime()) / 60000))
         : 61;
+
+      // Random Events Engine: on-demand spawn during active session
+      await expireRandomEvents(client);
+      await spawnRandomEvent(client, user.id, accountAgeMinutes);
+
       const passiveProgression = await recoverPassiveLoc(client, progression, {
         accountAgeMinutes,
         passiveMultiplier: Number(myTeam?.passiveLocMultiplier || 1)
@@ -451,6 +457,9 @@ router.get("/", async (req, res, next) => {
       const depressionLevel = Number(passiveProgression.depression_level ?? 0);
       const isAfflicted = depressionLevel >= TAP_MECHANICS.afflictionDepression;
       const isBurnout = depressionLevel >= TAP_MECHANICS.maxDepression;
+      const burnoutAffliction = passiveProgression.burnout_affliction === true || isAfflicted;
+      const forcedBreakUntil = passiveProgression.forced_break_until || null;
+      const isForcedBreak = forcedBreakUntil && new Date(forcedBreakUntil) > new Date();
       if (isBurnout) {
         await checkAchievement(client, user.id, 'burnout');
       }
@@ -463,6 +472,7 @@ router.get("/", async (req, res, next) => {
           await client.query(
             `UPDATE progression
              SET commits_total = commits_total + $2,
+                 lifetime_loc = lifetime_loc + $2,
                  inventory = COALESCE(inventory, '{}'::jsonb) || $3::jsonb,
                  referral_state = COALESCE(referral_state, '{}'::jsonb) || '{"invitedRewardGranted": true}'::jsonb
              WHERE user_id = $1`,
@@ -517,6 +527,8 @@ router.get("/", async (req, res, next) => {
               inventory: passiveProgression.inventory || {},
               isAfflicted,
               isBurnout,
+              burnoutAffliction,
+              forcedBreakUntil,
             }
           : null,
         game: {
@@ -531,6 +543,8 @@ router.get("/", async (req, res, next) => {
           inventory: passiveProgression.inventory || {},
           is_afflicted: isAfflicted,
           is_burnout: isBurnout,
+          burnout_affliction: burnoutAffliction,
+          forced_break_until: forcedBreakUntil,
         },
         progressionUpdatedAt: passiveProgression?.updated_at ?? null,
         serverNow: new Date().toISOString(),
@@ -547,7 +561,13 @@ router.get("/", async (req, res, next) => {
             critChanceAdd: rankMeta.critChanceAdd || 0,
             maxEnergy: rankMeta.maxEnergy,
             depressionResistanceMult: rankMeta.depressionResistanceMult || 1,
+            passiveLocMult: rankMeta.passiveLocMult || 1,
+            clickPowerMult: 1 + 0.005 * (rankMeta.muCurrency || 0),
           },
+          lifetimeLoc: Number(passiveProgression.lifetime_loc ?? passiveProgression.commits_total ?? 0),
+          prestigeCount: Number(passiveProgression.prestige_count ?? 0),
+          muCurrency: Number(passiveProgression.mu_currency ?? 0),
+          muAvailable: Number(passiveProgression.lifetime_loc ?? passiveProgression.commits_total ?? 0) >= 1_000_000,
         },
         maxEnergy: rankMeta.maxEnergy,
         recoveryIntervalSeconds,
@@ -622,6 +642,9 @@ router.get("/", async (req, res, next) => {
         },
         isAfflicted,
         isBurnout,
+        burnoutAffliction,
+        forcedBreakUntil,
+        isForcedBreak,
         idleRecovery,
         passiveLocRecovery: passiveProgression?._passiveLocRecovery || null,
       });

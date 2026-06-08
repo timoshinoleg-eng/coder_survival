@@ -9,6 +9,8 @@ const router = Router();
 
 const AMPLITUDE_API_URL = 'https://api2.amplitude.com/2/httpapi';
 
+// Supports all client-defined event types (tma_open, score_earned, purchase_failed, etc.)
+
 router.post('/event', validate(analyticsEventSchema), async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) {
@@ -50,7 +52,7 @@ router.post('/event', validate(analyticsEventSchema), async (req, res) => {
       return res.status(502).json({ error: 'Analytics provider error', status: response.status });
     }
 
-    return res.json({ success: true, forwarded: true });
+    return res.json({ success: true, forwarded: true, event: eventName });
   } catch (err) {
     console.error('[analytics] Failed to forward event to Amplitude:', err);
     return res.status(500).json({ error: 'Failed to forward analytics event' });

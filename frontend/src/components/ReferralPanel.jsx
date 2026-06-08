@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "preact/hooks";
 import { apiRequest } from "../utils/api.js";
 import { useTelegram } from "../hooks/useTelegram.js";
 import { formatRewardPayload } from "../utils/rewardFormatting.js";
+import { Analytics } from "../utils/analytics.js";
 import ReferralChainPanel from "./ReferralChainPanel.jsx";
 
 function skinLabel(skinId) {
@@ -100,6 +101,7 @@ export default function ReferralPanel({ open, onClose }) {
         setState((s) => ({ ...s, copied: true }));
         setTimeout(() => setState((s) => ({ ...s, copied: false })), 1500);
       });
+    Analytics.track('referral_invite_sent', { channel: 'copy' });
   }, [state.referralLink]);
 
   const handleShare = useCallback(() => {
@@ -108,6 +110,7 @@ export default function ReferralPanel({ open, onClose }) {
       state.referralLink,
       "Я выживаю в IT. Присоединяйся, вместе страдать веселее!",
     );
+    Analytics.track('referral_invite_sent', { channel: 'telegram' });
   }, [state.referralLink, shareUrl]);
 
   const handleClaimMilestone = useCallback(
@@ -137,6 +140,11 @@ export default function ReferralPanel({ open, onClose }) {
             claimSuccess: parts.join(' · ') || 'Награда получена!',
             claimLoading: null,
           }));
+          Analytics.track('referral_claimed', {
+            referrer_id: state.referralCode || '',
+            campaign: 'milestone',
+            k_depth: milestone,
+          });
           await loadData();
           setTimeout(
             () => setState((s) => ({ ...s, claimSuccess: null })),
@@ -151,7 +159,7 @@ export default function ReferralPanel({ open, onClose }) {
         }));
       }
     },
-    [initData, loadData],
+    [initData, loadData, state.referralCode],
   );
 
   if (!open) return null;

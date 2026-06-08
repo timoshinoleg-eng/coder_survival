@@ -24,6 +24,7 @@ import AchievementToast from './AchievementToast.jsx';
 import { useAchievements } from '../hooks/useAchievements.js';
 import RankBadge from './RankBadge.jsx';
 import CareerModal from './CareerModal.jsx';
+import BurnoutMeter from './BurnoutMeter.jsx';
 
 export default function StatsBar({ runtimeNow }) {
   const {
@@ -94,9 +95,9 @@ export default function StatsBar({ runtimeNow }) {
   const energyColor =
     energyPercent > 50 ? "#4ade80" : energyPercent > 20 ? "#facc15" : "#ef4444";
   const depressionColor =
-    depression < 30 ? "#4ade80" : depression < 70 ? "#facc15" : "#ef4444";
+    depression < 50 ? "#4ade80" : depression < 100 ? "#facc15" : "#ef4444";
   const isLowEnergy = energyPercent <= 20;
-  const isHighStress = depression >= 70;
+  const isHighStress = depression >= 100;
 
   const displayLevel = levelInRank || 1;
 
@@ -251,6 +252,23 @@ export default function StatsBar({ runtimeNow }) {
                       streakDays,
                     ),
                   ],
+                ),
+              gameState?.prestige?.muCurrency > 0 &&
+                h(
+                  "span",
+                  {
+                    style: {
+                      fontSize: "11px",
+                      color: "#8b5cf6",
+                      fontWeight: "bold",
+                      border: "1px solid #5b21b6",
+                      padding: "2px 6px",
+                      borderRadius: "6px",
+                      background: "#1e1b4b",
+                    },
+                    title: `\u03bc currency: ${gameState.prestige.muCurrency}`,
+                  },
+                  `\u03bc${gameState.prestige.muCurrency}`
                 ),
               antiCheat?.banScore >= 20 &&
                 h(
@@ -487,14 +505,14 @@ export default function StatsBar({ runtimeNow }) {
                       onClick: () => setMiniGameOpen(true),
                       style: {
                         border: "1px solid #30527e",
-                        background: depression >= 30 ? '#1a3a5c' : '#122642',
+                        background: depression >= 60 ? '#1a3a5c' : '#122642',
                         color: '#dce9f9',
                         borderRadius: '8px',
                         padding: '5px 8px',
                         fontSize: '11px',
                         cursor: 'pointer',
                         fontWeight: 600,
-                        animation: depression >= 30 ? 'pulse 1.6s infinite' : 'none'
+                        animation: depression >= 60 ? 'pulse 1.6s infinite' : 'none'
                       }
                     },
                     '🐛'
@@ -668,81 +686,8 @@ export default function StatsBar({ runtimeNow }) {
         ],
       ),
 
-      // Depression bar
-      h(
-        "div",
-        { style: { display: "flex", alignItems: "center", gap: "6px" } },
-        [
-          h(
-            "span",
-            {
-              style: {
-                minWidth: "50px",
-                fontSize: "11px",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              },
-            },
-            [
-              "💀",
-              "Стресс",
-              featureFlags?.stress_v2 &&
-                energy < 60 &&
-                depression > 0 &&
-                h(
-                  "span",
-                  {
-                    title:
-                      "Низкая энергия вызывает стресс. Отдохни или выпей кофе",
-                    style: {
-                      marginLeft: "4px",
-                      fontSize: "10px",
-                      cursor: "help",
-                      color: "#facc15",
-                    },
-                  },
-                  "⚠️",
-                ),
-            ],
-          ),
-          h(
-            "div",
-            {
-              style: {
-                flex: 1,
-                height: "8px",
-                background: "#0f3460",
-                borderRadius: "0",
-                overflow: "hidden",
-              },
-            },
-            h("div", {
-              style: {
-                width: `${depression}%`,
-                height: "100%",
-                background: depressionColor,
-                transition: "width 0.25s ease, background 0.3s ease",
-                boxShadow: isHighStress
-                  ? "0 0 10px rgba(239,68,68,0.45)"
-                  : "none",
-              },
-            }),
-          ),
-          h(
-            "span",
-            {
-              style: {
-                minWidth: "34px",
-                textAlign: "right",
-                fontWeight: "bold",
-                color: depressionColor,
-              },
-            },
-            `${Math.round(depression)}%`,
-          ),
-        ],
-      ),
+      // Burnout Meter
+      h(BurnoutMeter, { runtimeNow }),
 
       // Warnings
       (isLowEnergy || isHighStress) &&

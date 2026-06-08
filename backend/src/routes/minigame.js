@@ -179,6 +179,7 @@ router.post('/complete', validate(minigameSchema), async (req, res, next) => {
         await client.query(
           `UPDATE progression
            SET commits_total = commits_total + $2,
+               lifetime_loc = lifetime_loc + $2,
                commits_current = commits_current + $2,
                depression_level = GREATEST(0, depression_level - $3),
                minigame_state = $4,
@@ -198,14 +199,24 @@ router.post('/complete', validate(minigameSchema), async (req, res, next) => {
           await logDailyFarm(client, userId, Number(reward.commits || 0));
         }
       } else {
-        // Even on failure, update lastPlayed to enforce cooldown
+        // Even on failure, update lastPlayed to enforce cooldown and apply depression
+        const failureDepressionGain = {
+          code_review: 10,
+          dream_interview: 10,
+          architectural_committee: 20,
+          ipo: 20
+        }[gameType] || 0;
+
         await client.query(
           `UPDATE progression
-           SET minigame_state = $2
+           SET minigame_state = $2,
+               depression_level = LEAST(200, depression_level + $3),
+               burnout_affliction = (depression_level + $3) >= 100
            WHERE user_id = $1`,
           [
             userId,
-            JSON.stringify(updateMinigameState(prog.minigame_state || {}, gameType))
+            JSON.stringify(updateMinigameState(prog.minigame_state || {}, gameType)),
+            failureDepressionGain
           ]
         );
       }

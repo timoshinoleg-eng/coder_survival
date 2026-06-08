@@ -4,30 +4,28 @@ import { pickRandomEvent, getFtueEventSuppression } from './events.js';
 import { getRandomEventState, applyRandomEventChoiceState, applyTapToRandomEventState } from './randomEventState.js';
 
 const CHOICE_TIMEOUT_SECONDS_BY_TYPE = {
-  deploy_friday: 30,
+  bug_production: 15,
+  code_review: 15,
+  stack_overflow_down: 30,
   legacy_code: 20,
-  production_alert: 15,
-  code_review_reject: 15,
-  hot_streak: 15,
-  golden_commit: 15,
-  coffee_break: 15,
-  standup_meeting: 15,
-  slack_notification: 15,
-  zoom_call: 15,
+  coffee_stain: 15,
+  golden_commit: 13,
+  deploy_friday: 30,
+  open_source_contribution: 15,
 };
 
 const EVENT_UI_META = {
   golden_commit: {
     title: 'GOLDEN COMMIT',
-    description: 'Редкий чистый коммит. На секунду кажется, что кодовая база тебя любит.',
+    description: 'Редкий чистый коммит. На секунду кажется, что кодовая база тебя любит. x7 LOC/s на 77 секунд!',
     solveLabel: 'ПОЙМАТЬ',
     ignoreLabel: 'ПРОПУСТИТЬ',
   },
-  hot_streak: {
-    title: 'HOT STREAK',
-    description: 'Поток пошёл. 60 секунд ты чувствуешь себя машиной доставки фич.',
-    solveLabel: 'ВКАТИТЬСЯ',
-    ignoreLabel: 'ОСТОРОЖНО',
+  open_source_contribution: {
+    title: 'OPEN SOURCE PR',
+    description: 'Кто-то принял твой PR! В награду — эксклюзивный скин и +20 коммитов.',
+    solveLabel: 'ПРИНЯТЬ',
+    ignoreLabel: 'ОТКЛОНИТЬ',
   },
   legacy_code: {
     title: 'LEGACY CODE',
@@ -37,45 +35,33 @@ const EVENT_UI_META = {
   },
   deploy_friday: {
     title: 'DEPLOY FRIDAY',
-    description: 'Нажмёшь deploy? 70% шанс славы, 30% шанс потерять 25% LOC.',
-    solveLabel: 'ДЕПЛОЙ',
-    ignoreLabel: 'ОТЛОЖИТЬ',
+    description: 'Нажмёшь deploy? Отмени за 3 клика или рискуй потерять 25% LOC.',
+    solveLabel: 'ОТМЕНИТЬ',
+    ignoreLabel: 'ДЕПЛОЙ',
   },
-  code_review_reject: {
-    title: 'CODE REVIEW REJECT',
-    description: 'Тебе вернули PR. Опять.',
-    solveLabel: 'ПЕРЕДЕЛАТЬ',
-    ignoreLabel: 'ОБИДЕТЬСЯ',
-  },
-  production_alert: {
-    title: 'PRODUCTION ALERT',
-    description: 'Пейджер орёт ещё 3 минуты. Энергия будет утекать, пока не погасишь тревогу.',
-    solveLabel: 'ПОГАСИТЬ',
+  bug_production: {
+    title: 'BUG IN PRODUCTION',
+    description: 'Пейджер орёт! Погаси баг за 5 кликов, или энергия будет утекать.',
+    solveLabel: 'ХОТФИКС',
     ignoreLabel: 'ИГНОР',
   },
-  coffee_break: {
-    title: 'COFFEE BREAK',
-    description: 'Пять минут на то, чтобы вспомнить, зачем ты вообще любишь код.',
-    solveLabel: 'ГЛОТОК',
-    ignoreLabel: 'ПРОДОЛЖИТЬ',
+  code_review: {
+    title: 'CODE REVIEW',
+    description: 'Тебе пришёл PR на ревью. Принять с небольшим стрессом или отклонить?',
+    solveLabel: 'ПРИНЯТЬ',
+    ignoreLabel: 'ОТКЛОНИТЬ',
   },
-  standup_meeting: {
-    title: 'STANDUP',
-    description: 'Короткий созвон, длинное ощущение потерянного времени.',
-    solveLabel: 'ВЫСТОЯТЬ',
-    ignoreLabel: 'МУТ',
+  coffee_stain: {
+    title: 'COFFEE STAIN',
+    description: 'Кофе разлилось на клавиатуру. Вытереть за 3 клика и получить энергию?',
+    solveLabel: 'ВЫТЕРЕТЬ',
+    ignoreLabel: 'ОСТАВИТЬ',
   },
-  slack_notification: {
-    title: 'SLACK PING',
-    description: 'Кто-то написал «быстрый вопрос». Это никогда не бывает быстрым.',
-    solveLabel: 'ОТВЕТИТЬ',
-    ignoreLabel: 'ПОЗЖЕ',
-  },
-  zoom_call: {
-    title: 'ZOOM CALL',
-    description: 'Камера выключена, душа тоже.',
-    solveLabel: 'ЗАЙТИ',
-    ignoreLabel: 'ОТГОВОРКА',
+  stack_overflow_down: {
+    title: 'STACK OVERFLOW DOWN',
+    description: 'Stack Overflow недоступен 30 секунд. Пора полагаться только на себя.',
+    solveLabel: null,
+    ignoreLabel: null,
   },
 };
 
@@ -91,12 +77,21 @@ function nowPlusSeconds(seconds) {
   return new Date(Date.now() + seconds * 1000);
 }
 
+function getRemainingClicks(state, type) {
+  if (type === 'legacy_code') return state.legacyCodeClicksRemaining || 0;
+  if (type === 'bug_production') return state.bugProductionClicksRemaining || 0;
+  if (type === 'coffee_stain') return state.coffeeStainClicksRemaining || 0;
+  if (type === 'deploy_friday') return state.deployFridayClicksRemaining || 0;
+  return 0;
+}
+
 export async function expireRandomEvents(client) {
   const result = await client.query(
-    `UPDATE active_random_events
-     SET resolved_at = COALESCE(resolved_at, NOW()),
+    `UPDATE user_active_events
+     SET resolved = TRUE,
+         resolved_at = COALESCE(resolved_at, NOW()),
          resolution = COALESCE(resolution, 'timeout')
-     WHERE resolved_at IS NULL
+     WHERE resolved = FALSE
        AND expires_at < NOW()
      RETURNING *`
   );
@@ -106,8 +101,8 @@ export async function expireRandomEvents(client) {
 export async function getUserActiveRandomEvent(client, userId) {
   await expireRandomEvents(client);
   const result = await client.query(
-    `SELECT * FROM active_random_events
-     WHERE user_id = $1 AND resolved_at IS NULL
+    `SELECT * FROM user_active_events
+     WHERE user_id = $1 AND resolved = FALSE
      ORDER BY started_at DESC
      LIMIT 1`,
     [userId]
@@ -143,7 +138,7 @@ export async function spawnRandomEvent(client, userId, accountAgeMinutes = 61) {
   const expiresAt = nowPlusSeconds(getChoiceTimeoutSeconds(picked.id));
 
   await client.query(
-    `INSERT INTO active_random_events (user_id, event_type, event_id, started_at, expires_at, state)
+    `INSERT INTO user_active_events (user_id, event_slug, event_id, started_at, expires_at, state)
      VALUES ($1, $2, $3, NOW(), $4, $5)
      ON CONFLICT (user_id, event_id) DO NOTHING`,
     [userId, picked.id, eventId, expiresAt, JSON.stringify({})]
@@ -161,8 +156,8 @@ export async function spawnRandomEvent(client, userId, accountAgeMinutes = 61) {
     title: EVENT_UI_META[picked.id]?.title || picked.id,
     description: EVENT_UI_META[picked.id]?.description || '',
     options: {
-      solve: { label: EVENT_UI_META[picked.id]?.solveLabel || 'РЕШИТЬ' },
-      ignore: { label: EVENT_UI_META[picked.id]?.ignoreLabel || 'ИГНОР' },
+      solve: EVENT_UI_META[picked.id]?.solveLabel ? { label: EVENT_UI_META[picked.id].solveLabel } : null,
+      ignore: EVENT_UI_META[picked.id]?.ignoreLabel ? { label: EVENT_UI_META[picked.id].ignoreLabel } : null,
     },
     timeout: getChoiceTimeoutSeconds(picked.id),
     startedAt: new Date().toISOString(),
@@ -178,8 +173,8 @@ export function calculateEventDeltas(type, action, gameState = {}) {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: -4, commitsDelta: 40 };
       return { energyDelta: 0, depressionDelta: 2, commitsDelta: 0 };
     }
-    case 'hot_streak': {
-      if (action === 'solve') return { energyDelta: 0, depressionDelta: -3, commitsDelta: 25 };
+    case 'open_source_contribution': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 0, commitsDelta: 20 };
       return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
     }
     case 'legacy_code': {
@@ -189,37 +184,33 @@ export function calculateEventDeltas(type, action, gameState = {}) {
       return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
     }
     case 'deploy_friday': {
-      if (action === 'solve') {
-        const success = Math.random() < DEFAULTS.RANDOM_EVENTS.stateMachine.deployFriday.successChance;
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: -2, commitsDelta: 0 };
+      if (action === 'ignore') {
+        const success = Math.random() < 0.7;
         return success
-          ? { energyDelta: 0, depressionDelta: -4, commitsDelta: 0 }
-          : { energyDelta: 0, depressionDelta: 8, commitsDelta: Math.round(-commitsTotal * DEFAULTS.RANDOM_EVENTS.stateMachine.deployFriday.failLocLoss) };
+          ? { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 }
+          : { energyDelta: 0, depressionDelta: 8, commitsDelta: Math.round(-commitsTotal * 0.25) };
       }
-      return { energyDelta: 0, depressionDelta: -2, commitsDelta: 0 };
+      if (action === 'tap') return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
+      return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
     }
-    case 'code_review_reject': {
-      if (action === 'solve') return { energyDelta: 0, depressionDelta: 4, commitsDelta: 10 };
-      return { energyDelta: 0, depressionDelta: 8, commitsDelta: -5 };
-    }
-    case 'production_alert': {
+    case 'bug_production': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 2, commitsDelta: 5 };
-      return { energyDelta: 0, depressionDelta: 6, commitsDelta: 0 };
+      if (action === 'ignore') return { energyDelta: 0, depressionDelta: 6, commitsDelta: 0 };
+      if (action === 'tap') return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
+      return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
     }
-    case 'coffee_break': {
+    case 'code_review': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 2, commitsDelta: 10 };
+      return { energyDelta: 0, depressionDelta: 4, commitsDelta: -5 };
+    }
+    case 'coffee_stain': {
       if (action === 'solve') return { energyDelta: 8, depressionDelta: -4, commitsDelta: 0 };
+      if (action === 'tap') return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
       return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
     }
-    case 'standup_meeting': {
-      if (action === 'solve') return { energyDelta: -2, depressionDelta: 0, commitsDelta: 0 };
-      return { energyDelta: 0, depressionDelta: 1, commitsDelta: 0 };
-    }
-    case 'slack_notification': {
-      if (action === 'solve') return { energyDelta: -1, depressionDelta: 1, commitsDelta: 0 };
+    case 'stack_overflow_down': {
       return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
-    }
-    case 'zoom_call': {
-      if (action === 'solve') return { energyDelta: -2, depressionDelta: 0, commitsDelta: 0 };
-      return { energyDelta: 0, depressionDelta: 1, commitsDelta: 0 };
     }
     default:
       return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
@@ -228,8 +219,8 @@ export function calculateEventDeltas(type, action, gameState = {}) {
 
 export async function resolveRandomEvent(client, userId, eventId, action, gameState = {}) {
   const result = await client.query(
-    `SELECT * FROM active_random_events
-     WHERE user_id = $1 AND event_id = $2 AND resolved_at IS NULL
+    `SELECT * FROM user_active_events
+     WHERE user_id = $1 AND event_id = $2 AND resolved = FALSE
      FOR UPDATE`,
     [userId, eventId]
   );
@@ -238,17 +229,20 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
     return { error: 'Event not found or already resolved', status: 404 };
   }
 
-  const type = row.event_type;
+  const type = row.event_slug;
   const eventState = row.state || {};
   const now = new Date();
 
   let nextEventState = { ...eventState };
   let nextDeltas = calculateEventDeltas(type, action, gameState);
 
-  if (type === 'legacy_code' && action === 'solve') {
+  const clickEvents = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
+
+  // Click-based events: solve enters click mode
+  if (clickEvents.includes(type) && action === 'solve') {
     nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
     await client.query(
-      `UPDATE active_random_events
+      `UPDATE user_active_events
        SET state = $3,
            deltas = $4
        WHERE user_id = $1 AND event_id = $2`,
@@ -256,20 +250,17 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
     );
     await syncRandomEventStateToProgression(client, userId, nextEventState);
     return { success: true, resolved: false, nextState: nextEventState, deltas: nextDeltas };
-  } else if (type === 'production_alert' && action === 'ignore') {
-    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
-  } else if (type === 'hot_streak' && action === 'solve') {
-    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
-  } else if (type === 'deploy_friday' && action === 'solve') {
-    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
-  } else if (type === 'legacy_code' && action === 'tap') {
+  }
+
+  // Click-based events: tap reduces counter
+  if (clickEvents.includes(type) && action === 'tap') {
     nextEventState = applyTapToRandomEventState(eventState);
     nextDeltas = { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
-    const clicksLeft = nextEventState.legacyCodeClicksRemaining || 0;
+    const clicksLeft = getRemainingClicks(nextEventState, type);
     if (clicksLeft <= 0) {
       await client.query(
-        `UPDATE active_random_events
-         SET resolved_at = NOW(), resolution = $3, state = $4, deltas = $5
+        `UPDATE user_active_events
+         SET resolved = TRUE, resolved_at = NOW(), resolution = $3, state = $4, deltas = $5
          WHERE user_id = $1 AND event_id = $2`,
         [userId, eventId, action, JSON.stringify(nextEventState), JSON.stringify(nextDeltas)]
       );
@@ -277,7 +268,7 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
       return { success: true, resolved: true, nextState: nextEventState, deltas: nextDeltas };
     }
     await client.query(
-      `UPDATE active_random_events
+      `UPDATE user_active_events
        SET state = $3
        WHERE user_id = $1 AND event_id = $2`,
       [userId, eventId, JSON.stringify(nextEventState)]
@@ -286,9 +277,31 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
     return { success: true, resolved: false, nextState: nextEventState, deltas: nextDeltas };
   }
 
+  // Other special cases
+  if (type === 'stack_overflow_down' && action === 'ignore') {
+    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
+  }
+  if (type === 'golden_commit' && action === 'solve') {
+    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
+  }
+  if (type === 'deploy_friday' && action === 'ignore') {
+    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
+  }
+  if (type === 'bug_production' && action === 'ignore') {
+    nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
+  }
+  if (type === 'open_source_contribution' && action === 'solve') {
+    await client.query(
+      `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+       VALUES ($1, 'open_source_hero', false, NOW())
+       ON CONFLICT (user_id, skin_id) DO NOTHING`,
+      [userId]
+    );
+  }
+
   await client.query(
-    `UPDATE active_random_events
-     SET resolved_at = NOW(), resolution = $3, state = $4, deltas = $5
+    `UPDATE user_active_events
+     SET resolved = TRUE, resolved_at = NOW(), resolution = $3, state = $4, deltas = $5
      WHERE user_id = $1 AND event_id = $2`,
     [userId, eventId, action, JSON.stringify(nextEventState), JSON.stringify(nextDeltas)]
   );
@@ -316,16 +329,16 @@ export async function syncRandomEventStateToProgression(client, userId, randomEv
 
 export function buildActiveEventPayload(row) {
   if (!row) return null;
-  const meta = EVENT_UI_META[row.event_type] || {};
+  const meta = EVENT_UI_META[row.event_slug] || {};
   return {
     eventId: row.event_id,
-    type: row.event_type,
+    type: row.event_slug,
     kind: row.kind || 'neutral',
-    title: meta.title || row.event_type,
+    title: meta.title || row.event_slug,
     description: meta.description || '',
     options: {
-      solve: { label: meta.solveLabel || 'РЕШИТЬ' },
-      ignore: { label: meta.ignoreLabel || 'ИГНОР' },
+      solve: meta.solveLabel ? { label: meta.solveLabel } : null,
+      ignore: meta.ignoreLabel ? { label: meta.ignoreLabel } : null,
     },
     timeout: Math.max(0, Math.floor((new Date(row.expires_at).getTime() - Date.now()) / 1000)),
     startedAt: row.started_at,

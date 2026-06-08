@@ -19,6 +19,7 @@
 
 import { useState, useCallback } from 'preact/hooks';
 import { audioManager } from '../utils/AudioManager.js';
+import { Analytics } from '../utils/analytics.js';
 import './AudioSettings.css';
 
 /**
@@ -49,6 +50,11 @@ export default function AudioSettings() {
         audioManager.playBGM('bgm_main');
       }
     }
+    Analytics.track('settings_changed', {
+      setting_name: 'audio_mute',
+      new_value: next,
+      old_value: muted,
+    });
     setMuted(next);
   }, [muted]);
 

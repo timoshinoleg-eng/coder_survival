@@ -16,6 +16,7 @@ const COLORS = {
   text: '#e6edf7',
   muted: '#8899aa',
   gold: '#facc15',
+  mu: '#8b5cf6',
 };
 
 const STAGE = { PREVIEW: 'preview', CONFIRM: 'confirm', RESULT: 'result', SHOP: 'shop' };
@@ -48,8 +49,9 @@ export default function PrestigeModal() {
   const [confirmReady, setConfirmReady] = useState(false);
   const audioDuckedRef = useRef(false);
 
-  const prestigeLevel = gameState?.prestige?.level || 0;
-  const prestigeAvailable = gameState?.prestige?.available === true;
+  const prestigeCount = gameState?.prestige?.prestigeCount || 0;
+  const muAvailable = gameState?.prestige?.muAvailable === true;
+  const muCurrency = gameState?.prestige?.muCurrency || 0;
   const refreshState = gameState?.reset;
 
   function resumeModalAudio() {
@@ -164,14 +166,14 @@ export default function PrestigeModal() {
       style: {
         position: 'fixed', top: '52px', right: '70px', zIndex: 100,
         padding: '6px 14px', borderRadius: '8px',
-        border: `1px solid ${prestigeAvailable ? COLORS.accent : COLORS.muted}`,
-        background: prestigeAvailable ? 'rgba(245, 158, 11, 0.12)' : 'rgba(136, 153, 170, 0.12)',
-        color: prestigeAvailable ? COLORS.accent : COLORS.muted,
+        border: `1px solid ${muAvailable ? COLORS.mu : COLORS.muted}`,
+        background: muAvailable ? 'rgba(139, 92, 246, 0.12)' : 'rgba(136, 153, 170, 0.12)',
+        color: muAvailable ? COLORS.mu : COLORS.muted,
         fontSize: '13px', fontWeight: '700', cursor: 'pointer',
-        animation: prestigeAvailable ? 'pulse-prestige 1.5s infinite' : 'none',
+        animation: muAvailable ? 'pulse-prestige 1.5s infinite' : 'none',
         touchAction: 'manipulation',
       },
-    }, prestigeAvailable ? `Prestige P${prestigeLevel}` : 'PP shop');
+    }, muAvailable ? `Prestige μ${muCurrency}` : 'μ shop');
   }
 
   return h('div', {
@@ -190,9 +192,9 @@ export default function PrestigeModal() {
         position: 'relative', width: 'min(380px, 100%)',
         maxHeight: 'min(85vh, calc(100vh - 32px))', overflowY: 'auto',
         background: `linear-gradient(180deg, ${COLORS.panel} 0%, ${COLORS.bg} 100%)`,
-        border: `2px solid ${COLORS.accent}`, borderRadius: '14px',
+        border: `2px solid ${COLORS.mu}`, borderRadius: '14px',
         padding: '20px', color: COLORS.text,
-        boxShadow: '0 0 30px rgba(245, 158, 11, 0.2)',
+        boxShadow: '0 0 30px rgba(139, 92, 246, 0.2)',
       }
     }, [
       h('button', {
@@ -224,14 +226,14 @@ function renderPreview(data, loading, error, onRetry, onShop, onProceed) {
 
   if (!data) return null;
 
-  const symbol = `\u2192 P${(data.prestigeLevel || 0) + 1}`;
+  const symbol = `\u2192 P${(data.prestigeCount || 0) + 1}`;
 
   return h('div', null, [
     h('div', { style: { textAlign: 'center', marginBottom: '16px' } },
       h('div', { style: { fontSize: '26px', marginBottom: '4px' } }, '\uD83C\uDFAF'),
-      h('div', { style: { fontSize: '20px', fontWeight: '700', color: COLORS.accent } }, 'You are being hunted!'),
+      h('div', { style: { fontSize: '20px', fontWeight: '700', color: COLORS.mu } }, '\u03bc Prestige'),
       h('div', { style: { fontSize: '13px', color: COLORS.muted, marginTop: '4px' } },
-        `Prestige ${data.prestigeLevel || 0} ${symbol}`
+        `Prestige ${data.prestigeCount || 0} ${symbol}`
       ),
     ),
 
@@ -240,19 +242,23 @@ function renderPreview(data, loading, error, onRetry, onShop, onProceed) {
         textAlign: 'center', padding: '12px', background: 'rgba(248, 113, 113, 0.1)',
         borderRadius: '8px', marginBottom: '12px', fontSize: '13px', color: COLORS.red,
       }
-    }, `Need ${data.requiredXp} XP total (you have ${data.currentXp})`),
+    }, `Need ${Number(data.requiredLoc).toLocaleString()} lifetime LOC (you have ${Number(data.lifetimeLoc).toLocaleString()})`),
 
     data.available && h('div', { style: { marginBottom: '16px' } }, [
-      h('div', { style: { fontSize: '14px', fontWeight: '600', color: COLORS.accent, marginBottom: '8px' } }, 'Bonuses this prestige:'),
+      StatRow({ label: 'Lifetime LOC', value: Number(data.lifetimeLoc).toLocaleString(), color: COLORS.text }),
+      StatRow({ label: 'Current \u03bc', value: data.muCurrency ?? 0, color: COLORS.mu }),
+      StatRow({ label: 'Projected \u03bc', value: data.projectedMu ?? 0, color: COLORS.green }),
+      StatRow({ label: '\u03bc earned this reset', value: `+${data.deltaMu ?? 0}`, color: COLORS.gold }),
+      h('div', { style: { fontSize: '14px', fontWeight: '600', color: COLORS.mu, marginBottom: '8px', marginTop: '12px' } }, 'Bonuses this prestige:'),
       h('div', { style: { paddingLeft: '8px', borderLeft: `2px solid ${COLORS.green}` } },
-        (data.bonuses || []).map((b, i) =>
-          h('div', { key: i, style: { fontSize: '13px', padding: '3px 0', color: COLORS.green } },
-            `+ ${b.name}: ${b.detail}`
-          )
-        )
-      ),
-      h('div', { style: { fontSize: '13px', color: COLORS.muted, marginTop: '10px' } },
-        `Prestige currency: +${data.prestigeCurrencyEarned || 0} (total: ${data.totalPrestigeCurrency || 0})`
+        [
+          h('div', { style: { fontSize: '13px', padding: '3px 0', color: COLORS.green } },
+            `+ Passive LOC: ${((data.bonusesThisPrestige?.passiveLocMult || 1) * 100 - 100).toFixed(1)}%`
+          ),
+          h('div', { style: { fontSize: '13px', padding: '3px 0', color: COLORS.green } },
+            `+ Click power: ${((data.bonusesThisPrestige?.clickPowerMult || 1) * 100 - 100).toFixed(1)}%`
+          ),
+        ]
       ),
     ]),
 
@@ -260,13 +266,13 @@ function renderPreview(data, loading, error, onRetry, onShop, onProceed) {
       onClick: data.available ? onProceed : undefined,
       disabled: !data.available,
       style: {
-        ...btnStyle(data.available ? COLORS.accent : COLORS.muted),
+        ...btnStyle(data.available ? COLORS.mu : COLORS.muted),
         width: '100%',
         marginTop: '8px',
         cursor: data.available ? 'pointer' : 'default',
         opacity: data.available ? 1 : 0.65,
       },
-    }, data.available ? 'Change job \u2705' : 'Prestige locked'),
+    }, data.available ? 'Prestige Now \u2705' : 'Prestige locked'),
 
     !data.available && h('button', {
       onClick: onShop,
@@ -286,7 +292,7 @@ function renderConfirm(data, loading, error, confirmReady, onBack, onArmConfirm,
 
   return h('div', null, [
     h('div', { style: { textAlign: 'center', marginBottom: '16px' } },
-      h('div', { style: { fontSize: '22px', fontWeight: '700', color: COLORS.accent } }, 'Are you sure?'),
+      h('div', { style: { fontSize: '22px', fontWeight: '700', color: COLORS.mu } }, 'Are you sure?'),
       h('div', { style: { fontSize: '13px', color: COLORS.muted, marginTop: '4px' } },
         'You keep your skin, streak, inventory, and teams.'
       ),
@@ -299,11 +305,11 @@ function renderConfirm(data, loading, error, confirmReady, onBack, onArmConfirm,
       ),
       h('div', { style: { fontSize: '13px', fontWeight: '600', color: COLORS.green, marginBottom: '6px', marginTop: '12px' } }, 'Will keep:'),
       h('div', { style: { fontSize: '13px', color: COLORS.green, paddingLeft: '12px', lineHeight: '1.8' } },
-        'commitsTotal, skins, inventory, streak, battle pass, squads'
+        'lifetime LOC, commitsTotal, skins, inventory, streak, battle pass, squads, \u03bc currency'
       ),
-      h('div', { style: { fontSize: '13px', fontWeight: '600', color: COLORS.accent, marginBottom: '6px', marginTop: '12px' } }, 'You will get:'),
-      h('div', { style: { fontSize: '13px', color: COLORS.accent, paddingLeft: '12px', lineHeight: '1.8' } },
-        `+${data?.prestigeCurrencyEarned || 0} prestige currency, permanent tap + energy + crit bonuses`
+      h('div', { style: { fontSize: '13px', fontWeight: '600', color: COLORS.mu, marginBottom: '6px', marginTop: '12px' } }, 'You will get:'),
+      h('div', { style: { fontSize: '13px', color: COLORS.mu, paddingLeft: '12px', lineHeight: '1.8' } },
+        `+${data?.deltaMu || 0} \u03bc currency, permanent passive LOC + click bonuses`
       ),
     ]),
 
@@ -314,7 +320,7 @@ function renderConfirm(data, loading, error, confirmReady, onBack, onArmConfirm,
       }, 'Cancel'),
       h('button', {
         onClick: confirmReady ? onExecute : onArmConfirm,
-        style: { ...btnStyle(confirmReady ? COLORS.red : COLORS.accent), flex: 1 },
+        style: { ...btnStyle(confirmReady ? COLORS.red : COLORS.mu), flex: 1 },
       }, confirmReady ? 'Execute reset \uD83D\uDD25' : 'I understand'),
     ]),
   ]);
@@ -324,22 +330,21 @@ function renderResult(data, onClose, onShop) {
   if (!data) return null;
   return h('div', { style: { textAlign: 'center' } }, [
     h('div', { style: { fontSize: '48px', marginBottom: '8px' } }, '\uD83C\uDF89'),
-    h('div', { style: { fontSize: '18px', fontWeight: '700', color: COLORS.accent, marginBottom: '16px' } },
-      'Welcome to the new team!'
+    h('div', { style: { fontSize: '18px', fontWeight: '700', color: COLORS.mu, marginBottom: '16px' } },
+      'Prestige complete!'
     ),
     h('div', { style: { fontSize: '13px', color: COLORS.text, marginBottom: '12px' } },
-      `Prestige Level ${data.prestigeLevel}`
+      `Prestige Count ${data.prestigeCount}`
     ),
-    StatRow({ label: 'Prestige currency earned', value: `+${data.prestigeCurrencyEarned}`, color: COLORS.accent }),
-    StatRow({ label: 'Total currency', value: String(data.totalPrestigeCurrency), color: COLORS.gold }),
-    StatRow({ label: 'Tap multiplier', value: `x${data.bonuses.tapMult.toFixed(2)}`, color: COLORS.green }),
-    StatRow({ label: 'Max energy add', value: `+${data.bonuses.maxEnergyAdd}`, color: COLORS.green }),
-    StatRow({ label: 'Crit chance add', value: `+${Math.round(data.bonuses.critAdd * 100)}%`, color: COLORS.green }),
+    StatRow({ label: '\u03bc earned', value: `+${data.muEarned}`, color: COLORS.mu }),
+    StatRow({ label: 'Total \u03bc', value: String(data.totalMu), color: COLORS.gold }),
+    StatRow({ label: 'Passive LOC mult', value: `x${data.bonuses.passiveLocMult.toFixed(3)}`, color: COLORS.green }),
+    StatRow({ label: 'Click power mult', value: `x${data.bonuses.clickPowerMult.toFixed(3)}`, color: COLORS.green }),
 
     h('div', { style: { display: 'flex', gap: '10px', marginTop: '16px' } }, [
       h('button', {
         onClick: onShop,
-        style: { ...btnStyle(COLORS.accent), flex: 1 },
+        style: { ...btnStyle(COLORS.mu), flex: 1 },
       }, 'Prestige shop'),
       h('button', {
         onClick: onClose,
@@ -359,7 +364,7 @@ function renderShop(data, error, buying, onBuy, onClose, onRefresh) {
 
   return h('div', null, [
     h('div', { style: { textAlign: 'center', marginBottom: '12px' } },
-      h('div', { style: { fontSize: '18px', fontWeight: '700', color: COLORS.accent } }, 'Prestige shop'),
+      h('div', { style: { fontSize: '18px', fontWeight: '700', color: COLORS.mu } }, 'Prestige shop'),
       h('div', { style: { fontSize: '13px', color: COLORS.gold } },
         `\uD83D\uDCB0 ${data.prestigeCurrency} pro points`
       ),
@@ -384,7 +389,7 @@ function renderShop(data, error, buying, onBuy, onClose, onRefresh) {
               onClick: () => onBuy(item.key),
               disabled: buying === item.key || data.prestigeCurrency < item.cost,
               style: {
-                ...btnStyle(COLORS.accent), padding: '4px 12px', fontSize: '12px',
+                ...btnStyle(COLORS.mu), padding: '4px 12px', fontSize: '12px',
                 opacity: buying === item.key ? 0.5 : 1,
               },
             }, `${item.cost} PP`),

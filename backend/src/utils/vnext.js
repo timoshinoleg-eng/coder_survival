@@ -66,7 +66,7 @@ export function resolveCareerRank(xpTotal) {
   };
 }
 
-export function resolveLevelState(xpTotal, prestigeLevel = 0) {
+export function resolveLevelState(xpTotal, prestigeLevel = 0, muCurrency = 0) {
   let resolvedRank = 1;
   let resolvedLevel = 1;
 
@@ -94,7 +94,7 @@ export function resolveLevelState(xpTotal, prestigeLevel = 0) {
     energyRecoveryMult: 1,
     depressionResistanceMult: 1,
   };
-  const bonused = applyPrestigeBonuses(baseState, p);
+  const bonused = applyPrestigeBonuses(baseState, p, muCurrency);
 
   return {
     xpTotal,
@@ -113,6 +113,8 @@ export function resolveLevelState(xpTotal, prestigeLevel = 0) {
     critChanceAdd: bonused.critChanceAdd,
     energyRecoveryMult: bonused.energyRecoveryMult,
     depressionResistanceMult: bonused.depressionResistanceMult,
+    passiveLocMult: bonused.passiveLocMult,
+    muCurrency: bonused.muCurrency,
   };
 }
 
@@ -125,16 +127,22 @@ export async function ensurePlayerLevel(client, userId) {
     [userId]
   );
 
-  return withResolvedLevel(result.rows[0]);
+  const progResult = await client.query(
+    `SELECT mu_currency FROM progression WHERE user_id = $1`,
+    [userId]
+  );
+  const muCurrency = Number(progResult.rows[0]?.mu_currency ?? 0);
+
+  return withResolvedLevel(result.rows[0], muCurrency);
 }
 
-function withResolvedLevel(row) {
+function withResolvedLevel(row, muCurrency = 0) {
   const xpTotal = Number(row.xp_total ?? 0);
   const prestigeLevel = Number(row.prestige_level ?? 0);
   return {
     ...row,
     xp_total: xpTotal,
-    resolved: resolveLevelState(xpTotal, prestigeLevel)
+    resolved: resolveLevelState(xpTotal, prestigeLevel, muCurrency)
   };
 }
 
@@ -166,7 +174,14 @@ export async function addPlayerXp(client, userId, delta) {
      RETURNING *`,
     [userId, delta]
   );
-  return withResolvedLevel(result.rows[0]);
+
+  const progResult = await client.query(
+    `SELECT mu_currency FROM progression WHERE user_id = $1`,
+    [userId]
+  );
+  const muCurrency = Number(progResult.rows[0]?.mu_currency ?? 0);
+
+  return withResolvedLevel(result.rows[0], muCurrency);
 }
 
 export function computeTapXp(levelInRank, boostMult = 1) {

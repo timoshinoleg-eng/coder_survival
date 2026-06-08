@@ -61,6 +61,8 @@ const DEFAULT_STATE = {
   stressCohort: "control",
   contextOffer: null,
   isBurnout: false,
+  burnoutAffliction: false,
+  forcedBreakUntil: null,
   isCrit: false,
   critTier: null,
   inventory: {},
@@ -262,6 +264,10 @@ export function GameProvider({ children }) {
             requiredXp: payload.prestige.requiredXp ?? 3100,
             shopPurchases: payload.prestige.shopPurchases ?? [],
             bonuses: payload.prestige.bonuses ?? {},
+            lifetimeLoc: payload.prestige.lifetimeLoc ?? 0,
+            prestigeCount: payload.prestige.prestigeCount ?? 0,
+            muCurrency: payload.prestige.muCurrency ?? 0,
+            muAvailable: payload.prestige.muAvailable ?? false,
           }
         : current.prestige,
       featureFlags: payload?.featureFlags ?? payload?.feature_flags ?? current.featureFlags ?? {},
@@ -274,6 +280,20 @@ export function GameProvider({ children }) {
         game.isBurnout ??
         current.isBurnout ??
         false,
+      burnoutAffliction:
+        payload?.burnoutAffliction ??
+        payload?.burnout_affliction ??
+        game.burnout_affliction ??
+        game.burnoutAffliction ??
+        current.burnoutAffliction ??
+        false,
+      forcedBreakUntil:
+        payload?.forcedBreakUntil ??
+        payload?.forced_break_until ??
+        game.forced_break_until ??
+        game.forcedBreakUntil ??
+        current.forcedBreakUntil ??
+        null,
       isCrit: payload?.isCrit ?? current.isCrit ?? false,
       critTier: Object.prototype.hasOwnProperty.call(payload || {}, "critTier")
         ? payload.critTier

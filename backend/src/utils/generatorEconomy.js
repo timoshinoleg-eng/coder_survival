@@ -1,7 +1,7 @@
 import { buildGeneratorStatus, normalizeGeneratorState } from './generatorState.js';
 import { applyLocPenalty, normalizeAntiCheatState } from './anticheat.js';
 import { logDailyFarm } from './farmLog.js';
-import { getGeneratorCostMultiplierFromEventState } from './randomEventState.js';
+import { getGeneratorCostMultiplierFromEventState, getRandomEventLocMultiplier } from './randomEventState.js';
 import { updateTeamProgress } from './teams.js';
 
 function toValidDate(value) {
@@ -23,7 +23,7 @@ export async function recoverPassiveLoc(client, progression, { accountAgeMinutes
   const status = buildGeneratorStatus(generatorState, accountAgeMinutes, {
     costMultiplier: getGeneratorCostMultiplierFromEventState(progression.event_state || {})
   });
-  const effectivePerSecond = Number(status.passiveLocPerSecond || 0) * Math.max(0, Number(passiveMultiplier || 1));
+  const effectivePerSecond = Number(status.passiveLocPerSecond || 0) * Math.max(0, Number(passiveMultiplier || 1)) * getRandomEventLocMultiplier(progression.event_state || {}, now);
   const rawLocEarned = Math.floor(effectivePerSecond * elapsedSeconds);
   const antiCheatState = normalizeAntiCheatState(progression.anti_cheat_state || {});
   const locEarned = applyLocPenalty(rawLocEarned, antiCheatState.banScore);
@@ -43,6 +43,7 @@ export async function recoverPassiveLoc(client, progression, { accountAgeMinutes
   const result = await client.query(
     `UPDATE progression
      SET commits_total = commits_total + $2,
+         lifetime_loc = lifetime_loc + $2,
          commits_current = commits_current + $2,
          generator_state = $3,
          updated_at = NOW()
