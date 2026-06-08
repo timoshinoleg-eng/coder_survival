@@ -43,10 +43,16 @@ import minigameRouter from "./routes/minigame.js";
 import dailySummaryRouter from "./routes/dailySummary.js";
 import prestigeRouter from "./routes/prestige.js";
 import analyticsRouter from "./routes/analytics.js";
+import languagesRouter from "./routes/languages.js";
+import walletRouter from "./routes/wallet.js";
+import dailyBattleRouter from "./routes/dailyBattle.js";
+import boostersRouter from "./routes/boosters.js";
 import { startDailySummaryCron } from "./jobs/dailySummaryCron.js";
+import { startDailyBattleCron } from "./jobs/dailyBattleCron.js";
 import { startTeamHackathonCron } from "./jobs/teamHackathonCron.js";
 import { startAchievementCron } from "./jobs/achievementCron.js";
 import { startRandomEventCron } from "./jobs/randomEventCron.js";
+import { startFlashSaleCron } from "./jobs/flashSaleCron.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -89,7 +95,7 @@ app.use(
         styleSrc: ["'self'", "'unsafe-inline'"],
         scriptSrc: ["'self'"],
         imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "https://bridge.tonapi.io", "https://tonapi.io", "wss://bridge.tonapi.io"],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -199,8 +205,12 @@ app.use("/api/achievements", initDataMiddleware, achievementsRouter);
 app.use('/api/appeal', initDataMiddleware, appealRouter);
 app.use("/api/minigame", initDataMiddleware, minigameRouter);
 app.use("/api/daily-summary", initDataMiddleware, dailySummaryRouter);
+app.use("/api/daily-battle", initDataMiddleware, dailyBattleRouter);
 app.use("/api/prestige", initDataMiddleware, prestigeRouter);
 app.use("/api/analytics", initDataMiddleware, analyticsRouter);
+app.use("/api/boosters", initDataMiddleware, boostersRouter);
+app.use("/api/languages", initDataMiddleware, languagesRouter);
+app.use("/api/wallet", initDataMiddleware, walletRouter);
 
 // Error handler
 app.use(errorHandler);
@@ -236,7 +246,9 @@ if (isEntrypoint) {
   });
   startBalanceAuditJob();
   startDailySummaryCron();
+  startDailyBattleCron();
   startTeamHackathonCron();
   startAchievementCron();
   startRandomEventCron();
+  startFlashSaleCron();
 }

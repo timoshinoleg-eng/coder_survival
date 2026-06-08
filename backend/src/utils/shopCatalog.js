@@ -38,7 +38,7 @@ export const PRODUCT_CATALOG = {
     id: 'premium_pass',
     name: 'Premium Pass',
     description: 'Открывает premium-награды активного сезона',
-    stars: 200,
+    stars: 499,
     icon: '🎟️',
     category: 'pass'
   },

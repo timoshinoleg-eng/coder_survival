@@ -2,7 +2,7 @@ import { applyReward } from './rewards.js';
 import { STAGE2 } from '../config/balance.js';
 import { getProductById } from './shopCatalog.js';
 
-const { PASS } = STAGE2;
+export const { PASS } = STAGE2;
 
 /**
  * Sprint Pass v1 — compact battle pass.
@@ -11,10 +11,20 @@ const { PASS } = STAGE2;
 
 export function getPassRequiredXp(level) {
   const normalizedLevel = Number(level || 0);
-  if (!Number.isInteger(normalizedLevel) || normalizedLevel < 1 || normalizedLevel > 20) {
+  if (!Number.isInteger(normalizedLevel) || normalizedLevel < 1 || normalizedLevel > PASS.MAX_LEVEL) {
     return null;
   }
-  return normalizedLevel * 100;
+  const tiers = [
+    { end: 10, xp: 100 },
+    { end: 20, xp: 150 },
+    { end: 30, xp: 200 },
+    { end: 40, xp: 250 },
+    { end: 50, xp: 300 },
+  ];
+  for (const tier of tiers) {
+    if (normalizedLevel <= tier.end) return tier.xp;
+  }
+  return 300;
 }
 
 export function calculateCatchUpXp(missedDays, avgDailyXP) {
@@ -42,7 +52,7 @@ export function applyPassXpSourceMultiplier(amount, source, date = new Date()) {
 
 export async function getActivePass(client) {
   const result = await client.query(
-    `SELECT id, season_number, season_name, start_date, end_date
+    `SELECT id, season_number, season_name, start_date, end_date, theme
      FROM sprint_passes
      WHERE is_active = TRUE
        AND start_date <= CURRENT_DATE
@@ -96,9 +106,9 @@ export function calculatePassLevel(passState = {}) {
     }
   }
 
-  if (level === 20) {
+  if (level >= PASS.MAX_LEVEL) {
     return {
-      currentLevel: 20,
+      currentLevel: PASS.MAX_LEVEL,
       progressToNext: 1.0,
       nextLevelXp: 0,
       remainingXp: remaining
@@ -187,7 +197,7 @@ async function addDbPassXp(client, userId, xpAmount) {
   let newXp = playerPass.current_xp + xpAmount;
 
   const rewards = await getPassRewards(client, pass.id);
-  const maxLevel = rewards.length > 0 ? Math.max(...rewards.map(r => r.level)) : 20;
+  const maxLevel = rewards.length > 0 ? Math.max(...rewards.map(r => r.level)) : PASS.MAX_LEVEL;
 
   while (newLevel < maxLevel) {
     const rewardDef = rewards.find(r => r.level === newLevel);
@@ -334,7 +344,15 @@ export async function unlockPremiumPass(client, userId) {
 export function normalizePassStatus(status) {
   if (!status) return null;
 
-  const levelMeta = calculatePassLevel(status.playerPass ? { currentXp: status.playerPass.current_xp } : {});
+  const currentLevel = status.playerPass?.current_level || 0;
+  const currentXp = status.playerPass?.current_xp || 0;
+  const nextReward = (status.rewards || []).find(r => r.level === currentLevel);
+  const nextLevelXp = nextReward ? nextReward.requiredXp : getPassRequiredXp(currentLevel) || 0;
+  const remainingXp = nextLevelXp > 0 ? nextLevelXp - currentXp : 0;
+
+  const daysRemaining = status.pass?.end_date
+    ? Math.max(0, Math.ceil((new Date(status.pass.end_date).getTime() - Date.now()) / 86400000))
+    : 0;
 
   return {
     pass: status.pass ? {
@@ -343,6 +361,8 @@ export function normalizePassStatus(status) {
       seasonName: status.pass.season_name,
       startDate: status.pass.start_date,
       endDate: status.pass.end_date,
+      theme: status.pass.theme,
+      daysRemaining,
       refund: {
         totalRefundPercent: PASS.CATCH_UP.premiumTrackRefundPercent,
         currencySplit: PASS.CATCH_UP.premiumTrackRefundCurrencySplit,
@@ -357,8 +377,8 @@ export function normalizePassStatus(status) {
       currentXp: status.playerPass.current_xp,
       isPremium: status.playerPass.is_premium,
       createdAt: status.playerPass.created_at,
-      nextLevelXp: levelMeta.nextLevelXp,
-      remainingXp: levelMeta.remainingXp
+      nextLevelXp,
+      remainingXp
     } : null,
     rewards: status.rewards || [],
     premiumPassProduct: getProductById('premium_pass')

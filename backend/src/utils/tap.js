@@ -1,6 +1,6 @@
 import { TAP_MECHANICS } from '../config/balance.js';
 
-export function calculateTapDelta(baseCommits, energy, depression, streak, commitMultiplier = 1, tapBoostPercent = 0, critChanceAdd = 0) {
+export function calculateTapDelta(baseCommits, energy, depression, streak, commitMultiplier = 1, tapBoostPercent = 0, critChanceAdd = 0, clickPowerMult = 1) {
   const energyMultiplier = energy / 100;
   const depressionPenalty = Math.min(1, depression / TAP_MECHANICS.afflictionDepression);
   const streakBonus = Math.min(
@@ -42,8 +42,9 @@ export function calculateTapDelta(baseCommits, energy, depression, streak, commi
     );
   }
 
-  if (tapBoostPercent > 0) {
-    commitsDelta = Math.round(commitsDelta * (1 + tapBoostPercent / 100));
+  const totalMultiplier = (1 + (tapBoostPercent || 0) / 100) * (clickPowerMult || 1);
+  if (totalMultiplier !== 1) {
+    commitsDelta = Math.round(commitsDelta * totalMultiplier);
   }
 
   return {

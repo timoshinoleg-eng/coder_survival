@@ -10,8 +10,11 @@ export function formatRewardPayload(payload) {
   if (payload.stars) parts.push(`+${payload.stars} Stars`);
   if (payload.skin) parts.push(`скин ${payload.skin}`);
   if (payload.skinFragment) parts.push(`фрагмент ${payload.skinFragment}`);
+  if (payload.avatarFrame) parts.push(`рамка ${payload.avatarFrame}`);
+  if (payload.muCurrency) parts.push(`+${payload.muCurrency} μ`);
   if (payload.depressionRelief) parts.push(`-${payload.depressionRelief} стресс`);
   if (payload.inventory?.coffee_cups) parts.push(`+${payload.inventory.coffee_cups} кофе`);
+  if (payload.booster) parts.push(`бустер ${payload.booster}`);
   if (payload.title) parts.push(`титул ${payload.title}`);
 
   return parts.join(', ') || 'Награда';

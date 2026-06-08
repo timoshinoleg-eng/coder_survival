@@ -1,27 +1,61 @@
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import { apiRequest } from '../utils/api.js';
+import { useTelegram } from '../hooks/useTelegram.js';
 import Confetti from './Confetti.jsx';
 
 function iconForReward(reward) {
   if (!reward) return '·';
   if (reward.skin || reward.skinFragment) return '🎭';
+  if (reward.avatarFrame) return '🖼';
+  if (reward.muCurrency) return 'μ';
   if (reward.stars) return '⭐';
   if (reward.title) return '🏷';
+  if (reward.booster) return '🚀';
+  if (reward.energy) return '⚡';
+  if (reward.commitsCurrent) return '💻';
+  if (reward.depressionRelief) return '🧘';
   return '⚡';
 }
 
+function labelForReward(reward) {
+  if (!reward) return '—';
+  const parts = [];
+  if (reward.energy) parts.push(`+${reward.energy} эн`);
+  if (reward.commitsCurrent) parts.push(`+${reward.commitsCurrent} коммитов`);
+  if (reward.stars) parts.push(`+${reward.stars}⭐`);
+  if (reward.skin) parts.push(`скин ${reward.skin}`);
+  if (reward.skinFragment) parts.push(`фрагмент ${reward.skinFragment}`);
+  if (reward.avatarFrame) parts.push(`рамка ${reward.avatarFrame}`);
+  if (reward.muCurrency) parts.push(`+${reward.muCurrency} μ`);
+  if (reward.depressionRelief) parts.push(`-${reward.depressionRelief} стресс`);
+  if (reward.booster) parts.push(`бустер ${reward.booster}`);
+  if (reward.title) parts.push(`титул ${reward.title}`);
+  return parts.join(', ') || 'Награда';
+}
+
 export default function PassPanel() {
-  const { pass, refreshPass } = useGameState();
+  const { pass, refreshPass, claimPassReward, showToast } = useGameState();
+  const { initData } = useTelegram();
   const [open, setOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [claiming, setClaiming] = useState(null);
+  const [upgrading, setUpgrading] = useState(false);
   const prevLevelRef = useRef(null);
-  const levels = pass?.levels || [];
-  const currentLevel = Number(pass?.currentLevel || 0);
-  const progress = Math.max(0, Math.min(100, Math.round((pass?.progressToNext || 0) * 100)));
-  const nextLevelXp = pass?.nextLevelXp || 0;
-  const remainingXp = pass?.remainingXp || 0;
-  const currentLevelXp = nextLevelXp > 0 ? nextLevelXp - remainingXp : 0;
+
+  const passMeta = pass?.pass || null;
+  const playerPass = pass?.playerPass || null;
+  const rewards = pass?.rewards || [];
+  const currentLevel = Number(playerPass?.currentLevel || 0);
+  const isPremium = Boolean(playerPass?.isPremium);
+  const daysRemaining = passMeta?.daysRemaining ?? 0;
+  const totalLevels = 50;
+
+  const nextLevelRequired = rewards.find(r => r.level === currentLevel)?.requiredXp || 0;
+  const currentLevelProgress = (!nextLevelRequired || currentLevel >= totalLevels)
+    ? 100
+    : Math.min(100, Math.round((playerPass?.currentXp || 0) / nextLevelRequired * 100));
 
   useEffect(() => {
     if (prevLevelRef.current !== null && currentLevel > prevLevelRef.current) {
@@ -31,6 +65,45 @@ export default function PassPanel() {
     }
     prevLevelRef.current = currentLevel;
   }, [currentLevel]);
+
+  async function handleClaim(level, track) {
+    setClaiming(`${level}:${track}`);
+    try {
+      const payload = await claimPassReward(level, track);
+      if (payload?.success) {
+        showToast('Награда получена!', 'success', 2000);
+        await refreshPass();
+      }
+    } catch (err) {
+      showToast(err?.message || 'Не удалось забрать награду', 'error', 2000);
+    } finally {
+      setClaiming(null);
+    }
+  }
+
+  async function handleUpgrade(currency) {
+    setUpgrading(true);
+    try {
+      const payload = await apiRequest('/api/pass/upgrade', {
+        method: 'POST',
+        initData,
+        body: { currency }
+      });
+      if (payload?.success) {
+        showToast('Premium активирован!', 'success', 2500);
+        await refreshPass();
+      }
+    } catch (err) {
+      showToast(err?.message || 'Не удалось активировать Premium', 'error', 2500);
+    } finally {
+      setUpgrading(false);
+    }
+  }
+
+  const claimableFree = rewards.filter(r => r.unlocked && !r.freeClaimed).length;
+  const claimablePremium = isPremium
+    ? rewards.filter(r => r.unlocked && !r.premiumClaimed).length
+    : 0;
 
   return h('section', {
     style: {
@@ -45,6 +118,8 @@ export default function PassPanel() {
   }, [
     showConfetti && h(Confetti),
     h('style', null, '@keyframes passPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 16px rgba(250,204,21,.45); } }'),
+
+    // Header
     h('button', {
       type: 'button',
       onClick: () => {
@@ -62,101 +137,209 @@ export default function PassPanel() {
         justifyContent: 'space-between',
         padding: '10px 12px',
         fontWeight: 800,
+        cursor: 'pointer',
       },
     }, [
-      h('span', null, `Sprint Pass · ${currentLevel}/20`),
-      h('span', { style: { color: '#8ba1bb', fontSize: '12px' } }, `${pass?.daysRemaining ?? 0} дн.`),
+      h('span', null, `${passMeta?.seasonName || 'Season Pass'} · ${currentLevel}/${totalLevels}`),
+      h('span', { style: { color: '#8ba1bb', fontSize: '12px' } }, `${daysRemaining} дн.`),
     ]),
+
+    // Progress bar
+    h('div', { style: { padding: '6px 12px' } }, [
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#8ba1bb', marginBottom: '4px' } }, [
+        h('span', null, `Уровень ${currentLevel} / ${totalLevels}`),
+        h('span', null, currentLevel >= totalLevels ? 'MAX' : `XP: ${playerPass?.currentXp || 0} / ${nextLevelRequired}`),
+      ]),
+      h('div', {
+        style: { flex: 1, height: '8px', background: '#0f3460', borderRadius: '4px', overflow: 'hidden' }
+      }, h('div', {
+        style: {
+          width: `${currentLevel >= totalLevels ? 100 : currentLevelProgress}%`,
+          height: '100%',
+          background: 'linear-gradient(90deg, #60a5fa, #facc15)',
+          transition: 'width 0.4s ease'
+        }
+      })),
+    ]),
+
+    // Season timer & claimable summary
     h('div', {
       style: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '4px 12px 8px',
+        padding: '0 12px 8px',
         fontSize: '11px',
         color: '#8ba1bb',
       }
     }, [
-      h('span', null, `${currentLevelXp} / ${nextLevelXp} XP`),
-      h('span', null, `${progress}%`),
+      h('span', null, `Сезон закончится через ${daysRemaining} дней`),
+      h('span', { style: { color: claimableFree > 0 || claimablePremium > 0 ? '#facc15' : '#4ade80' } },
+        claimableFree > 0 || claimablePremium > 0
+          ? `🎁 ${claimableFree + claimablePremium} наград`
+          : 'Все награды забраны'
+      ),
     ]),
-    pass?.pass?.refund && h('div', {
+
+    // Premium upgrade banner
+    !isPremium && h('div', {
       style: {
-        padding: '0 12px 6px',
-        color: '#8ba1bb',
-        fontSize: '11px',
-      },
-    }, 'Сезонный пропуск: XP, catch-up и возврат premium собраны в одном месте.'),
-    pass?.catchUp && h('div', {
-      style: {
-        padding: '6px 12px 0',
-        color: '#c7ddf5',
-        fontSize: '11px',
-      },
-    }, `Catch-up: +${pass.catchUp.catchUpXp} XP за ${pass.catchUp.missedDays} дн.`),
-    pass?.pass?.refund && h('div', {
-      style: {
-        padding: '4px 12px 8px',
-        color: '#8ba1bb',
-        fontSize: '11px',
-      },
-    }, `Refund: ${Math.round((pass.pass.refund.totalRefundPercent || 0) * 100)}% · stars ${Math.round(((pass.pass.refund.currencySplit?.stars || 0) * 100))}% · ton ${Math.round(((pass.pass.refund.currencySplit?.ton || 0) * 100))}%`),
-    pass?.weekendDoubleXpActive && h('div', {
-      style: {
-        padding: '0 12px 8px',
-        color: '#4ade80',
-        fontSize: '11px',
-      },
-    }, 'Weekend x2 XP активно сейчас'),
-    h('div', { style: { height: '6px', background: '#0f3460' } },
-      h('div', {
-        style: {
-          width: `${currentLevel >= 20 ? 100 : progress}%`,
-          height: '100%',
-          background: 'linear-gradient(90deg, #60a5fa, #facc15)',
-        },
-      }),
-    ),
+        margin: '0 12px 10px',
+        padding: '10px',
+        borderRadius: '8px',
+        border: '1px solid #5b4a0a',
+        background: 'linear-gradient(90deg, rgba(250, 204, 21, 0.12), rgba(250, 204, 21, 0.04))',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px'
+      }
+    }, [
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
+        h('div', null, [
+          h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track закрыт'),
+          h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, 'Открой эксклюзивные награды: скины, рамки, μ-бонусы')
+        ]),
+      ]),
+      h('div', { style: { display: 'flex', gap: '8px' } }, [
+        h('button', {
+          onClick: () => handleUpgrade('stars'),
+          disabled: upgrading,
+          style: {
+            flex: 1,
+            padding: '6px 10px',
+            borderRadius: '6px',
+            border: 'none',
+            background: upgrading ? '#6b7280' : '#facc15',
+            color: '#1a1a2e',
+            fontWeight: 'bold',
+            fontSize: '11px',
+            cursor: upgrading ? 'not-allowed' : 'pointer'
+          }
+        }, upgrading ? '...' : '⭐ 499 Stars ($4.99)'),
+        h('button', {
+          onClick: () => handleUpgrade('ton'),
+          disabled: upgrading,
+          style: {
+            flex: 1,
+            padding: '6px 10px',
+            borderRadius: '6px',
+            border: '1px solid #4ade80',
+            background: 'transparent',
+            color: '#4ade80',
+            fontWeight: 'bold',
+            fontSize: '11px',
+            cursor: upgrading ? 'not-allowed' : 'pointer'
+          }
+        }, upgrading ? '...' : '💎 399 TON ($3.99)'),
+      ])
+    ]),
+
+    // Expanded 50-level track
     open && h('div', {
       style: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(5, 1fr)',
-        gap: '8px',
-        padding: '12px',
-      },
-    }, levels.map((level) => {
-      const past = level.level < currentLevel;
-      const current = level.level === currentLevel;
-      const future = level.level > currentLevel;
-      const milestone = [5, 10, 15, 20].includes(level.level);
-      return h('div', {
-        key: level.level,
-        style: {
-          minHeight: '58px',
-          borderRadius: '8px',
-          border: milestone && future ? '1px dashed #f97316' : '1px solid #30527e',
-          background: past ? '#17351f' : current ? '#3b2f10' : '#121d33',
-          color: past ? '#4ade80' : current ? '#facc15' : '#8ba1bb',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '4px',
-          animation: current ? 'passPulse 1.5s infinite' : 'none',
-          fontSize: '11px',
-          fontWeight: 800,
-        },
-      }, [
-        h('span', null, level.level),
-        h('span', null, iconForReward(level.freeReward || level.premiumReward)),
-      ]);
-    })),
-    open && h('div', {
-      style: {
+        maxHeight: '55vh',
+        overflowY: 'auto',
         padding: '0 12px 12px',
-        color: '#8ba1bb',
-        fontSize: '11px',
-      },
-    }, `Сезон закончится через ${pass?.daysRemaining ?? 0} дней`),
+      }
+    }, [
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+        rewards.map((r) => {
+          const unlocked = r.unlocked;
+          const isMilestone = r.level % 5 === 0;
+          return h('div', {
+            key: r.level,
+            style: {
+              display: 'grid',
+              gridTemplateColumns: '32px 1fr 1fr',
+              gap: '8px',
+              alignItems: 'center',
+              padding: '6px 8px',
+              background: unlocked ? (isMilestone ? '#162a4a' : '#131d33') : '#0f1729',
+              borderRadius: '8px',
+              border: unlocked ? (isMilestone ? '1px solid #facc15' : '1px solid #30527e') : '1px solid #1f3552',
+              opacity: unlocked ? 1 : 0.55,
+            }
+          }, [
+            // Level number
+            h('div', { style: { fontWeight: 'bold', fontSize: '12px', color: unlocked ? '#facc15' : '#8ba1bb', textAlign: 'center' } }, r.level),
+
+            // Free track
+            h('div', null, [
+              h('div', { style: { fontSize: '10px', color: '#8ba1bb', marginBottom: '2px' } }, 'Free'),
+              h('div', { style: { fontSize: '11px', color: '#c7ddf5', display: 'flex', alignItems: 'center', gap: '4px' } }, [
+                h('span', null, iconForReward(r.freeReward)),
+                h('span', { style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, labelForReward(r.freeReward)),
+              ]),
+              unlocked && !r.freeClaimed && h('button', {
+                onClick: () => handleClaim(r.level, 'free'),
+                disabled: claiming === `${r.level}:free`,
+                style: {
+                  marginTop: '4px',
+                  padding: '3px 8px',
+                  borderRadius: '5px',
+                  border: 'none',
+                  background: claiming === `${r.level}:free` ? '#274267' : '#4ade80',
+                  color: claiming === `${r.level}:free` ? '#8ba1bb' : '#0a1f12',
+                  fontWeight: 'bold',
+                  fontSize: '10px',
+                  cursor: 'pointer'
+                }
+              }, claiming === `${r.level}:free` ? '...' : 'Забрать'),
+              r.freeClaimed && h('span', { style: { fontSize: '10px', color: '#4ade80' } }, '✅'),
+            ]),
+
+            // Premium track
+            h('div', null, [
+              h('div', { style: { fontSize: '10px', color: '#facc15', marginBottom: '2px' } }, 'Premium'),
+              h('div', { style: { fontSize: '11px', color: '#c7ddf5', display: 'flex', alignItems: 'center', gap: '4px' } }, [
+                h('span', null, iconForReward(r.premiumReward)),
+                h('span', { style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, labelForReward(r.premiumReward)),
+              ]),
+              unlocked && isPremium && !r.premiumClaimed && h('button', {
+                onClick: () => handleClaim(r.level, 'premium'),
+                disabled: claiming === `${r.level}:premium`,
+                style: {
+                  marginTop: '4px',
+                  padding: '3px 8px',
+                  borderRadius: '5px',
+                  border: 'none',
+                  background: claiming === `${r.level}:premium` ? '#274267' : '#facc15',
+                  color: claiming === `${r.level}:premium` ? '#8ba1bb' : '#1a1a2e',
+                  fontWeight: 'bold',
+                  fontSize: '10px',
+                  cursor: 'pointer'
+                }
+              }, claiming === `${r.level}:premium` ? '...' : 'Забрать'),
+              unlocked && !isPremium && !r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#facc15' } }, '🔒 Premium'),
+              r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#4ade80' } }, '✅'),
+            ]),
+          ]);
+        })
+      ),
+
+      pass?.catchUp && h('div', {
+        style: {
+          marginTop: '8px',
+          padding: '8px',
+          fontSize: '11px',
+          color: '#c7ddf5',
+          background: '#12203a',
+          borderRadius: '6px',
+          border: '1px solid #1f3552',
+        }
+      }, `Catch-up: +${pass.catchUp.catchUpXp} XP за ${pass.catchUp.missedDays} пропущ. дн.`),
+
+      pass?.weekendDoubleXpActive && h('div', {
+        style: {
+          marginTop: '8px',
+          padding: '8px',
+          fontSize: '11px',
+          color: '#4ade80',
+          background: '#0a1f12',
+          borderRadius: '6px',
+          border: '1px solid #1f3552',
+        }
+      }, 'Weekend x2 XP активно сейчас'),
+    ]),
   ]);
 }

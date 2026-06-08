@@ -28,7 +28,7 @@ router.get('/preview', async (req, res) => {
     const userId = userResult.rows[0].id;
 
     const progResult = await client.query(
-      'SELECT lifetime_loc, prestige_count, mu_currency, commits_total FROM progression WHERE user_id = $1',
+      'SELECT lifetime_loc, prestige_count, mu_currency, commits_total, git_push_force_mu_boost FROM progression WHERE user_id = $1',
       [userId]
     );
     const prog = progResult.rows[0] || { lifetime_loc: 0, prestige_count: 0, mu_currency: 0, commits_total: 0 };
@@ -57,7 +57,11 @@ router.get('/preview', async (req, res) => {
       });
     }
 
-    const projectedMu = Math.floor(computeMu(lifetimeLoc));
+    const gitPushBoost = Number(prog.git_push_force_mu_boost || 0);
+    let projectedMu = Math.floor(computeMu(lifetimeLoc));
+    if (gitPushBoost > 0) {
+      projectedMu = Math.floor(projectedMu * (1 + gitPushBoost / 100));
+    }
     const deltaMu = Math.max(0, projectedMu - muCurrency);
 
     const oldPrestigeCurrencyEarned = computePrestige(lifetimeLoc);
@@ -125,7 +129,7 @@ router.post('/execute', async (req, res) => {
     const userId = userResult.rows[0].id;
 
     const progResult = await client.query(
-      'SELECT lifetime_loc, prestige_count, mu_currency, commits_total, streak_days FROM progression WHERE user_id = $1 FOR UPDATE',
+      'SELECT lifetime_loc, prestige_count, mu_currency, commits_total, streak_days, git_push_force_mu_boost FROM progression WHERE user_id = $1 FOR UPDATE',
       [userId]
     );
     const prog = progResult.rows[0];
@@ -147,7 +151,11 @@ router.post('/execute', async (req, res) => {
       });
     }
 
-    const projectedMu = Math.floor(computeMu(lifetimeLoc));
+    const gitPushBoost = Number(prog.git_push_force_mu_boost || 0);
+    let projectedMu = Math.floor(computeMu(lifetimeLoc));
+    if (gitPushBoost > 0) {
+      projectedMu = Math.floor(projectedMu * (1 + gitPushBoost / 100));
+    }
     const deltaMu = Math.max(0, projectedMu - muCurrency);
     const newPrestigeCount = prestigeCount + 1;
 
@@ -182,6 +190,7 @@ router.post('/execute', async (req, res) => {
            active_effects = '{}',
            generator_state = '{}',
            event_state = '{}',
+           git_push_force_mu_boost = 0,
            updated_at = NOW()
        WHERE user_id = $1`,
       [userId, newOldPrestigeLevel, newPrestigeCount, projectedMu]

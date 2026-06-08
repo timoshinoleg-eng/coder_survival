@@ -51,6 +51,14 @@ const analyticsEventSchema = z.object({
   properties: z.record(z.any()).default({}),
 });
 
+const purchaseDealSchema = z.object({
+  dealType: z.enum(['daily_deal', 'flash_sale']),
+});
+
+const languageEquipSchema = z.object({
+  languageSlug: z.string().min(1).trim(),
+});
+
 module.exports = {
   tapSchema,
   buySchema,
@@ -63,4 +71,6 @@ module.exports = {
   questClaimSchema,
   passClaimSchema,
   analyticsEventSchema,
+  purchaseDealSchema,
+  languageEquipSchema,
 };
