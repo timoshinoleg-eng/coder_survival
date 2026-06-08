@@ -1061,6 +1061,25 @@ export function GameProvider({ children }) {
     },
     setMemePrompt: (prompt) => setState((current) => ({ ...current, memePrompt: prompt })),
     clearMemePrompt: () => setState((current) => ({ ...current, memePrompt: null })),
+    refreshLanguages: async () => {
+      const payload = await apiRequest("/api/languages/my", { initData: telegram?.initData });
+      setState((current) => ({ ...current, activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage }));
+      return payload;
+    },
+    equipLanguage: async (languageSlug) => {
+      const payload = await apiRequest("/api/languages/equip", {
+        method: "POST",
+        initData: telegram?.initData,
+        body: { languageSlug },
+      });
+      if (payload?.success) {
+        setState((current) => ({
+          ...current,
+          activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage,
+        }));
+      }
+      return payload;
+    },
     reset: loadState,
   }), [
     state,
@@ -1094,25 +1113,6 @@ export function GameProvider({ children }) {
     completeRewardedVideo,
     buyGenerator,
     refreshDailyBattle,
-    refreshLanguages: async () => {
-      const payload = await apiRequest("/api/languages/my", { initData: telegram?.initData });
-      setState((current) => ({ ...current, activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage }));
-      return payload;
-    },
-    equipLanguage: async (languageSlug) => {
-      const payload = await apiRequest("/api/languages/equip", {
-        method: "POST",
-        initData: telegram?.initData,
-        body: { languageSlug },
-      });
-      if (payload?.success) {
-        setState((current) => ({
-          ...current,
-          activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage,
-        }));
-      }
-      return payload;
-    },
     loadState,
     telegram?.initData,
   ]);
