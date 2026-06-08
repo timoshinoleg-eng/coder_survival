@@ -1,20 +1,18 @@
 services:
   - type: web
-    name: coder-survival-api
+    name: coder-survival-api-test
     runtime: node
     repo: https://github.com/timoshinoleg-eng/coder_survival.git
     branch: main
     rootDir: backend
-    buildCommand: npm ci --omit=dev
+    buildCommand: npm ci --omit=dev && npm run migrate
     startCommand: node src/index.js
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
       - key: DATABASE_URL
         fromDatabase:
-          name: coder-survival-db
+          name: coder-survival-db-test
           property: connectionString
       - key: BOT_TOKEN
         sync: false
@@ -34,7 +32,7 @@ services:
     autoDeploy: true
 
 databases:
-  - name: coder-survival-db
-    databaseName: coder_survival
+  - name: coder-survival-db-test
+    databaseName: coder_survival_test
     plan: free
     ipAllowList: []
