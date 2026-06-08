@@ -45,6 +45,21 @@ async function runBalanceAudit() {
       });
     }
 
+    const afflictionInconsistency = await client.query(
+      `SELECT user_id, depression_level, burnout_affliction
+       FROM progression
+       WHERE (depression_level >= 100 AND burnout_affliction = FALSE)
+          OR (depression_level < 100 AND burnout_affliction = TRUE)`
+    );
+
+    for (const row of afflictionInconsistency.rows) {
+      violations.push({
+        userId: row.user_id,
+        type: 'burnout_affliction_inconsistent',
+        details: { depression_level: row.depression_level, burnout_affliction: row.burnout_affliction }
+      });
+    }
+
     const commitViolations = await client.query(
       `SELECT p.user_id, p.commits_total,
               COALESCE(rl.tap_count, 0) AS recent_taps

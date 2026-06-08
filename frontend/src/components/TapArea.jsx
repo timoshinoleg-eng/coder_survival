@@ -85,6 +85,10 @@ export default function TapArea({ active }) {
     const { x, y } = lastTapPosRef.current;
     const { commits: deltaCommits, xp: deltaXp } = lastTapDelta;
 
+    if (typeof deltaCommits === 'number' && deltaCommits > 0) {
+      Analytics.track('score_earned', { amount: deltaCommits, source: 'tap' });
+    }
+
     // Only show enhanced feedback when we have a real delta from the server
     if (typeof deltaCommits !== 'number') return;
 

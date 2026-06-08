@@ -35,6 +35,7 @@ async function persistIdleSideEffects(client, progression, {
   energy,
   depression,
   isBurnout,
+  burnoutAffliction,
   eventState,
   shouldPersistDepression
 }) {
@@ -43,10 +44,11 @@ async function persistIdleSideEffects(client, progression, {
       `UPDATE progression
        SET depression_level = $2,
            is_burnout = $3,
-           energy = $4,
-           event_state = $5
+           burnout_affliction = $4,
+           energy = $5,
+           event_state = $6
        WHERE user_id = $1`,
-      [progression.user_id, depression, isBurnout, energy, JSON.stringify(eventState)]
+      [progression.user_id, depression, isBurnout, burnoutAffliction, energy, JSON.stringify(eventState)]
     );
   } else if (Number(progression.energy ?? 0) !== energy) {
     await client.query(
@@ -63,6 +65,7 @@ async function persistIdleSideEffects(client, progression, {
     energy,
     depression_level: shouldPersistDepression ? depression : progression.depression_level,
     is_burnout: isBurnout,
+    burnout_affliction: burnoutAffliction,
     event_state: eventState,
     _idleRecovery: null
   };
@@ -149,6 +152,7 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
       energy: energyAfterAlert,
       depression: newDepression,
       isBurnout: newDepression >= TAP_MECHANICS.maxDepression,
+      burnoutAffliction: newDepression >= TAP_MECHANICS.afflictionDepression,
       eventState: nextEventState,
       shouldPersistDepression: newDepression !== depression
     });
@@ -165,6 +169,7 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
       energy: energyAfterAlert,
       depression: newDepression,
       isBurnout: newDepression >= TAP_MECHANICS.maxDepression,
+      burnoutAffliction: newDepression >= TAP_MECHANICS.afflictionDepression,
       eventState: nextEventState,
       shouldPersistDepression: newDepression !== depression
     });
@@ -181,18 +186,24 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
 
   const newDepression = Math.max(0, depression - combinedDepressionDecay);
   const isBurnout = newDepression >= TAP_MECHANICS.maxDepression;
+  const burnoutAffliction = newDepression >= TAP_MECHANICS.afflictionDepression;
   const nextCheckpoint = new Date(checkpoint.getTime() + actualRecovered * interval * 1000);
+
+  // Clear expired forced break
+  const forcedBreakExpired = progression.forced_break_until && new Date(progression.forced_break_until) <= now;
 
   const result = await client.query(
     `UPDATE progression
      SET energy = $2,
           depression_level = $3,
           is_burnout = $4,
-          energy_recovery_checkpoint_at = $5,
-          event_state = $6
+          burnout_affliction = $5,
+          forced_break_until = CASE WHEN $6 THEN NULL ELSE forced_break_until END,
+          energy_recovery_checkpoint_at = $7,
+          event_state = $8
        WHERE user_id = $1
        RETURNING *`,
-    [progression.user_id, newEnergy, newDepression, isBurnout, nextCheckpoint, JSON.stringify(nextEventState)]
+    [progression.user_id, newEnergy, newDepression, isBurnout, burnoutAffliction, forcedBreakExpired, nextCheckpoint, JSON.stringify(nextEventState)]
   );
 
   const idleRecovery = { energy: actualRecovered, secondsIdle: secondsPassed };
@@ -203,6 +214,8 @@ export async function recoverProgression(client, progression, maxEnergy = TAP_ME
       energy: newEnergy,
       depression_level: newDepression,
       is_burnout: isBurnout,
+      burnout_affliction: burnoutAffliction,
+      forced_break_until: forcedBreakExpired ? null : progression.forced_break_until,
       energy_recovery_checkpoint_at: nextCheckpoint
     }),
     _idleRecovery: idleRecovery

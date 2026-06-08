@@ -89,6 +89,11 @@ export default function ShopPanel() {
     } catch (err) {
       setBuyResult({ success: false, productId, error: err.payload?.error || err.message || 'Ошибка покупки' });
       showToast(err.payload?.error || 'Ошибка покупки', 'error', 2500);
+      Analytics.track('purchase_failed', {
+        error_code: err.status || err.code || 'unknown',
+        product_id: productId,
+        stage: 'checkout',
+      });
     } finally {
       setBuying(null);
     }

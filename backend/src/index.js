@@ -46,6 +46,7 @@ import analyticsRouter from "./routes/analytics.js";
 import { startDailySummaryCron } from "./jobs/dailySummaryCron.js";
 import { startTeamHackathonCron } from "./jobs/teamHackathonCron.js";
 import { startAchievementCron } from "./jobs/achievementCron.js";
+import { startRandomEventCron } from "./jobs/randomEventCron.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -237,4 +238,5 @@ if (isEntrypoint) {
   startDailySummaryCron();
   startTeamHackathonCron();
   startAchievementCron();
+  startRandomEventCron();
 }

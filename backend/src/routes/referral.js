@@ -336,6 +336,7 @@ router.post('/claim', async (req, res, next) => {
          SET referral_state = $2,
              energy = LEAST($3, energy + $4),
              commits_total = commits_total + $5,
+             lifetime_loc = lifetime_loc + $5,
              inventory = COALESCE(inventory, '{}'::jsonb) || $6::jsonb
          WHERE user_id = $1`,
         [
@@ -604,6 +605,7 @@ router.post('/claim-milestone', async (req, res, next) => {
       await client.query(
         `UPDATE progression
          SET commits_total = commits_total + $2,
+             lifetime_loc = lifetime_loc + $2,
              commits_current = commits_current + $2,
              energy = LEAST($3, energy + $4)
              ${inventoryUpdate ? `, ${inventoryUpdate}` : ''}

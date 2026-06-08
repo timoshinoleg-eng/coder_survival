@@ -1,10 +1,10 @@
 import { DEFAULTS } from './balance.js';
 
 export const RANDOM_EVENTS_CONFIG = {
-  frequencySeconds: { min: 60, max: 120 },
+  frequencySeconds: { min: 30, max: 90 },
   targetWeightByType: {
-    negative: 40,
-    neutral: 45,
+    negative: 47,
+    neutral: 38,
     positive: 15
   },
   events: {
@@ -14,11 +14,11 @@ export const RANDOM_EVENTS_CONFIG = {
       effect: { locPerSecMultiplier: 7, durationSeconds: 77 },
       uiText: 'Golden Commit! x7 LOC/s for 77s'
     },
-    hot_streak: {
+    open_source_contribution: {
       weight: 5,
       type: 'positive',
-      effect: { tapPowerMultiplier: 3, durationSeconds: 60 },
-      uiText: 'Hot Streak! x3 tap power for 60s'
+      effect: { skin: 'open_source_hero', commits: 20 },
+      uiText: 'Open Source PR accepted! Exclusive skin earned'
     },
     legacy_code: {
       weight: 12,
@@ -29,23 +29,33 @@ export const RANDOM_EVENTS_CONFIG = {
     deploy_friday: {
       weight: 12,
       type: 'negative',
-      effect: { locLossRisk: 0.25, badgeChance: 0.3 },
-      uiText: 'Deploy Friday? Risk 25% LOC, chance for badge'
+      effect: { cancelClicksRequired: 3, locLossRisk: 0.25 },
+      uiText: 'Deploy Friday? Cancel in 3 clicks or risk LOC loss'
     },
-    code_review_reject: {
+    bug_production: {
+      weight: 15,
+      type: 'negative',
+      effect: { hotfixClicksRequired: 5, energyDrainPercent: 0.08, durationSeconds: 180 },
+      uiText: 'Bug in Production! Hotfix in 5 clicks'
+    },
+    code_review: {
+      weight: 18,
+      type: 'neutral',
+      effect: { commits: 10, depression: 2 },
+      uiText: 'Code Review waiting: accept or reject'
+    },
+    coffee_stain: {
+      weight: 20,
+      type: 'neutral',
+      effect: { wipeClicksRequired: 3, energy: 8, depressionRelief: 4 },
+      uiText: 'Coffee Stain! Wipe it clean'
+    },
+    stack_overflow_down: {
       weight: 8,
       type: 'negative',
-      effect: { depression: DEFAULTS.RANDOM_EVENTS.codeReviewRejectDepression }
-    },
-    production_alert: {
-      weight: 8,
-      type: 'negative',
-      effect: { ...DEFAULTS.RANDOM_EVENTS.productionAlert }
-    },
-    coffee_break: { weight: 15, type: 'neutral', effect: {} },
-    standup_meeting: { weight: 10, type: 'neutral', effect: {} },
-    slack_notification: { weight: 10, type: 'neutral', effect: {} },
-    zoom_call: { weight: 10, type: 'neutral', effect: {} }
+      effect: { disableHelpSeconds: 30, depression: 3 },
+      uiText: 'Stack Overflow is down for 30s'
+    }
   },
   ftueEventSuppression: DEFAULTS.RANDOM_EVENTS.FTUE_EVENT_SUPPRESSION,
   stateMachine: DEFAULTS.RANDOM_EVENTS.stateMachine

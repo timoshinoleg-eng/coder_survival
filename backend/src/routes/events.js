@@ -219,7 +219,8 @@ router.post('/random/tap', async (req, res, next) => {
       }
 
       const activeEvent = await getUserActiveRandomEvent(client, userId);
-      if (activeEvent && activeEvent.event_type === 'legacy_code') {
+      const clickBasedEvents = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
+      if (activeEvent && clickBasedEvents.includes(activeEvent.event_slug)) {
         const result = await resolveRandomEvent(client, userId, activeEvent.event_id, 'tap', req.body?.gameState || {});
         await client.query('COMMIT');
         return res.json({ success: true, randomEventState: result.nextState, resolved: result.resolved });

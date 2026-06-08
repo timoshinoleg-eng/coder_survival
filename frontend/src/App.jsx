@@ -25,6 +25,8 @@ import AudioToggle from "./components/AudioToggle.jsx";
 import CareerModal from "./components/CareerModal.jsx";
 import MemeGenerator from "./components/MemeGenerator.jsx";
 import PrestigeModal from "./components/PrestigeModal.jsx";
+import ShareCardModal from "./components/ShareCardModal.jsx";
+import DeathScreen from "./components/DeathScreen.jsx";
 import { applyRandomEventChoice, getActiveRuntimeEvents, reduceLegacyCodeClick } from './utils/randomEventRuntime.js';
 import { apiRequest } from './utils/api.js';
 import { Analytics } from './utils/analytics.js';
@@ -36,6 +38,11 @@ function normalizeRuntimeEventState(state = {}) {
     legacyCodeClicksRemaining: Number(source.legacyCodeClicksRemaining || 0),
     productionAlertUntil: source.productionAlertUntil || null,
     hotStreakUntil: source.hotStreakUntil || null,
+    bugProductionClicksRemaining: Number(source.bugProductionClicksRemaining || 0),
+    coffeeStainClicksRemaining: Number(source.coffeeStainClicksRemaining || 0),
+    deployFridayClicksRemaining: Number(source.deployFridayClicksRemaining || 0),
+    goldenCommitUntil: source.goldenCommitUntil || null,
+    stackOverflowDownUntil: source.stackOverflowDownUntil || null,
   };
 }
 
@@ -44,12 +51,22 @@ function runtimeEventStatesEqual(left, right) {
   const normalizedRight = normalizeRuntimeEventState(right);
   return normalizedLeft.legacyCodeClicksRemaining === normalizedRight.legacyCodeClicksRemaining
     && normalizedLeft.productionAlertUntil === normalizedRight.productionAlertUntil
-    && normalizedLeft.hotStreakUntil === normalizedRight.hotStreakUntil;
+    && normalizedLeft.hotStreakUntil === normalizedRight.hotStreakUntil
+    && normalizedLeft.bugProductionClicksRemaining === normalizedRight.bugProductionClicksRemaining
+    && normalizedLeft.coffeeStainClicksRemaining === normalizedRight.coffeeStainClicksRemaining
+    && normalizedLeft.deployFridayClicksRemaining === normalizedRight.deployFridayClicksRemaining
+    && normalizedLeft.goldenCommitUntil === normalizedRight.goldenCommitUntil
+    && normalizedLeft.stackOverflowDownUntil === normalizedRight.stackOverflowDownUntil;
 }
 
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
-  const { loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast, memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState, setRandomEventState } = useGameState();
+  const {
+    loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast,
+    memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState,
+    setRandomEventState, commits, totalTaps, streakDays, isBurnout, depression,
+    energy, username, rankName, levelUp, team, teamBattle
+  } = useGameState();
   const { user } = useTelegram();
   const [onboardingDismissedThisSession, setOnboardingDismissedThisSession] =
     useState(false);
@@ -64,18 +81,74 @@ function AppInner() {
   const legacyTapSyncRef = useRef(false);
   const previousHotStreakActiveRef = useRef(false);
   const previousProductionAlertActiveRef = useRef(false);
+  const sessionIdRef = useRef(null);
+  const sessionStartTimeRef = useRef(null);
+  const sessionStartScoreRef = useRef(null);
+  const sessionStartTapsRef = useRef(null);
+  const sessionEndTrackedRef = useRef(false);
+  const commitsRef = useRef(commits);
+  const totalTapsRef = useRef(totalTaps);
   const [memeOpen, setMemeOpen] = useState(false);
+  const [shareCardOpen, setShareCardOpen] = useState(false);
+  const [shareCardType, setShareCardType] = useState('burnout_level');
+  const [shareCardData, setShareCardData] = useState({});
+  const [deathOpen, setDeathOpen] = useState(false);
+  const [deathCause, setDeathCause] = useState('burnout');
+
+  const prevStreakRef = useRef(0);
+  const prevRankRef = useRef(0);
+  const burnoutShownRef = useRef(false);
+
+  useEffect(() => { commitsRef.current = commits; }, [commits]);
+  useEffect(() => { totalTapsRef.current = totalTaps; }, [totalTaps]);
 
   useEffect(() => {
     Analytics.track('app_opened', { source: document.referrer || 'direct' });
   }, []);
 
   useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    Analytics.track('tma_open', {
+      platform: tg?.platform || 'unknown',
+      version: tg?.version || 'unknown',
+      start_param: tg?.initDataUnsafe?.start_param || null,
+      is_premium: tg?.initDataUnsafe?.user?.is_premium || false,
+    });
+  }, []);
+
+  useEffect(() => {
     if (user) {
       Analytics.init(import.meta.env.VITE_AMPLITUDE_API_KEY);
       Analytics.setUser({ telegram_id: user.id, username: user.username });
+      Analytics.track('init_data_validated', {
+        auth_method: 'telegram_init_data',
+        user_id_hash: String(user.id),
+      });
+      if (!localStorage.getItem('cs_user_registered')) {
+        const tg = window.Telegram?.WebApp;
+        Analytics.track('user_registered', {
+          source: document.referrer || 'direct',
+          country: user?.language_code || 'unknown',
+          referrer_id: tg?.initDataUnsafe?.start_param || null,
+        });
+        localStorage.setItem('cs_user_registered', '1');
+      }
     }
   }, [user]);
+
+  useEffect(() => {
+    if (gameReady && !sessionIdRef.current) {
+      sessionIdRef.current = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      sessionStartTimeRef.current = Date.now();
+      sessionStartScoreRef.current = commitsRef.current || 0;
+      sessionStartTapsRef.current = totalTapsRef.current || 0;
+      Analytics.track('game_session_start', {
+        game_mode: 'idle',
+        level: rank,
+        session_id: sessionIdRef.current,
+      });
+    }
+  }, [gameReady, rank]);
 
   useEffect(() => {
     if (!persistedRandomEventState) return;
@@ -173,6 +246,54 @@ function AppInner() {
     previousLegacyClicksRef.current = current;
   }, [runtimeEventState.legacyCodeClicksRemaining, showToast]);
 
+  const previousBugProductionClicksRef = useRef(0);
+  useEffect(() => {
+    const previous = previousBugProductionClicksRef.current;
+    const current = runtimeEventState.bugProductionClicksRemaining || 0;
+    if (previous > 0 && current === 0) {
+      showToast('🐛 Bug in Production исправлен. Продакшн спасён.', 'success', 2200);
+    }
+    previousBugProductionClicksRef.current = current;
+  }, [runtimeEventState.bugProductionClicksRemaining, showToast]);
+
+  const previousCoffeeStainClicksRef = useRef(0);
+  useEffect(() => {
+    const previous = previousCoffeeStainClicksRef.current;
+    const current = runtimeEventState.coffeeStainClicksRemaining || 0;
+    if (previous > 0 && current === 0) {
+      showToast('☕ Coffee Stain вытерта. Клавиатура чиста.', 'success', 2200);
+    }
+    previousCoffeeStainClicksRef.current = current;
+  }, [runtimeEventState.coffeeStainClicksRemaining, showToast]);
+
+  const previousDeployFridayClicksRef = useRef(0);
+  useEffect(() => {
+    const previous = previousDeployFridayClicksRef.current;
+    const current = runtimeEventState.deployFridayClicksRemaining || 0;
+    if (previous > 0 && current === 0) {
+      showToast('📅 Deploy Friday отменён. Выходные спасены.', 'success', 2200);
+    }
+    previousDeployFridayClicksRef.current = current;
+  }, [runtimeEventState.deployFridayClicksRemaining, showToast]);
+
+  const previousGoldenCommitRef = useRef(false);
+  useEffect(() => {
+    const active = getActiveRuntimeEvents(runtimeEventState, runtimeNow).goldenCommitActive;
+    if (previousGoldenCommitRef.current && !active) {
+      showToast('✨ Golden Commit завершён. Множитель LOC/s вернулся к норме.', 'info', 1800);
+    }
+    previousGoldenCommitRef.current = active;
+  }, [runtimeEventState.goldenCommitUntil, runtimeNow, showToast]);
+
+  const previousStackOverflowDownRef = useRef(false);
+  useEffect(() => {
+    const active = getActiveRuntimeEvents(runtimeEventState, runtimeNow).stackOverflowDownActive;
+    if (previousStackOverflowDownRef.current && !active) {
+      showToast('📉 Stack Overflow восстановлен. Можно снова копипастить.', 'success', 1800);
+    }
+    previousStackOverflowDownRef.current = active;
+  }, [runtimeEventState.stackOverflowDownUntil, runtimeNow, showToast]);
+
   useEffect(() => {
     const active = getActiveRuntimeEvents(runtimeEventState, runtimeNow).hotStreakActive;
     if (previousHotStreakActiveRef.current && !active) {
@@ -222,8 +343,64 @@ function AppInner() {
       active.legacyCodeActive
         ? `🧹 Legacy Code: ${runtimeEventState.legacyCodeClicksRemaining} кликов до рефакторинга`
         : null,
+      active.bugProductionActive
+        ? `🐛 Bug in Production: ${runtimeEventState.bugProductionClicksRemaining} кликов`
+        : null,
+      active.coffeeStainActive
+        ? `☕ Coffee Stain: ${runtimeEventState.coffeeStainClicksRemaining} кликов`
+        : null,
+      active.deployFridayActive
+        ? `📅 Deploy Friday: ${runtimeEventState.deployFridayClicksRemaining} кликов`
+        : null,
+      active.goldenCommitActive
+        ? `✨ Golden Commit: ${Math.max(0, Math.ceil((new Date(runtimeEventState.goldenCommitUntil).getTime() - runtimeNow) / 1000))}с`
+        : null,
+      active.stackOverflowDownActive
+        ? `📉 Stack Overflow Down: ${Math.max(0, Math.ceil((new Date(runtimeEventState.stackOverflowDownUntil).getTime() - runtimeNow) / 1000))}с`
+        : null,
     ].filter(Boolean);
   }, [runtimeEventState, runtimeNow]);
+
+  // Poll for active random events every 15 seconds
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const payload = await apiRequest('/api/events/active', {
+          initData: window.Telegram?.WebApp?.initData || '',
+        });
+        if (payload?.activeEvent) {
+          setRandomEvent((current) => {
+            if (current && current.eventId === payload.activeEvent.eventId) {
+              // Update state (e.g. click counters) without replacing the whole object
+              return { ...current, state: payload.activeEvent.state || {} };
+            }
+            return {
+              eventId: payload.activeEvent.eventId,
+              type: payload.activeEvent.type,
+              title: payload.activeEvent.title,
+              description: payload.activeEvent.description,
+              options: payload.activeEvent.options,
+              timeout: payload.activeEvent.timeout,
+              startedAt: payload.activeEvent.startedAt,
+              expiresAt: payload.activeEvent.expiresAt,
+              state: payload.activeEvent.state || {},
+            };
+          });
+        } else {
+          setRandomEvent((current) => {
+            // Only clear if the current event isn't in minigame mode
+            if (!current) return null;
+            const clickEvents = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
+            const inMinigame = clickEvents.includes(current.type) && current.state && Object.keys(current.state).some(k => k.includes('ClicksRemaining') && current.state[k] > 0);
+            return inMinigame ? current : null;
+          });
+        }
+      } catch (_e) { /* ignore polling errors */ }
+    };
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -242,6 +419,86 @@ function AppInner() {
     }
   }, [memePrompt]);
 
+  // Milestone: 7-day streak share card
+  useEffect(() => {
+    if (streakDays >= 7 && prevStreakRef.current < 7) {
+      setShareCardType('standup_survivor');
+      setShareCardData({
+        streakDays,
+        username: username?.username || username?.first_name,
+      });
+      setShareCardOpen(true);
+      Analytics.track('share_card_triggered', { type: 'standup_survivor', streak_days: streakDays });
+    }
+    prevStreakRef.current = streakDays;
+  }, [streakDays, username]);
+
+  // Milestone: rank up share card
+  useEffect(() => {
+    if (levelUp?.isRankUp && prevRankRef.current > 0 && rank > prevRankRef.current) {
+      setShareCardType('survival_days');
+      setShareCardData({
+        daysSurvived: streakDays,
+        rankName: levelUp.rankName || rankName,
+        username: username?.username || username?.first_name,
+      });
+      setShareCardOpen(true);
+      Analytics.track('share_card_triggered', { type: 'survival_days', rank: rank });
+    }
+    prevRankRef.current = rank;
+  }, [levelUp, rank, rankName, streakDays, username]);
+
+  // Death screen on burnout / heart attack
+  useEffect(() => {
+    if (isBurnout && !burnoutShownRef.current) {
+      burnoutShownRef.current = true;
+      setDeathCause('burnout');
+      setDeathOpen(true);
+      Analytics.track('death_screen_triggered', { cause: 'burnout', streak_days: streakDays });
+    }
+    if (!isBurnout) {
+      burnoutShownRef.current = false;
+    }
+  }, [isBurnout, streakDays]);
+
+  // Also trigger death screen from heartAttack meme prompt
+  useEffect(() => {
+    if (memePrompt?.trigger === 'heartAttack' && !deathOpen) {
+      setDeathCause('heartAttack');
+      setDeathOpen(true);
+      Analytics.track('death_screen_triggered', { cause: 'heart_attack', streak_days: streakDays });
+    }
+  }, [memePrompt, deathOpen, streakDays]);
+
+  useEffect(() => {
+    const handleEnd = () => {
+      if (sessionEndTrackedRef.current || !sessionStartTimeRef.current) return;
+      sessionEndTrackedRef.current = true;
+      const durationSec = Math.round((Date.now() - sessionStartTimeRef.current) / 1000);
+      const scoreDelta = (commitsRef.current || 0) - (sessionStartScoreRef.current || 0);
+      const tapsCount = (totalTapsRef.current || 0) - (sessionStartTapsRef.current || 0);
+      Analytics.track('session_end', {
+        duration_sec: durationSec,
+        score_delta: scoreDelta,
+        taps_count: tapsCount,
+      });
+      Analytics.flush();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        handleEnd();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleEnd);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', handleEnd);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
   const handleCloseOnboarding = ({ completed } = {}) => {
     if (!completed) {
       localStorage.setItem("cs_onboarding_skipped", String(Date.now()));
@@ -249,6 +506,16 @@ function AppInner() {
       return;
     }
     setOnboardingDismissedThisSession(false);
+    // Show share card after onboarding completion
+    setShareCardType('commit_of_the_day');
+    setShareCardData({
+      commits: commits || 0,
+      todayCommits: totalTaps || 0,
+      rankName: rankName || 'Junior',
+      username: username?.username || username?.first_name,
+    });
+    setShareCardOpen(true);
+    Analytics.track('share_card_triggered', { type: 'commit_of_the_day', milestone: 'onboarding_complete' });
   };
 
   const shouldShowOnboarding =
@@ -339,39 +606,109 @@ function AppInner() {
     h(ContextOfferBanner),
     h(EventBanner),
     h(CrunchTimeBanner),
+    h(ShareCardModal, {
+      open: shareCardOpen,
+      type: shareCardType,
+      data: shareCardData,
+      onClose: () => setShareCardOpen(false),
+    }),
+    h(DeathScreen, {
+      open: deathOpen,
+      cause: deathCause,
+      onClose: () => setDeathOpen(false),
+      onRestart: () => {
+        setDeathOpen(false);
+        window.location.reload();
+      },
+    }),
     h(RandomEventToast, {
       event: randomEvent,
-      onChoice: (eventId, type, action, deltas) => {
-        let nextDeltas = { ...deltas };
+      onChoice: async (eventId, type, action) => {
+        const clickEvents = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
+        const isClickEvent = clickEvents.includes(type);
+        const dismissAfter = !isClickEvent || action === 'ignore';
+
+        // Apply local transition first for instant feedback
         const transition = applyRandomEventChoice(type, action, runtimeEventState, window.__GAME_STATE__ || {});
+        let nextDeltas = { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
         if (transition) {
           setRuntimeEventState(transition.nextState);
-          apiRequest('/api/events/random/choice', {
-            method: 'POST',
-            initData: window.Telegram?.WebApp?.initData || '',
-            body: { type, action },
-          }).catch(() => null);
-          if (type === 'production_alert' && action === 'ignore') {
-            showToast('🚨 Production Alert активирован на 3 минуты.', 'error', 1800);
-          }
-          if (type === 'hot_streak' && action === 'solve') {
-            showToast('🔥 Hot Streak активирован на 60 секунд.', 'success', 1800);
-          }
           nextDeltas = transition.nextDeltas;
         }
+
+        // Sync to backend via /api/events/resolve
+        try {
+          const payload = await apiRequest('/api/events/resolve', {
+            method: 'POST',
+            initData: window.Telegram?.WebApp?.initData || '',
+            body: { eventId, action, gameState: window.__GAME_STATE__ || {} },
+          });
+          if (payload?.deltas) {
+            nextDeltas = payload.deltas;
+          }
+          if (payload?.randomEventState) {
+            setRuntimeEventState((latest) => {
+              const next = normalizeRuntimeEventState({ ...latest, ...payload.randomEventState });
+              return runtimeEventStatesEqual(latest, next) ? latest : next;
+            });
+          }
+          if (type === 'bug_production' && action === 'ignore') {
+            showToast('🚨 Production Alert активирован на 3 минуты.', 'error', 1800);
+          }
+          if (type === 'golden_commit' && action === 'solve') {
+            showToast('✨ Golden Commit активирован! x7 LOC/s на 77 секунд.', 'success', 1800);
+          }
+        } catch (_e) {
+          // Use local deltas if backend fails
+        }
+
         window.__PHASER_GAME__?.events.emit('event_choice', { eventId, action, deltas: nextDeltas });
         applyEventDeltas(nextDeltas);
+
         const sign = (val) => (val > 0 ? `+${val}` : `${val}`);
         const parts = [];
         if (nextDeltas.commitsDelta) parts.push(`${sign(nextDeltas.commitsDelta)} коммитов`);
         if (nextDeltas.energyDelta) parts.push(`${sign(nextDeltas.energyDelta)} энергии`);
         if (nextDeltas.depressionDelta) parts.push(`${sign(nextDeltas.depressionDelta)} стресса`);
-        showToast(
-          action === 'solve' ? `Решено: ${parts.join(', ')}` : `Игнорировано: ${parts.join(', ')}`,
-          action === 'solve' ? 'success' : 'info',
-          2000
-        );
-        setRandomEvent(null);
+        if (parts.length > 0) {
+          showToast(
+            action === 'solve' ? `Решено: ${parts.join(', ')}` : `Игнорировано: ${parts.join(', ')}`,
+            action === 'solve' ? 'success' : 'info',
+            2000
+          );
+        }
+
+        if (dismissAfter) {
+          setRandomEvent(null);
+        }
+      },
+      onTap: async (eventId, type) => {
+        try {
+          const payload = await apiRequest('/api/events/resolve', {
+            method: 'POST',
+            initData: window.Telegram?.WebApp?.initData || '',
+            body: { eventId, action: 'tap', gameState: window.__GAME_STATE__ || {} },
+          });
+          if (payload?.randomEventState) {
+            setRuntimeEventState((latest) => {
+              const next = normalizeRuntimeEventState({ ...latest, ...payload.randomEventState });
+              return runtimeEventStatesEqual(latest, next) ? latest : next;
+            });
+          }
+          if (payload?.resolved) {
+            setRandomEvent(null);
+            const sign = (val) => (val > 0 ? `+${val}` : `${val}`);
+            const parts = [];
+            if (payload.deltas?.commitsDelta) parts.push(`${sign(payload.deltas.commitsDelta)} коммитов`);
+            if (payload.deltas?.energyDelta) parts.push(`${sign(payload.deltas.energyDelta)} энергии`);
+            if (payload.deltas?.depressionDelta) parts.push(`${sign(payload.deltas.depressionDelta)} стресса`);
+            const msg = parts.length > 0 ? `Мини-игра пройдена: ${parts.join(', ')}` : 'Мини-игра пройдена!';
+            showToast(msg, 'success', 1500);
+            if (payload?.deltas) {
+              applyEventDeltas(payload.deltas);
+            }
+          }
+        } catch (_e) {}
       },
     }),
   );

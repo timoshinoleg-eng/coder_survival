@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { PRESTIGE } from '../config/balance.js';
-import { computePrestige, applyPrestigeBonuses } from '../utils/prestige.js';
+import { computePrestige, computeMu, applyPrestigeBonuses } from '../utils/prestige.js';
 
 const router = Router();
+
+const PRESTIGE_MIN_LOC = 1_000_000;
 
 router.get('/preview', async (req, res) => {
   const telegramUser = req.telegramUser?.user;
@@ -25,56 +27,72 @@ router.get('/preview', async (req, res) => {
     }
     const userId = userResult.rows[0].id;
 
+    const progResult = await client.query(
+      'SELECT lifetime_loc, prestige_count, mu_currency, commits_total FROM progression WHERE user_id = $1',
+      [userId]
+    );
+    const prog = progResult.rows[0] || { lifetime_loc: 0, prestige_count: 0, mu_currency: 0, commits_total: 0 };
+    const lifetimeLoc = Number(prog.lifetime_loc ?? prog.commits_total ?? 0);
+    const prestigeCount = Number(prog.prestige_count ?? 0);
+    const muCurrency = Number(prog.mu_currency ?? 0);
+
     const levelResult = await client.query(
       'SELECT xp_total, prestige_level, prestige_currency, prestige_shop_purchases FROM player_levels WHERE user_id = $1',
       [userId]
     );
     const levelRow = levelResult.rows[0] || { xp_total: 0, prestige_level: 0, prestige_currency: 0, prestige_shop_purchases: {} };
     const xpTotal = Number(levelRow.xp_total ?? 0);
-    const prestigeLevel = Number(levelRow.prestige_level ?? 0);
+    const oldPrestigeLevel = Number(levelRow.prestige_level ?? 0);
 
-    const available = xpTotal >= PRESTIGE.THRESHOLD_XP;
+    const available = lifetimeLoc >= PRESTIGE_MIN_LOC;
     if (!available) {
       return res.json({
         available: false,
-        currentXp: xpTotal,
-        requiredXp: PRESTIGE.THRESHOLD_XP,
-        prestigeLevel,
-        prestigeCurrency: Number(levelRow.prestige_currency ?? 0),
+        lifetimeLoc,
+        requiredLoc: PRESTIGE_MIN_LOC,
+        prestigeCount,
+        muCurrency,
+        oldPrestigeLevel,
+        oldPrestigeCurrency: Number(levelRow.prestige_currency ?? 0),
       });
     }
 
-    const progressionResult = await client.query(
-      'SELECT commits_total FROM progression WHERE user_id = $1',
-      [userId]
-    );
-    const commitsTotal = Number(progressionResult.rows[0]?.commits_total ?? 0);
-    const prestigeCurrencyEarned = computePrestige(commitsTotal);
+    const projectedMu = Math.floor(computeMu(lifetimeLoc));
+    const deltaMu = Math.max(0, projectedMu - muCurrency);
+
+    const oldPrestigeCurrencyEarned = computePrestige(lifetimeLoc);
 
     const bonusesThisPrestige = {
-      tapMult: 1 + PRESTIGE.BONUSES.TAP_MULT_PER_LEVEL,
-      energyRecoveryMult: 1 + PRESTIGE.BONUSES.ENERGY_RECOVERY_MULT_PER_LEVEL,
-      critAdd: PRESTIGE.BONUSES.CRIT_CHANCE_ADD_PER_LEVEL,
-      maxEnergyAdd: PRESTIGE.BONUSES.MAX_ENERGY_ADD_PER_LEVEL,
-      depressionResist: Math.max(0, 1 - PRESTIGE.BONUSES.DEPRESSION_RESISTANCE_PER_LEVEL),
+      passiveLocMult: 1 + 0.01 * deltaMu,
+      clickPowerMult: 1 + 0.005 * deltaMu,
+    };
+
+    const effOldLvl = Math.min(PRESTIGE.MAX_PRESTIGE_LEVEL, oldPrestigeLevel + 1);
+    const totalBonuses = {
+      tapMult: 1 + PRESTIGE.BONUSES.TAP_MULT_PER_LEVEL * effOldLvl,
+      energyRecoveryMult: 1 + PRESTIGE.BONUSES.ENERGY_RECOVERY_MULT_PER_LEVEL * effOldLvl,
+      critAdd: PRESTIGE.BONUSES.CRIT_CHANCE_ADD_PER_LEVEL * effOldLvl,
+      maxEnergyAdd: PRESTIGE.BONUSES.MAX_ENERGY_ADD_PER_LEVEL * effOldLvl,
+      passiveLocMult: 1 + 0.01 * projectedMu,
+      clickPowerMult: 1 + 0.005 * projectedMu,
     };
 
     return res.json({
       available: true,
-      prestigeLevel,
-      prestigeLevelAfter: prestigeLevel + 1,
-      prestigeCurrencyEarned,
-      totalPrestigeCurrency: Number(levelRow.prestige_currency ?? 0) + prestigeCurrencyEarned,
+      lifetimeLoc,
+      prestigeCount,
+      prestigeCountAfter: prestigeCount + 1,
+      muCurrency,
+      projectedMu,
+      deltaMu,
+      totalMu: projectedMu,
       bonusesThisPrestige,
-      bonuses: [
-        { name: 'Tap multiplier', detail: `x${(1 + PRESTIGE.BONUSES.TAP_MULT_PER_LEVEL * Math.min(PRESTIGE.MAX_PRESTIGE_LEVEL, prestigeLevel + 1)).toFixed(2)}` },
-        { name: 'Energy recovery speed', detail: `${Math.round(PRESTIGE.BONUSES.ENERGY_RECOVERY_MULT_PER_LEVEL * 100)}% faster` },
-        { name: 'Crit chance', detail: `+${Math.round(PRESTIGE.BONUSES.CRIT_CHANCE_ADD_PER_LEVEL * 100)}%` },
-        { name: 'Max energy', detail: `+${PRESTIGE.BONUSES.MAX_ENERGY_ADD_PER_LEVEL}` },
-        { name: 'Depression resistance', detail: `${Math.round(PRESTIGE.BONUSES.DEPRESSION_RESISTANCE_PER_LEVEL * 100)}% less depression gain` },
-      ],
+      totalBonuses,
+      oldPrestigeLevel,
+      oldPrestigeCurrencyEarned,
+      totalOldPrestigeCurrency: Number(levelRow.prestige_currency ?? 0) + oldPrestigeCurrencyEarned,
       willReset: ['xp_total', 'tier', 'commits_current', 'energy', 'generator_state', 'active_effects', 'event_state'],
-      willKeep: ['commits_total', 'skins', 'inventory', 'streak', 'battle_pass', 'squads'],
+      willKeep: ['commits_total', 'lifetime_loc', 'skins', 'inventory', 'streak', 'battle_pass', 'squads', 'mu_currency'],
     });
   } catch (err) {
     console.error('[Prestige] preview failed:', err);
@@ -106,35 +124,41 @@ router.post('/execute', async (req, res) => {
     }
     const userId = userResult.rows[0].id;
 
-    const levelResult = await client.query(
-      'SELECT xp_total, prestige_level, prestige_currency FROM player_levels WHERE user_id = $1 FOR UPDATE',
+    const progResult = await client.query(
+      'SELECT lifetime_loc, prestige_count, mu_currency, commits_total, streak_days FROM progression WHERE user_id = $1 FOR UPDATE',
       [userId]
     );
-    const levelRow = levelResult.rows[0];
-    if (!levelRow) {
+    const prog = progResult.rows[0];
+    if (!prog) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Player level row not found' });
+      return res.status(404).json({ error: 'Progression not found' });
     }
 
-    const xpTotal = Number(levelRow.xp_total ?? 0);
-    const prestigeLevel = Number(levelRow.prestige_level ?? 0);
+    const lifetimeLoc = Number(prog.lifetime_loc ?? prog.commits_total ?? 0);
+    const prestigeCount = Number(prog.prestige_count ?? 0);
+    const muCurrency = Number(prog.mu_currency ?? 0);
 
-    if (xpTotal < PRESTIGE.THRESHOLD_XP) {
+    if (lifetimeLoc < PRESTIGE_MIN_LOC) {
       await client.query('ROLLBACK');
       return res.status(409).json({
-        error: 'Not enough XP for prestige',
-        requiredXp: PRESTIGE.THRESHOLD_XP,
-        currentXp: xpTotal,
+        error: 'Not enough lifetime LOC for prestige',
+        requiredLoc: PRESTIGE_MIN_LOC,
+        currentLoc: lifetimeLoc,
       });
     }
 
-    const progressionResult = await client.query(
-      'SELECT commits_total FROM progression WHERE user_id = $1 FOR UPDATE',
+    const projectedMu = Math.floor(computeMu(lifetimeLoc));
+    const deltaMu = Math.max(0, projectedMu - muCurrency);
+    const newPrestigeCount = prestigeCount + 1;
+
+    // Old prestige logic (keep for compatibility)
+    const oldPrestigeCurrencyEarned = computePrestige(lifetimeLoc);
+    const levelResult = await client.query(
+      'SELECT prestige_level, prestige_currency FROM player_levels WHERE user_id = $1 FOR UPDATE',
       [userId]
     );
-    const commitsTotal = Number(progressionResult.rows[0]?.commits_total ?? 0);
-    const prestigeCurrencyEarned = computePrestige(commitsTotal);
-    const newPrestigeLevel = prestigeLevel + 1;
+    const oldPrestigeLevel = Number(levelResult.rows[0]?.prestige_level ?? 0);
+    const newOldPrestigeLevel = oldPrestigeLevel + 1;
 
     await client.query(
       `UPDATE player_levels
@@ -143,12 +167,14 @@ router.post('/execute', async (req, res) => {
            xp_total = 0,
            updated_at = NOW()
        WHERE user_id = $1`,
-      [userId, newPrestigeLevel, prestigeCurrencyEarned]
+      [userId, newOldPrestigeLevel, oldPrestigeCurrencyEarned]
     );
 
     await client.query(
       `UPDATE progression
        SET prestige_level = $2,
+           prestige_count = $3,
+           mu_currency = $4,
            tier = 1,
            commits_current = 0,
            energy = 100,
@@ -158,7 +184,7 @@ router.post('/execute', async (req, res) => {
            event_state = '{}',
            updated_at = NOW()
        WHERE user_id = $1`,
-      [userId, newPrestigeLevel]
+      [userId, newOldPrestigeLevel, newPrestigeCount, projectedMu]
     );
 
     const updatedLevel = await client.query(
@@ -166,26 +192,31 @@ router.post('/execute', async (req, res) => {
       [userId]
     );
     const updatedProgression = await client.query(
-      'SELECT tier, commits_total, commits_current, energy, prestige_level, streak_days FROM progression WHERE user_id = $1',
+      'SELECT tier, commits_total, commits_current, energy, prestige_level, streak_days, lifetime_loc, prestige_count, mu_currency FROM progression WHERE user_id = $1',
       [userId]
     );
 
     await client.query('COMMIT');
 
-    const effLvl = Math.min(PRESTIGE.MAX_PRESTIGE_LEVEL, newPrestigeLevel);
+    const effOldLvl = Math.min(PRESTIGE.MAX_PRESTIGE_LEVEL, newOldPrestigeLevel);
     const bonuses = {
-      tapMult: 1 + PRESTIGE.BONUSES.TAP_MULT_PER_LEVEL * effLvl,
-      energyRecoveryMult: 1 + PRESTIGE.BONUSES.ENERGY_RECOVERY_MULT_PER_LEVEL * effLvl,
-      critAdd: PRESTIGE.BONUSES.CRIT_CHANCE_ADD_PER_LEVEL * effLvl,
-      maxEnergyAdd: PRESTIGE.BONUSES.MAX_ENERGY_ADD_PER_LEVEL * effLvl,
-      depressionResist: Math.max(0, 1 - PRESTIGE.BONUSES.DEPRESSION_RESISTANCE_PER_LEVEL * effLvl),
+      tapMult: 1 + PRESTIGE.BONUSES.TAP_MULT_PER_LEVEL * effOldLvl,
+      energyRecoveryMult: 1 + PRESTIGE.BONUSES.ENERGY_RECOVERY_MULT_PER_LEVEL * effOldLvl,
+      critAdd: PRESTIGE.BONUSES.CRIT_CHANCE_ADD_PER_LEVEL * effOldLvl,
+      maxEnergyAdd: PRESTIGE.BONUSES.MAX_ENERGY_ADD_PER_LEVEL * effOldLvl,
+      depressionResist: Math.max(0, 1 - PRESTIGE.BONUSES.DEPRESSION_RESISTANCE_PER_LEVEL * effOldLvl),
+      passiveLocMult: 1 + 0.01 * projectedMu,
+      clickPowerMult: 1 + 0.005 * projectedMu,
     };
 
     return res.json({
       success: true,
-      prestigeLevel: newPrestigeLevel,
-      prestigeCurrencyEarned,
-      totalPrestigeCurrency: Number(updatedLevel.rows[0].prestige_currency ?? 0),
+      prestigeCount: newPrestigeCount,
+      muEarned: deltaMu,
+      totalMu: projectedMu,
+      oldPrestigeLevel: newOldPrestigeLevel,
+      oldPrestigeCurrencyEarned,
+      totalOldPrestigeCurrency: Number(updatedLevel.rows[0].prestige_currency ?? 0),
       bonuses,
       newState: {
         xpTotal: Number(updatedLevel.rows[0].xp_total ?? 0),
@@ -193,6 +224,9 @@ router.post('/execute', async (req, res) => {
         commitsTotal: Number(updatedProgression.rows[0].commits_total ?? 0),
         energy: Number(updatedProgression.rows[0].energy ?? 100),
         streakDays: Number(updatedProgression.rows[0].streak_days ?? 0),
+        lifetimeLoc: Number(updatedProgression.rows[0].lifetime_loc ?? 0),
+        prestigeCount: Number(updatedProgression.rows[0].prestige_count ?? 0),
+        muCurrency: Number(updatedProgression.rows[0].mu_currency ?? 0),
       },
     });
   } catch (err) {

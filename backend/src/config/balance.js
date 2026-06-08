@@ -180,7 +180,7 @@ export const BATTLE_REWARD_PREVIEW = {
 };
 
 export const MIN_IDLE_THRESHOLD_SECONDS = 300;
-export const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 5;
+export const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 120;
 export const RECOVERY_INTERVAL_NEWBIE_SECONDS = 90;
 export const RECOVERY_INTERVAL_VETERAN_SECONDS = 120;
 
@@ -221,7 +221,7 @@ export const WEEKLY_HACKATHON_REWARD = {
 
 export const SHOP_ITEM_EFFECTS = {
   coffee_break: { energy: 50, depressionRelief: 10 },
-  depression_cure: { depressionRelief: 60 },
+  depression_cure: { depressionRelief: 50 },
   tier_boost: { xpTotal: 40, commitsCurrent: 50 }
 };
 

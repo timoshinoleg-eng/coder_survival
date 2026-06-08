@@ -200,11 +200,29 @@ router.post('/', validate(tapSchema), async (req, res) => {
       currentEnergy,
       Number(crunchTime?.depressionMultiplier ?? 1)
     ) * actualTapCount * prestigeDepressionResist;
-    const newDepression = Math.min(
+
+    // Random bug encounter on low-energy tap (+5–15 depression)
+    let bugEncounterDelta = 0;
+    if (currentEnergy < 20 && Math.random() < 0.15) {
+      bugEncounterDelta = 5 + Math.floor(Math.random() * 11);
+    }
+
+    let newDepression = Math.min(
       TAP_MECHANICS.maxDepression,
-      Math.max(0, currentDepression + depressionDelta)
+      Math.max(0, currentDepression + depressionDelta + bugEncounterDelta)
     );
+
+    // Successful commit relief (-5 depression on crit)
+    if (tapResult.isCrit) {
+      newDepression = Math.max(0, newDepression - 5);
+    }
+
     const isBurnout = newDepression >= TAP_MECHANICS.maxDepression;
+    const isAfflicted = newDepression >= TAP_MECHANICS.afflictionDepression;
+    const isForcedBreakTriggered = newDepression >= 180 && currentDepression < 180;
+    const forcedBreakUntil = isForcedBreakTriggered
+      ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      : null;
     let heartAttackReset = null;
 
     if (isBurnout && currentDepression < TAP_MECHANICS.maxDepression) {
@@ -238,11 +256,14 @@ router.post('/', validate(tapSchema), async (req, res) => {
     const updatedProgressResult = await client.query(
       `UPDATE progression
        SET commits_total = commits_total + $2,
+           lifetime_loc = lifetime_loc + $2,
            commits_current = $3,
            energy = $4,
            depression_level = $5,
            tier = $6,
            is_burnout = $7,
+           burnout_affliction = $8,
+           forced_break_until = COALESCE($9::timestamptz, forced_break_until),
            updated_at = GREATEST(NOW(), updated_at + INTERVAL '1 millisecond'),
            last_energy_activity_at = NOW(),
            energy_recovery_checkpoint_at = NOW()
@@ -255,7 +276,9 @@ router.post('/', validate(tapSchema), async (req, res) => {
         newEnergy,
         newDepression,
         newTier,
-        isBurnout
+        isBurnout,
+        isAfflicted,
+        forcedBreakUntil
       ]
     );
     recoveredProgress = updatedProgressResult.rows[0];
@@ -521,7 +544,9 @@ router.post('/', validate(tapSchema), async (req, res) => {
         depressionLevel: Number(recoveredProgress.depression_level ?? 0),
         streakDays: Number(recoveredProgress.streak_days ?? 0),
         updatedAt: recoveredProgress.updated_at,
-        isBurnout
+        isBurnout,
+        isAfflicted,
+        forcedBreakUntil
       },
       game: {
         tier: recoveredProgress.tier,
@@ -531,7 +556,9 @@ router.post('/', validate(tapSchema), async (req, res) => {
         depression_level: Number(recoveredProgress.depression_level ?? 0),
         streak_days: Number(recoveredProgress.streak_days ?? 0),
         updated_at: recoveredProgress.updated_at,
-        is_burnout: isBurnout
+        is_burnout: isBurnout,
+        burnout_affliction: isAfflicted,
+        forced_break_until: forcedBreakUntil
       },
       progressionUpdatedAt: recoveredProgress.updated_at,
       serverNow: new Date().toISOString(),
@@ -564,6 +591,8 @@ router.post('/', validate(tapSchema), async (req, res) => {
       commitsDelta: tapResult.commitsDelta,
       totalCommits: Number(recoveredProgress.commits_total ?? 0),
       isBurnout,
+      isAfflicted,
+      forcedBreakUntil,
       isCrit: tapResult.isCrit,
       critTier: tapResult.critTier,
       rank: levelAfter.record.resolved.rankName,
