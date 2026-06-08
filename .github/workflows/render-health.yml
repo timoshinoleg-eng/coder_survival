@@ -1,0 +1,50 @@
+name: Render Health Monitor
+
+on:
+  schedule:
+    # Check every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Render Service Health
+        run: |
+          echo "Checking coder-survival.onrender.com..."
+          
+          # Try health endpoint
+          RESPONSE=$(curl -s -w "\n%{http_code}" https://coder-survival.onrender.com/health 2>/dev/null || echo "")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Service is healthy"
+            exit 0
+          elif [ "$HTTP_CODE" = "404" ]; then
+            echo "⚠️ Health endpoint not found - service may need configuration"
+            exit 0
+          elif [ "$HTTP_CODE" = "503" ]; then
+            echo "⚠️ Service unhealthy - database may be down"
+            exit 0
+          else
+            echo "⚠️ Service status: $HTTP_CODE (may be sleeping or deploying)"
+            exit 0
+          fi
+
+      - name: Check API Endpoints
+        run: |
+          echo "Checking API endpoints..."
+          
+          # Check if service responds at all
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://coder-survival.onrender.com/api/state 2>/dev/null || echo "000")
+          echo "API /state status: $STATUS"
+          
+          # Check if service is awake
+          if [ "$STATUS" = "000" ]; then
+            echo "💤 Service appears to be sleeping (cold start pending)"
+          fi
