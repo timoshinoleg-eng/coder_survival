@@ -41,8 +41,9 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # TODO: switch to self-hosted runner in the operator LAN for SSH reliability
-    # runs-on: [self-hosted, cs-operator]
+
+    env:
+      VM_HOST: ${{ secrets.VM_HOST || 'ubuntu@111.88.247.195' }}
 
     steps:
       - name: Checkout
@@ -50,7 +51,7 @@ jobs:
 
       - name: Setup PowerShell
         uses: pwsh-lang/pwsh@v1
-        # Fallback: Ubuntu images already have pwsh; this step is a no-op placeholder.
+        # Комментарий: Ubuntu-раннеры уже содержат pwsh, шаг оставлен для явности окружения.
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -60,10 +61,11 @@ jobs:
       - name: Setup SSH
         if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
         run: |
+          set -eu
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 111.88.247.195 >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H "${VM_HOST#*@}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}
@@ -82,10 +84,10 @@ jobs:
         shell: pwsh
         run: |
           $params = @{
-            SkipVercel   = $${{ inputs.skip_vercel }}
-            SkipBackend  = $${{ inputs.skip_backend }}
-            SkipSmoke    = $${{ inputs.skip_smoke }}
-            AllowDirty   = $${{ inputs.allow_dirty }}
+            SkipVercel  = [System.Convert]::ToBoolean('${{ inputs.skip_vercel }}')
+            SkipBackend = [System.Convert]::ToBoolean('${{ inputs.skip_backend }}')
+            SkipSmoke   = [System.Convert]::ToBoolean('${{ inputs.skip_smoke }}')
+            AllowDirty  = [System.Convert]::ToBoolean('${{ inputs.allow_dirty }}')
           }
           scripts/release-prod.ps1 @params
 
