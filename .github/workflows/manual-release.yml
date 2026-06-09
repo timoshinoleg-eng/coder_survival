@@ -82,10 +82,10 @@ jobs:
         shell: pwsh
         run: |
           $params = @{
-            SkipVercel   = $${{ inputs.skip_vercel }}
-            SkipBackend  = $${{ inputs.skip_backend }}
-            SkipSmoke    = $${{ inputs.skip_smoke }}
-            AllowDirty   = $${{ inputs.allow_dirty }}
+            SkipVercel  = [System.Convert]::ToBoolean("${{ inputs.skip_vercel }}")
+            SkipBackend = [System.Convert]::ToBoolean("${{ inputs.skip_backend }}")
+            SkipSmoke   = [System.Convert]::ToBoolean("${{ inputs.skip_smoke }}")
+            AllowDirty  = [System.Convert]::ToBoolean("${{ inputs.allow_dirty }}")
           }
           scripts/release-prod.ps1 @params
 
