@@ -59,11 +59,14 @@ jobs:
 
       - name: Setup SSH
         if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
+        env:
+          VM_HOST: ${{ secrets.VM_HOST || 'ubuntu@111.88.247.195' }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 111.88.247.195 >> ~/.ssh/known_hosts 2>/dev/null || true
+          vm_target="${VM_HOST#*@}"
+          ssh-keyscan -H "$vm_target" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}
