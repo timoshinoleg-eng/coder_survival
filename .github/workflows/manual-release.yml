@@ -1,20 +1,19 @@
-# Coder Survival — Manual Release Workflow
-# This is a CI wrapper draft around scripts/release-prod.ps1.
-# It is designed for workflow_dispatch (one-click manual run) and NOT for
-# automatic push-triggered deploys, because the production release path
-# requires SSH access to the VM and Vercel CLI auth that live outside this repo.
+# Coder Survival â Manual Release Workflow
+# Ð­ÑÐ¾ ÑÐµÑÐ½Ð¾Ð²Ð°Ñ CI-Ð¾Ð±ÑÑÑÐºÐ° Ð²Ð¾ÐºÑÑÐ³ scripts/release-prod.ps1.
+# ÐÐ½Ð° Ð¿ÑÐµÐ´Ð½Ð°Ð·Ð½Ð°ÑÐµÐ½Ð° Ð´Ð»Ñ workflow_dispatch (ÑÑÑÐ½Ð¾Ð¹ Ð·Ð°Ð¿ÑÑÐº Ð² Ð¾Ð´Ð¸Ð½ ÐºÐ»Ð¸Ðº), Ð° Ð½Ðµ Ð´Ð»Ñ
+# Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸Ñ push-Ð´ÐµÐ¿Ð»Ð¾ÐµÐ², Ð¿Ð¾ÑÐ¾Ð¼Ñ ÑÑÐ¾ production-ÑÐµÐ»Ð¸Ð· ÑÑÐµÐ±ÑÐµÑ SSH-Ð´Ð¾ÑÑÑÐ¿Ð° Ðº VM
+# Ð¸ Ð°Ð²ÑÐ¾ÑÐ¸Ð·Ð°ÑÐ¸Ð¸ Vercel CLI, ÐºÐ¾ÑÐ¾ÑÑÐµ Ð½Ð°ÑÑÑÐ°Ð¸Ð²Ð°ÑÑÑÑ Ð²Ð½Ðµ ÑÑÐ¾Ð³Ð¾ ÑÐµÐ¿Ð¾Ð·Ð¸ÑÐ¾ÑÐ¸Ñ.
 #
-# Prerequisites (must be configured as repository secrets):
-#   VM_SSH_KEY        — private key for ubuntu@111.88.247.195
-#   VM_HOST           — optional override, default ubuntu@111.88.247.195
-#   VERCEL_TOKEN      — npx vercel --token value (if running Vercel deploy from CI)
-#   BOT_TOKEN         — optional, for smoke test init-data signing
+# Ð¢ÑÐµÐ±Ð¾Ð²Ð°Ð½Ð¸Ñ (Ð´Ð¾Ð»Ð¶Ð½Ñ Ð±ÑÑÑ Ð½Ð°ÑÑÑÐ¾ÐµÐ½Ñ ÐºÐ°Ðº secrets ÑÐµÐ¿Ð¾Ð·Ð¸ÑÐ¾ÑÐ¸Ñ):
+#   VM_SSH_KEY        â Ð¿ÑÐ¸Ð²Ð°ÑÐ½ÑÐ¹ ÐºÐ»ÑÑ Ð´Ð»Ñ ubuntu@111.88.247.195
+#   VM_HOST           â Ð½ÐµÐ¾Ð±ÑÐ·Ð°ÑÐµÐ»ÑÐ½Ð¾Ðµ Ð¿ÐµÑÐµÐ¾Ð¿ÑÐµÐ´ÐµÐ»ÐµÐ½Ð¸Ðµ, Ð¿Ð¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ ubuntu@111.88.247.195
+#   VERCEL_TOKEN      â Ð·Ð½Ð°ÑÐµÐ½Ð¸Ðµ Ð´Ð»Ñ npx vercel --token (ÐµÑÐ»Ð¸ Vercel-Ð´ÐµÐ¿Ð»Ð¾Ð¹ Ð¸Ð´ÑÑ Ð¸Ð· CI)
+#   BOT_TOKEN         â Ð½ÐµÐ¾Ð±ÑÐ·Ð°ÑÐµÐ»ÑÐ½Ð¾, Ð´Ð»Ñ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐ¸ init-data Ð² smoke-ÑÐµÑÑÐ°Ñ
 #
-# Current limitation:
-#   The hardened release path validates Docker health on the VM, so the runner
-#   must be able to reach 111.88.247.195:22. A self-hosted runner inside the
-#   operator environment is the safest path; GitHub-hosted runners work only
-#   if the VM SSH port is exposed and key-based auth is configured.
+# Ð¢ÐµÐºÑÑÐµÐµ Ð¾Ð³ÑÐ°Ð½Ð¸ÑÐµÐ½Ð¸Ðµ:
+#   ÐÐ°ÑÐ¸ÑÑÐ½Ð½ÑÐ¹ release-Ð¿ÑÑÑ Ð¿ÑÐ¾Ð²ÐµÑÑÐµÑ Docker health Ð½Ð° VM, Ð¿Ð¾ÑÑÐ¾Ð¼Ñ runner Ð´Ð¾Ð»Ð¶ÐµÐ½
+#   Ð¸Ð¼ÐµÑÑ Ð´Ð¾ÑÑÑÐ¿ Ðº 111.88.247.195:22. Self-hosted runner Ð² Ð¾Ð¿ÐµÑÐ°ÑÐ¾ÑÑÐºÐ¾Ð¹ ÑÐµÑÐ¸ â
+#   ÑÑÐ°ÑÐ½ÑÐ¹ ÑÑÐµÐ½Ð°ÑÐ¸Ð¹ Ð´Ð»Ñ ÑÑÐ¾Ð³Ð¾ workflow.
 
 name: Manual Release
 
@@ -40,9 +39,9 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
-    # TODO: switch to self-hosted runner in the operator LAN for SSH reliability
-    # runs-on: [self-hosted, cs-operator]
+    runs-on: [self-hosted, cs-operator]
+    env:
+      VM_HOST: ${{ secrets.VM_HOST || 'ubuntu@111.88.247.195' }}
 
     steps:
       - name: Checkout
@@ -50,7 +49,7 @@ jobs:
 
       - name: Setup PowerShell
         uses: pwsh-lang/pwsh@v1
-        # Fallback: Ubuntu images already have pwsh; this step is a no-op placeholder.
+        # Ð ÐµÐ·ÐµÑÐ²Ð½ÑÐ¹ Ð²Ð°ÑÐ¸Ð°Ð½Ñ: ÐµÑÐ»Ð¸ pwsh ÑÐ¶Ðµ ÑÑÑÐ°Ð½Ð¾Ð²Ð»ÐµÐ½ Ð½Ð° self-hosted runner, ÑÐ°Ð³ Ð¾ÑÑÐ°ÑÑÑÑ ÐºÐ°Ðº no-op.
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -63,7 +62,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 111.88.247.195 >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H "${VM_HOST#*@}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}
