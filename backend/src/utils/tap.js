@@ -21,7 +21,7 @@ export function calculateTapDelta(baseCommits, energy, depression, streak, commi
   let multiplier = 1;
   let tier = null;
 
-  const goldChance = TAP_MECHANICS.critGoldChance + critChanceAdd;
+  const goldChance = Math.min(0.25, TAP_MECHANICS.critGoldChance + critChanceAdd);
   const silverChance = TAP_MECHANICS.critSilverChance;
 
   if (roll < goldChance) {

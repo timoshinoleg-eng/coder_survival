@@ -82,7 +82,7 @@ export function generateDailyQuests(userId, dateString, rankTier = 1, accountAge
     {
       id: 'q_earn10000',
       type: 'commit_total',
-      target: DAILY_QUEST.TRIGGERS.earnLoc,
+      target: Math.max(300, Math.floor(avgDailyFarm * 0.6)),
       reward: { commitsCurrent: mainQuestReward },
     }
   ].map((quest) => ({
