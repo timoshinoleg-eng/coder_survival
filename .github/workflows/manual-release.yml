@@ -1,14 +1,14 @@
-# Coder Survival — Manual Release Workflow
+# Coder Survival â Manual Release Workflow
 # This is a CI wrapper draft around scripts/release-prod.ps1.
 # It is designed for workflow_dispatch (one-click manual run) and NOT for
 # automatic push-triggered deploys, because the production release path
 # requires SSH access to the VM and Vercel CLI auth that live outside this repo.
 #
 # Prerequisites (must be configured as repository secrets):
-#   VM_SSH_KEY        — private key for ubuntu@111.88.247.195
-#   VM_HOST           — optional override, default ubuntu@111.88.247.195
-#   VERCEL_TOKEN      — npx vercel --token value (if running Vercel deploy from CI)
-#   BOT_TOKEN         — optional, for smoke test init-data signing
+#   VM_SSH_KEY        â private key for ubuntu@111.88.247.195
+#   VM_HOST           â optional override, default ubuntu@111.88.247.195
+#   VERCEL_TOKEN      â npx vercel --token value (if running Vercel deploy from CI)
+#   BOT_TOKEN         â optional, for smoke test init-data signing
 #
 # Current limitation:
 #   The hardened release path validates Docker health on the VM, so the runner
@@ -40,9 +40,9 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
-    # TODO: switch to self-hosted runner in the operator LAN for SSH reliability
-    # runs-on: [self-hosted, cs-operator]
+    runs-on:
+      - self-hosted
+      - cs-operator
 
     steps:
       - name: Checkout
@@ -59,11 +59,14 @@ jobs:
 
       - name: Setup SSH
         if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
+        env:
+          VM_HOST: ${{ secrets.VM_HOST || 'ubuntu@111.88.247.195' }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 111.88.247.195 >> ~/.ssh/known_hosts 2>/dev/null || true
+          vm_hostname="${VM_HOST#*@}"
+          ssh-keyscan -H "$vm_hostname" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}
@@ -80,6 +83,10 @@ jobs:
 
       - name: Run release-prod.ps1
         shell: pwsh
+        env:
+          VM_HOST: ${{ secrets.VM_HOST || 'ubuntu@111.88.247.195' }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
           $params = @{
             SkipVercel   = $${{ inputs.skip_vercel }}
