@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import express from 'express';
+import { randomBytes } from 'crypto';
 import { closeServer, listenOnFetchSafePort } from './helpers/testServer.js';
 
 const mockQuery = jest.fn();
@@ -19,12 +20,21 @@ jest.unstable_mockModule('../src/index.js', () => ({
 let buyRouter;
 let internalRouter;
 
-const secret = 'test-backend-secret';
-process.env.BOT_BACKEND_SECRET = secret;
+const originalBotBackendSecret = process.env.BOT_BACKEND_SECRET;
+const secret = randomBytes(16).toString('hex');
 
 beforeAll(async () => {
+  process.env.BOT_BACKEND_SECRET = secret;
   buyRouter = (await import('../src/routes/buy.js')).default;
   internalRouter = (await import('../src/routes/internalPayments.js')).default;
+});
+
+afterAll(() => {
+  if (originalBotBackendSecret === undefined) {
+    delete process.env.BOT_BACKEND_SECRET;
+  } else {
+    process.env.BOT_BACKEND_SECRET = originalBotBackendSecret;
+  }
 });
 
 beforeEach(() => {
