@@ -615,6 +615,24 @@ export function GameProvider({ children }) {
     loadStatePromiseRef.current = null;
   }, [telegram?.initData]);
 
+  // Clean up any pending tap/refresh/toast timers if the provider ever unmounts.
+  useEffect(() => {
+    return () => {
+      if (tapRetryTimerRef.current) {
+        clearTimeout(tapRetryTimerRef.current);
+        tapRetryTimerRef.current = null;
+      }
+      if (postTapRefreshTimerRef.current) {
+        clearTimeout(postTapRefreshTimerRef.current);
+        postTapRefreshTimerRef.current = null;
+      }
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     let timer = null;
     let cancelled = false;
@@ -755,18 +773,24 @@ export function GameProvider({ children }) {
         schedulePostTapRefresh();
       } catch (err) {
         pendingTapsRef.current += tapCount;
-        const retryAfterSeconds = Number(err?.payload?.retryAfter);
-        const retryDelayMs = err.status === 429
-          ? Math.max(1000, Math.min(10000, (Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 1) * 1000))
+        const rawRetryAfterSeconds = Number(err?.payload?.retryAfter);
+        const isRateLimit = err.status === 429;
+        // Only retry short server-side cool-downs (burst_limit). Long bans (anti-cheat,
+        // soft-ban) outlast our retry window and would leave the queue stuck retrying
+        // while the user sees no feedback. For those we drop the batch and surface a
+        // clear recoverable message so the user can tap again after the real cooldown.
+        const shortCooldown = !isRateLimit || !Number.isFinite(rawRetryAfterSeconds) || rawRetryAfterSeconds <= 10;
+        const retryDelayMs = isRateLimit
+          ? Math.max(1000, Math.min(10000, (Number.isFinite(rawRetryAfterSeconds) ? rawRetryAfterSeconds : 1) * 1000))
           : Math.min(5000, 750 * (2 ** tapRetryAttemptsRef.current));
-        const retryable = err.status === 429 || err.status >= 500 || err.status == null;
-        const maxAttempts = err.status === 429 ? 4 : 3;
+        const retryable = isRateLimit || err.status >= 500 || err.status == null;
+        const maxAttempts = isRateLimit ? 4 : 3;
         const nextAttempt = tapRetryAttemptsRef.current + 1;
-        const retryMessage = err.status === 429
+        const retryMessage = isRateLimit
           ? "Слишком быстро. Повторяю сохранение..."
           : "Не удалось сохранить тап. Повторяю...";
         tapRetryAttemptsRef.current = nextAttempt;
-        if (retryable && nextAttempt <= maxAttempts && typeof window !== "undefined") {
+        if (retryable && nextAttempt <= maxAttempts && shortCooldown && typeof window !== "undefined") {
           retryScheduled = true;
           if (nextAttempt === 1) {
             showToast(retryMessage, "warning", 1600);
@@ -779,7 +803,11 @@ export function GameProvider({ children }) {
         } else {
           pendingTapsRef.current = 0;
           tapRetryAttemptsRef.current = 0;
-          showToast("Не удалось сохранить тап", "error", 2000);
+          if (isRateLimit && Number.isFinite(rawRetryAfterSeconds) && rawRetryAfterSeconds > 10) {
+            showToast(`Слишком быстро. Попробуй снова через ${rawRetryAfterSeconds} сек.`, "warning", 2500);
+          } else {
+            showToast("Не удалось сохранить тап", "error", 2000);
+          }
         }
         setState((current) => ({
           ...current,

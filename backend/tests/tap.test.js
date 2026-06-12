@@ -317,4 +317,80 @@ describe('tap.js', () => {
     expect(res.status).toBe(429);
     expect(res.body.type).toBe('soft_ban');
   });
+
+  test('429 burst_limit response has required payload {error, retryAfter, type}', async () => {
+    setupMockQuery({ tapCount: 5, rateLimitCount: 110, progression: { energy: 100 } });
+    const res = await requestApp('/api/tap', { method: 'POST', body: { tapCount: 5 } });
+    expect(res.status).toBe(429);
+    expect(res.body).toMatchObject({
+      error: expect.any(String),
+      retryAfter: expect.any(Number),
+      type: 'burst_limit',
+    });
+  });
+
+  test('429 soft_ban response has required payload {error, retryAfter, type}', async () => {
+    setupMockQuery({ tapCount: 5, rateLimitCount: 999, progression: { energy: 1000 } });
+    const res = await requestApp('/api/tap', { method: 'POST', body: { tapCount: 5 } });
+    expect(res.status).toBe(429);
+    expect(res.body).toMatchObject({
+      error: expect.any(String),
+      retryAfter: 60,
+      type: 'soft_ban',
+    });
+  });
+
+  test('429 pattern_ban response has required payload {error, retryAfter, type}', async () => {
+    let now = Date.parse('2026-06-10T12:00:00.000Z');
+    const dateSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    setupMockQuery({ tapCount: 1 });
+
+    try {
+      let banned = false;
+      for (let i = 0; i < 15; i++) {
+        now += 30;
+        const res = await requestApp('/api/tap', { method: 'POST', body: { tapCount: 1 } });
+        if (res.status === 429 && res.body.type === 'pattern_ban') {
+          expect(res.body).toMatchObject({
+            error: expect.any(String),
+            retryAfter: expect.any(Number),
+            type: 'pattern_ban',
+          });
+          banned = true;
+          break;
+        }
+      }
+      expect(banned).toBe(true);
+    } finally {
+      dateSpy.mockRestore();
+    }
+  });
+
+  test('after 429 cooldown a valid tap succeeds', async () => {
+    // First request triggers a soft ban.
+    setupMockQuery({ tapCount: 5, rateLimitCount: 999, progression: { energy: 1000 } });
+    const first = await requestApp('/api/tap', { method: 'POST', body: { tapCount: 5 } });
+    expect(first.status).toBe(429);
+    expect(first.body.type).toBe('soft_ban');
+
+    // Second request simulates the rate-limit window having reset.
+    setupMockQuery({ tapCount: 5, rateLimitCount: 5, progression: { energy: 995 } });
+    const second = await requestApp('/api/tap', { method: 'POST', body: { tapCount: 5 } });
+    expect(second.status).toBe(200);
+    expect(second.body.commitsDelta).toBeGreaterThan(0);
+    expect(second.body.tapCount).toBe(5);
+  });
+
+  test('tapCount 5 and default body {} both work after cooldown', async () => {
+    setupMockQuery({ tapCount: 5, rateLimitCount: 5, progression: { energy: 100 } });
+    const withCount = await requestApp('/api/tap', { method: 'POST', body: { tapCount: 5 } });
+    expect(withCount.status).toBe(200);
+    expect(withCount.body.tapCount).toBe(5);
+
+    // Validation default tapCount = 1 when body is {}.
+    setupMockQuery({ tapCount: 1, rateLimitCount: 6, progression: { energy: 95 } });
+    const withDefault = await requestApp('/api/tap', { method: 'POST', body: {} });
+    expect(withDefault.status).toBe(200);
+    expect(withDefault.body.tapCount).toBe(1);
+  });
 });

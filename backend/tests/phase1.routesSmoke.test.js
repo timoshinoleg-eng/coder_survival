@@ -86,7 +86,10 @@ describeIfDb("phase 1 regression smoke", () => {
       [userId]
     );
 
-    const requests = Array.from({ length: 5 }, () =>
+    // With a 5-second window the burst limit is MAX_TAPS_PER_SECOND * 5 = 10,
+    // so 11 concurrent requests guarantees at least one 429 while still allowing
+    // some successes.
+    const requests = Array.from({ length: 11 }, () =>
       server.request("/api/tap", {
         method: "POST",
         headers: { "X-Telegram-Init-Data": initData },
