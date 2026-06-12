@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-  [string]$VmHost = "ubuntu@111.88.247.195",
-  [string]$RemoteAppDir = "/opt/coder-survival/app",
+  [string]$VmHost = "root@185.92.221.219",
+  [string]$RemoteAppDir = "/opt/coder_survival",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
   [string]$BaseUrl = "https://frontend-ashy-alpha-77.vercel.app",
   [string]$DirectApiBaseUrl = "https://coder-survival-api.duckdns.org",
@@ -22,7 +22,7 @@ if (-not $PSBoundParameters.ContainsKey('SmokeTelegramId')) {
 Write-Host "==> Fetching BOT_TOKEN from backend runtime"
 $botToken = $BotToken
 if (-not $botToken) {
-  $botToken = ssh $VmHost "cd $RemoteAppDir && docker-compose -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
+  $botToken = ssh $VmHost "cd $RemoteAppDir && docker compose -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
   if ($LASTEXITCODE -ne 0 -or -not $botToken) {
     throw "Failed to retrieve BOT_TOKEN from backend runtime on $VmHost"
   }

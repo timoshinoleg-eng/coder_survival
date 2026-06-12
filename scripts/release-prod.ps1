@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-  [string]$VmHost = "ubuntu@111.88.247.195",
-  [string]$RemoteAppDir = "/opt/coder-survival/app",
+  [string]$VmHost = "root@185.92.221.219",
+  [string]$RemoteAppDir = "/opt/coder_survival",
   [string]$FrontendDir = "frontend",
   [string]$BotDir = "bot",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
@@ -210,16 +210,16 @@ print('release payload extracted')
 PY
 rm -f /tmp/coder-survival-release.zip
 docker build --no-cache -t cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest ./backend
-docker-compose -f __BACKEND_COMPOSE_FILE__ run --rm backend node src/migrate.js
-docker-compose -f __BACKEND_COMPOSE_FILE__ up -d --force-recreate backend
-backend_container_id="$(docker-compose -f __BACKEND_COMPOSE_FILE__ ps -q backend)"
+docker compose -f __BACKEND_COMPOSE_FILE__ run --rm backend node src/migrate.js
+docker compose -f __BACKEND_COMPOSE_FILE__ up -d --force-recreate backend
+backend_container_id="$(docker compose -f __BACKEND_COMPOSE_FILE__ ps -q backend)"
 for i in 1 2 3 4 5 6 7 8 9 10; do
   if [ -n "$backend_container_id" ] && [ "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$backend_container_id")" = "healthy" ]; then
     exit 0
   fi
   sleep 2
 done
-docker-compose -f __BACKEND_COMPOSE_FILE__ logs --tail=40 backend
+docker compose -f __BACKEND_COMPOSE_FILE__ logs --tail=40 backend
 exit 1
 '@
     $remoteScript = $remoteScript.Replace('__REMOTE_APP_DIR__', $RemoteAppDir)

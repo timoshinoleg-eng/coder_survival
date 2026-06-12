@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import EventManager from '../EventManager.js';
 
 const codeSnippets = [
   'git commit -m "fix"',
@@ -164,9 +163,7 @@ export default class GameScene extends Phaser.Scene {
     // Tremor shake timer
     this.tremorShakeTimer = null;
 
-    // EventManager
-    this.eventManager = new EventManager(this);
-    this.eventManager.start();
+    // Random event polling is owned by App.jsx; do not start a second poller here.
 
     // Listen for tap events from DOM
     this.game.events.on('tap', this.onTap, this);
@@ -176,7 +173,6 @@ export default class GameScene extends Phaser.Scene {
       this.game.events.off('tap', this.onTap, this);
       this.game.events.off('event_choice', this.onEventChoice, this);
       this.scale.off('resize', this.onResize, this);
-      this.eventManager?.stop();
       if (this.tremorShakeTimer) {
         clearInterval(this.tremorShakeTimer);
         this.tremorShakeTimer = null;

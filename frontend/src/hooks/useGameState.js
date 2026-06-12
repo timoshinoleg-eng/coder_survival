@@ -130,6 +130,8 @@ export function GameProvider({ children }) {
   const stateRef = useRef(DEFAULT_STATE);
   const pendingTapsRef = useRef(0);
   const processingTapRef = useRef(false);
+  const tapRetryTimerRef = useRef(null);
+  const tapRetryAttemptsRef = useRef(0);
   const loadStatePromiseRef = useRef(null);
   const postTapRefreshTimerRef = useRef(null);
   const fetchingBattlesRef = useRef(false);
@@ -677,7 +679,8 @@ export function GameProvider({ children }) {
   }, [refreshDailyBattle]);
 
   useEffect(() => {
-    window.__GAME_STATE__ = state;
+    // Expose an immutable snapshot so Phaser cannot mutate React state directly.
+    window.__GAME_STATE__ = JSON.parse(JSON.stringify(state));
     stateRef.current = state;
   }, [state]);
 
@@ -714,6 +717,7 @@ export function GameProvider({ children }) {
   const flushTapQueue = useCallback(async () => {
     if (processingTapRef.current) return;
     processingTapRef.current = true;
+    let retryScheduled = false;
 
     try {
       const currentState = stateRef.current;
@@ -724,6 +728,10 @@ export function GameProvider({ children }) {
       }
 
       const tapCount = Math.min(20, pendingTapsRef.current, Math.max(1, Math.floor(currentState.energy || 1)));
+      if (tapCount <= 0) {
+        setState((current) => ({ ...current, syncing: false }));
+        return;
+      }
       pendingTapsRef.current -= tapCount;
       setState((current) => ({ ...current, syncing: true, error: null }));
 
@@ -743,29 +751,57 @@ export function GameProvider({ children }) {
           ...current,
           totalTaps: current.totalTaps + (payload?.commitsDelta > 0 ? tapCount : 0),
         }));
+        tapRetryAttemptsRef.current = 0;
         schedulePostTapRefresh();
       } catch (err) {
-        pendingTapsRef.current = 0;
+        pendingTapsRef.current += tapCount;
+        const retryAfterSeconds = Number(err?.payload?.retryAfter);
+        const retryDelayMs = err.status === 429
+          ? Math.max(1000, Math.min(10000, (Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 1) * 1000))
+          : Math.min(5000, 750 * (2 ** tapRetryAttemptsRef.current));
+        const retryable = err.status === 429 || err.status >= 500 || err.status == null;
+        const maxAttempts = err.status === 429 ? 4 : 3;
+        const nextAttempt = tapRetryAttemptsRef.current + 1;
+        const retryMessage = err.status === 429
+          ? "Слишком быстро. Повторяю сохранение..."
+          : "Не удалось сохранить тап. Повторяю...";
+        tapRetryAttemptsRef.current = nextAttempt;
+        if (retryable && nextAttempt <= maxAttempts && typeof window !== "undefined") {
+          retryScheduled = true;
+          if (nextAttempt === 1) {
+            showToast(retryMessage, "warning", 1600);
+          }
+          if (tapRetryTimerRef.current) clearTimeout(tapRetryTimerRef.current);
+          tapRetryTimerRef.current = window.setTimeout(() => {
+            tapRetryTimerRef.current = null;
+            flushTapQueue();
+          }, retryDelayMs);
+        } else {
+          pendingTapsRef.current = 0;
+          tapRetryAttemptsRef.current = 0;
+          showToast("Не удалось сохранить тап", "error", 2000);
+        }
         setState((current) => ({
           ...current,
           syncing: false,
-          error: err.status === 429 ? "Слишком быстро. Подожди секунду." : "Не удалось сохранить тап",
+          error: null,
         }));
       }
     } finally {
       processingTapRef.current = false;
       if (pendingTapsRef.current === 0) {
         setState((current) => ({ ...current, syncing: false }));
-      } else {
+      } else if (!retryScheduled) {
         window.setTimeout(() => flushTapQueue(), 0);
       }
     }
-  }, [applyServerState, applyTapState, schedulePostTapRefresh, telegram?.initData]);
+  }, [applyServerState, applyTapState, schedulePostTapRefresh, showToast, telegram?.initData]);
 
   const tap = useCallback(() => {
     const currentState = stateRef.current;
     if (currentState.energy <= 0) return;
     pendingTapsRef.current += 1;
+    if (tapRetryTimerRef.current) return;
     flushTapQueue();
   }, [flushTapQueue]);
 

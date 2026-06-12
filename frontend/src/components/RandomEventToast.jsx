@@ -25,7 +25,7 @@ function getEventColor(type) {
   }
 }
 
-export default function RandomEventToast({ event, onChoice, onTap }) {
+export default function RandomEventToast({ event, onChoice, onTap, disabled = false }) {
   const [timeLeft, setTimeLeft] = useState(100);
   const [mode, setMode] = useState('choice'); // 'choice' | 'minigame'
 
@@ -61,19 +61,19 @@ export default function RandomEventToast({ event, onChoice, onTap }) {
   }, [timeLeft, event, mode, onChoice]);
 
   const handleSolve = useCallback(() => {
-    if (!event) return;
+    if (!event || disabled) return;
     onChoice(event.eventId, event.type, 'solve');
-  }, [event, onChoice]);
+  }, [disabled, event, onChoice]);
 
   const handleIgnore = useCallback(() => {
-    if (!event) return;
+    if (!event || disabled) return;
     onChoice(event.eventId, event.type, 'ignore');
-  }, [event, onChoice]);
+  }, [disabled, event, onChoice]);
 
   const handleMiniGameTap = useCallback(() => {
-    if (!event) return;
+    if (!event || disabled) return;
     onTap(event.eventId, event.type);
-  }, [event, onTap]);
+  }, [disabled, event, onTap]);
 
   if (!event) return null;
 
@@ -141,6 +141,7 @@ export default function RandomEventToast({ event, onChoice, onTap }) {
         })),
         h("button", {
           className: "pixel-button",
+          disabled,
           onClick: handleMiniGameTap,
           style: {
             width: "100%",
@@ -148,8 +149,9 @@ export default function RandomEventToast({ event, onChoice, onTap }) {
             fontSize: "14px",
             background: color,
             color: "#0f172a",
+            opacity: disabled ? 0.65 : 1,
           },
-        }, "ТАП!"),
+        }, disabled ? "..." : "ТАП!"),
       ]
     );
   }
@@ -212,13 +214,15 @@ export default function RandomEventToast({ event, onChoice, onTap }) {
           }, [
             event.options?.solve && h("button", {
               className: "pixel-button",
+              disabled,
               onClick: handleSolve,
-              style: { flex: 1 },
+              style: { flex: 1, opacity: disabled ? 0.65 : 1 },
             }, event.options.solve.label),
             event.options?.ignore && h("button", {
               className: "pixel-button pixel-button--danger",
+              disabled,
               onClick: handleIgnore,
-              style: { flex: 1 },
+              style: { flex: 1, opacity: disabled ? 0.65 : 1 },
             }, event.options.ignore.label),
           ]),
     ]

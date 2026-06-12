@@ -241,12 +241,15 @@ export async function resolveRandomEvent(client, userId, eventId, action, gameSt
   // Click-based events: solve enters click mode
   if (clickEvents.includes(type) && action === 'solve') {
     nextEventState = applyRandomEventChoiceState(eventState, type, action, now);
+    const clicksNeeded = getRemainingClicks(nextEventState, type);
+    const extendedExpiresAt = new Date(now.getTime() + clicksNeeded * 2000 + 5000);
     await client.query(
       `UPDATE user_active_events
        SET state = $3,
-           deltas = $4
+           deltas = $4,
+           expires_at = $5
        WHERE user_id = $1 AND event_id = $2`,
-      [userId, eventId, JSON.stringify(nextEventState), JSON.stringify(nextDeltas)]
+      [userId, eventId, JSON.stringify(nextEventState), JSON.stringify(nextDeltas), extendedExpiresAt]
     );
     await syncRandomEventStateToProgression(client, userId, nextEventState);
     return { success: true, resolved: false, nextState: nextEventState, deltas: nextDeltas };
