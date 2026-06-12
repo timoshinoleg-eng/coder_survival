@@ -20,8 +20,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $frontendPath = Join-Path $repoRoot $FrontendDir
 $botPath = Join-Path $repoRoot $BotDir
-$smokeScript = Join-Path $PSScriptRoot "smoke-prod.ps1"
-$offerSmokeScript = Join-Path $PSScriptRoot "smoke-offers.ps1"
+$smokeScript = Join-Path $PSScriptRoot "smoke-core-prod.ps1"
 $backendPayloadWhitelist = @(
   "backend/Dockerfile",
   "backend/package.json",
@@ -240,12 +239,8 @@ exit 1
 }
 
 if (-not $SkipSmoke) {
-  Invoke-Checked -Label "Production smoke" -Action {
+  Invoke-Checked -Label "Production core smoke" -Action {
     & $smokeScript -VmHost $VmHost -RemoteAppDir $RemoteAppDir -BackendComposeFile $BackendComposeFile
-  }.GetNewClosure()
-
-  Invoke-Checked -Label "Offer smoke" -Action {
-    & $offerSmokeScript -VmHost $VmHost -RemoteAppDir $RemoteAppDir -BackendComposeFile $BackendComposeFile
   }.GetNewClosure()
 }
 
