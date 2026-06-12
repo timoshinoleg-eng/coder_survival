@@ -26,7 +26,7 @@ function getOrCreate(userId) {
   return history;
 }
 
-function shannonEntropy(intervals) {
+export function shannonEntropy(intervals) {
   if (intervals.length === 0) return 0;
   const counts = {};
   for (const interval of intervals) {
@@ -42,7 +42,7 @@ function shannonEntropy(intervals) {
   return entropy;
 }
 
-function coefficientOfVariation(intervals) {
+export function coefficientOfVariation(intervals) {
   if (intervals.length < 2) return 1;
   const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
   if (mean === 0) return 0;
