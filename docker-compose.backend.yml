@@ -4,12 +4,11 @@
 # See HANDOFF.md and DEPLOY.md for topology details.
 version: "3.3"
 
-# TODO: The canonical production env file is /opt/coder_survival/backend/.env.
-# The environment: section below uses host-side ${VAR} interpolation, which
-# docker compose resolves from the caller's shell. To make deploy reproducible,
-# refactor the service to use env_file: /opt/coder_survival/backend/.env and
-# remove ${VAR} interpolation. Until then, the release script must ensure the
-# caller's shell has the required variables.
+# Production backend compose. The canonical env file is /opt/coder_survival/backend/.env.
+# DB_* variables are interpolated from the operator's shell; the backend builds
+# its connection string from them. DATABASE_URL is intentionally omitted because
+# DB_HOST is set to host.docker.internal in production, and the backend prefers
+# DATABASE_URL when present, which would override the intended DB_* strategy.
 
 services:
   backend:
@@ -18,7 +17,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: ${DATABASE_URL}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}

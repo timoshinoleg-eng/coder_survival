@@ -18,6 +18,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# NOTE: This is the legacy full-stack smoke test. It is kept for manual/P1
+# coverage only. The blocking release gate is now scripts/smoke-core-prod.ps1.
+
 function Get-OptionalValue {
   param(
     $Object,
