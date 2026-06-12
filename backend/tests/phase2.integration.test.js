@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals";
 import { createInitData, ensureTestSchema, resetTestDatabase, testPool, TEST_DATABASE_URL } from "./helpers/testDb.js";
 import { startTestServer } from "./helpers/testServer.js";
 
@@ -155,11 +156,17 @@ describeIfDb("phase2 integration", () => {
       [userId],
     );
 
-    const burnoutTap = await server.request("/api/tap", {
-      method: "POST",
-      headers: { "X-Telegram-Init-Data": initData },
-      body: {},
-    });
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.99);
+    let burnoutTap;
+    try {
+      burnoutTap = await server.request("/api/tap", {
+        method: "POST",
+        headers: { "X-Telegram-Init-Data": initData },
+        body: {},
+      });
+    } finally {
+      randomSpy.mockRestore();
+    }
     expect(burnoutTap.status).toBe(200);
     expect(burnoutTap.body?.isBurnout).toBe(true);
     expect(burnoutTap.body?.commitsDelta).toBeGreaterThanOrEqual(1);
