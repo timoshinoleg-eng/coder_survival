@@ -1,166 +1,204 @@
-# Handoff: Coder Survival
+# HANDOFF — Coder Survival Project
+**Дата:** 2026-06-10
+**Сессия:** 2 (30+ мин автономной работы + Kimi audit Tasks 1-3)
 
-## Workspace
-- Active repo: `C:\Users\Имярек\Downloads\Coder Survival\coder_survival_repo\coder_survival_fresh`
-- Branch: `main`
-- Remote: `origin https://github.com/timoshinoleg-eng/coder_survival.git`
-- Current pushed HEAD: `c3801e7 test: align backend integration contracts`
-- Local branch `main` is **ahead of `origin/main` by 5 commits** — these fixes are committed locally and **awaiting push / deploy**.
-- Release tag pushed: `prod-pp18-yc-2026-06-01`
-- Current expected dirty worktree: docs/support updates (this file, `support/*.md`, `project-status.json`).
+---
 
-## Production Status
-PP-18 Prestige and the Yandex Cloud backend migration are live in production.
+## ✅ ВЫПОЛНЕНО
 
-- Production API: `https://coder-survival-api.duckdns.org`
-- Vercel frontend: `https://frontend-ashy-alpha-77.vercel.app`
-- Bot webhook endpoint: `https://coder-survival-bot.vercel.app/api/webhook`
-- YC VM: `yc-user@111.88.243.88`
-- App dir on VM: `/opt/coder-survival/app`
-- Backend container: `coder-survival-backend`
-- Backend image digest:
-  - `cr.yandex/crpduv7gci2puq300f38/coder-survival-backend@sha256:9b696298196704a91dffb11ab7c2e1c4e3c30d1b99eb5d2fce9862c7198dcae0`
+### Баланс-фиксы (коммит `00bd0aa`, запушен в `main`)
+| Файл | Изменение | Эффект |
+|------|-----------|--------|
+| `balance.js:183` | `DEPRESSION_PASSIVE_RECOVERY_PER_HOUR`: 120 → **20** | Стресс-механика теперь осмысленная, depression_cure монетизируется |
+| `balance.js:636` | `CRIT_CHANCE_ADD_PER_LEVEL`: 0.02 → **0.005** | Endgame crit инфляция ×5 → ×1.15, leaderboard честный |
+| `tap.js:24` | Добавлен gold crit cap `Math.min(0.25, ...)` | Защита от будущих балансных кеков |
+| `dailyQuests.js:83-86` | earnLoc target: static 10000 → **dynamic `max(300, avgDailyFarm * 0.6)`** | Квест достижим для новичков |
 
-## What Was Completed
-- Added migration `backend/migrations/045_add_social_state.sql`.
-  - `progression.social_state JSONB NOT NULL DEFAULT '{}'`
-  - Applied to production DB.
-  - Recorded in `schema_migrations`.
-- Fixed production random event SQL placeholder bug in `backend/src/utils/randomEventEngine.js`.
-- Accepted and committed the external test/code alignment fixes:
-  - UTC login reward date normalization.
-  - passive depression decay and event state persistence fixes.
-  - `depression_level` response numeric normalization.
-  - random event state handoff cleanup.
-  - DB test reset deadlock fix.
-  - stale integration test contracts updated.
-- Built/patched/restarted YC backend container and pushed current image to YC Container Registry.
-- Created and pushed release tag `prod-pp18-yc-2026-06-01`.
+### Kimi Audit — 3 задачи выполнены
+- **Task 1 (Баланс):** 3 критических риска найдены и исправлены
+- **Task 2 (Античит):** Сравнение Redis vs PostgreSQL → **решение: Variant B (PostgreSQL)** с pg_advisory_lock, batch INSERT, cron cleanup
+- **Task 3 (Tap Performance):** 7 оптимизаций найдено, ~28 → ~18 запросов (-35%)
 
-## Pending Release — 5 Local Commits Awaiting Push/Deploy
+### Оптимизации tap.js — ЧАСТИЧНО ПРИМЕНЕНЫ
+| # | Оптимизация | Статус |
+|---|-------------|--------|
+| 1 | Batch user_skins SELECT (senior_pajamas + all equipped в один запрос) | ✅ ПРИМЕНЕНО |
+| 2 | UPDATE burnout RETURNING (UPDATE + SELECT → один UPDATE RETURNING) | ✅ ПРИМЕНЕНО |
+| 3 | Batch daily_quests UPDATE | ❌ НЕ ПРИМЕНЕНО — нужно править |
+| 5 | Single social progression UPDATE (team_hackathon + referral → один UPDATE) | ❌ НЕ ПРИМЕНЕНО — нужно править |
+| 6 | Audit → out-of-transaction INSERT (anticheat INSERT до BEGIN) | ❌ НЕ ПРИМЕНЕНО — нужно править |
+| 7 | 5 Covering Indexes (миграция) | ❌ НЕ СОЗДАНО |
 
-The following commits are on `main` but **not yet pushed** to `origin/main`.
-They should go out together as a low-risk docs + backend hardening patch.
+---
 
-| Commit | Message | Scope | Risk |
-|--------|---------|-------|------|
-| `ba60665` | fix: normalize login reward dates | `backend/src/utils/date.js`, `loginReward.js` + tests | Low — guards UTC boundary for daily login rewards |
-| `1dac8e8` | fix: keep legacy random events active until refactor taps | `backend/src/utils/randomEventEngine.js` + tests | Low — preserves legacy random-event lifecycle until tap refactor lands |
-| `f9e86c4` | refactor: centralize idle progression persistence | `backend/src/utils/progression.js` + tests | Low — consolidates passive stress/energy decay into one code path |
-| `db69639` | test: reset database without sleep | `backend/tests/helpers/testDb.js` | Low — removes `sleep` from test teardown, speeds up suite |
-| `e2393fa` | fix: render illustrated meme cards | `backend/src/utils/memeRenderer.js` + tests | Low — restores illustrated meme scene rendering instead of blank cards |
+## 🚧 ПРОДОЛЖЕНИЕ — СЛЕДУЮЩИЕ ШАГИ
 
-### Release readiness for these 5 commits
-- Full backend suite was run locally before the last commit:
-  - `npm --prefix backend test -- --runInBand`
-  - Result: `28/28` suites passed, `295/295` tests passed (baseline from `c3801e7`).
-- These 5 commits touch only `backend/src/utils/*` and `backend/tests/*` — no frontend or infra changes.
-- **Next step:** push `main` to `origin/main`, then run `scripts/release-prod.ps1` or manual YC deploy if backend image rebuild is required.
+### Приоритет 1: Закончить оптимизации tap.js
+В файле `backend/src/routes/tap.js` нужно:
 
-## Verification Evidence
-- Local full backend suite:
-  - `npm --prefix backend test -- --runInBand`
-  - Result: `28/28` suites passed, `295/295` tests passed.
-- GitHub Actions:
-  - Run: `26755938753`
-  - URL: `https://github.com/timoshinoleg-eng/coder_survival/actions/runs/26755938753`
-  - Job: `Backend Tests`
-  - Conclusion: `success`
-  - Head SHA: `c3801e787cc8d20312d5a54f94053ec5ce52f9b5`
-- Production health:
-  - `https://coder-survival-api.duckdns.org/health` returns `status=ok`, `db=connected`.
-  - `https://frontend-ashy-alpha-77.vercel.app/health` returns `status=ok`, `db=connected` through Vercel rewrite.
-- YC container:
-  - container status: `healthy`
-  - environment: `production`
-  - latest checked logs show startup, cron scheduling, and no app errors.
-- Production PP-18 smoke with test Telegram ID `918000002`:
-  - state create OK
-  - prestige preview locked before eligibility OK
-  - seeded eligibility OK
-  - eligible preview returned `31 PP`
-  - prestige execute OK: `prestige.level=1`, `currency=31`
-  - state after prestige OK: `level.maxEnergy=110`
-  - tap after prestige OK
-  - prestige shop OK, 5 items
-- Broad production smoke with test Telegram IDs `900000123` / `900000124`:
-  - frontend health OK
-  - API health OK
-  - state OK
-  - tap OK
-  - daily quests OK
-  - random event active OK
-  - pass status OK
-  - referral stats OK
-  - shop products OK
-  - buy intent contract OK
-  - valid achievement PNG OK
-  - authenticated GIF endpoints OK
-  - meme token auth secret OK
-  - internal economy OK
-  - payment confirm idempotency OK
-  - bot webhook GET returns `401`, which is acceptable for protected endpoint and confirms non-5xx reachability.
-- Browser frontend check:
-  - Direct browser opened `https://frontend-ashy-alpha-77.vercel.app`.
-  - Title: `Coder Survival`.
-  - UI rendered and was not blank.
-  - JS error logs: none.
-  - Direct browser shows `Telegram авторизация не прошла`, expected outside Telegram Mini App.
+**3. Batch daily_quests UPDATE** — строки ~379-432:
+- Сейчас: SELECT daily_quests_state → process → UPDATE
+- Оптимизация: процесс обработки в памяти остаётся, но если `changed=true` — батчим UPDATE вместе с другими обновлениями progression
 
-## Known Caveats
-- `scripts/smoke-prod.ps1` is not currently the source of truth for YC prod smoke:
-  - it assumes local `docker-compose run` access and readable `.env`;
-  - on the YC VM this fails for `yc-user` without loosening secret permissions;
-  - do not chmod production secrets only to make this script pass.
-- Keep old/previous infrastructure available for at least 24 hours as rollback reference.
-- Direct browser validation cannot fully simulate Telegram WebApp `initData`; use real Telegram Mini App or signed test init data for auth-sensitive UI flows.
-- Backend log has a `pg` deprecation warning:
-  - `Calling client.query() when the client is already executing a query is deprecated...`
-  - Not release-blocking, but should be cleaned up in a later hardening pass.
+**5. Single social UPDATE** — строки ~477-492:
+- Сейчас: два отдельных `UPDATE progression SET team_hackathon_state...` и `UPDATE progression SET referral_state...`
+- Замена: один динамический UPDATE с IF EXISTS:
+```javascript
+const socialUpdates = {};
+if (teamId && tapResult.commitsDelta > 0 && hackathonState) {
+  socialUpdates.team_hackathon_state = JSON.stringify(hackathonState);
+}
+if (referralCheck.newlyUnlocked.length > 0) {
+  socialUpdates.referral_state = JSON.stringify(referralCheck.state);
+}
+if (Object.keys(socialUpdates).length > 0) {
+  const fields = Object.keys(socialUpdates).map((f, i) => `${f} = $${i + 2}`).join(', ');
+  await client.query(
+    `UPDATE progression SET ${fields}, updated_at = NOW() WHERE user_id = $1`,
+    [userId, ...Object.values(socialUpdates)]
+  );
+}
+```
 
-## Recommended Next Steps
-1. Commit this updated `HANDOFF.md` if desired.
-2. Do a real Telegram Mini App smoke from a phone/account:
-   - open bot;
-   - tap once;
-   - check quests;
-   - open shop;
-   - open Prestige preview/shop;
-   - confirm no auth loop or blank screen.
-3. Monitor production for 24 hours:
-   - health endpoint;
-   - container health;
-   - backend logs;
-   - BalanceAudit output;
-   - Telegram user reports.
-4. Improve `scripts/smoke-prod.ps1` for YC:
-   - support SSH target;
-   - use `sudo docker exec` or HTTP-only mode;
-   - avoid reading/chmodding production `.env` directly.
-5. Later hardening:
-   - remove the `pg` deprecation warning;
-   - document rollback command using the pushed image digest/tag;
-   - decide whether to move more secrets to Lockbox and standardize deploy automation.
+**6. Audit → out-of-transaction INSERT** — строки ~92-110:
+- Сейчас: `antich...` INSERT внутри транзакции (hold lock дольше)
+- Замена: собирать audit entries в массив, флашить после COMMIT
+```javascript
+// В начале транзакции:
+const pendingAuditLogs = [];
 
-## Useful Commands
-```powershell
-cd "C:\Users\Имярек\Downloads\Coder Survival\coder_survival_repo\coder_survival_fresh"
-git status --short --branch
+// Вместо INSERT INTO audit_logs:
+pendingAuditLogs.push({ action: 'anticheat_pattern_ban', context: antiCheat.metrics });
 
-# Clear invalid env auth before gh/git GitHub operations
-$env:GITHUB_TOKEN=$null
-$env:GH_TOKEN=$null
+// После COMMIT:
+for (const log of pendingAuditLogs) {
+  pool.query('INSERT INTO audit_logs (user_id, action, context) VALUES ($1, $2, $3::jsonb)', [userId, log.action, JSON.stringify(log.context)]);
+}
+```
 
-# Health
-Invoke-RestMethod "https://coder-survival-api.duckdns.org/health" -TimeoutSec 15
-Invoke-RestMethod "https://frontend-ashy-alpha-77.vercel.app/health" -TimeoutSec 15
+### Приоритет 2: Миграция с индексами
+Создать файл `backend/migrations/057_covering_indexes_tap.sql`:
+```sql
+-- 057_covering_indexes_tap.sql
+-- Covering indexes for tap hot path (Kimi Task 3 optimization #7)
 
-# YC container status/logs
-ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i "C:\Users\Public\cs_openclaw_key" yc-user@111.88.243.88 "sudo docker inspect coder-survival-backend --format 'health={{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}} started={{.State.StartedAt}} image={{.Image}}'"
-ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i "C:\Users\Public\cs_openclaw_key" yc-user@111.88.243.88 "sudo docker logs --since=30m --tail=200 coder-survival-backend 2>&1"
+-- tap.js: SELECT * FROM progression WHERE user_id = $1 FOR UPDATE
+CREATE INDEX IF NOT EXISTS idx_progression_user_id_covering
+  ON progression (user_id)
+  INCLUDE (energy, depression_level, commits_total, commits_current, tier, streak_days, active_effects, anti_cheat_state, inventory, daily_quests_state, event_state, forced_break_until, is_burnout, burnout_affliction, tier_boost_active, premium_boost_active);
 
-# CI status
-$env:GITHUB_TOKEN=$null
-$env:GH_TOKEN=$null
-gh run view 26755938753 --json status,conclusion,headSha,url
+-- buy.js / internalPayments.js: SELECT FROM purchases WHERE user_id = $1 AND item_type = $2
+CREATE INDEX IF NOT EXISTS idx_purchases_user_item_status
+  ON purchases (user_id, item_type, status)
+  INCLUDE (id, stars_amount);
+
+-- audit_logs: SELECT FROM audit_logs WHERE user_id = $1 ORDER BY created_at DESC
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created
+  ON audit_logs (user_id, created_at DESC);
+
+-- sessions: SELECT FROM sessions WHERE session_id = $1 AND user_id = $2
+CREATE INDEX IF NOT EXISTS idx_sessions_session_user
+  ON sessions (session_id, user_id)
+  INCLUDE (taps_count, commits_earned);
+
+-- rate_limit_user / rate_limit_ip: атомарные UPDATE
+CREATE INDEX IF NOT EXISTS idx_rate_limit_user_window
+  ON rate_limit_user (user_id, window_start);
+CREATE INDEX IF NOT EXISTS idx_rate_limit_ip_window
+  ON rate_limit_ip (ip_address, window_start);
+```
+
+**Регистрация миграции:** номер файла `057` (последний в папке: `056_daily_quest_analytics_mirror.sql`)
+
+### Приоритет 3: Задача 4 от Kimi — Тесты
+Создать `backend/__tests__/` с файлами:
+- `tap.test.js` — happy path, energy=0, burnout, crit, anti-cheat
+- `buy.test.js` + `internalPayments.test.js` — purchase flow
+- `anticheat.test.js` — CPS, entropy, CV, fatigue, ban score
+- `shopCatalog.test.js` — getProductById, getProducts
+
+### Приоритет 4: Render Deploy
+- Баланс-фиксы уже запушены → Render должен автодеплоиться (autoDeploy: true в render.yaml)
+- Проверить: `<masked>/health`
+- Если не задеплоился: Render Dashboard → Manual Deploy
+
+---
+
+## 📋 KIMI WORK — ГОТОВЫЕ ПРОМПТЫ
+
+### Task 4: Тесты
+```
+=== ЗАДАЧА 4: ТЕСТЫ ДЛЯ КРИТИЧЕСКИХ ПУТЕЙ ===
+Напиши jest-тесты (backend/package.json → npm test).
+Покрой 4 модуля: tap.js, buy.js+internalPayments.js, antiCheat.js, shopCatalog.js.
+Требования: beforeEach → mockQuery.mockReset(), <100ms на тест, детерминированные.
+Мок pg.Pool в __mocks__/pg.js.
+Начни с tap.test.js.
+```
+
+### Task 5: Production Readiness
+```
+=== ЗАДАЧА 5: PRODUCTION READINESS CHECKLIST ===
+Чек-лист для бэкенда: structured logging (pino), health checks (liveness/readiness),
+metrics (Prometheus), error tracking, graceful shutdown, DB pool tuning.
+Для каждого: текущее состояние + что добавить кодом.
+```
+
+---
+
+## 🏗 ТЕКУЩАЯ ИНФРАСТРУКТУРА
+
+| Компонент | URL | Статус |
+|-----------|-----|--------|
+| Frontend (Mini App) | `<masked>` | ✅ |
+| Bot Webhook | `<masked>` | ✅ |
+| API (Vercel proxy) | `<masked>/api/*` | ✅ |
+| Backend (DuckDNS) | `<masked>` | ✅ |
+| Render | `<masked>` | ⏳ Pending deploy |
+| Health Check | `<masked>/health` | ✅ |
+
+---
+
+## 🔑 ДОСТУП
+
+- **GitHub Remote:** `<masked>`
+- **Git User:** `Debi <debi@local>` (настроен в WSL)
+- **Render Dashboard:** <masked>
+- **Render API Key:** НЕ ЗАПРОШЕН — нужен для автоматизации
+- **Telegram User ID:** <masked>
+
+---
+
+## ⚠️ ИЗВЕСТНЫЕ ПРОБЛЕМЫ
+
+1. **Yandex Cloud VM** — грант истёк, VM <masked> удалена
+2. **Hetzner** — требует KYC (паспорт+селфи) — пользователь отказался
+3. **Oracle Cloud** — нужен номер телефона для верификации
+4. **Codex** — SMS-верификация, номер телефона из РФ не подходит
+5. **Telegram** — заблокирован в РФ, нужен VPN для пользователей
+6. **Git/Docker в Windows** — нет в PATH, использовать `wsl` префикс
+7. **WSL путь с кириллицей** — `node --check` не работает с пробелами в путях, использовать `cd backend && node --check src/...`
+
+---
+
+## 📁 КЛЮЧЕВЫЕ ФАЙЛЫ
+
+```
+C:\Users\Имярек\Downloads\Coder Survival\coder_survival_repo\coder_survival_fresh\
+├── backend/
+│   ├── src/
+│   │   ├── config/balance.js          ← ИЗМЕНЁН (фикс баланса)
+│   │   ├── routes/tap.js              ← ИЗМЕНЁН (оптимизации #1, #2)
+│   │   ├── utils/dailyQuests.js       ← ИЗМЕНЁН (динамический earnLoc target)
+│   │   ├── utils/tap.js               ← ИЗМЕНЁН (gold crit cap)
+│   │   ├── middleware/antiCheat.js     ← TODO: in-memory → PG (Task 2)
+│   │   ├── middleware/rateLimit.js     ← TODO: in-memory → PG
+│   │   └── utils/anticheat.js         ← TODO: batch INSERT для PG variant
+│   ├── migrations/                    ← 56 миграций (последняя: 056)
+│   ├── __tests__/                     ← TODO: создать (Task 4)
+│   ├── render.yaml                    ← Render IaC (autoDeploy)
+│   └── Dockerfile                     ← node:20-alpine
+├── frontend/                          ← Preact + Phaser + Vite
+├── bot/                               ← Grammy webhook
+└── render.yaml                        ← Render service + PostgreSQL
 ```
