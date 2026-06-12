@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import express from 'express';
+import { closeServer, listenOnFetchSafePort } from './helpers/testServer.js';
 
 const mockQuery = jest.fn();
 
@@ -35,26 +36,21 @@ function normalizeSql(sql) {
   return s.replace(/\s+/g, ' ');
 }
 
-function requestApp(app, path, { method = 'GET', headers = {}, body } = {}) {
-  return new Promise((resolve, reject) => {
-    const server = app.listen(0, '127.0.0.1', async () => {
-      const port = server.address().port;
-      const url = `http://127.0.0.1:${port}${path}`;
-      try {
-        const res = await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json', ...headers },
-          body: body ? JSON.stringify(body) : undefined,
-        });
-        const text = await res.text();
-        resolve({ status: res.status, body: text ? JSON.parse(text) : null });
-      } catch (err) {
-        reject(err);
-      } finally {
-        server.close();
-      }
+async function requestApp(app, path, { method = 'GET', headers = {}, body } = {}) {
+  const server = await listenOnFetchSafePort(app);
+  const port = server.address().port;
+  const url = `http://127.0.0.1:${port}${path}`;
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: body ? JSON.stringify(body) : undefined,
     });
-  });
+    const text = await res.text();
+    return { status: res.status, body: text ? JSON.parse(text) : null };
+  } finally {
+    await closeServer(server);
+  }
 }
 
 function buildApp() {

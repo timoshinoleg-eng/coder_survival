@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import express from 'express';
+import { closeServer, listenOnFetchSafePort } from './helpers/testServer.js';
 
 const mockQuery = jest.fn();
 globalThis.__mockQuery__ = mockQuery;
@@ -192,15 +193,12 @@ describe('tap.js', () => {
       res.status(500).json({ error: err.message, stack: err.stack });
     });
 
-    server = app.listen(0, '127.0.0.1');
-    await new Promise((resolve) => server.on('listening', resolve));
+    server = await listenOnFetchSafePort(app);
     port = server.address().port;
   });
 
   afterAll(async () => {
-    if (server) {
-      await new Promise((resolve) => server.close(resolve));
-    }
+    await closeServer(server);
   });
 
   async function requestApp(path, { method = 'GET', headers = {}, body } = {}) {
