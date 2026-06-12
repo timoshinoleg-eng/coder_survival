@@ -29,3 +29,7 @@ coverage/
 *.key
 *.diff.txt
 diff.txt
+
+# Temp / cache
+*.tmp
+.cache/

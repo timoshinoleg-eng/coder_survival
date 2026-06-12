@@ -1,1 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Environment files — keep only examples
+.env
+.env.local
+.env.*.local
+.env.production
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+
+# Local / deploy artifacts
 .vercel
+.DS_Store
+*.local
+
+# Temp / cache
+*.tmp
+.cache/
