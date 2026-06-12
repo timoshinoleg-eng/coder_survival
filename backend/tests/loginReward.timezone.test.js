@@ -5,6 +5,7 @@ import {
   TEST_DATABASE_URL,
 } from "./helpers/testDb.js";
 import { processLoginReward } from "../src/utils/loginReward.js";
+import { todayUtcDateOnly } from "../src/utils/date.js";
 
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -39,10 +40,11 @@ describeIfDb("login reward timezone regression", () => {
        VALUES ($1, 40, 3)`,
       [userId],
     );
+    const today = todayUtcDateOnly().toISOString().slice(0, 10);
     await testPool.query(
       `INSERT INTO daily_login_claims (user_id, last_claimed_date, streak_days)
-       VALUES ($1, CURRENT_DATE, 3)`,
-      [userId],
+       VALUES ($1, $2, 3)`,
+      [userId, today],
     );
 
     const reward = await processLoginReward(testPool, userId);

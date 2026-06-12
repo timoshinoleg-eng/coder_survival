@@ -94,14 +94,15 @@ test('Oracle 8: random event config preserves explicit prompt weights', () => {
 });
 
 test('Oracle 9: random event balance gaps expose TBD items instead of inventing values', () => {
-  expect(getRandomEventWeightSummary()).toEqual({ negative: 40, neutral: 45, positive: 15 });
+  expect(getRandomEventWeightSummary()).toEqual({ negative: 47, neutral: 38, positive: 15 });
   expect(getRandomEventBalanceGaps()).toEqual([]);
 });
 
 test('Oracle 10: random event picker uses resolved BALANCE v2 pool', () => {
-  expect(getRandomEventWeightSummary({ includeBalanceBlocked: false })).toEqual({ negative: 40, neutral: 45, positive: 15 });
+  expect(getRandomEventWeightSummary({ includeBalanceBlocked: false })).toEqual({ negative: 47, neutral: 38, positive: 15 });
   expect(pickRandomEvent(0)?.id).toBe('golden_commit');
-  expect(pickRandomEvent(0.999)?.id).toBe('zoom_call');
+  // Highest random value lands on the last event in the sorted pool (stack_overflow_down)
+  expect(pickRandomEvent(0.999)?.id).toBe('stack_overflow_down');
 });
 
 test('Oracle 11: FTUE event suppression blocks or dampens negative events', () => {

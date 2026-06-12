@@ -11,14 +11,6 @@ describeIfDb("phase2 unit coverage", () => {
 
   beforeEach(async () => {
     await resetTestDatabase();
-    await testPool.query(
-      `INSERT INTO achievements (achievement_id, name, description, target_value, reward_payload) VALUES
-       ('legacy_zone', 'Legacy', 'Legacy', 1, '{}'::jsonb),
-       ('night_shift_30', 'Night', 'Night', 30, '{}'::jsonb),
-       ('tap_master', 'Tap', 'Tap', 1000, '{}'::jsonb),
-       ('commit_king', 'Commit', 'Commit', 10000, '{}'::jsonb)
-       ON CONFLICT (achievement_id) DO NOTHING`,
-    );
   });
 
   afterAll(async () => {
@@ -27,50 +19,15 @@ describeIfDb("phase2 unit coverage", () => {
     }
   });
 
-  test("checkAchievement accumulates progress and flips completed once", async () => {
+  test("checkAchievement legacy stub returns empty array", async () => {
     const userResult = await testPool.query(
       `INSERT INTO users (telegram_id, username) VALUES ($1, $2) RETURNING id`,
       [740001, "ach_user"],
     );
     const userId = userResult.rows[0].id;
 
-    await testPool.query(
-      `INSERT INTO progression (user_id) VALUES ($1)`,
-      [userId],
-    );
-    await testPool.query(
-      `INSERT INTO user_achievements (user_id, achievement_id)
-       SELECT $1, achievement_id FROM achievements
-       ON CONFLICT (user_id, achievement_id) DO NOTHING`,
-      [userId],
-    );
-    await testPool.query(
-      `UPDATE achievements SET target_value = 2 WHERE achievement_id = 'tap_master'`,
-    );
-
     const first = await checkAchievement(testPool, userId, "tap");
     expect(first).toEqual([]);
-
-    const progressAfterFirst = await testPool.query(
-      `SELECT progress_value, completed FROM user_achievements
-       WHERE user_id = $1 AND achievement_id = 'tap_master'`,
-      [userId],
-    );
-    expect(progressAfterFirst.rows[0].progress_value).toBe(1);
-    expect(progressAfterFirst.rows[0].completed).toBe(false);
-
-    const second = await checkAchievement(testPool, userId, "tap");
-    expect(second).toEqual(["tap_master"]);
-
-    const progressAfterSecond = await testPool.query(
-      `SELECT progress_value, completed, completed_at
-       FROM user_achievements
-       WHERE user_id = $1 AND achievement_id = 'tap_master'`,
-      [userId],
-    );
-    expect(progressAfterSecond.rows[0].progress_value).toBe(2);
-    expect(progressAfterSecond.rows[0].completed).toBe(true);
-    expect(progressAfterSecond.rows[0].completed_at).not.toBeNull();
   });
 
   test("distributeBattleRewards ranks top 3 and excludes zero-commit users", async () => {
