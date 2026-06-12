@@ -1,76 +1,60 @@
-const { z } = require('zod');
+import { z } from 'zod';
 
-const tapSchema = z.object({
-  tapCount: z.number().int().min(1).max(20),
+export const tapSchema = z.object({
+  tapCount: z.number().int().min(1).max(20).default(1),
   session_id: z.string().max(64).optional(),
 });
 
-const buySchema = z.object({
+export const buySchema = z.object({
   productId: z.string().min(1),
   quantity: z.number().int().min(1).max(100).default(1),
 });
 
-const stateSchema = z.object({
+export const stateSchema = z.object({
   timezoneOffset: z.number().int().min(-720).max(720).optional(),
 });
 
-const teamSchema = z.object({
+export const teamSchema = z.object({
   name: z.string().min(1).max(50),
   inviteCode: z.string().max(20).optional(),
 });
 
-const referralClaimSchema = z.object({
+export const referralClaimSchema = z.object({
   milestone: z.number().int().positive(),
 });
 
-const minigameSchema = z.object({
+export const minigameSchema = z.object({
   gameType: z.string().min(1),
   score: z.number().int().min(0),
 });
 
-const skinEquipSchema = z.object({
+export const skinEquipSchema = z.object({
   skinId: z.string().min(1).trim(),
 });
 
-const achievementReadSchema = z.object({
+export const achievementReadSchema = z.object({
   slugs: z.array(z.string()).nonempty(),
 });
 
-const questClaimSchema = z.object({
+export const questClaimSchema = z.object({
   questId: z.string().min(1),
   tier: z.enum(['free', 'premium']).optional(),
 });
 
-const passClaimSchema = z.object({
+export const passClaimSchema = z.object({
   level: z.number().int().min(1).max(20),
   track: z.enum(['free', 'premium']),
 });
 
-const analyticsEventSchema = z.object({
+export const analyticsEventSchema = z.object({
   eventName: z.string().min(1),
   properties: z.record(z.any()).default({}),
 });
 
-const purchaseDealSchema = z.object({
+export const purchaseDealSchema = z.object({
   dealType: z.enum(['daily_deal', 'flash_sale']),
 });
 
-const languageEquipSchema = z.object({
+export const languageEquipSchema = z.object({
   languageSlug: z.string().min(1).trim(),
 });
-
-module.exports = {
-  tapSchema,
-  buySchema,
-  stateSchema,
-  teamSchema,
-  referralClaimSchema,
-  minigameSchema,
-  skinEquipSchema,
-  achievementReadSchema,
-  questClaimSchema,
-  passClaimSchema,
-  analyticsEventSchema,
-  purchaseDealSchema,
-  languageEquipSchema,
-};

@@ -1,6 +1,6 @@
-const { ZodError } = require('zod');
+import { ZodError } from 'zod';
 
-function validate(schema) {
+export function validate(schema) {
   return (req, res, next) => {
     try {
       req.body = schema.parse(req.body);
@@ -16,5 +16,3 @@ function validate(schema) {
     }
   };
 }
-
-module.exports = { validate };

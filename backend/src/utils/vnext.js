@@ -149,10 +149,10 @@ function withResolvedLevel(row, muCurrency = 0) {
 export async function addPlayerXp(client, userId, delta) {
   const result = await client.query(
     `INSERT INTO player_levels (user_id, xp_total, career_rank, rank_bonus_energy_speed, rank_bonus_xp_multiplier)
-     VALUES ($1, $2,
-       CASE WHEN $2 < 1000 THEN 'Junior' WHEN $2 < 5000 THEN 'Middle' WHEN $2 < 15000 THEN 'Senior' ELSE 'Lead' END,
-       CASE WHEN $2 >= 1000 AND $2 < 5000 THEN 0.05 ELSE 0 END,
-       CASE WHEN $2 >= 5000 AND $2 < 15000 THEN 0.10 ELSE 0 END
+     VALUES ($1, $2::bigint,
+       CASE WHEN $2::bigint < 1000 THEN 'Junior' WHEN $2::bigint < 5000 THEN 'Middle' WHEN $2::bigint < 15000 THEN 'Senior' ELSE 'Lead' END,
+       CASE WHEN $2::bigint >= 1000 AND $2::bigint < 5000 THEN 0.05 ELSE 0 END,
+       CASE WHEN $2::bigint >= 5000 AND $2::bigint < 15000 THEN 0.10 ELSE 0 END
      )
      ON CONFLICT (user_id) DO UPDATE SET
        xp_total = player_levels.xp_total + EXCLUDED.xp_total,

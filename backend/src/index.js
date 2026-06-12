@@ -107,6 +107,7 @@ app.use(
       const whitelist = [
         /^https?:\/\/([a-zA-Z0-9-]+\.)?t\.me$/,
         /^https?:\/\/([a-zA-Z0-9-]+\.)?telegram\.org$/,
+        /^https?:\/\/([a-zA-Z0-9-]+\.)?vercel\.app$/,
         "http://localhost:5173",
       ];
       if (process.env.FRONTEND_URL) whitelist.push(process.env.FRONTEND_URL);
@@ -119,7 +120,7 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json({ limit: "10kb" }));
+app.use(express.json({ limit: "64kb" }));
 
 // Health check
 app.get("/health", async (req, res) => {

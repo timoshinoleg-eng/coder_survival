@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import validateModule from '../middleware/validate.js';
-import schemasModule from '../validation/schemas.js';
+import { validate } from '../middleware/validate.js';
+import { analyticsEventSchema } from '../validation/schemas.js';
 
-const { validate } = validateModule;
-const { analyticsEventSchema } = schemasModule;
+
+
 
 const router = Router();
 
