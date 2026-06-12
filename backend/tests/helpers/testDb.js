@@ -90,11 +90,15 @@ export async function ensureTestSchema() {
     )
   `);
 
-  // Serialize concurrent migration runs across parallel test suites
+  // Serialize concurrent migration runs across parallel test suites.
+  // Use a dedicated client for the session-level advisory lock so lock
+  // and unlock happen on the same connection.
   const lockId = 42;
-  await testPool.query(`SELECT pg_advisory_lock($1)`, [lockId]);
+  const lockClient = await testPool.connect();
 
   try {
+    await lockClient.query(`SELECT pg_advisory_lock($1)`, [lockId]);
+
     const files = fs
       .readdirSync(migrationsDir)
       .filter((file) => file.endsWith(".sql"))
@@ -127,7 +131,12 @@ export async function ensureTestSchema() {
     await seedTestAchievements();
     await seedTestEventDefinitions();
   } finally {
-    await testPool.query(`SELECT pg_advisory_unlock($1)`, [lockId]);
+    try {
+      await lockClient.query(`SELECT pg_advisory_unlock($1)`, [lockId]);
+    } catch {
+      // ignore unlock errors
+    }
+    lockClient.release();
   }
 }
 
