@@ -16,7 +16,7 @@ if ($Days -lt 1 -or $Days -gt 30) {
 }
 
 Write-Host "==> Fetching observation secret from backend runtime"
-$secret = ssh $VmHost "cd $RemoteAppDir && docker compose -f $BackendComposeFile run --rm -T backend sh -lc 'printenv OBSERVATION_SECRET || printenv BOT_BACKEND_SECRET'" | Select-Object -Last 1
+$secret = ssh $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend sh -lc 'printenv OBSERVATION_SECRET || printenv BOT_BACKEND_SECRET'" | Select-Object -Last 1
 if ($LASTEXITCODE -ne 0 -or -not $secret) {
   throw "Failed to retrieve observation secret from backend runtime on $VmHost"
 }
