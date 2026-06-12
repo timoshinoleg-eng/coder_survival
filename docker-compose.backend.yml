@@ -4,6 +4,13 @@
 # See HANDOFF.md and DEPLOY.md for topology details.
 version: "3.3"
 
+# TODO: The canonical production env file is /opt/coder_survival/backend/.env.
+# The environment: section below uses host-side ${VAR} interpolation, which
+# docker compose resolves from the caller's shell. To make deploy reproducible,
+# refactor the service to use env_file: /opt/coder_survival/backend/.env and
+# remove ${VAR} interpolation. Until then, the release script must ensure the
+# caller's shell has the required variables.
+
 services:
   backend:
     image: cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest
@@ -19,6 +26,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       BOT_TOKEN: ${BOT_TOKEN}
       BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
+    ports:
+      - "127.0.0.1:3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     expose:
       - "3000"
     restart: unless-stopped

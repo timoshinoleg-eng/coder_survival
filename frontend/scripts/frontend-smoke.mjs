@@ -160,10 +160,10 @@ function assertStreakClaimDoesNotBlockOnFullStateReload() {
 }
 
 function assertRandomEventPollingIsNotAggressive() {
-  const file = "src/game/EventManager.js";
+  const file = "src/App.jsx";
   const source = read(file);
-  if (!source.includes("const POLL_INTERVAL_MS = 15000")) {
-    failures.push(`${file}: random event polling must stay at 15s or slower for MVP responsiveness`);
+  if (!source.includes("const interval = setInterval(poll, 15000)")) {
+    failures.push(`${file}: random event polling must stay at 15s or slower and be owned by App.jsx`);
   }
 }
 
@@ -178,8 +178,8 @@ function assertPhaserResizeDoesNotRestartScene() {
     failures.push(`${file}: resize must not restart the scene because it leaks emitters and stalls WebView`);
   }
 
-  if (!source.includes("this.eventManager?.stop()")) {
-    failures.push(`${file}: EventManager must be stopped during scene shutdown`);
+  if (source.includes("EventManager")) {
+    failures.push(`${file}: must not reference EventManager; polling is owned by App.jsx`);
   }
 
   if (!source.includes("this.depressionOverlay?.destroy?.()") || !source.includes("this.glow?.destroy?.()")) {
@@ -217,11 +217,17 @@ function assertBatchTapsAreUsed() {
   }
 }
 
-function assertEventManagerPollIsGuarded() {
-  const file = "src/game/EventManager.js";
-  const source = read(file);
-  if (!source.includes("this.isPolling")) {
-    failures.push(`${file}: active event polling must have an in-flight guard`);
+function assertSingleOwnerRandomEventPolling() {
+  const app = read("src/App.jsx");
+  const gameScene = read("src/game/scenes/GameScene.js");
+
+  const appPolls = [...app.matchAll(/apiRequest\(['"]\/api\/events\/active['"]/g)].length;
+  if (appPolls !== 1) {
+    failures.push(`src/App.jsx: must contain exactly one /api/events/active poll call (found ${appPolls})`);
+  }
+
+  if (gameScene.includes("EventManager") || gameScene.includes("/api/events/active")) {
+    failures.push("src/game/scenes/GameScene.js: must not poll /api/events/active or reference EventManager; App.jsx owns polling");
   }
 }
 
@@ -287,7 +293,7 @@ assertRandomEventPollingIsNotAggressive();
 assertPhaserResizeDoesNotRestartScene();
 assertGameProviderValueIsMemoized();
 assertBatchTapsAreUsed();
-assertEventManagerPollIsGuarded();
+assertSingleOwnerRandomEventPolling();
 assertTimerAndPollingDeduplication();
 assertPostTapRefreshDebouncesToBurstEnd();
 assertDailyQuestClaimDoesNotDoubleRefresh();

@@ -62,18 +62,27 @@ function runtimeEventStatesEqual(left, right) {
     && normalizedLeft.stackOverflowDownUntil === normalizedRight.stackOverflowDownUntil;
 }
 
+function getRandomEventGameStatePayload() {
+  const source = window.__GAME_STATE__ || {};
+  return {
+    commits: Number(source.commits || 0),
+  };
+}
+
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
   const {
     loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast,
     memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState,
     setRandomEventState, commits, totalTaps, streakDays, isBurnout, depression,
-    energy, username, rankName, levelUp, team, teamBattle, activeLanguage
+    energy, username, rankName, levelUp, team, teamBattle, activeLanguage,
+    error
   } = useGameState();
   const { user } = useTelegram();
   const [onboardingDismissedThisSession, setOnboardingDismissedThisSession] =
     useState(false);
   const [randomEvent, setRandomEvent] = useState(null);
+  const [randomEventBusy, setRandomEventBusy] = useState(false);
   const [runtimeEventState, setRuntimeEventState] = useState({
     legacyCodeClicksRemaining: 0,
     productionAlertUntil: null,
@@ -391,8 +400,10 @@ function AppInner() {
           });
         } else {
           setRandomEvent((current) => {
-            // Only clear if the current event isn't in minigame mode
             if (!current) return null;
+            const expired = current.expiresAt && Date.now() >= new Date(current.expiresAt).getTime();
+            if (expired) return null;
+            // Only clear if the current event isn't in minigame mode
             const clickEvents = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
             const inMinigame = clickEvents.includes(current.type) && current.state && Object.keys(current.state).some(k => k.includes('ClicksRemaining') && current.state[k] > 0);
             return inMinigame ? current : null;
@@ -526,6 +537,11 @@ function AppInner() {
 
   const themeColor = activeLanguage?.themeColor || null;
 
+  // Error screen — показываем вместо всего UI, если бэкенд не отвечает
+  if (error && !loading) {
+    return h(LoadingOverlay, { visible: true, isError: true, errorMessage: error });
+  }
+
   return h(
     "div",
     {
@@ -537,6 +553,7 @@ function AppInner() {
           }
         : undefined,
     },
+    h(LoadingOverlay, { visible: loading && !error }),
     h(StreakCalendar),
     h(StatsBar, { runtimeNow }),
     activeRuntimeEvents.length > 0 && h(
@@ -637,71 +654,85 @@ function AppInner() {
     }),
     h(RandomEventToast, {
       event: randomEvent,
+      disabled: randomEventBusy,
       onChoice: async (eventId, type, action) => {
-        const clickEvents = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
-        const isClickEvent = clickEvents.includes(type);
-        const dismissAfter = !isClickEvent || action === 'ignore';
-
-        // Apply local transition first for instant feedback
-        const transition = applyRandomEventChoice(type, action, runtimeEventState, window.__GAME_STATE__ || {});
-        let nextDeltas = { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
-        if (transition) {
-          setRuntimeEventState(transition.nextState);
-          nextDeltas = transition.nextDeltas;
-        }
-
-        // Sync to backend via /api/events/resolve
+        if (randomEventBusy) return;
+        setRandomEventBusy(true);
         try {
-          const payload = await apiRequest('/api/events/resolve', {
-            method: 'POST',
-            initData: window.Telegram?.WebApp?.initData || '',
-            body: { eventId, action, gameState: window.__GAME_STATE__ || {} },
-          });
-          if (payload?.deltas) {
-            nextDeltas = payload.deltas;
+          const clickEvents = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
+          const isClickEvent = clickEvents.includes(type);
+          const dismissAfter = !isClickEvent || action === 'ignore';
+
+          // Apply local transition first for instant feedback
+          const transition = applyRandomEventChoice(type, action, runtimeEventState, window.__GAME_STATE__ || {});
+          let nextDeltas = { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
+          if (transition) {
+            setRuntimeEventState(transition.nextState);
+            nextDeltas = transition.nextDeltas;
           }
-          if (payload?.randomEventState) {
-            setRuntimeEventState((latest) => {
-              const next = normalizeRuntimeEventState({ ...latest, ...payload.randomEventState });
-              return runtimeEventStatesEqual(latest, next) ? latest : next;
+
+          let resolveFailed = false;
+
+          // Sync to backend via /api/events/resolve
+          try {
+            const payload = await apiRequest('/api/events/resolve', {
+              method: 'POST',
+              initData: window.Telegram?.WebApp?.initData || '',
+              body: { eventId, action, gameState: getRandomEventGameStatePayload() },
             });
+            if (payload?.deltas) {
+              nextDeltas = payload.deltas;
+            }
+            if (payload?.randomEventState) {
+              setRuntimeEventState((latest) => {
+                const next = normalizeRuntimeEventState({ ...latest, ...payload.randomEventState });
+                return runtimeEventStatesEqual(latest, next) ? latest : next;
+              });
+            }
+            if (type === 'bug_production' && action === 'ignore') {
+              showToast('🚨 Production Alert активирован на 3 минуты.', 'error', 1800);
+            }
+            if (type === 'golden_commit' && action === 'solve') {
+              showToast('✨ Golden Commit активирован! x7 LOC/s на 77 секунд.', 'success', 1800);
+            }
+          } catch (_e) {
+            resolveFailed = true;
+            showToast('Не удалось применить выбор. Попробуй ещё раз.', 'warning', 1800);
           }
-          if (type === 'bug_production' && action === 'ignore') {
-            showToast('🚨 Production Alert активирован на 3 минуты.', 'error', 1800);
+
+          if (!resolveFailed) {
+            window.__PHASER_GAME__?.events.emit('event_choice', { eventId, action, deltas: nextDeltas });
+            applyEventDeltas(nextDeltas);
+
+            const sign = (val) => (val > 0 ? `+${val}` : `${val}`);
+            const parts = [];
+            if (nextDeltas.commitsDelta) parts.push(`${sign(nextDeltas.commitsDelta)} коммитов`);
+            if (nextDeltas.energyDelta) parts.push(`${sign(nextDeltas.energyDelta)} энергии`);
+            if (nextDeltas.depressionDelta) parts.push(`${sign(nextDeltas.depressionDelta)} стресса`);
+            if (parts.length > 0) {
+              showToast(
+                action === 'solve' ? `Решено: ${parts.join(', ')}` : `Игнорировано: ${parts.join(', ')}`,
+                action === 'solve' ? 'success' : 'info',
+                2000
+              );
+            }
+
+            if (dismissAfter) {
+              setRandomEvent(null);
+            }
           }
-          if (type === 'golden_commit' && action === 'solve') {
-            showToast('✨ Golden Commit активирован! x7 LOC/s на 77 секунд.', 'success', 1800);
-          }
-        } catch (_e) {
-          // Use local deltas if backend fails
-        }
-
-        window.__PHASER_GAME__?.events.emit('event_choice', { eventId, action, deltas: nextDeltas });
-        applyEventDeltas(nextDeltas);
-
-        const sign = (val) => (val > 0 ? `+${val}` : `${val}`);
-        const parts = [];
-        if (nextDeltas.commitsDelta) parts.push(`${sign(nextDeltas.commitsDelta)} коммитов`);
-        if (nextDeltas.energyDelta) parts.push(`${sign(nextDeltas.energyDelta)} энергии`);
-        if (nextDeltas.depressionDelta) parts.push(`${sign(nextDeltas.depressionDelta)} стресса`);
-        if (parts.length > 0) {
-          showToast(
-            action === 'solve' ? `Решено: ${parts.join(', ')}` : `Игнорировано: ${parts.join(', ')}`,
-            action === 'solve' ? 'success' : 'info',
-            2000
-          );
-        }
-
-        if (dismissAfter) {
-          setRandomEvent(null);
+        } finally {
+          setRandomEventBusy(false);
         }
       },
       onTap: async (eventId, type) => {
+        if (randomEventBusy) return;
+        setRandomEventBusy(true);
         try {
           const payload = await apiRequest('/api/events/resolve', {
             method: 'POST',
             initData: window.Telegram?.WebApp?.initData || '',
-            body: { eventId, action: 'tap', gameState: window.__GAME_STATE__ || {} },
+            body: { eventId, action: 'tap', gameState: getRandomEventGameStatePayload() },
           });
           if (payload?.randomEventState) {
             setRuntimeEventState((latest) => {
@@ -722,7 +753,18 @@ function AppInner() {
               applyEventDeltas(payload.deltas);
             }
           }
-        } catch (_e) {}
+        } catch (err) {
+          const msg = String(err?.payload?.error || err?.payload?.message || err?.message || '').toLowerCase();
+          const gone = err?.status === 404 || /not found|already resolved|уже решено|не найдено|событие не активно|event.*expired/i.test(msg);
+          if (gone) {
+            setRandomEvent(null);
+            showToast('Событие уже завершилось.', 'info', 1500);
+          } else {
+            showToast('Не удалось синхронизировать событие. Повтори тап.', 'error', 1800);
+          }
+        } finally {
+          setRandomEventBusy(false);
+        }
       },
     }),
   );

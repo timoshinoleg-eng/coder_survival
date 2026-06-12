@@ -30,11 +30,11 @@ import { applyQuestUpdates, checkQuestProgress } from '../utils/dailyQuests.js';
 import { addHackathonContribution, calculateHackathonTarget, getWeekId } from '../utils/teamHackathon.js';
 import { updateWeeklySprintState } from '../utils/weeklySprint.js';
 import { checkReferralMilestones } from '../utils/referral.js';
-import validateModule from '../middleware/validate.js';
-import schemasModule from '../validation/schemas.js';
+import { validate } from '../middleware/validate.js';
+import { tapSchema } from '../validation/schemas.js';
 
-const { validate } = validateModule;
-const { tapSchema } = schemasModule;
+
+
 
 const router = Router();
 
@@ -76,11 +76,66 @@ router.post('/', validate(tapSchema), async (req, res) => {
     const levelBefore = await ensurePlayerLevel(client, userId);
     const rankMeta = getRankMeta(levelBefore.resolved.rank);
 
+    // Resolve progression, recovery and active effects before rate-limit so we meter actual taps, not requested.
+    const progressInsertPromise = client.query(
+      `INSERT INTO progression (user_id, tier, commits_total, commits_current, energy, depression_level, streak_days)
+       VALUES ($1, 1, 0, 0, $2, 0, 0)
+       ON CONFLICT (user_id) DO NOTHING
+       RETURNING *`,
+      [userId, rankMeta.maxEnergy]
+    );
+    const progressInsertResult = await progressInsertPromise;
+    const progress = progressInsertResult.rows[0] || (
+      await client.query(
+        `SELECT * FROM progression WHERE user_id = $1 FOR UPDATE`,
+        [userId]
+      )
+    ).rows[0];
+
+    const prestigeRecoveryMult = levelBefore.resolved.energyRecoveryMult || 1;
+
+    // Batch: single query for both senior_pajamas check and all equipped skins
+    const equippedSkinsResult = await client.query(
+      `SELECT skin_id, (skin_id = 'senior_pajamas' AND equipped) AS is_senior_pajamas
+       FROM user_skins WHERE user_id = $1 AND equipped = true`,
+      [userId]
+    );
+    const equippedSkins = new Set(equippedSkinsResult.rows.map(r => r.skin_id));
+    const skinRecoveryMult = equippedSkinsResult.rows.some(r => r.is_senior_pajamas) ? 1.05 : 1;
+
+    let recoveredProgress = await recoverProgression(client, progress, levelBefore.resolved.maxEnergy, skinRecoveryMult, false, prestigeRecoveryMult);
+    const currentEnergy = Number(recoveredProgress.energy ?? 0);
+    const currentDepression = Number(recoveredProgress.depression_level ?? 0);
+    const currentCommitsTotal = Number(recoveredProgress.commits_total ?? 0);
+
+    const activeEffects = getActiveEffects(recoveredProgress.active_effects || {});
+    const infiniteEnergy = activeEffects.red_bull_mode?.infiniteEnergy || false;
+    const mechanicalMult = activeEffects.mechanical_keyboard?.locPerClickMult || 1;
+
+    let actualTapCount = Math.max(0, Math.min(requestedTapCount, Math.floor(currentEnergy)));
+    if (infiniteEnergy) {
+      actualTapCount = Math.max(0, Math.min(requestedTapCount, 20));
+    }
+
+    if (actualTapCount <= 0) {
+      await client.query('COMMIT');
+      return res.json({
+        energy: currentEnergy,
+        depression: currentDepression,
+        commitsDelta: 0,
+        totalCommits: currentCommitsTotal,
+        isBurnout: currentDepression >= TAP_MECHANICS.maxDepression,
+        isCrit: false,
+        critTier: null,
+        rank: levelBefore.resolved.rankName
+      });
+    }
+
     const rateLimit = await checkTapRateLimit(
       client,
       userId,
       req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress,
-      requestedTapCount
+      actualTapCount
     );
     if (!rateLimit.allowed) {
       await client.query('ROLLBACK');
@@ -109,20 +164,6 @@ router.post('/', validate(tapSchema), async (req, res) => {
       );
     }
 
-    const progressInsertResult = await client.query(
-      `INSERT INTO progression (user_id, tier, commits_total, commits_current, energy, depression_level, streak_days)
-       VALUES ($1, 1, 0, 0, $2, 0, 0)
-       ON CONFLICT (user_id) DO NOTHING
-       RETURNING *`,
-      [userId, rankMeta.maxEnergy]
-    );
-
-    const progress = progressInsertResult.rows[0] || (
-      await client.query(
-        `SELECT * FROM progression WHERE user_id = $1 FOR UPDATE`,
-        [userId]
-      )
-    ).rows[0];
     let antiCheatState = normalizeAntiCheatState(progress.anti_cheat_state || {});
     if (antiCheat.incrementReason) {
       antiCheatState = applyBanScoreIncrement(antiCheatState, antiCheat.incrementReason);
@@ -132,40 +173,7 @@ router.post('/', validate(tapSchema), async (req, res) => {
       );
     }
 
-    const skinResult = await client.query(
-      `SELECT 1 FROM user_skins WHERE user_id = $1 AND skin_id = 'senior_pajamas' AND equipped = true`,
-      [userId]
-    );
-    const skinRecoveryMult = skinResult.rows.length > 0 ? 1.05 : 1;
-
-    const prestigeRecoveryMult = levelBefore.resolved.energyRecoveryMult || 1;
-    let recoveredProgress = await recoverProgression(client, progress, levelBefore.resolved.maxEnergy, skinRecoveryMult, false, prestigeRecoveryMult);
-    const currentEnergy = Number(recoveredProgress.energy ?? 0);
-    let actualTapCount = Math.max(0, Math.min(requestedTapCount, Math.floor(currentEnergy)));
-    const currentDepression = Number(recoveredProgress.depression_level ?? 0);
-    const currentCommitsTotal = Number(recoveredProgress.commits_total ?? 0);
-
-    if (currentEnergy <= 0) {
-      await client.query('COMMIT');
-      return res.json({
-        energy: 0,
-        depression: currentDepression,
-        commitsDelta: 0,
-        totalCommits: currentCommitsTotal,
-        isBurnout: currentDepression >= TAP_MECHANICS.maxDepression,
-        isCrit: false,
-        critTier: null,
-        rank: levelBefore.resolved.rankName
-      });
-    }
-
     const crunchTime = await getActiveCrunchTime(client);
-    const activeEffects = getActiveEffects(recoveredProgress.active_effects || {});
-    const infiniteEnergy = activeEffects.red_bull_mode?.infiniteEnergy || false;
-    const mechanicalMult = activeEffects.mechanical_keyboard?.locPerClickMult || 1;
-    if (infiniteEnergy) {
-      actualTapCount = Math.max(0, Math.min(requestedTapCount, 20));
-    }
     const tapBoostPercent = activeEffects.tapBoost?.percent || 0;
     const prestigeCritAdd = levelBefore.resolved.critChanceAdd || 0;
     const prestigeDepressionResist = levelBefore.resolved.depressionResistanceMult || 1;
@@ -183,13 +191,6 @@ router.post('/', validate(tapSchema), async (req, res) => {
       prestigeCritAdd,
       langEffects.clickPowerMult
     );
-
-    // Query equipped skins for bonus application
-    const equippedSkinsResult = await client.query(
-      `SELECT skin_id FROM user_skins WHERE user_id = $1 AND equipped = true`,
-      [userId]
-    );
-    const equippedSkins = new Set(equippedSkinsResult.rows.map(r => r.skin_id));
 
     // Legacy Archaeologist: +20% commits when rank >= 3
     const currentRank = Number(levelBefore.resolved.rank || 1);
@@ -247,15 +248,12 @@ router.post('/', validate(tapSchema), async (req, res) => {
 
     if (isBurnout && currentDepression < TAP_MECHANICS.maxDepression) {
       console.log('burnout_entered', { userId, depression: newDepression });
-      // Track burnout count for Heroically Fired skin unlock
-      await client.query(
+      // Track burnout count for Heroically Fired skin unlock - single query with RETURNING
+      const burnoutCountResult = await client.query(
         `UPDATE progression
          SET inventory = COALESCE(inventory, '{}') || jsonb_build_object('burnout_count', COALESCE((inventory->>'burnout_count')::int, 0) + 1)
-         WHERE user_id = $1`,
-        [userId]
-      );
-      const burnoutCountResult = await client.query(
-        `SELECT COALESCE((inventory->>'burnout_count')::int, 0) AS cnt FROM progression WHERE user_id = $1`,
+         WHERE user_id = $1
+         RETURNING COALESCE((inventory->>'burnout_count')::int, 0) AS cnt`,
         [userId]
       );
       if (parseInt(burnoutCountResult.rows[0]?.cnt || 0, 10) >= 10) {
@@ -610,7 +608,6 @@ router.post('/', validate(tapSchema), async (req, res) => {
       tapCount: actualTapCount,
       energy: Number(recoveredProgress.energy ?? 0),
       depression: Number(recoveredProgress.depression_level ?? 0),
-      activeEffects,
       activeEffects,
       heartAttackReset,
       commitsDelta: tapResult.commitsDelta,

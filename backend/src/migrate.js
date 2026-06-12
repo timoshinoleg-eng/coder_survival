@@ -44,19 +44,22 @@ async function migrate() {
 
     console.log(`Applying: ${file}`);
     
+    const client = await pool.connect();
     try {
-      await pool.query('BEGIN');
-      await pool.query(sql);
-      await pool.query(
+      await client.query('BEGIN');
+      await client.query(sql);
+      await client.query(
         'INSERT INTO schema_migrations (filename) VALUES ($1)',
         [file]
       );
-      await pool.query('COMMIT');
+      await client.query('COMMIT');
       console.log(`✓ ${file}`);
     } catch (err) {
-      await pool.query('ROLLBACK');
+      await client.query('ROLLBACK');
       console.error(`✗ ${file}:`, err.message);
       process.exit(1);
+    } finally {
+      client.release();
     }
   }
 

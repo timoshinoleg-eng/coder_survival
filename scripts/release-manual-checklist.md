@@ -63,9 +63,9 @@ What the script does:
 - [ ] `smoke-offers.ps1` passed
 - [ ] VM container healthy:
   ```bash
-  ssh ubuntu@111.88.247.195
-  docker-compose -f docker-compose.backend.yml ps
-  docker-compose -f docker-compose.backend.yml logs --tail=20 backend
+  ssh root@185.92.221.219
+  docker compose -f docker-compose.backend.yml ps
+  docker compose -f docker-compose.backend.yml logs --tail=20 backend
   ```
 - [ ] Public health endpoints respond:
   ```bash
@@ -95,7 +95,7 @@ What the script does:
 1. Backend: re-run previous image tag on VM:
    ```bash
    docker pull cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:<previous-tag>
-   docker-compose -f docker-compose.backend.yml up -d --force-recreate backend
+   docker compose -f docker-compose.backend.yml up -d --force-recreate backend
    ```
 2. Frontend / bot: Vercel rollback via dashboard or `npx vercel rollback`.
 3. Notify team in chat and mark release as failed in `project-status.json`.
