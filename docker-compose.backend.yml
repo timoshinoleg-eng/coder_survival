@@ -29,6 +29,7 @@ services:
       BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
     ports:
       - "127.0.0.1:3000:3000"
+    network_mode: bridge
     extra_hosts:
       - "host.docker.internal:host-gateway"
     expose:
