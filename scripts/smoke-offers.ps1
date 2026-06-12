@@ -22,7 +22,7 @@ if (-not $PSBoundParameters.ContainsKey('SmokeTelegramId')) {
 Write-Host "==> Fetching BOT_TOKEN from backend runtime"
 $botToken = $BotToken
 if (-not $botToken) {
-  $botToken = ssh $VmHost "cd $RemoteAppDir && docker compose -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
+  $botToken = ssh $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
   if ($LASTEXITCODE -ne 0 -or -not $botToken) {
     throw "Failed to retrieve BOT_TOKEN from backend runtime on $VmHost"
   }

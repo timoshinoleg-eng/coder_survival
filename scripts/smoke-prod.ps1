@@ -91,7 +91,7 @@ function Assert-IsoTimestamp {
 
 function Invoke-SqlViaBackend {
   param([string]$Sql, [array]$Params = @())
-  $containerId = (ssh $VmHost "cd $RemoteAppDir && docker compose -f $BackendComposeFile ps -q backend" 2>$null).Trim()
+  $containerId = (ssh $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile ps -q backend" 2>$null).Trim()
   if (-not $containerId) { throw "Backend container not running" }
   $paramJson = ($Params | ConvertTo-Json -Compress)
   $js = "const { Pool } = require('pg'); const poolConfig = process.env.DATABASE_URL ? { connectionString: process.env.DATABASE_URL } : { host: process.env.DB_HOST, port: process.env.DB_PORT, database: process.env.DB_NAME, user: process.env.DB_USER, password: process.env.DB_PASSWORD }; const pool = new Pool(poolConfig); pool.query('$Sql', $paramJson).then(r => { console.log(JSON.stringify(r.rows)); process.exit(0); }).catch(e => { console.error(e.message); process.exit(1); });"
@@ -108,7 +108,7 @@ if (-not $PSBoundParameters.ContainsKey('SmokeTelegramId')) {
 
 $botToken = $BotToken
 if (-not $botToken) {
-  $botToken = ssh $VmHost "cd $RemoteAppDir && docker compose -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
+  $botToken = ssh $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
   if ($LASTEXITCODE -ne 0 -or -not $botToken) {
     throw "Failed to retrieve BOT_TOKEN from backend runtime on $VmHost"
   }
@@ -116,7 +116,7 @@ if (-not $botToken) {
 }
 
 Write-Host "==> Fetching BOT_BACKEND_SECRET from backend runtime"
-$botBackendSecret = ssh $VmHost "cd $RemoteAppDir && docker compose -f $BackendComposeFile run --rm -T backend printenv BOT_BACKEND_SECRET" | Select-Object -Last 1
+$botBackendSecret = ssh $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_BACKEND_SECRET" | Select-Object -Last 1
 if ($LASTEXITCODE -ne 0 -or -not $botBackendSecret) {
   throw "Failed to retrieve BOT_BACKEND_SECRET from backend runtime on $VmHost"
 }
