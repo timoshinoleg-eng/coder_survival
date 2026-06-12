@@ -18,11 +18,15 @@ export async function closeServer(server) {
 
 export async function listenOnFetchSafePort(app, host = "127.0.0.1") {
   for (let attempt = 0; attempt < 20; attempt += 1) {
+    let errorListener;
     const server = await new Promise((resolve, reject) => {
       const instance = app.listen(0, host);
+      errorListener = reject;
       instance.once("listening", () => resolve(instance));
-      instance.once("error", reject);
+      instance.once("error", errorListener);
     });
+    // Remove the temporary error listener to avoid per-server listener leaks.
+    server.off("error", errorListener);
 
     const address = server.address();
     const port = typeof address === "object" && address ? address.port : null;
