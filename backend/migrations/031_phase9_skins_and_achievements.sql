@@ -11,13 +11,13 @@ ON CONFLICT (skin_id) DO NOTHING;
 -- Add condition column to achievements for minigame-specific triggers
 ALTER TABLE achievements ADD COLUMN IF NOT EXISTS condition JSONB DEFAULT NULL;
 
-INSERT INTO achievements (achievement_id, name, description, target_value, reward_payload, condition)
+INSERT INTO achievements (slug, name, description, criteria, reward, condition)
 VALUES (
   'architect_winner',
   'Архитектор',
   'Победа в Архитектурном комитете',
-  1,
-  '{"commits": 100}',
-  '{"gameType": "architectural_committee"}'
+  '{"target": 1}'::jsonb,
+  '{"commits": 100}'::jsonb,
+  '{"gameType": "architectural_committee"}'::jsonb
 )
-ON CONFLICT (achievement_id) DO NOTHING;
+ON CONFLICT (slug) DO NOTHING;
