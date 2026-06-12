@@ -14,28 +14,31 @@ export async function checkTapRateLimit(client, userId, ipAddress, tapIncrement 
   const MAX_TAPS_PER_SECOND = parseInt(process.env.RATE_LIMIT_MAX_TAPS_PER_SECOND, 10) || 20;
   const SOFT_BAN_THRESHOLD = parseInt(process.env.RATE_LIMIT_SOFT_BAN_THRESHOLD, 10) || 40;
   const DAILY_CAP_PER_IP = parseInt(process.env.RATE_LIMIT_DAILY_CAP_PER_IP, 10) || 10000;
+  const USER_WINDOW_SECONDS = 5;
 
   const userResult = await client.query(
     `INSERT INTO rate_limit_user (user_id, tap_count, window_start)
      VALUES ($1, $2, NOW())
      ON CONFLICT (user_id) DO UPDATE SET
        tap_count = CASE
-         WHEN rate_limit_user.window_start < NOW() - INTERVAL '2 seconds'
+         WHEN rate_limit_user.window_start < NOW() - ($3 * INTERVAL '1 second')
          THEN $2
          ELSE rate_limit_user.tap_count + $2
        END,
        window_start = CASE
-         WHEN rate_limit_user.window_start < NOW() - INTERVAL '2 seconds'
+         WHEN rate_limit_user.window_start < NOW() - ($3 * INTERVAL '1 second')
          THEN NOW()
          ELSE rate_limit_user.window_start
        END
      RETURNING tap_count`,
-    [userId, tapIncrement]
+    [userId, tapIncrement, USER_WINDOW_SECONDS]
   );
 
   const userTapCount = userResult.rows[0].tap_count;
+  const burstLimit = MAX_TAPS_PER_SECOND * USER_WINDOW_SECONDS;
+  const softBanLimit = SOFT_BAN_THRESHOLD * USER_WINDOW_SECONDS;
 
-  if (userTapCount > SOFT_BAN_THRESHOLD) {
+  if (userTapCount > softBanLimit) {
     console.warn('[RateLimit] Soft ban triggered for user', userId, 'tapCount:', userTapCount);
     return {
       allowed: false,
@@ -44,7 +47,7 @@ export async function checkTapRateLimit(client, userId, ipAddress, tapIncrement 
     };
   }
 
-  const effectiveBurstLimit = Math.max(MAX_TAPS_PER_SECOND, tapIncrement);
+  const effectiveBurstLimit = Math.max(burstLimit, tapIncrement);
   if (userTapCount > effectiveBurstLimit) {
     console.warn('[RateLimit] Burst limit triggered for user', userId, 'tapCount:', userTapCount);
     return {
@@ -77,7 +80,15 @@ export async function checkTapRateLimit(client, userId, ipAddress, tapIncrement 
 
   return {
     allowed: true,
-    info: { userTapCount, ipTapCount, maxPerSecond: MAX_TAPS_PER_SECOND, dailyCap: DAILY_CAP_PER_IP }
+    info: {
+      userTapCount,
+      ipTapCount,
+      maxPerSecond: MAX_TAPS_PER_SECOND,
+      windowSeconds: USER_WINDOW_SECONDS,
+      burstLimit,
+      softBanLimit,
+      dailyCap: DAILY_CAP_PER_IP
+    }
   };
 }
 

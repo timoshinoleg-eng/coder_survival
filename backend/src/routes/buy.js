@@ -6,11 +6,11 @@ import { applyReward } from '../utils/rewards.js';
 import { getProductById } from '../utils/shopCatalog.js';
 import { SHOP_ITEM_EFFECTS } from '../config/balance.js';
 import { armStreakSaver } from '../utils/streak.js';
-import validateModule from '../middleware/validate.js';
-import schemasModule from '../validation/schemas.js';
+import { validate } from '../middleware/validate.js';
+import { buySchema } from '../validation/schemas.js';
 
-const { validate } = validateModule;
-const { buySchema } = schemasModule;
+
+
 
 const router = Router();
 

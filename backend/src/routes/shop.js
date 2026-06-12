@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { getProducts, getProductById } from '../utils/shopCatalog.js';
-import validateModule from '../middleware/validate.js';
-import schemasModule from '../validation/schemas.js';
+import { validate } from '../middleware/validate.js';
+import { purchaseDealSchema } from '../validation/schemas.js';
 
 const router = Router();
-const { validate } = validateModule;
-const { purchaseDealSchema } = schemasModule;
+
+
 
 router.get('/products', async (req, res) => {
   res.json({ success: true, products: getProducts() });

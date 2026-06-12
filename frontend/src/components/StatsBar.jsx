@@ -29,6 +29,7 @@ import BurnoutMeter from './BurnoutMeter.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 
 export default function StatsBar({ runtimeNow }) {
+  const gameState = useGameState();
   const {
     commits,
     energy,
@@ -64,7 +65,7 @@ export default function StatsBar({ runtimeNow }) {
     passiveLocRecovery,
     dailyBattle,
     activeLanguage,
-  } = useGameState();
+  } = gameState;
 
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [referralOpen, setReferralOpen] = useState(false);

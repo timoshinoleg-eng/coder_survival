@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { getUserSkins } from '../utils/phase2State.js';
-import validateModule from '../middleware/validate.js';
-import schemasModule from '../validation/schemas.js';
+import { validate } from '../middleware/validate.js';
+import { skinEquipSchema } from '../validation/schemas.js';
 
-const { validate } = validateModule;
-const { skinEquipSchema } = schemasModule;
+
+
 
 const router = Router();
 

@@ -7,11 +7,11 @@ import {
   setActiveLanguage,
 } from '../utils/languages.js';
 import { ensurePlayerLevel } from '../utils/vnext.js';
-import validateModule from '../middleware/validate.js';
-import schemasModule from '../validation/schemas.js';
+import { validate } from '../middleware/validate.js';
+import { languageEquipSchema } from '../validation/schemas.js';
 
-const { validate } = validateModule;
-const { languageEquipSchema } = schemasModule;
+
+
 
 const router = Router();
 

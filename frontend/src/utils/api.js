@@ -1,4 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL =
+  typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app')
+    ? ''
+    : configuredApiBaseUrl;
 
 export class ApiError extends Error {
   constructor(message, status, payload) {

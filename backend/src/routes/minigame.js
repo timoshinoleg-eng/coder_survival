@@ -12,11 +12,11 @@ import { addEffect, pruneExpiredEffects } from '../utils/activeEffects.js';
 import { checkAchievement } from '../utils/achievements.js';
 import { logDailyFarm } from '../utils/farmLog.js';
 import { updateWeeklySprintState } from '../utils/weeklySprint.js';
-import validateModule from '../middleware/validate.js';
-import schemasModule from '../validation/schemas.js';
+import { validate } from '../middleware/validate.js';
+import { minigameSchema } from '../validation/schemas.js';
 
-const { validate } = validateModule;
-const { minigameSchema } = schemasModule;
+
+
 
 const router = Router();
 const { MINIGAMES } = STAGE2;
