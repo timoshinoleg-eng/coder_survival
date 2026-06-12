@@ -90,36 +90,45 @@ export async function ensureTestSchema() {
     )
   `);
 
-  const files = fs
-    .readdirSync(migrationsDir)
-    .filter((file) => file.endsWith(".sql"))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  // Serialize concurrent migration runs across parallel test suites
+  const lockId = 42;
+  await testPool.query(`SELECT pg_advisory_lock($1)`, [lockId]);
 
-  for (const file of files) {
-    const alreadyApplied = await testPool.query(
-      `SELECT 1 FROM schema_migrations WHERE filename = $1`,
-      [file],
-    );
-    if (alreadyApplied.rows.length > 0) {
-      continue;
-    }
+  try {
+    const files = fs
+      .readdirSync(migrationsDir)
+      .filter((file) => file.endsWith(".sql"))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
-    await testPool.query("BEGIN");
-    try {
-      await testPool.query(sql);
-      await testPool.query(
-        `INSERT INTO schema_migrations (filename) VALUES ($1)`,
+    for (const file of files) {
+      const alreadyApplied = await testPool.query(
+        `SELECT 1 FROM schema_migrations WHERE filename = $1`,
         [file],
       );
-      await testPool.query("COMMIT");
-    } catch (error) {
-      await testPool.query("ROLLBACK");
-      throw error;
-    }
-  }
+      if (alreadyApplied.rows.length > 0) {
+        continue;
+      }
 
-  await seedTestAchievements();
+      const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+      await testPool.query("BEGIN");
+      try {
+        await testPool.query(sql);
+        await testPool.query(
+          `INSERT INTO schema_migrations (filename) VALUES ($1)`,
+          [file],
+        );
+        await testPool.query("COMMIT");
+      } catch (error) {
+        await testPool.query("ROLLBACK");
+        throw error;
+      }
+    }
+
+    await seedTestAchievements();
+    await seedTestEventDefinitions();
+  } finally {
+    await testPool.query(`SELECT pg_advisory_unlock($1)`, [lockId]);
+  }
 }
 
 export async function resetTestDatabase() {
@@ -134,6 +143,7 @@ export async function resetTestDatabase() {
     WHERE n.nspname = 'public' AND c.relkind = 'r'
       AND c.relname <> 'schema_migrations'
       AND c.relname <> 'achievements'
+      AND c.relname <> 'event_definitions'
     ORDER BY c.relname
   `);
   if (result.rows.length === 0) return;
@@ -185,5 +195,33 @@ export async function seedTestAchievements() {
     ('weekend_warrior', 'Weekend Warrior', 'Code 500 lines on a weekend.', 'combo', 'rare', 'time_pattern', true, '{"days": ["sat", "sun"], "tap_target": 500}', '{"coins": 1200, "xp": 400}'),
     ('founder', 'Founder', 'Joined before official launch.', 'special', 'epic', 'special', false, '{"prelaunch_user": true}', '{"skin_unlock": "founder_hoodie", "title": "Founder"}')
     ON CONFLICT (slug) DO NOTHING
+  `);
+}
+
+export async function seedTestEventDefinitions() {
+  if (!testPool) return;
+
+  const countResult = await testPool.query(`SELECT COUNT(*) FROM event_definitions`);
+  if (parseInt(countResult.rows[0].count, 10) > 0) {
+    return; // already seeded
+  }
+
+  await testPool.query(`
+    INSERT INTO event_definitions (slug, name, type, weight, duration_sec, reward_json, penalty_json) VALUES
+    ('bug_production', 'Bug in Production', 'negative', 15, 15, '{"depression": 2, "commits": 5}', '{"depression": 6, "energyDrainPercent": 0.08, "durationSeconds": 180}'),
+    ('code_review', 'Code Review', 'neutral', 18, 15, '{"commits": 10, "depression": 2}', '{"commits": -5, "depression": 4}'),
+    ('stack_overflow_down', 'Stack Overflow Down', 'negative', 8, 30, NULL, '{"depression": 3, "disableHelpSeconds": 30}'),
+    ('legacy_code', 'Legacy Code', 'negative', 12, 20, '{"depression": 4}', '{"depression": 8, "commits": -10, "durationSeconds": 60}'),
+    ('coffee_stain', 'Coffee Stain', 'neutral', 20, 15, '{"energy": 8, "depression": -4}', NULL),
+    ('golden_commit', 'Golden Commit', 'positive', 10, 13, '{"commits": 40, "depression": -4, "locPerSecMultiplier": 7, "durationSeconds": 77}', '{"depression": 2}'),
+    ('deploy_friday', 'Deploy Friday', 'negative', 12, 30, '{"depression": -2}', '{"depression": 8, "locLossRisk": 0.25}'),
+    ('open_source_contribution', 'Open Source Contribution', 'positive', 5, 15, '{"skin": "open_source_hero", "commits": 20}', NULL)
+    ON CONFLICT (slug) DO UPDATE SET
+      name = EXCLUDED.name,
+      type = EXCLUDED.type,
+      weight = EXCLUDED.weight,
+      duration_sec = EXCLUDED.duration_sec,
+      reward_json = EXCLUDED.reward_json,
+      penalty_json = EXCLUDED.penalty_json
   `);
 }

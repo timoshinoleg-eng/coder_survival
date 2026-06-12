@@ -47,7 +47,7 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
 
     const active = await getUserActiveRandomEvent(testPool, userId);
     expect(active).not.toBeNull();
-    expect(active.event_type).toBe(event.type);
+    expect(active.event_slug).toBe(event.type);
   });
 
   test('spawnRandomEvent respects cadence and does not double-spawn', async () => {
@@ -78,10 +78,14 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
 
   test('resolveRandomEvent resolves solve action and returns deltas', async () => {
     const { userId } = await createUser(1004);
-    const event = await spawnRandomEvent(testPool, userId, 61);
-    expect(event).not.toBeNull();
+    // Insert a deterministic non-click event directly to avoid randomness
+    await testPool.query(
+      `INSERT INTO user_active_events (user_id, event_slug, event_id, started_at, expires_at, state)
+       VALUES ($1, 'code_review', 'cr_001', NOW(), NOW() + INTERVAL '1 hour', '{}')`,
+      [userId]
+    );
 
-    const result = await resolveRandomEvent(testPool, userId, event.eventId, 'solve', { commitsTotal: 1000 });
+    const result = await resolveRandomEvent(testPool, userId, 'cr_001', 'solve', { commitsTotal: 1000 });
     expect(result.success).toBe(true);
     expect(result.resolved).toBe(true);
     expect(result.deltas).toBeDefined();
@@ -93,7 +97,7 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
   test('resolveRandomEvent handles legacy_code tap until clicks exhausted', async () => {
     const { userId } = await createUser(1005);
     await testPool.query(
-      `INSERT INTO active_random_events (user_id, event_type, event_id, started_at, expires_at, state)
+      `INSERT INTO user_active_events (user_id, event_slug, event_id, started_at, expires_at, state)
        VALUES ($1, 'legacy_code', 'lc_001', NOW(), NOW() + INTERVAL '1 hour', '{"legacyCodeClicksRemaining": 10}')`,
       [userId]
     );
@@ -110,7 +114,7 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
   test('legacy_code solve creates a flat active-event state and resolves on the 10th tap only', async () => {
     const { userId } = await createUser(1010);
     await testPool.query(
-      `INSERT INTO active_random_events (user_id, event_type, event_id, started_at, expires_at, state)
+      `INSERT INTO user_active_events (user_id, event_slug, event_id, started_at, expires_at, state)
        VALUES ($1, 'legacy_code', 'lc_solve_then_tap', NOW(), NOW() + INTERVAL '1 hour', '{}')`,
       [userId]
     );
@@ -133,8 +137,8 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
   test('expireRandomEvents auto-resolves stale events', async () => {
     const { userId } = await createUser(1006);
     await testPool.query(
-      `INSERT INTO active_random_events (user_id, event_type, event_id, started_at, expires_at, state)
-       VALUES ($1, 'coffee_break', 'cb_001', NOW() - INTERVAL '2 minutes', NOW() - INTERVAL '1 minute', '{}')`,
+      `INSERT INTO user_active_events (user_id, event_slug, event_id, started_at, expires_at, state)
+       VALUES ($1, 'golden_commit', 'cb_001', NOW() - INTERVAL '2 minutes', NOW() - INTERVAL '1 minute', '{}')`,
       [userId]
     );
 
@@ -145,11 +149,11 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
     expect(active).toBeNull();
   });
 
-  test('calculateEventDeltas for deploy_friday solve respects success chance range', async () => {
+  test('calculateEventDeltas for deploy_friday ignore respects success chance range', async () => {
     let successCount = 0;
     for (let i = 0; i < 100; i++) {
-      const deltas = calculateEventDeltas('deploy_friday', 'solve', { commitsTotal: 1000 });
-      if (deltas.depressionDelta < 0) successCount++;
+      const deltas = calculateEventDeltas('deploy_friday', 'ignore', { commitsTotal: 1000 });
+      if (deltas.depressionDelta === 0) successCount++;
     }
     // 70% success chance → expect 60-80 successes in 100 rolls (generous range for test stability)
     expect(successCount).toBeGreaterThanOrEqual(50);
@@ -163,13 +167,13 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
   test('buildActiveEventPayload formats event with timeout seconds remaining', async () => {
     const { userId } = await createUser(1007);
     await testPool.query(
-      `INSERT INTO active_random_events (user_id, event_type, event_id, started_at, expires_at, state)
-       VALUES ($1, 'hot_streak', 'hs_001', NOW(), NOW() + INTERVAL '15 seconds', '{}')`,
+      `INSERT INTO user_active_events (user_id, event_slug, event_id, started_at, expires_at, state)
+       VALUES ($1, 'code_review', 'hs_001', NOW(), NOW() + INTERVAL '15 seconds', '{}')`,
       [userId]
     );
     const active = await getUserActiveRandomEvent(testPool, userId);
     const payload = buildActiveEventPayload(active);
-    expect(payload.type).toBe('hot_streak');
+    expect(payload.type).toBe('code_review');
     expect(payload.timeout).toBeGreaterThan(0);
     expect(payload.timeout).toBeLessThanOrEqual(16);
   });

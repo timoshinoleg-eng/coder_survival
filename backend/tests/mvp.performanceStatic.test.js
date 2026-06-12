@@ -48,7 +48,7 @@ describe('MVP performance guardrails', () => {
     const source = read('backend/src/routes/tap.js');
     expect(source).toContain('requestedTapCount');
     expect(source).toContain('actualTapCount');
-    expect(source).toContain('Math.min(20');
+    expect(source).toContain('Math.min(requestedTapCount, 20)');
     expect(source).not.toContain("getDailyQuestSummary");
     expect(source).not.toContain(".catch(() => {})");
   });

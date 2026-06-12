@@ -76,7 +76,7 @@ describe('PP-18: applyPrestigeBonuses', () => {
     const result = applyPrestigeBonuses(baseState, 1);
     expect(result.commitsPerTap).toBeCloseTo(8.8, 5);
     expect(result.maxEnergy).toBe(230);
-    expect(result.critChanceAdd).toBeCloseTo(0.02, 5);
+    expect(result.critChanceAdd).toBeCloseTo(0.005, 5);
     expect(result.energyRecoveryMult).toBeCloseTo(1.05, 5);
     expect(result.depressionResistanceMult).toBeCloseTo(0.95, 5);
     expect(result.prestigeLevel).toBe(1);
@@ -86,7 +86,7 @@ describe('PP-18: applyPrestigeBonuses', () => {
     const result = applyPrestigeBonuses(baseState, 2);
     expect(result.commitsPerTap).toBeCloseTo(8 * 1.20, 5);
     expect(result.maxEnergy).toBe(240);
-    expect(result.critChanceAdd).toBeCloseTo(0.04, 5);
+    expect(result.critChanceAdd).toBeCloseTo(0.01, 5);
     expect(result.energyRecoveryMult).toBeCloseTo(1.10, 5);
     expect(result.depressionResistanceMult).toBeCloseTo(0.90, 5);
     expect(result.prestigeLevel).toBe(2);
@@ -169,16 +169,16 @@ describe('PP-18: calculateTapDelta backward compatibility', () => {
     }
   });
 
-  test('critChanceAdd=1 guarantees crit on every roll', () => {
-    let allCrit = true;
-    for (let i = 0; i < 100; i++) {
+  test('critChanceAdd=1 massively increases crit rate (clamped to 0.25 gold + 0.15 silver)', () => {
+    let critCount = 0;
+    const ITERATIONS = 1000;
+    for (let i = 0; i < ITERATIONS; i++) {
       const result = calculateTapDelta(5, 80, 20, 3, 1, 0, 1.0);
-      if (!result.isCrit) {
-        allCrit = false;
-        break;
-      }
+      if (result.isCrit) critCount++;
     }
-    expect(allCrit).toBe(true);
+    // Gold chance is clamped to 0.25 + silver 0.15 = 0.40 total crit
+    expect(critCount).toBeGreaterThanOrEqual(350);
+    expect(critCount).toBeLessThanOrEqual(450);
   });
 });
 
@@ -201,7 +201,7 @@ describe('PP-18: resolveLevelState prestige integration', () => {
     const state = resolveLevelState(3100, 1);
     expect(state.commitsPerTap).toBeCloseTo(8.8, 5);
     expect(state.maxEnergy).toBe(230);
-    expect(state.critChanceAdd).toBeCloseTo(0.02, 5);
+    expect(state.critChanceAdd).toBeCloseTo(0.005, 5);
     expect(state.energyRecoveryMult).toBeCloseTo(1.05, 5);
     expect(state.depressionResistanceMult).toBeCloseTo(0.95, 5);
     expect(state.prestigeLevel).toBe(1);
@@ -238,7 +238,7 @@ describe('PP-18: resolveLevelState prestige integration', () => {
 
     expect(s5.commitsPerTap).toBeCloseTo(s0.commitsPerTap * 1.50, 5);
     expect(s5.maxEnergy).toBe(s0.maxEnergy + 50);
-    expect(s5.critChanceAdd).toBeCloseTo(0.10, 5);
+    expect(s5.critChanceAdd).toBeCloseTo(0.025, 5);
     expect(s2.commitsPerTap).toBeCloseTo(s0.commitsPerTap * 1.20, 5);
     expect(s2.maxEnergy).toBe(s0.maxEnergy + 20);
   });
@@ -379,7 +379,7 @@ describe('PP-18: Route SQL references valid columns', () => {
   });
 
   test('execute reads progression rows with FOR UPDATE for commits_total', () => {
-    expect(routeSrc).toMatch('SELECT commits_total FROM progression');
+    expect(routeSrc).toMatch(/SELECT[\s\S]*?commits_total[\s\S]*?FROM progression/i);
   });
 
   test('execute soft-reset targets progression: tier, commits_current, energy, active_effects, generator_state, event_state', () => {

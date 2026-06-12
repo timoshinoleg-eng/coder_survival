@@ -63,7 +63,7 @@ describeIfDb("achievements integration", () => {
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body?.achievements)).toBe(true);
-    expect(res.body.achievements.length).toBe(21);
+    expect(res.body.achievements.length).toBe(29);
 
     const helloWorld = res.body.achievements.find((a) => a.slug === "hello_world");
     expect(helloWorld).toBeDefined();

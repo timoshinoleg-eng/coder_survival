@@ -148,7 +148,9 @@ describeIfDb("phase2 integration", () => {
       `UPDATE progression
        SET is_burnout = TRUE,
            energy = 80,
-           depression_level = 200
+           depression_level = 200,
+           last_energy_activity_at = NOW(),
+           energy_recovery_checkpoint_at = NOW()
        WHERE user_id = $1`,
       [userId],
     );
