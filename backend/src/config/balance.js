@@ -1,5 +1,15 @@
 export const CONTEXT_OFFER_GLOBAL_COOLDOWN_MS = 90 * 1000;
 
+const FTUE_ACCELERATION_ARRAY = [
+  { id: 'minute_0_to_5', minMinutes: 0, maxMinutes: 5, incomeMultiplier: 3.0, costMultiplier: 0.5 },
+  { id: 'minute_5_to_15', minMinutes: 5, maxMinutes: 15, incomeMultiplier: 2.0, costMultiplier: 0.7 },
+  { id: 'minute_15_to_30', minMinutes: 15, maxMinutes: 30, incomeMultiplier: 1.5, costMultiplier: 0.85 },
+  { id: 'minute_30_to_60', minMinutes: 30, maxMinutes: 60, incomeMultiplier: 1.2, costMultiplier: 1.0 },
+  { id: 'after_60min', minMinutes: 60, maxMinutes: Infinity, incomeMultiplier: 1.0, costMultiplier: 1.0 }
+];
+
+export const FTUE_ACCELERATION = FTUE_ACCELERATION_ARRAY;
+
 export const DEFAULTS = {
   BALANCE_VERSION: '2.0-hook-optimized',
   GENERATORS: {
@@ -12,13 +22,16 @@ export const DEFAULTS = {
       staff_engineer: { baseOutput: 1300, baseCost: 204800, requires: { tier: 'tech_lead', owned: 5 } }
     }
   },
-  FTUE_ACCELERATION: [
-    { id: 'minute_0_to_5', minMinutes: 0, maxMinutes: 5, incomeMultiplier: 3.0, costMultiplier: 0.5 },
-    { id: 'minute_5_to_15', minMinutes: 5, maxMinutes: 15, incomeMultiplier: 2.0, costMultiplier: 0.7 },
-    { id: 'minute_15_to_30', minMinutes: 15, maxMinutes: 30, incomeMultiplier: 1.5, costMultiplier: 0.85 },
-    { id: 'minute_30_to_60', minMinutes: 30, maxMinutes: 60, incomeMultiplier: 1.2, costMultiplier: 1.0 },
-    { id: 'after_60min', minMinutes: 60, maxMinutes: Infinity, incomeMultiplier: 1.0, costMultiplier: 1.0 }
-  ],
+  FTUE_ACCELERATION: FTUE_ACCELERATION_ARRAY,
+  FTUE: {
+    ACCELERATION: FTUE_ACCELERATION_ARRAY,
+    ONBOARDING: {
+      COMPLETION_REWARD: {
+        energy: 20,
+        inventory: { coffee_cups: 1 }
+      }
+    }
+  },
   DEPRESSION: {
     triggers: {
       bugEncountered: 4,
