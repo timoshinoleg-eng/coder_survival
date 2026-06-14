@@ -76,6 +76,7 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
   }
 
   const content = h('section', {
+    id: modal ? undefined : 'ftue-daily-quests',
     className: modal ? '' : 'pixel-panel',
     style: {
       padding: '10px 12px',

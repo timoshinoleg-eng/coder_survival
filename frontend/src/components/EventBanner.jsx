@@ -1,6 +1,8 @@
 import { h } from 'preact';
 import { useGameState } from '../hooks/useGameState.js';
 
+const Z_INDEX_BANNER = 30;
+
 function modifiersText(modifiers = {}) {
   const parts = [];
   if (modifiers.energyRecoveryMult) parts.push('2x энергия');
@@ -10,9 +12,11 @@ function modifiersText(modifiers = {}) {
   return parts.join(' · ');
 }
 
-export default function EventBanner() {
+export default function EventBanner({ suppressed = false }) {
   const { event, liveEvent } = useGameState();
   const live = liveEvent?.event;
+
+  if (suppressed) return null;
 
   if (live) {
     return h('div', {
@@ -21,7 +25,7 @@ export default function EventBanner() {
         top: '8px',
         left: '8px',
         right: '8px',
-        zIndex: 44,
+        zIndex: Z_INDEX_BANNER,
         background: 'linear-gradient(90deg, #b45309, #facc15)',
         borderRadius: '8px',
         padding: '9px 12px',
@@ -44,7 +48,7 @@ export default function EventBanner() {
       top: '8px',
       left: '8px',
       right: '8px',
-      zIndex: 44,
+      zIndex: Z_INDEX_BANNER,
       background: 'linear-gradient(90deg, #1a3a5c, #274267)',
       border: '1px solid #30527e',
       borderRadius: '8px',

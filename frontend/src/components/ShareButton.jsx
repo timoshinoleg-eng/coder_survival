@@ -118,7 +118,7 @@ export function generateShareCard(templateId, data = {}) {
   return canvasToBlob(canvas);
 }
 
-export default function ShareButton() {
+export default function ShareButton({ suppressed = false }) {
   const game = useGameState();
   const [busy, setBusy] = useState(false);
   const template = useMemo(() => {
@@ -157,15 +157,15 @@ export default function ShareButton() {
     }
   }, [busy, game.depression, game.teamHackathon?.progressPercent, template]);
 
-  if (!template) return null;
+  if (suppressed || !template) return null;
   return h('button', {
     onClick: share,
     disabled: busy,
     title: 'Поделиться',
     style: {
       position: 'fixed',
-      right: '12px',
-      bottom: '86px',
+      right: 'max(12px, env(safe-area-inset-right))',
+      bottom: 'max(86px, env(safe-area-inset-bottom))',
       zIndex: 24,
       width: '42px',
       height: '42px',

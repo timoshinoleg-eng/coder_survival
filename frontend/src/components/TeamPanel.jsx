@@ -43,7 +43,7 @@ function TierBadge({ label, active }) {
   }, label);
 }
 
-export default function TeamPanel({ open: controlledOpen, onClose }) {
+export default function TeamPanel({ open: controlledOpen, onClose, suppressed = false }) {
   const game = useGameState();
   const { initData, shareUrl } = useTelegram();
   const [localOpen, setLocalOpen] = useState(false);
@@ -92,12 +92,12 @@ export default function TeamPanel({ open: controlledOpen, onClose }) {
   }, [game, initData]);
 
   return h('div', null, [
-    controlledOpen === undefined && h('button', {
+    controlledOpen === undefined && !suppressed && h('button', {
       onClick: () => setLocalOpen(true),
       style: {
         position: 'fixed',
-        right: '12px',
-        top: '84px',
+        right: 'max(12px, env(safe-area-inset-right))',
+        top: 'max(84px, calc(env(safe-area-inset-top) + 74px))',
         zIndex: 24,
         width: '42px',
         height: '42px',

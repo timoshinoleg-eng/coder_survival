@@ -4,7 +4,9 @@ import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
 
-export default function ContextOfferBanner() {
+const Z_INDEX_BANNER = 30;
+
+export default function ContextOfferBanner({ suppressed = false }) {
   const {
     loading, contextOffer, dismissContextOffer, setShopOpen
   } = useGameState();
@@ -49,7 +51,7 @@ export default function ContextOfferBanner() {
     }
   }, [contextOffer]);
 
-  if (loading || !contextOffer) return null;
+  if (loading || suppressed || !contextOffer) return null;
 
   return h('div', {
     style: {
@@ -57,7 +59,7 @@ export default function ContextOfferBanner() {
       top: '8px',
       left: '8px',
       right: '8px',
-      zIndex: 45,
+      zIndex: Z_INDEX_BANNER,
       background: 'linear-gradient(90deg, #1a3a5c, #274267)',
       border: '1px solid #30527e',
       borderRadius: '10px',

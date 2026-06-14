@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { audioManager } from '../utils/AudioManager.js';
 
-export default function AudioToggle() {
+export default function AudioToggle({ suppressed = false }) {
   const [sfx, setSfx] = useState(true);
   const [bgm, setBgm] = useState(() => audioManager.bgmEnabled === true);
 
@@ -20,6 +20,8 @@ export default function AudioToggle() {
     return () => document.removeEventListener('visibilitychange', handler);
   }, []);
 
+  if (suppressed) return null;
+
   const buttonStyle = {
     width: '34px',
     height: '34px',
@@ -33,8 +35,8 @@ export default function AudioToggle() {
   return h('div', {
     style: {
       position: 'fixed',
-      top: '10px',
-      right: '10px',
+      top: 'max(10px, env(safe-area-inset-top))',
+      right: 'max(10px, env(safe-area-inset-right))',
       zIndex: 55,
       display: 'flex',
       gap: '6px'

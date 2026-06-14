@@ -40,7 +40,7 @@ export default function BurnoutMeter({ runtimeNow }) {
 
   return h(
     "div",
-    { style: { position: "relative", width: "100%" } },
+    { id: "ftue-burnout-meter", style: { position: "relative", width: "100%" } },
     [
       h(
         "div",

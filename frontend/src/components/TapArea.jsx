@@ -32,6 +32,7 @@ export default function TapArea({ active }) {
   const prevDeltaRef = useRef(null);
   const prevErrorRef = useRef(null);
   const energyBeforeRef = useRef(null);
+  const pointerStartRef = useRef(null);
 
   useEffect(() => {
     audioManager.init().catch(() => {});
@@ -45,19 +46,16 @@ export default function TapArea({ active }) {
     }, duration);
   }, []);
 
-  const handlePointerDown = useCallback((e) => {
-    audioManager.resumeOnGesture();
+  const commitTap = useCallback((target, clientX, clientY) => {
     if (!active || energy <= 0) {
       haptic('error');
       audioManager.play('energy0');
       return;
     }
-    setPressed(true);
-    e.preventDefault();
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const rect = target.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     lastTapPosRef.current = { x, y };
 
     haptic('light');
@@ -74,6 +72,41 @@ export default function TapArea({ active }) {
       setRipples(prev => prev.filter(r => r.id !== rippleId));
     }, 700);
   }, [active, energy, tap, haptic]);
+
+  const handlePointerDown = useCallback((e) => {
+    audioManager.resumeOnGesture();
+    pointerStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      target: e.currentTarget,
+      dragging: false,
+    };
+    setPressed(active && energy > 0);
+  }, [active, energy]);
+
+  const handlePointerMove = useCallback((e) => {
+    const start = pointerStartRef.current;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.hypot(dx, dy) > 12) {
+      start.dragging = true;
+      setPressed(false);
+    }
+  }, []);
+
+  const handlePointerUp = useCallback((e) => {
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    setPressed(false);
+    if (!start || start.dragging) return;
+    commitTap(start.target, e.clientX, e.clientY);
+  }, [commitTap]);
+
+  const handlePointerCancel = useCallback(() => {
+    pointerStartRef.current = null;
+    setPressed(false);
+  }, []);
 
   // Exact feedback driven by actual server response — never stale
   useEffect(() => {
@@ -151,10 +184,6 @@ export default function TapArea({ active }) {
     audioManager.play('bugFail');
   }, [gameError]);
 
-  const handlePointerUp = useCallback(() => {
-    setPressed(false);
-  }, []);
-
   if (!active) return null;
 
   const isExhausted = energy <= 0;
@@ -174,15 +203,16 @@ export default function TapArea({ active }) {
     : isBurnout
       ? '💥 Session reset'
       : '💻 КОДИТЬ';
+  const tapWidth = 'min(420px, calc(100vw - 28px))';
+  const tapHeight = 'clamp(72px, 11dvh, 104px)';
 
   return h('div', {
     style: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
+      position: 'relative',
       zIndex: 20,
-      padding: '14px',
+      padding: '10px 14px 16px',
+      margin: '0 auto',
+      width: '100%',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -220,7 +250,7 @@ export default function TapArea({ active }) {
     gameError && h('div', {
       style: {
         position: 'absolute',
-        bottom: 'calc(min(260px, 75vw) + 20px)',
+        bottom: `calc(${tapHeight} + 20px)`,
         left: '50%',
         transform: 'translateX(-50%)',
         padding: '6px 14px',
@@ -260,7 +290,7 @@ export default function TapArea({ active }) {
 
     h('div', {
       style: {
-        width: 'min(260px, 75vw)',
+        width: tapWidth,
         display: 'flex',
         flexDirection: 'column',
         gap: '6px',
@@ -304,14 +334,17 @@ export default function TapArea({ active }) {
 
     // Tap zone
     h('div', {
+      id: 'ftue-tap-area',
       className: tapZoneClass,
       onPointerDown: handlePointerDown,
+      onPointerMove: handlePointerMove,
       onPointerUp: handlePointerUp,
-      onPointerLeave: handlePointerUp,
+      onPointerCancel: handlePointerCancel,
+      onPointerLeave: handlePointerCancel,
       style: {
         pointerEvents: 'auto',
-        width: 'min(260px, 75vw)',
-        height: 'min(260px, 75vw)',
+        width: tapWidth,
+        height: tapHeight,
         borderRadius: '0',
         opacity: isExhausted ? 0.6 : 1,
         background: isExhausted
@@ -332,7 +365,7 @@ export default function TapArea({ active }) {
         transform: pressed ? 'scale(0.93)' : 'scale(1)',
         transition: 'transform 0.08s ease-out, border-color 0.25s, background 0.3s, color 0.2s',
         userSelect: 'none',
-        touchAction: 'manipulation',
+        touchAction: 'pan-y manipulation',
         WebkitTapHighlightColor: 'transparent',
         boxShadow: pressed
           ? '0 0 24px rgba(74,222,128,0.45) inset'

@@ -2,6 +2,7 @@ import { h } from "preact";
 import { useEffect, useMemo, useState, useCallback } from "preact/hooks";
 import { useGameState } from "../hooks/useGameState.js";
 import { useTelegram } from "../hooks/useTelegram.js";
+import { useBlockingOverlay } from "../hooks/useOverlayManager.js";
 import { adsManager } from "../utils/AdsManager.js";
 import LeaderboardPanel from "./LeaderboardPanel.jsx";
 import ShopPanel from "./ShopPanel.jsx";
@@ -28,7 +29,8 @@ import CareerModal from './CareerModal.jsx';
 import BurnoutMeter from './BurnoutMeter.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 
-export default function StatsBar({ runtimeNow }) {
+export default function StatsBar({ runtimeNow, onOverlayChange }) {
+  const isOverlayOpen = useBlockingOverlay();
   const gameState = useGameState();
   const {
     commits,
@@ -196,6 +198,31 @@ export default function StatsBar({ runtimeNow }) {
     }
   }, [adLoading, energy, maxEnergy, initData]);
 
+  const blockingOverlayOpen =
+    leaderboardOpen ||
+    referralOpen ||
+    questsOpen ||
+    battleOpen ||
+    eventOpen ||
+    passOpen ||
+    teamOpen ||
+    memeOpen ||
+    skinOpen ||
+    miniGameOpen ||
+    teamBattleOpen ||
+    achievementsOpen ||
+    dailySummaryOpen ||
+    generatorsOpen ||
+    appealOpen ||
+    careerOpen ||
+    languageOpen ||
+    shopOpen ||
+    boostersOpen;
+
+  useEffect(() => {
+    onOverlayChange?.(blockingOverlayOpen);
+  }, [blockingOverlayOpen, onOverlayChange]);
+
   return h(
     "div",
     {
@@ -222,12 +249,14 @@ export default function StatsBar({ runtimeNow }) {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexWrap: "wrap",
+            rowGap: "6px",
           },
         },
         [
           h(
             "div",
-            { style: { display: "flex", alignItems: "center", gap: "8px" } },
+            { style: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", rowGap: "4px" } },
             [
               user?.photoUrl &&
                 h("img", {
@@ -300,7 +329,7 @@ export default function StatsBar({ runtimeNow }) {
           ),
           h(
             "div",
-            { style: { display: "flex", alignItems: "center", gap: "10px" } },
+            { style: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", rowGap: "4px", justifyContent: "flex-end" } },
             [
               h("div", { style: { textAlign: "right" } }, [
                 h(
@@ -325,7 +354,7 @@ export default function StatsBar({ runtimeNow }) {
                   "коммитов",
                 ),
               ]),
-              h("div", { style: { display: "flex", gap: "4px" } }, [
+              h("div", { style: { display: "flex", gap: "4px", flexWrap: "wrap", rowGap: "4px" } }, [
                 h(
                   "button",
                   {
@@ -706,7 +735,7 @@ export default function StatsBar({ runtimeNow }) {
       // Energy bar
       h(
         "div",
-        { style: { display: "flex", alignItems: "center", gap: "6px" } },
+        { id: "ftue-energy-bar", style: { display: "flex", alignItems: "center", gap: "6px" } },
         [
           h(
             "span",
@@ -1000,8 +1029,8 @@ export default function StatsBar({ runtimeNow }) {
         onClose: () => setLanguageOpen(false),
       }),
 
-      // Achievement toasts
-      toastQueue.map((slug, index) => {
+      // Achievement toasts — suppress while a blocking overlay is open
+      !isOverlayOpen && toastQueue.map((slug, index) => {
         const ach = newAchievements.find((a) => a.slug === slug);
         if (!ach) return null;
         return h(AchievementToast, {

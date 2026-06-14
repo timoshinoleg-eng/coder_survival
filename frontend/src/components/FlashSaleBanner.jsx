@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
 import { useGameState } from '../hooks/useGameState.js';
 
+const Z_INDEX_BANNER = 30;
+
 function formatCountdown(ms) {
   if (ms <= 0) return '00:00:00';
   const totalSeconds = Math.floor(ms / 1000);
@@ -12,7 +14,7 @@ function formatCountdown(ms) {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-export default function FlashSaleBanner() {
+export default function FlashSaleBanner({ suppressed = false }) {
   const { setShopOpen } = useGameState();
   const [sales, setSales] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export default function FlashSaleBanner() {
     return () => clearInterval(timer);
   }, [sales]);
 
-  if (loading) return null;
+  if (loading || suppressed) return null;
 
   const active = sales?.flashSale || sales?.dailyDeal;
   if (!active) return null;
@@ -69,7 +71,7 @@ export default function FlashSaleBanner() {
     style: {
       position: 'relative',
       margin: '8px 8px 0',
-      zIndex: 5,
+      zIndex: Z_INDEX_BANNER,
       background: isFlash
         ? 'linear-gradient(90deg, #7c2d12, #9a3412)'
         : 'linear-gradient(90deg, #1a3a5c, #274267)',

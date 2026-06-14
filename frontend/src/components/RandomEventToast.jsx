@@ -25,7 +25,7 @@ function getEventColor(type) {
   }
 }
 
-export default function RandomEventToast({ event, onChoice, onTap, disabled = false }) {
+export default function RandomEventToast({ event, onChoice, onTap, disabled = false, suppressed = false }) {
   const [timeLeft, setTimeLeft] = useState(100);
   const [mode, setMode] = useState('choice'); // 'choice' | 'minigame'
 
@@ -75,7 +75,7 @@ export default function RandomEventToast({ event, onChoice, onTap, disabled = fa
     onTap(event.eventId, event.type);
   }, [disabled, event, onTap]);
 
-  if (!event) return null;
+  if (suppressed || !event) return null;
 
   const isClickEvent = CLICK_EVENTS.includes(event.type);
   const isAutoEvent = event.type === 'stack_overflow_down';

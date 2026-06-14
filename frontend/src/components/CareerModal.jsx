@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useGameState } from '../hooks/useGameState.js';
 import { usePlayerRank, RANK_META, RANK_ORDER } from '../hooks/usePlayerRank.js';
 
-const BEATS = {
+export const BEATS = {
   1: { title: 'День 1', text: 'Ваш менеджер — NPC с календарём дедлайнов. Выживите первую неделю.', illustration: 'beat_01_manager' },
   3: { title: 'Первое код-ревью', text: 'Коллега оставил 47 комментариев. Вы чувствуете себя самозванцем.', illustration: 'beat_02_review' },
   5: { title: 'Legacy Codebase', text: 'Вы нашли TODO от 2014 года. Автор: unknown. Шанс выжить: 12%.', illustration: 'beat_03_cave' },
@@ -207,12 +207,12 @@ function CareerLadderView({ onClose }) {
   ]));
 }
 
-export default function CareerModal({ open, onClose }) {
+export default function CareerModal({ open, onClose, suppressAutoBeat = false }) {
   const game = useGameState();
   const story = game.careerStory || {};
   const unlocked = (story.unlockedBeats || []).map(Number);
   const dismissed = new Set((story.dismissedBeats || []).map(Number));
-  const beatId = unlocked.find((id) => !dismissed.has(id));
+  const beatId = unlocked.find((id) => BEATS[id] && !dismissed.has(id));
   const beat = BEATS[beatId];
 
   const handleDismissBeat = () => game.dismissCareerBeat?.(beatId);
@@ -221,7 +221,7 @@ export default function CareerModal({ open, onClose }) {
     return h(CareerLadderView, { onClose });
   }
 
-  if (!beat) return null;
+  if (suppressAutoBeat || !beat) return null;
 
   return h(BeatView, { beat, beatId, onDismiss: handleDismissBeat });
 }

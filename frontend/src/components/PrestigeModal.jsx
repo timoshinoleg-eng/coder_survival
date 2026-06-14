@@ -34,7 +34,7 @@ function StatRow({ label, value, color = COLORS.text }) {
   ]);
 }
 
-export default function PrestigeModal() {
+export default function PrestigeModal({ suppressed = false }) {
   const gameState = useGameState();
   const { haptic, initData } = useTelegram() || {};
   const [stage, setStage] = useState(STAGE.PREVIEW);
@@ -161,10 +161,11 @@ export default function PrestigeModal() {
   }
 
   if (!visible) {
+    if (suppressed) return null;
     return h('button', {
       onClick: () => setVisible(true),
       style: {
-        position: 'fixed', top: '52px', right: '70px', zIndex: 100,
+        position: 'fixed', top: 'max(52px, env(safe-area-inset-top))', right: 'max(70px, env(safe-area-inset-right))', zIndex: 100,
         padding: '6px 14px', borderRadius: '8px',
         border: `1px solid ${muAvailable ? COLORS.mu : COLORS.muted}`,
         background: muAvailable ? 'rgba(139, 92, 246, 0.12)' : 'rgba(136, 153, 170, 0.12)',

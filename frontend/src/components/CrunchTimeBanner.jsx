@@ -2,6 +2,8 @@ import { h } from 'preact';
 import { useMemo } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 
+const Z_INDEX_BANNER = 30;
+
 function formatRemaining(endsAt) {
   if (!endsAt) return 'скоро закончится';
   const diffMs = new Date(endsAt).getTime() - Date.now();
@@ -12,13 +14,13 @@ function formatRemaining(endsAt) {
   return `${hours}ч ${minutes}м`;
 }
 
-export default function CrunchTimeBanner() {
+export default function CrunchTimeBanner({ suppressed = false }) {
   const { crunchTime } = useGameState();
 
   const active = crunchTime?.active === true;
   const remaining = useMemo(() => formatRemaining(crunchTime?.endsAt), [crunchTime?.endsAt]);
 
-  if (!active) return null;
+  if (suppressed || !active) return null;
 
   return h('div', {
     style: {
@@ -26,7 +28,7 @@ export default function CrunchTimeBanner() {
       top: '64px',
       left: '8px',
       right: '8px',
-      zIndex: 43,
+      zIndex: Z_INDEX_BANNER,
       background: 'linear-gradient(90deg, #5a2d1a, #7c3b1c)',
       border: '1px solid rgba(250, 204, 21, 0.35)',
       borderRadius: '10px',

@@ -7,7 +7,7 @@ function hoursLeft(expiresAt) {
   return Math.max(0, Math.ceil(ms / 3600000));
 }
 
-export default function BattleCard({ battle }) {
+export default function BattleCard({ battle, suppressed = false }) {
   const game = useGameState();
   const isOpponent = Number(battle?.opponentId) === Number(game.battleUserId);
   const canAccept = isOpponent && battle.status === 'pending';
@@ -21,13 +21,13 @@ export default function BattleCard({ battle }) {
     return 'Ровная гонка';
   }, [battle, game.battleUserId]);
 
-  if (!battle) return null;
+  if (suppressed || !battle) return null;
 
   return h('section', {
     style: {
       position: 'fixed',
-      left: '12px',
-      bottom: '86px',
+      left: 'max(12px, env(safe-area-inset-left))',
+      bottom: 'max(86px, env(safe-area-inset-bottom))',
       zIndex: 22,
       width: 'min(330px, calc(100vw - 24px))',
       background: '#111d31',

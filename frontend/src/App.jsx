@@ -7,7 +7,7 @@ import WalletConnect from "./components/WalletConnect.jsx";
 import { audioManager } from "./utils/AudioManager.js";
 import StatsBar from "./components/StatsBar.jsx";
 import TapArea from "./components/TapArea.jsx";
-import OnboardingModal from "./components/OnboardingModal.jsx";
+import OnboardingCoach from "./components/OnboardingCoach.jsx";
 import LevelUpModal from "./components/LevelUpModal.jsx";
 import ContextOfferBanner from "./components/ContextOfferBanner.jsx";
 import EventBanner from "./components/EventBanner.jsx";
@@ -25,7 +25,7 @@ import TeamPanel from "./components/TeamPanel.jsx";
 import BattleCard from "./components/BattleCard.jsx";
 import ShareButton from "./components/ShareButton.jsx";
 import AudioToggle from "./components/AudioToggle.jsx";
-import CareerModal from "./components/CareerModal.jsx";
+import CareerModal, { BEATS } from "./components/CareerModal.jsx";
 import MemeGenerator from "./components/MemeGenerator.jsx";
 import PrestigeModal from "./components/PrestigeModal.jsx";
 import ShareCardModal from "./components/ShareCardModal.jsx";
@@ -34,6 +34,7 @@ import { applyRandomEventChoice, getActiveRuntimeEvents, reduceLegacyCodeClick }
 import { apiRequest } from './utils/api.js';
 import { Analytics } from './utils/analytics.js';
 import { useTelegram } from './hooks/useTelegram.js';
+import { OverlayProvider } from "./hooks/useOverlayManager.js";
 
 function normalizeRuntimeEventState(state = {}) {
   const source = state || {};
@@ -76,7 +77,7 @@ function AppInner() {
     memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState,
     setRandomEventState, commits, totalTaps, streakDays, isBurnout, depression,
     energy, username, rankName, levelUp, team, teamBattle, activeLanguage,
-    error
+    error, careerStory
   } = useGameState();
   const { user } = useTelegram();
   const [onboardingDismissedThisSession, setOnboardingDismissedThisSession] =
@@ -106,6 +107,11 @@ function AppInner() {
   const [shareCardData, setShareCardData] = useState({});
   const [deathOpen, setDeathOpen] = useState(false);
   const [deathCause, setDeathCause] = useState('burnout');
+  const [statsOverlayOpen, setStatsOverlayOpen] = useState(false);
+  const [compactViewport, setCompactViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth <= 520 || window.innerHeight <= 820;
+  });
 
   const prevStreakRef = useRef(0);
   const prevRankRef = useRef(0);
@@ -113,6 +119,20 @@ function AppInner() {
 
   useEffect(() => { commitsRef.current = commits; }, [commits]);
   useEffect(() => { totalTapsRef.current = totalTaps; }, [totalTaps]);
+
+  const handleGameReady = useCallback(() => {
+    setGameReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const updateViewportMode = () => {
+      setCompactViewport(window.innerWidth <= 520 || window.innerHeight <= 820);
+    };
+    updateViewportMode();
+    window.addEventListener("resize", updateViewportMode);
+    return () => window.removeEventListener("resize", updateViewportMode);
+  }, []);
 
   useEffect(() => {
     Analytics.track('app_opened', { source: document.referrer || 'direct' });
@@ -515,7 +535,6 @@ function AppInner() {
 
   const handleCloseOnboarding = ({ completed } = {}) => {
     if (!completed) {
-      localStorage.setItem("cs_onboarding_skipped", String(Date.now()));
       setOnboardingDismissedThisSession(true);
       return;
     }
@@ -535,6 +554,22 @@ function AppInner() {
   const shouldShowOnboarding =
     gameReady && !loading && showOnboarding && !onboardingDismissedThisSession;
 
+  const dismissedCareerBeats = new Set((careerStory?.dismissedBeats || []).map(Number));
+  const knownCareerBeatIds = new Set(Object.keys(BEATS).map(Number));
+  const careerBeatOpen = (careerStory?.unlockedBeats || [])
+    .map(Number)
+    .some((id) => Number.isFinite(id) && knownCareerBeatIds.has(id) && !dismissedCareerBeats.has(id));
+
+  const externalBlockingOverlayOpen =
+    statsOverlayOpen ||
+    shouldShowOnboarding ||
+    Boolean(levelUp) ||
+    memeOpen ||
+    shareCardOpen ||
+    deathOpen;
+
+  const blockingOverlayOpen = externalBlockingOverlayOpen || careerBeatOpen;
+
   const themeColor = activeLanguage?.themeColor || null;
 
   // Error screen — показываем вместо всего UI, если бэкенд не отвечает
@@ -543,19 +578,26 @@ function AppInner() {
   }
 
   return h(
-    "div",
-    {
-      id: "app",
-      style: themeColor
-        ? {
-            minHeight: '100vh',
-            background: `linear-gradient(180deg, #0b1622 0%, ${themeColor}22 40%, #0b1622 100%)`,
-          }
-        : undefined,
-    },
-    h(LoadingOverlay, { visible: loading && !error }),
+    OverlayProvider,
+    { value: blockingOverlayOpen },
+    h(
+      "div",
+      {
+        id: "app-shell",
+        style: {
+          minHeight: '100%',
+          width: '100%',
+          flex: '0 0 auto',
+          ...(themeColor
+            ? {
+                background: `linear-gradient(180deg, #0b1622 0%, ${themeColor}22 40%, #0b1622 100%)`,
+              }
+            : null),
+        },
+      },
+      h(LoadingOverlay, { visible: loading && !error }),
     h(StreakCalendar),
-    h(StatsBar, { runtimeNow }),
+    h(StatsBar, { runtimeNow, onOverlayChange: setStatsOverlayOpen }),
     activeRuntimeEvents.length > 0 && h(
       "div",
       {
@@ -572,60 +614,27 @@ function AppInner() {
       },
       activeRuntimeEvents.map((line) => h('div', { key: line, style: { color: '#facc15' } }, line)),
     ),
-    h(DailyQuests),
-    h(WeeklySprintPanel),
-    h(PassPanel),
     h(
       "div",
       { id: "game-container" },
-      h(PhaserGame, { onReady: () => setGameReady(true) }),
+      h(PhaserGame, { onReady: handleGameReady }),
     ),
     h(TapArea, { active: gameReady }),
-    activeRuntimeEvents.length > 0 && h(
-      "div",
-      {
-        style: {
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: '300px',
-          zIndex: 28,
-          display: 'flex',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-        },
-      },
-      h(
-        "div",
-        {
-          className: 'pixel-panel',
-          style: {
-            padding: '8px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            minWidth: 'min(320px, 80vw)',
-            textAlign: 'center',
-            color: '#e6edf7',
-            fontSize: '11px',
-            background: 'rgba(16, 25, 45, 0.92)',
-          },
-        },
-        activeRuntimeEvents.map((line) => h('div', { key: line, style: { color: '#facc15' } }, line)),
-      ),
-    ),
-    h(RewardedVideo),
-    h(TeamPanel),
-    h(AudioToggle),
-    (battles || []).slice(0, 1).map((battle) => h(BattleCard, { key: battle.id, battle })),
-    h(ShareButton),
-    h(CareerModal),
-    h(OnboardingModal, {
+    h(DailyQuests),
+    h(WeeklySprintPanel),
+    h(PassPanel),
+    h(RewardedVideo, { suppressed: blockingOverlayOpen, compact: compactViewport }),
+    h(TeamPanel, { suppressed: blockingOverlayOpen }),
+    h(AudioToggle, { suppressed: blockingOverlayOpen }),
+    !blockingOverlayOpen && (battles || []).slice(0, 1).map((battle) => h(BattleCard, { key: battle.id, battle })),
+    h(ShareButton, { suppressed: blockingOverlayOpen }),
+    h(CareerModal, { suppressAutoBeat: externalBlockingOverlayOpen }),
+    h(OnboardingCoach, {
       visible: shouldShowOnboarding,
       onClose: handleCloseOnboarding,
     }),
     h(LevelUpModal),
-    h(PrestigeModal),
+    h(PrestigeModal, { suppressed: blockingOverlayOpen }),
     h(MemeGenerator, {
       open: memeOpen,
       onClose: () => {
@@ -633,10 +642,10 @@ function AppInner() {
         clearMemePrompt?.();
       },
     }),
-    h(FlashSaleBanner),
-    h(ContextOfferBanner),
-    h(EventBanner),
-    h(CrunchTimeBanner),
+    h(FlashSaleBanner, { suppressed: blockingOverlayOpen }),
+    h(ContextOfferBanner, { suppressed: blockingOverlayOpen }),
+    h(EventBanner, { suppressed: blockingOverlayOpen }),
+    h(CrunchTimeBanner, { suppressed: blockingOverlayOpen }),
     h(ShareCardModal, {
       open: shareCardOpen,
       type: shareCardType,
@@ -654,6 +663,7 @@ function AppInner() {
     }),
     h(RandomEventToast, {
       event: randomEvent,
+      suppressed: blockingOverlayOpen,
       disabled: randomEventBusy,
       onChoice: async (eventId, type, action) => {
         if (randomEventBusy) return;
@@ -767,7 +777,7 @@ function AppInner() {
         }
       },
     }),
-  );
+  ));
 }
 
 export default function App() {
