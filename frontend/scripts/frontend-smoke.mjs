@@ -22,6 +22,14 @@ function collectImportedNames(source) {
     }
   }
 
+  for (const match of source.matchAll(/import\s+([A-Za-z_$][\w$]*)\s*,\s*\{([^}]+)\}\s+from\s+["'][^"']+["']/g)) {
+    names.add(match[1]);
+    for (const part of match[2].split(",")) {
+      const localName = part.trim().split(/\s+as\s+/).pop()?.trim();
+      if (localName) names.add(localName);
+    }
+  }
+
   return names;
 }
 
@@ -282,6 +290,159 @@ function assertInlineRuntimeObjectsAreMemoized() {
   }
 }
 
+function assertCareerBeatDoesNotSuppressItself() {
+  const app = read("src/App.jsx");
+  const careerModal = read("src/components/CareerModal.jsx");
+
+  const careerModalCallMatch = app.match(/h\s*\(\s*CareerModal\s*,\s*\{([^]*?)\}\s*\)/);
+  if (!careerModalCallMatch) {
+    failures.push("src/App.jsx: CareerModal auto-beat call not found");
+    return;
+  }
+  const propsBlock = careerModalCallMatch[1];
+  if (/suppressed\s*:\s*blockingOverlayOpen/.test(propsBlock) || /suppressed\s*:\s*careerBeatOpen/.test(propsBlock)) {
+    failures.push("src/App.jsx: CareerModal auto beat must not be suppressed by the same blockingOverlayOpen that includes careerBeatOpen");
+  }
+  const suppressMatch = propsBlock.match(/suppressAutoBeat\s*:\s*([A-Za-z_$][\w$]*)/);
+  if (!suppressMatch || suppressMatch[1] !== "externalBlockingOverlayOpen") {
+    failures.push("src/App.jsx: CareerModal auto beat should only yield to external blocking overlays");
+  }
+  if (!/suppressAutoBeat\s*=\s*false\b/.test(careerModal)) {
+    failures.push("src/components/CareerModal.jsx: auto career beat suppression must default to false");
+  }
+  if (/const\s+beatId\s*=\s*unlocked\s*\.\s*find\s*\(\s*\(?\s*id\s*\)?\s*=>\s*!\s*dismissed\s*\.\s*has\s*\(\s*id\s*\)\s*\)/.test(careerModal)) {
+    failures.push("src/components/CareerModal.jsx: auto career beat must skip unknown beat ids before selecting beatId");
+  }
+  if (!/const\s+beatId\s*=\s*unlocked\s*\.\s*find\s*\(\s*\(?\s*id\s*\)?\s*=>\s*BEATS\s*\[\s*id\s*\][^)]*!\s*dismissed\s*\.\s*has\s*\(\s*id\s*\)/.test(careerModal)) {
+    failures.push("src/components/CareerModal.jsx: auto career beat should select the first known, undismissed beat");
+  }
+}
+
+function assertPhaserGameReadyCallbackIsStable() {
+  const app = read("src/App.jsx");
+  const phaserGame = read("src/game/PhaserGame.js");
+
+  const phaserGameCallMatch = app.match(/h\s*\(\s*PhaserGame\s*,\s*\{([^]*?)\}\s*\)/);
+  if (!phaserGameCallMatch) {
+    failures.push("src/App.jsx: PhaserGame JSX call not found");
+  } else {
+    const propsBlock = phaserGameCallMatch[1];
+    if (/onReady\s*:\s*(?:\(\s*\)\s*=>|function\s*\(|\([^)]*\)\s*=>)/.test(propsBlock)) {
+      failures.push("src/App.jsx: PhaserGame onReady must be stable; inline callbacks recreate Phaser during App timer rerenders");
+    }
+  }
+
+  if (!/onReadyRef\s*\.\s*current\s*\?\.?\s*\(\s*\)\s*;?/.test(phaserGame)) {
+    failures.push("src/game/PhaserGame.js: Phaser postBoot should call the latest onReady through a ref");
+  }
+  if (!/useEffect\s*\(\s*\(\s*\)\s*=>\s*\{[^]*?gameRef\s*\.\s*current\s*=\s*new\s+Phaser\.Game\s*\(\s*config\s*\)[^]*?\}\s*,\s*\[\s*\]\s*\)/.test(phaserGame)) {
+    failures.push("src/game/PhaserGame.js: Phaser lifetime effect must create the game inside an empty-deps effect");
+  }
+}
+
+function assertCareerBeatIdComparisonIsNormalized() {
+  const app = read("src/App.jsx");
+
+  if (/careerStory\??\.unlockedBeats[^]*?\.some\s*\(\s*\(\s*id\s*\)\s*=>\s*!\s*\(?\s*careerStory\??\.dismissedBeats\s*\|\|\s*\[\]\s*\)?\s*\.\s*includes\s*\(\s*id\s*\)\s*\)/.test(app)) {
+    failures.push("src/App.jsx: careerBeatOpen must normalize unlocked/dismissed beat ids before comparison");
+  }
+  const hasDismissedSet = /dismissedCareerBeats\s*=\s*new\s+Set\s*\(\s*\(\s*careerStory\??\.dismissedBeats\s*\|\|\s*\[\]\s*\)\s*\.\s*map\s*\(\s*Number\s*\)\s*\)/.test(app);
+  const hasUnlockedNormalized = /unlockedBeats\s*\|\|\s*\[\]\s*\)\s*\.\s*map\s*\(\s*Number\s*\)/.test(app);
+  const hasSetComparison = /!\s*dismissedCareerBeats\s*\.\s*has\s*\(\s*id\s*\)/.test(app);
+  if (!hasDismissedSet || !hasUnlockedNormalized || !hasSetComparison) {
+    failures.push("src/App.jsx: careerBeatOpen should compare Number-normalized dismissed beat ids");
+  }
+}
+
+function assertTapAreaDoesNotCoverReadableContent() {
+  const app = read("src/App.jsx");
+  const tapArea = read("src/components/TapArea.jsx");
+  const index = read("index.html");
+
+  const firstPositionMatch = tapArea.match(/position\s*:\s*['"]([^'"]+)['"]/);
+  if (!firstPositionMatch || firstPositionMatch[1] === "absolute" || firstPositionMatch[1] === "fixed") {
+    failures.push("src/components/TapArea.jsx: tap area root must stay in document flow instead of covering readable panels");
+  }
+  if (/id\s*:\s*["']app["']/.test(app)) {
+    failures.push("src/App.jsx: rendered app shell must not reuse the root id=app");
+  }
+  if (!/#app\s*\{[^}]*overflow-y\s*:\s*auto\b/.test(index)) {
+    failures.push("index.html: root #app must be vertically scrollable so panels below the tap area stay reachable in Telegram WebView");
+  }
+  if (/preventDefault\s*\(\s*\)/.test(tapArea)) {
+    failures.push("src/components/TapArea.jsx: tap area must not call preventDefault on pointer gestures because it blocks scroll");
+  }
+  if (!/touchAction\s*:\s*['"]pan-y manipulation['"]/.test(tapArea)) {
+    failures.push("src/components/TapArea.jsx: tap target should allow vertical pan gestures");
+  }
+  if (/height\s*:\s*tapSize\b/.test(tapArea) || /width\s*:\s*tapSize\b/.test(tapArea)) {
+    failures.push("src/components/TapArea.jsx: mobile tap target should not be a large square that pushes readable panels away");
+  }
+  if (!/height\s*:\s*tapHeight\b/.test(tapArea) || !/width\s*:\s*tapWidth\b/.test(tapArea)) {
+    failures.push("src/components/TapArea.jsx: tap target should use compact action-bar dimensions");
+  }
+  const appReturnStart = app.lastIndexOf("OverlayProvider");
+  const appReturnBlock = appReturnStart >= 0 ? app.slice(appReturnStart) : app;
+  const tapIndex = appReturnBlock.search(/h\s*\(\s*TapArea\s*,/);
+  const questsIndex = appReturnBlock.search(/h\s*\(\s*DailyQuests\s*\)/);
+  if (tapIndex === -1 || questsIndex === -1 || questsIndex < tapIndex) {
+    failures.push("src/App.jsx: DailyQuests should render after the game/tap block so tap UI does not obscure it");
+  }
+  if (!/#game-container\s*\{[^}]*flex\s*:\s*0\s+0\s+auto\b/.test(index)) {
+    failures.push("index.html: game-container must not flex-fill the viewport above readable panels");
+  }
+}
+
+function assertTapHotPathDoesNotShakeCamera() {
+  const gameScene = read("src/game/scenes/GameScene.js");
+  const onTapMatch = gameScene.match(/onTap\s*\([^)]*\)\s*\{([^]*?)\n  \}/);
+  if (!onTapMatch) {
+    failures.push("src/game/scenes/GameScene.js: onTap handler not found");
+    return;
+  }
+  if (/cameras\.main\.shake\s*\(/.test(onTapMatch[1])) {
+    failures.push("src/game/scenes/GameScene.js: tap hot path must not shake the whole camera; use local desk/keyboard feedback instead");
+  }
+  if (/energyPercent\s*<=\s*20[^]*cameras\.main\.shake\s*\(/.test(gameScene) && !/allowCameraShake/.test(gameScene)) {
+    failures.push("src/game/scenes/GameScene.js: low-energy camera tremor must be gated for compact/reduced-motion viewports");
+  }
+}
+
+function assertOnboardingCoachHandlesCompleteErrors() {
+  const file = "src/components/OnboardingCoach.jsx";
+  const source = read(file);
+  const start = source.indexOf("const handleComplete = useCallback");
+  const end = source.indexOf("const { rect }", start);
+  const body = start !== -1 && end !== -1 ? source.slice(start, end) : "";
+
+  if (!body) {
+    failures.push(`${file}: handleComplete not found`);
+    return;
+  }
+
+  const catchMatch = body.match(/catch\s*\(\s*err\s*\)\s*\{/);
+  if (!catchMatch) {
+    failures.push(`${file}: handleComplete must catch (err)`);
+  } else {
+    const catchStart = catchMatch.index;
+    const catchEnd = body.indexOf("finally", catchStart);
+    const catchBody = catchEnd !== -1 ? body.slice(catchStart, catchEnd) : body.slice(catchStart);
+    if (!catchBody.includes("showToast")) {
+      failures.push(`${file}: handleComplete catch block must call showToast`);
+    }
+  }
+
+  const gameState = read("src/hooks/useGameState.js");
+  if (gameState.includes("cs_onboarding_completed") || gameState.includes("cs_onboarding_skipped")) {
+    failures.push("src/hooks/useGameState.js: must not reference cs_onboarding_completed or cs_onboarding_skipped");
+  }
+
+  const app = read("src/App.jsx");
+  if (app.includes("cs_onboarding_skipped") || app.includes("cs_onboarding_completed")) {
+    failures.push("src/App.jsx: must not reference cs_onboarding_skipped or cs_onboarding_completed");
+  }
+}
+
 assertAppComponentReferencesAreImported();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
@@ -298,6 +459,12 @@ assertTimerAndPollingDeduplication();
 assertPostTapRefreshDebouncesToBurstEnd();
 assertDailyQuestClaimDoesNotDoubleRefresh();
 assertInlineRuntimeObjectsAreMemoized();
+assertCareerBeatDoesNotSuppressItself();
+assertPhaserGameReadyCallbackIsStable();
+assertCareerBeatIdComparisonIsNormalized();
+assertTapAreaDoesNotCoverReadableContent();
+assertTapHotPathDoesNotShakeCamera();
+assertOnboardingCoachHandlesCompleteErrors();
 
 if (failures.length > 0) {
   console.error(failures.join("\n"));
