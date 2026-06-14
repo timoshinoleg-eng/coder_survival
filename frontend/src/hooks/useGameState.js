@@ -155,12 +155,19 @@ export function GameProvider({ children }) {
     if (!game) return;
 
     const sessionId = payload?.activeSession?.sessionId || stateRef.current.sessionId || null;
-    const onboardingCompleted =
-      game.onboarding_completed ??
-      game.onboardingCompleted ??
+    const rawOnboardingCompleted =
+      game?.onboarding_completed ??
+      game?.onboardingCompleted ??
       payload?.onboarding_completed ??
-      payload?.onboardingCompleted ??
-      true;
+      payload?.onboardingCompleted;
+
+    // Fail-open: if the backend does not tell us the onboarding state, assume
+    // the player still needs onboarding rather than silently hiding it.
+    const onboardingCompleted = rawOnboardingCompleted === true;
+
+    if (rawOnboardingCompleted === undefined) {
+      console.warn('[useGameState] onboarding field missing from server payload; defaulting to show onboarding');
+    }
     const inventory = game.inventory || payload?.inventory || {};
     const newRank = payload?.level?.rank ?? stateRef.current.rank ?? 1;
     const newLevelInRank =
@@ -1096,13 +1103,17 @@ export function GameProvider({ children }) {
       });
       applyServerState(payload);
       setState((current) => ({ ...current, showOnboarding: false }));
-      localStorage.setItem("cs_onboarding_completed", "1");
       return payload;
     },
-    skipOnboarding: () => {
+    skipOnboarding: async () => {
       console.log("onboarding_skipped");
-      localStorage.setItem("cs_onboarding_skipped", String(Date.now()));
-      setState((current) => ({ ...current, showOnboarding: true }));
+      const payload = await apiRequest("/api/onboarding/skip", {
+        method: "POST",
+        initData: telegram?.initData,
+      });
+      applyServerState(payload);
+      setState((current) => ({ ...current, showOnboarding: false }));
+      return payload;
     },
     equipSkin: async (skinId) => {
       if (equippingSkinRef.current) return stateRef.current.skins ?? null;
