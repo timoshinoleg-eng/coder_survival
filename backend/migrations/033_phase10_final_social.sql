@@ -7,13 +7,17 @@ VALUES
 ON CONFLICT (skin_id) DO NOTHING;
 
 -- Secret achievement for Rubber Duck unlock
-INSERT INTO achievements (achievement_id, name, description, target_value, reward_payload, condition)
+INSERT INTO achievements (slug, name, description, category, rarity, trigger_type, is_progressive, is_secret, criteria, reward)
 VALUES (
   'rubber_duck_unlock',
   'Резиновая уточка',
   'Провали мини-игру 3 раза за день',
-  3,
-  '{"skin": "rubber_duck"}',
-  '{"hidden": "true", "period": "day"}'
+  'special',
+  'legendary',
+  'special',
+  false,
+  true,
+  '{"minigame_failure": true, "period": "day", "target": 3}',
+  '{"skin_unlock": "rubber_duck"}'
 )
-ON CONFLICT (achievement_id) DO NOTHING;
+ON CONFLICT (slug) DO NOTHING;

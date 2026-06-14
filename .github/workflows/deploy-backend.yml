@@ -25,7 +25,6 @@ jobs:
         run: |
           npm ci
           npm test
-        continue-on-error: true
 
   deploy:
     needs: test
@@ -50,11 +49,22 @@ jobs:
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
             set -e
-            
+
             cd /tmp/coder-survival-backend
-            
+
             # Build image
             docker build -t coder-survival-backend:local .
+
+            # Run migrations before switching traffic
+            docker run --rm \
+              -e NODE_ENV=production \
+              -e DB_HOST="${{ secrets.DB_HOST }}" \
+              -e DB_PORT="${{ secrets.DB_PORT }}" \
+              -e DB_NAME="${{ secrets.DB_NAME }}" \
+              -e DB_USER="${{ secrets.DB_USER }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e BOT_TOKEN="${{ secrets.BOT_TOKEN }}" \
+              coder-survival-backend:local npm run migrate
             
             # Stop old container
             docker stop coder-survival-backend 2>/dev/null || true

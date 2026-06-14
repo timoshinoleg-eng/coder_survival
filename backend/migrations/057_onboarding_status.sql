@@ -2,8 +2,6 @@
 -- FTUE: replace boolean onboarding_completed with a status machine
 -- that supports not_started / in_progress / skipped / completed.
 
-BEGIN;
-
 ALTER TABLE progression
     ADD COLUMN IF NOT EXISTS onboarding_status TEXT NOT NULL DEFAULT 'not_started'
         CONSTRAINT chk_onboarding_status CHECK (onboarding_status IN ('not_started', 'in_progress', 'skipped', 'completed')),
@@ -29,5 +27,3 @@ END $$;
 
 ALTER TABLE progression
     DROP COLUMN IF EXISTS onboarding_completed;
-
-COMMIT;

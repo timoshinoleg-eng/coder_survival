@@ -76,6 +76,18 @@ export async function checkAchievementsForUser(userId, triggerTypes, context) {
             } else {
               shouldEvaluate = false;
             }
+          } else if (criteria.minigame_success) {
+            if (context.success && (!criteria.gameType || context.gameType === criteria.gameType)) {
+              currentValue = 1;
+            } else {
+              shouldEvaluate = false;
+            }
+          } else if (criteria.minigame_failure) {
+            if (!context.success) {
+              currentValue = context.currentFailures || 0;
+            } else {
+              shouldEvaluate = false;
+            }
           } else {
             shouldEvaluate = false;
           }
@@ -243,6 +255,26 @@ export async function claimAchievement(userId, slug) {
         [userId, reward.badge]
       );
       appliedRewards.push({ type: 'badge', badge: reward.badge });
+    }
+
+    if (reward.xp) {
+      await client.query(
+        `UPDATE player_levels SET xp_total = xp_total + $1 WHERE user_id = $2`,
+        [reward.xp, userId]
+      );
+      appliedRewards.push({ type: 'xp', amount: reward.xp });
+    }
+
+    if (reward.commits) {
+      await client.query(
+        `UPDATE progression
+         SET commits_total = commits_total + $2,
+             lifetime_loc = lifetime_loc + $2,
+             commits_current = commits_current + $2
+         WHERE user_id = $1`,
+        [userId, reward.commits]
+      );
+      appliedRewards.push({ type: 'commits', amount: reward.commits });
     }
 
     await client.query(

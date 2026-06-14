@@ -113,8 +113,8 @@ describe('Phase 9: Mini-Game Configs', () => {
     expect(config).toBeDefined();
     expect(config.requiredLevel).toBe(10);
     expect(config.cooldownHours).toBe(168);
-    expect(config.maxScore).toBe(1);
-    expect(config.minSuccessScore).toBe(1);
+    expect(config.maxScore).toBe(3);
+    expect(config.minSuccessScore).toBe(3);
     expect(config.reward.commits).toBe(1000);
     expect(config.reward.skin).toBe('cto_cape');
   });
@@ -125,10 +125,12 @@ describe('Phase 9: Mini-Game Configs', () => {
     expect(validateScore('architectural_committee', 2)).toBe(false);
   });
 
-  test('validateScore: ipo accepts 0-1', () => {
+  test('validateScore: ipo accepts 0-3', () => {
     expect(validateScore('ipo', 0)).toBe(true);
     expect(validateScore('ipo', 1)).toBe(true);
-    expect(validateScore('ipo', 2)).toBe(false);
+    expect(validateScore('ipo', 2)).toBe(true);
+    expect(validateScore('ipo', 3)).toBe(true);
+    expect(validateScore('ipo', 4)).toBe(false);
   });
 
   test('buildReward: architectural_committee', () => {

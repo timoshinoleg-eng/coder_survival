@@ -60,7 +60,7 @@ function generateGrid() {
 }
 
 export default function MiniGameCodeReview({ open, onClose }) {
-  const { showToast } = useGameState();
+  const { showToast, reset } = useGameState();
   const { haptic, initData } = useTelegram();
   const [phase, setPhase] = useState('ready');
   const [grid, setGrid] = useState([]);
@@ -69,6 +69,7 @@ export default function MiniGameCodeReview({ open, onClose }) {
   const [success, setSuccess] = useState(false);
   const [reward, setReward] = useState(null);
   const [claiming, setClaiming] = useState(false);
+  const finishedRef = useRef(false);
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
   const rafRef = useRef(null);
@@ -80,6 +81,7 @@ export default function MiniGameCodeReview({ open, onClose }) {
     setFoundCount(0);
     setSuccess(false);
     setReward(null);
+    finishedRef.current = false;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   }, []);
@@ -149,6 +151,8 @@ export default function MiniGameCodeReview({ open, onClose }) {
   }, [haptic, initData, showToast]);
 
   const finishGame = useCallback(async (won) => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
@@ -168,12 +172,13 @@ export default function MiniGameCodeReview({ open, onClose }) {
       } else {
         showToast('Баги ушли в прод... Попробуй ещё через 6 часов', 'error', 2500);
       }
+      await reset().catch(() => null);
     } catch (err) {
       showToast('Ошибка сохранения результата', 'error', 2000);
     } finally {
       setClaiming(false);
     }
-  }, [initData, showToast]);
+  }, [initData, showToast, reset]);
 
   const handleReveal = useCallback((id) => {
     if (phase !== 'playing') return;
@@ -187,7 +192,7 @@ export default function MiniGameCodeReview({ open, onClose }) {
         audioManager.play('bugSuccess');
         haptic('success');
         if (newFound >= BUG_COUNT) {
-          setTimeout(() => finishGame(true), 300);
+          finishGame(true);
         }
       } else {
         audioManager.play('tap');

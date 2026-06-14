@@ -46,7 +46,7 @@ const SCALE_LABELS = {
 };
 
 export default function MiniGameArchitecturalCommittee({ open, onClose }) {
-  const { showToast } = useGameState();
+  const { showToast, reset } = useGameState();
   const { haptic, initData } = useTelegram();
   const [phase, setPhase] = useState('ready');
   const [scales, setScales] = useState({ techDebt: 50, teamMood: 50, budget: 50 });
@@ -134,12 +134,13 @@ export default function MiniGameArchitecturalCommittee({ open, onClose }) {
       } else {
         showToast('Комитет развалился. Попробуй завтра!', 'error', 2500);
       }
+      await reset().catch(() => null);
     } catch (err) {
       showToast('Ошибка сохранения результата', 'error', 2000);
     } finally {
       setClaiming(false);
     }
-  }, [initData, showToast]);
+  }, [initData, showToast, reset]);
 
   if (!open) return null;
 
@@ -201,7 +202,7 @@ export default function MiniGameArchitecturalCommittee({ open, onClose }) {
         '5 решений. 3 шкалы.\nДержи баланс между 20 и 80.'
       ),
       h('div', { style: { fontSize: '11px', color: '#60a5fa', marginBottom: '16px' } },
-        'Награда: +500 коммитов, −40 стресса, ачивка'
+        'Награда: +500 коммитов, −40 стресса'
       ),
       h('button', {
         onClick: startGame,

@@ -5,42 +5,108 @@ import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { apiRequest } from '../utils/api.js';
 
-const ROUNDS = [
+const QUESTION_POOL = [
   {
     question: 'Какой у вас TAM?',
     options: [
-      { label: 'Очень большой', correct: false },
+      { label: 'Все разработчики мира', correct: false },
       { label: '12B$ с CAGR 24%', correct: true }
     ]
   },
   {
     question: 'Когда бизнес станет прибыльным?',
     options: [
-      { label: 'Через 18 месяцев', correct: true },
-      { label: 'Мы focused на growth', correct: false }
+      { label: 'Через 18 месяцев при текущем CAC', correct: true },
+      { label: 'Мы focused на growth, не на прибыль', correct: false }
     ]
   },
   {
     question: 'Какая у вас moat?',
     options: [
-      { label: 'Нет конкурентов', correct: false },
+      { label: 'Пока нет конкурентов', correct: false },
       { label: 'Патенты + сетевой эффект', correct: true }
+    ]
+  },
+  {
+    question: 'Сколько денег сгорит до breakeven?',
+    options: [
+      { label: 'Нужен runway 18M$ на 24 месяца', correct: true },
+      { label: 'Мы станем unicorn без дополнительных раундов', correct: false }
+    ]
+  },
+  {
+    question: 'Какой ваш go-to-market?',
+    options: [
+      { label: 'Вирусный рост через рефералов', correct: false },
+      { label: 'B2B sales + partner channel', correct: true }
+    ]
+  },
+  {
+    question: 'Что если крупный игрок скопирует продукт?',
+    options: [
+      { label: 'У нас first-mover advantage', correct: false },
+      { label: 'Switching costs + community lock-in', correct: true }
+    ]
+  },
+  {
+    question: 'Какой у команды background?',
+    options: [
+      { label: 'Бывшие FAANG + два успешных exit', correct: true },
+      { label: 'Сильная мотивация и уникальная идея', correct: false }
+    ]
+  },
+  {
+    question: 'Какой у вас retention на 90-й день?',
+    options: [
+      { label: '40% D90, NPS 50+', correct: true },
+      { label: 'Пока рано мерить, растём viral', correct: false }
     ]
   }
 ];
 
 const TIME_PER_ROUND = 30;
+const ROUNDS_PER_GAME = 3;
+const IPO_SKIN_REWARD = 'cto_cape';
+
+function shuffle(array) {
+  const a = [...array];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildRounds() {
+  const picked = shuffle(QUESTION_POOL).slice(0, ROUNDS_PER_GAME);
+  return picked.map((q) => ({
+    question: q.question,
+    options: shuffle(q.options)
+  }));
+}
 
 export default function MiniGameIPO({ open, onClose }) {
-  const { showToast } = useGameState();
+  const { showToast, reset } = useGameState();
   const { haptic, initData } = useTelegram();
   const [phase, setPhase] = useState('ready');
+  const [rounds, setRounds] = useState([]);
   const [roundIndex, setRoundIndex] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [timer, setTimer] = useState(TIME_PER_ROUND);
   const [reward, setReward] = useState(null);
+  const [success, setSuccess] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [answered, setAnswered] = useState(false);
   const intervalRef = useRef(null);
+  const roundIndexRef = useRef(0);
+  const correctCountRef = useRef(0);
+  const phaseRef = useRef('ready');
+  const answeredRef = useRef(false);
+
+  useEffect(() => { roundIndexRef.current = roundIndex; }, [roundIndex]);
+  useEffect(() => { correctCountRef.current = correctCount; }, [correctCount]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { answeredRef.current = answered; }, [answered]);
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -52,10 +118,14 @@ export default function MiniGameIPO({ open, onClose }) {
   const resetGame = useCallback(() => {
     clearTimer();
     setPhase('ready');
+    setRounds([]);
     setRoundIndex(0);
     setCorrectCount(0);
     setTimer(TIME_PER_ROUND);
     setReward(null);
+    setSuccess(false);
+    setClaiming(false);
+    setAnswered(false);
   }, [clearTimer]);
 
   useEffect(() => {
@@ -68,6 +138,32 @@ export default function MiniGameIPO({ open, onClose }) {
     }
     return () => clearTimer();
   }, [open, resetGame, clearTimer]);
+
+  const finishGame = useCallback(async (score) => {
+    if (phaseRef.current === 'result') return;
+    clearTimer();
+    setPhase('result');
+    try {
+      setClaiming(true);
+      const payload = await apiRequest('/api/minigame/complete', {
+        method: 'POST',
+        initData,
+        body: { gameType: 'ipo', score }
+      });
+      setReward(payload?.reward || null);
+      setSuccess(payload?.success === true);
+      if (payload?.success) {
+        showToast(`IPO одобрено! +${payload?.reward?.commits || 1000} коммитов`, 'success', 3000);
+      } else {
+        showToast('Инвесторы отказали. Попробуй через неделю!', 'error', 2500);
+      }
+      await reset().catch(() => null);
+    } catch (err) {
+      showToast('Ошибка сохранения результата', 'error', 2000);
+    } finally {
+      setClaiming(false);
+    }
+  }, [initData, showToast, clearTimer, reset]);
 
   const startGame = useCallback(async () => {
     try {
@@ -94,72 +190,58 @@ export default function MiniGameIPO({ open, onClose }) {
     }
 
     haptic('heavy');
-    setPhase('playing');
+    setRounds(buildRounds());
     setRoundIndex(0);
     setCorrectCount(0);
     setTimer(TIME_PER_ROUND);
+    setReward(null);
+    setSuccess(false);
+    setAnswered(false);
+    setPhase('playing');
   }, [haptic, initData, showToast]);
 
   useEffect(() => {
-    if (phase === 'playing') {
-      setTimer(TIME_PER_ROUND);
-      intervalRef.current = setInterval(() => {
-        setTimer(prev => {
-          if (prev <= 1) {
-            clearTimer();
-            finishGame(0);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+    if (phase !== 'playing') return;
+    clearTimer();
+    setTimer(TIME_PER_ROUND);
+    setAnswered(false);
+    intervalRef.current = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          clearTimer();
+          finishGame(correctCountRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     return () => clearTimer();
-  }, [phase, roundIndex, clearTimer]);
+  }, [phase, roundIndex, clearTimer, finishGame]);
 
   const handleAnswer = useCallback((isCorrect) => {
+    if (phaseRef.current !== 'playing' || answeredRef.current) return;
+    setAnswered(true);
     clearTimer();
+
+    const nextCorrect = isCorrect ? correctCountRef.current + 1 : correctCountRef.current;
     if (isCorrect) {
       haptic('light');
-      setCorrectCount(prev => prev + 1);
+      setCorrectCount(nextCorrect);
     } else {
       haptic('error');
     }
 
-    const nextIndex = roundIndex + 1;
-    if (nextIndex >= ROUNDS.length) {
-      const finalScore = isCorrect ? correctCount + 1 : correctCount;
-      finishGame(finalScore);
+    const nextIndex = roundIndexRef.current + 1;
+    if (nextIndex >= ROUNDS_PER_GAME) {
+      finishGame(nextCorrect);
     } else {
       setRoundIndex(nextIndex);
     }
-  }, [roundIndex, correctCount, haptic, clearTimer]);
-
-  const finishGame = useCallback(async (score) => {
-    setPhase('result');
-    try {
-      setClaiming(true);
-      const payload = await apiRequest('/api/minigame/complete', {
-        method: 'POST',
-        initData,
-        body: { gameType: 'ipo', score }
-      });
-      setReward(payload?.reward || null);
-      if (payload?.success) {
-        showToast(`IPO одобрено! +${payload?.reward?.commits || 1000} коммитов`, 'success', 3000);
-      } else {
-        showToast('Инвесторы отказали. Попробуй через неделю!', 'error', 2500);
-      }
-    } catch (err) {
-      showToast('Ошибка сохранения результата', 'error', 2000);
-    } finally {
-      setClaiming(false);
-    }
-  }, [initData, showToast]);
+  }, [haptic, clearTimer, finishGame]);
 
   if (!open) return null;
 
-  const round = phase === 'playing' ? ROUNDS[roundIndex] : null;
+  const round = phase === 'playing' ? rounds[roundIndex] : null;
 
   return h('div', {
     onClick: onClose,
@@ -196,13 +278,14 @@ export default function MiniGameIPO({ open, onClose }) {
 
     phase === 'ready' && h('div', { style: { textAlign: 'center' } }, [
       h('div', { style: { fontSize: '11px', color: '#8ba1bb', marginBottom: '16px', lineHeight: 1.6 } },
-        '3 вопроса инвесторов.\nТаймер 30 сек на вопрос.\nВсе ответы должны быть верными.'
+        `${ROUNDS_PER_GAME} вопроса инвесторов.\nТаймер ${TIME_PER_ROUND} сек на вопрос.\nВсе ответы должны быть верными.`
       ),
       h('div', { style: { fontSize: '11px', color: '#60a5fa', marginBottom: '16px' } },
         'Награда: +1000 коммитов, −50 стресса, скин CTO'
       ),
       h('button', {
         onClick: startGame,
+        disabled: claiming,
         style: {
           minHeight: '48px',
           padding: '0 24px',
@@ -212,14 +295,15 @@ export default function MiniGameIPO({ open, onClose }) {
           color: '#4ade80',
           fontWeight: 800,
           fontSize: '13px',
-          cursor: 'pointer',
+          cursor: claiming ? 'not-allowed' : 'pointer',
+          opacity: claiming ? 0.7 : 1,
         },
       }, '▶ Начать питч'),
     ]),
 
     phase === 'playing' && round && h('div', null, [
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } }, [
-        h('span', { style: { fontSize: '11px', color: '#8ba1bb' } }, `Вопрос ${roundIndex + 1} / ${ROUNDS.length}`),
+        h('span', { style: { fontSize: '11px', color: '#8ba1bb' } }, `Вопрос ${roundIndex + 1} / ${ROUNDS_PER_GAME}`),
         h('span', { style: { fontSize: '11px', color: timer <= 5 ? '#ef4444' : '#facc15' } }, `⏱ ${timer}с`)
       ]),
       h('div', {
@@ -255,6 +339,7 @@ export default function MiniGameIPO({ open, onClose }) {
         round.options.map((opt, idx) => h('button', {
           key: idx,
           onClick: () => handleAnswer(opt.correct),
+          disabled: claiming || answered,
           style: {
             minHeight: '52px',
             padding: '10px 14px',
@@ -264,8 +349,9 @@ export default function MiniGameIPO({ open, onClose }) {
             color: '#c7ddf5',
             fontWeight: 600,
             fontSize: '12px',
-            cursor: 'pointer',
-            textAlign: 'left'
+            cursor: claiming ? 'not-allowed' : 'pointer',
+            textAlign: 'left',
+            opacity: claiming ? 0.7 : 1,
           }
         }, opt.label))
       )
@@ -273,19 +359,20 @@ export default function MiniGameIPO({ open, onClose }) {
 
     phase === 'result' && h('div', { style: { textAlign: 'center' } }, [
       h('div', { style: { fontSize: '20px', marginBottom: '8px' } },
-        reward?.skin ? '🎉' : '💥'
+        success ? '🎉' : '💥'
       ),
-      h('div', { style: { fontSize: '14px', fontWeight: 700, color: reward?.skin ? '#4ade80' : '#ef4444', marginBottom: '8px' } },
-        reward?.skin ? 'IPO одобрено!' : 'Инвесторы отказали...'
+      h('div', { style: { fontSize: '14px', fontWeight: 700, color: success ? '#4ade80' : '#ef4444', marginBottom: '8px' } },
+        success ? 'IPO одобрено!' : 'Инвесторы отказали...'
       ),
       h('div', { style: { fontSize: '12px', color: '#8ba1bb', marginBottom: '12px' } },
-        `Правильных ответов: ${reward ? ROUNDS.length : correctCount} / ${ROUNDS.length}`
+        `Правильных ответов: ${correctCount} / ${ROUNDS_PER_GAME}`
       ),
-      reward && h('div', { style: { fontSize: '12px', color: '#60a5fa', marginBottom: '16px' } },
-        `+${reward.commits || 0} коммитов · −${reward.depressionRelief || 0} стресса${reward.skin ? ` · скин ${reward.skin}` : ''}`
+      success && reward && h('div', { style: { fontSize: '12px', color: '#60a5fa', marginBottom: '16px' } },
+        `+${reward.commits || 0} коммитов · −${reward.depressionRelief || 0} стресса${success ? ` · скин ${IPO_SKIN_REWARD}` : ''}`
       ),
       h('button', {
         onClick: onClose,
+        disabled: claiming,
         style: {
           minHeight: '44px',
           padding: '0 20px',
@@ -294,7 +381,8 @@ export default function MiniGameIPO({ open, onClose }) {
           background: '#122642',
           color: '#c7ddf5',
           fontWeight: 700,
-          cursor: 'pointer',
+          cursor: claiming ? 'not-allowed' : 'pointer',
+          opacity: claiming ? 0.7 : 1,
         },
       }, 'Закрыть'),
     ]),

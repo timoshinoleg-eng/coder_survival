@@ -7,6 +7,7 @@ import { applyHeartAttackReset } from '../src/utils/heartAttack.js';
 import { getProductById } from '../src/utils/shopCatalog.js';
 import { purchaseGenerator, recoverPassiveLoc } from '../src/utils/generatorEconomy.js';
 import { validateScore, buildReward } from '../src/utils/minigame.js';
+import { STAGE2 } from '../src/config/balance.js';
 
 describe('Phase 10: GIF Generation', () => {
   test('generateDebugStagesGif returns a non-empty buffer', async () => {
@@ -52,6 +53,21 @@ describe('Phase 10: Mini-Game Configs', () => {
     const reward = buildReward('ipo');
     expect(reward.commits).toBe(1000);
     expect(reward.skin).toBe('cto_cape');
+  });
+
+  test('ipo validateScore accepts 0-3 and rejects out of range', () => {
+    expect(validateScore('ipo', 0)).toBe(true);
+    expect(validateScore('ipo', 1)).toBe(true);
+    expect(validateScore('ipo', 2)).toBe(true);
+    expect(validateScore('ipo', 3)).toBe(true);
+    expect(validateScore('ipo', -1)).toBe(false);
+    expect(validateScore('ipo', 4)).toBe(false);
+  });
+
+  test('ipo config requires a perfect score for success', () => {
+    const ipo = STAGE2.MINIGAMES.ipo;
+    expect(ipo.maxScore).toBe(3);
+    expect(ipo.minSuccessScore).toBe(3);
   });
 });
 

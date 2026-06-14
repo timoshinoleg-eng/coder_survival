@@ -564,25 +564,24 @@ export default function StatsBar({ runtimeNow, onOverlayChange }) {
                   },
                   "🎭",
                 ),
-                featureFlags?.minigameEnabled === true &&
-                  h(
-                    "button",
-                    {
-                      onClick: () => setMiniGameOpen(true),
-                      style: {
-                        border: "1px solid #30527e",
-                        background: depression >= 60 ? '#1a3a5c' : '#122642',
-                        color: '#dce9f9',
-                        borderRadius: '8px',
-                        padding: '5px 8px',
-                        fontSize: '11px',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                        animation: depression >= 60 ? 'pulse 1.6s infinite' : 'none'
-                      }
-                    },
-                    '🐛'
-                  ),
+                h(
+                  "button",
+                  {
+                    onClick: () => setMiniGameOpen(true),
+                    style: {
+                      border: "1px solid #30527e",
+                      background: depression >= 60 ? '#1a3a5c' : '#122642',
+                      color: '#dce9f9',
+                      borderRadius: '8px',
+                      padding: '5px 8px',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      animation: depression >= 60 ? 'pulse 1.6s infinite' : 'none'
+                    }
+                  },
+                  '🐛'
+                ),
                 antiCheat?.banScore >= 20 &&
                   h(
                     "button",
@@ -1019,11 +1018,10 @@ export default function StatsBar({ runtimeNow, onOverlayChange }) {
         open: careerOpen,
         onClose: () => setCareerOpen(false),
       }),
-      featureFlags?.minigameEnabled === true &&
-        h(MiniGameLauncher, {
-          open: miniGameOpen,
-          onClose: () => setMiniGameOpen(false),
-        }),
+      h(MiniGameLauncher, {
+        open: miniGameOpen,
+        onClose: () => setMiniGameOpen(false),
+      }),
       h(LanguageSelector, {
         open: languageOpen,
         onClose: () => setLanguageOpen(false),

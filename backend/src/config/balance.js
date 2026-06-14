@@ -431,8 +431,8 @@ const STAGE2 = {
       requiredLevel: 10,
       cooldownHours: 168,
       timeLimitSeconds: 90,
-      maxScore: 1,
-      minSuccessScore: 1,
+      maxScore: 3,
+      minSuccessScore: 3,
       reward: { commits: 1000, depressionRelief: 50, skin: 'cto_cape' }
     }
   },

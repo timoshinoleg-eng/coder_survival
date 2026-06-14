@@ -9,7 +9,7 @@ import {
   updateMinigameState
 } from '../utils/minigame.js';
 import { addEffect, pruneExpiredEffects } from '../utils/activeEffects.js';
-import { checkAchievement } from '../utils/achievements.js';
+import { checkAchievementsForUser } from '../utils/achievementsEngine.js';
 import { logDailyFarm } from '../utils/farmLog.js';
 import { updateWeeklySprintState } from '../utils/weeklySprint.js';
 import { validate } from '../middleware/validate.js';
@@ -172,7 +172,7 @@ router.post('/complete', validate(minigameSchema), async (req, res, next) => {
         };
 
         const inventoryUpdate = reward.skinFragment
-          ? `inventory = COALESCE(inventory, '{}') || jsonb_build_object($6, COALESCE((inventory->>$6)::int, 0) + 1),`
+          ? `inventory = COALESCE(inventory, '{}'::jsonb) || jsonb_build_object($6::text, COALESCE((inventory->>$6::text)::int, 0) + 1)`
           : '';
         const inventoryParam = reward.skinFragment ? [`fragment_${reward.skinFragment}`] : [];
 
@@ -231,29 +231,25 @@ router.post('/complete', validate(minigameSchema), async (req, res, next) => {
         );
       }
 
-      // Update weekly sprint progress
+      // Update weekly sprint progress (only successful games count as completed)
       try {
-        const sprintIncs = { minigamesCompleted: 1 };
-        if (success && reward?.commits) {
-          sprintIncs.commitsEarned = reward.commits;
+        const sprintIncs = {};
+        if (success) {
+          sprintIncs.minigamesCompleted = 1;
+          if (reward?.commits) {
+            sprintIncs.commitsEarned = reward.commits;
+          }
         }
-        await updateWeeklySprintState(client, userId, sprintIncs);
+        if (Object.keys(sprintIncs).length > 0) {
+          await updateWeeklySprintState(client, userId, sprintIncs);
+        }
       } catch (sprintErr) {
         console.error('Weekly sprint update failed:', sprintErr);
       }
 
-      // Achievement triggers
-      if (success) {
-        try {
-          await checkAchievement(client, userId, 'minigame_success', { gameType });
-        } catch (achErr) {
-          console.error('Achievement check error:', achErr);
-        }
-      } else {
+      if (!success) {
         // Track failure for secret achievement and GIF trigger
         try {
-          await checkAchievement(client, userId, 'minigame_failure', { gameType });
-
           // Increment daily failure counter
           await client.query(
             `UPDATE progression
@@ -297,6 +293,22 @@ router.post('/complete', validate(minigameSchema), async (req, res, next) => {
       }
 
       await client.query('COMMIT');
+
+      // Check achievements outside the mini-game transaction
+      try {
+        const achContext = { gameType, success };
+        if (!success) {
+          const failResult = await pool.query(
+            `SELECT COALESCE((inventory->>'minigame_failures_today')::int, 0) AS cnt
+             FROM progression WHERE user_id = $1`,
+            [userId]
+          );
+          achContext.currentFailures = parseInt(failResult.rows[0]?.cnt || 0, 10);
+        }
+        await checkAchievementsForUser(userId, ['special'], achContext);
+      } catch (achErr) {
+        console.error('[minigame] Achievement check error:', achErr);
+      }
 
       return res.json({
         success,

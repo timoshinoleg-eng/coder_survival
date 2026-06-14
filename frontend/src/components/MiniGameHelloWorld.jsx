@@ -18,7 +18,7 @@ function shuffle(array) {
 }
 
 export default function MiniGameHelloWorld({ open, onClose }) {
-  const { showToast, levelInRank } = useGameState();
+  const { showToast, levelInRank, reset } = useGameState();
   const { haptic, initData } = useTelegram();
   const [phase, setPhase] = useState('ready'); // ready | playing | result
   const [sequence, setSequence] = useState([]);
@@ -27,6 +27,7 @@ export default function MiniGameHelloWorld({ open, onClose }) {
   const [success, setSuccess] = useState(false);
   const [reward, setReward] = useState(null);
   const [claiming, setClaiming] = useState(false);
+  const finishedRef = useRef(false);
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
   const rafRef = useRef(null);
@@ -38,6 +39,7 @@ export default function MiniGameHelloWorld({ open, onClose }) {
     setTimeLeft(GAME_DURATION_MS);
     setSuccess(false);
     setReward(null);
+    finishedRef.current = false;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   }, []);
@@ -112,6 +114,8 @@ export default function MiniGameHelloWorld({ open, onClose }) {
   }, [currentIndex]);
 
   const finishGame = useCallback(async (won, finalScore) => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     setPhase('result');
@@ -130,12 +134,13 @@ export default function MiniGameHelloWorld({ open, onClose }) {
       } else {
         showToast('Segmentation fault... Попробуй ещё через 4 часа', 'error', 2500);
       }
+      await reset().catch(() => null);
     } catch (err) {
       showToast('Ошибка сохранения результата', 'error', 2000);
     } finally {
       setClaiming(false);
     }
-  }, [initData, showToast]);
+  }, [initData, showToast, reset]);
 
   useEffect(() => {
     if (phase !== 'playing') return;

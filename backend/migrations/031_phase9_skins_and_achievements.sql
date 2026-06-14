@@ -8,16 +8,16 @@ VALUES
   ('heroically_fired', 'Уволенный героически', '+10% к тапу на следующем уровне', 'burnout', 'epic')
 ON CONFLICT (skin_id) DO NOTHING;
 
--- Add condition column to achievements for minigame-specific triggers
-ALTER TABLE achievements ADD COLUMN IF NOT EXISTS condition JSONB DEFAULT NULL;
-
-INSERT INTO achievements (achievement_id, name, description, target_value, reward_payload, condition)
+INSERT INTO achievements (slug, name, description, category, rarity, trigger_type, is_progressive, criteria, reward)
 VALUES (
   'architect_winner',
   'Архитектор',
   'Победа в Архитектурном комитете',
-  1,
-  '{"commits": 100}',
-  '{"gameType": "architectural_committee"}'
+  'special',
+  'epic',
+  'special',
+  false,
+  '{"minigame_success": true, "gameType": "architectural_committee", "target": 1}',
+  '{"commits": 100}'
 )
-ON CONFLICT (achievement_id) DO NOTHING;
+ON CONFLICT (slug) DO NOTHING;

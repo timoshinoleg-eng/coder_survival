@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import { useState, useCallback, useEffect } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import { useTelegram } from '../hooks/useTelegram.js';
 import { apiRequest } from '../utils/api.js';
 import MiniGameHelloWorld from './MiniGameHelloWorld.jsx';
 import MiniGameCodeReview from './MiniGameCodeReview.jsx';
@@ -39,7 +40,7 @@ const GAMES = [
     emoji: '🏛️',
     requiredLevel: 8,
     cooldownHours: 24,
-    reward: '+500 коммитов, −40 стресса, ачивка',
+    reward: '+500 коммитов, −40 стресса',
   },
   {
     id: 'ipo',
@@ -52,7 +53,8 @@ const GAMES = [
 ];
 
 export default function MiniGameLauncher({ open, onClose }) {
-  const { levelInRank, initData } = useGameState();
+  const { levelInRank } = useGameState();
+  const { initData } = useTelegram();
   const [statuses, setStatuses] = useState({});
   const [loading, setLoading] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);

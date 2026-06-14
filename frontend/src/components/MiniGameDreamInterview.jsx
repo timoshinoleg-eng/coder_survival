@@ -30,7 +30,7 @@ function pickRandomQuestions(all, count) {
 }
 
 export default function MiniGameDreamInterview({ open, onClose }) {
-  const { showToast } = useGameState();
+  const { showToast, reset } = useGameState();
   const { haptic, initData } = useTelegram();
   const [phase, setPhase] = useState('ready');
   const [questions, setQuestions] = useState([]);
@@ -40,7 +40,8 @@ export default function MiniGameDreamInterview({ open, onClose }) {
   const [reward, setReward] = useState(null);
   const [claiming, setClaiming] = useState(false);
   const [answered, setAnswered] = useState(false);
-  const timerRef = useRef(null);
+  const questionTimerRef = useRef(null);
+  const advanceTimerRef = useRef(null);
   const intervalRef = useRef(null);
 
   const resetGame = useCallback(() => {
@@ -51,7 +52,8 @@ export default function MiniGameDreamInterview({ open, onClose }) {
     setTimeLeft(QUESTION_TIME_MS);
     setReward(null);
     setAnswered(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     if (intervalRef.current) clearInterval(intervalRef.current);
   }, []);
 
@@ -64,7 +66,8 @@ export default function MiniGameDreamInterview({ open, onClose }) {
       resetGame();
     }
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [open, resetGame]);
@@ -104,7 +107,8 @@ export default function MiniGameDreamInterview({ open, onClose }) {
   }, [haptic, initData, showToast]);
 
   const advanceQuestion = useCallback((nextCorrectCount) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     setCurrentIndex((idx) => {
@@ -131,18 +135,19 @@ export default function MiniGameDreamInterview({ open, onClose }) {
       setCorrectCount((c) => {
         const nextC = c + 1;
         // Small delay before advancing so user sees feedback
-        timerRef.current = setTimeout(() => advanceQuestion(nextC), 400);
+        advanceTimerRef.current = setTimeout(() => advanceQuestion(nextC), 400);
         return nextC;
       });
     } else {
       audioManager.play('error');
       haptic('error');
-      timerRef.current = setTimeout(() => advanceQuestion(correctCount), 400);
+      advanceTimerRef.current = setTimeout(() => advanceQuestion(correctCount), 400);
     }
   }, [answered, questions, currentIndex, correctCount, advanceQuestion, haptic]);
 
   const finishGame = useCallback(async (finalCorrectCount) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     if (intervalRef.current) clearInterval(intervalRef.current);
     setPhase('result');
 
@@ -159,12 +164,13 @@ export default function MiniGameDreamInterview({ open, onClose }) {
       } else {
         showToast('Не набрано минимального балла. Попробуй завтра!', 'error', 2500);
       }
+      await reset().catch(() => null);
     } catch (err) {
       showToast('Ошибка сохранения результата', 'error', 2000);
     } finally {
       setClaiming(false);
     }
-  }, [initData, showToast]);
+  }, [initData, showToast, reset]);
 
   // Per-question timer
   useEffect(() => {
@@ -179,13 +185,13 @@ export default function MiniGameDreamInterview({ open, onClose }) {
         return t - 100;
       });
     }, 100);
-    timerRef.current = setTimeout(() => {
+    questionTimerRef.current = setTimeout(() => {
       // Time's up for this question — count as wrong, advance
       setAnswered(true);
-      timerRef.current = setTimeout(() => advanceQuestion(correctCount), 400);
+      advanceTimerRef.current = setTimeout(() => advanceQuestion(correctCount), 400);
     }, QUESTION_TIME_MS);
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [phase, currentIndex, answered, correctCount, advanceQuestion]);
