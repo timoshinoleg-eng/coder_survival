@@ -1,166 +1,128 @@
 # Handoff: Coder Survival
 
-## Workspace
+## Workspace Truth
 - Active repo: `C:\Users\Имярек\Downloads\Coder Survival\coder_survival_repo\coder_survival_fresh`
-- Branch: `main`
-- Remote: `origin https://github.com/timoshinoleg-eng/coder_survival.git`
-- Current pushed HEAD: `c3801e7 test: align backend integration contracts`
-- Local branch `main` is **ahead of `origin/main` by 5 commits** — these fixes are committed locally and **awaiting push / deploy**.
-- Release tag pushed: `prod-pp18-yc-2026-06-01`
-- Current expected dirty worktree: docs/support updates (this file, `support/*.md`, `project-status.json`).
+- Verified git root: `C:/Users/Имярек/Downloads/Coder Survival/coder_survival_repo/coder_survival_fresh`
+- Current branch: `cleanup/post-deploy-audit`
+- Date of this handoff refresh: `2026-06-14`
 
-## Production Status
-PP-18 Prestige and the Yandex Cloud backend migration are live in production.
+This file replaces a stale handoff snapshot that still described `main` plus an already-finished backend deploy path. The live checkout is now a dirty local onboarding/frontend cleanup branch and should be treated as such.
 
-- Production API: `https://coder-survival-api.duckdns.org`
-- Vercel frontend: `https://frontend-ashy-alpha-77.vercel.app`
-- Bot webhook endpoint: `https://coder-survival-bot.vercel.app/api/webhook`
-- YC VM: `yc-user@111.88.243.88`
-- App dir on VM: `/opt/coder-survival/app`
-- Backend container: `coder-survival-backend`
-- Backend image digest:
-  - `cr.yandex/crpduv7gci2puq300f38/coder-survival-backend@sha256:9b696298196704a91dffb11ab7c2e1c4e3c30d1b99eb5d2fce9862c7198dcae0`
+## Current Main Track
+`onboarding / product UX`
 
-## What Was Completed
-- Added migration `backend/migrations/045_add_social_state.sql`.
-  - `progression.social_state JSONB NOT NULL DEFAULT '{}'`
-  - Applied to production DB.
-  - Recorded in `schema_migrations`.
-- Fixed production random event SQL placeholder bug in `backend/src/utils/randomEventEngine.js`.
-- Accepted and committed the external test/code alignment fixes:
-  - UTC login reward date normalization.
-  - passive depression decay and event state persistence fixes.
-  - `depression_level` response numeric normalization.
-  - random event state handoff cleanup.
-  - DB test reset deadlock fix.
-  - stale integration test contracts updated.
-- Built/patched/restarted YC backend container and pushed current image to YC Container Registry.
-- Created and pushed release tag `prod-pp18-yc-2026-06-01`.
+Reason:
+- the current dirty tree is dominated by onboarding, overlay, tap-area, and related frontend/backend contract changes;
+- there are new onboarding migrations and route tests;
+- this is the most coherent single track in the current worktree.
 
-## Pending Release — 5 Local Commits Awaiting Push/Deploy
+Do not assume mini-games or deploy work is in progress in this checkout unless re-verified.
 
-The following commits are on `main` but **not yet pushed** to `origin/main`.
-They should go out together as a low-risk docs + backend hardening patch.
+## Current Worktree
+`git status --short --branch` at refresh time:
 
-| Commit | Message | Scope | Risk |
-|--------|---------|-------|------|
-| `ba60665` | fix: normalize login reward dates | `backend/src/utils/date.js`, `loginReward.js` + tests | Low — guards UTC boundary for daily login rewards |
-| `1dac8e8` | fix: keep legacy random events active until refactor taps | `backend/src/utils/randomEventEngine.js` + tests | Low — preserves legacy random-event lifecycle until tap refactor lands |
-| `f9e86c4` | refactor: centralize idle progression persistence | `backend/src/utils/progression.js` + tests | Low — consolidates passive stress/energy decay into one code path |
-| `db69639` | test: reset database without sleep | `backend/tests/helpers/testDb.js` | Low — removes `sleep` from test teardown, speeds up suite |
-| `e2393fa` | fix: render illustrated meme cards | `backend/src/utils/memeRenderer.js` + tests | Low — restores illustrated meme scene rendering instead of blank cards |
+```text
+## cleanup/post-deploy-audit...origin/cleanup/post-deploy-audit
+ M .gitignore
+ M API_CONTRACTS.md
+ M backend/README.md
+ M backend/src/config/balance.js
+ M backend/src/routes/onboarding.js
+ M backend/src/routes/state.js
+ M docs/openapi.yml
+ M frontend/index.html
+ M frontend/scripts/frontend-smoke.mjs
+ M frontend/src/App.jsx
+ M frontend/src/components/AudioToggle.jsx
+ M frontend/src/components/BattleCard.jsx
+ M frontend/src/components/BurnoutMeter.jsx
+ M frontend/src/components/CareerModal.jsx
+ M frontend/src/components/ContextOfferBanner.jsx
+ M frontend/src/components/CrunchTimeBanner.jsx
+ M frontend/src/components/DailyQuests.jsx
+ M frontend/src/components/EventBanner.jsx
+ M frontend/src/components/FlashSaleBanner.jsx
+ D frontend/src/components/OnboardingModal.jsx
+ D frontend/src/components/OnboardingOverlay.jsx
+ M frontend/src/components/PrestigeModal.jsx
+ M frontend/src/components/RandomEventToast.jsx
+ M frontend/src/components/RewardedVideo.jsx
+ M frontend/src/components/ShareButton.jsx
+ M frontend/src/components/StatsBar.jsx
+ M frontend/src/components/TapArea.jsx
+ M frontend/src/components/TeamPanel.jsx
+ M frontend/src/game/PhaserGame.js
+ M frontend/src/game/scenes/GameScene.js
+ M frontend/src/hooks/useGameState.js
+?? backend/migrations/057_onboarding_status.sql
+?? backend/migrations/058_narrow_onboarding_status.sql
+?? backend/tests/onboarding.routes.test.js
+?? docs/onboarding-qa-checklist.md
+?? frontend/.vercelignore
+?? frontend/src/components/OnboardingCoach.jsx
+?? frontend/src/hooks/useOverlayManager.js
+```
 
-### Release readiness for these 5 commits
-- Full backend suite was run locally before the last commit:
-  - `npm --prefix backend test -- --runInBand`
-  - Result: `28/28` suites passed, `295/295` tests passed (baseline from `c3801e7`).
-- These 5 commits touch only `backend/src/utils/*` and `backend/tests/*` — no frontend or infra changes.
-- **Next step:** push `main` to `origin/main`, then run `scripts/release-prod.ps1` or manual YC deploy if backend image rebuild is required.
+`git diff --stat` headline:
+- `31 files changed, 917 insertions(+), 653 deletions(-)`
 
-## Verification Evidence
-- Local full backend suite:
-  - `npm --prefix backend test -- --runInBand`
-  - Result: `28/28` suites passed, `295/295` tests passed.
-- GitHub Actions:
-  - Run: `26755938753`
-  - URL: `https://github.com/timoshinoleg-eng/coder_survival/actions/runs/26755938753`
-  - Job: `Backend Tests`
-  - Conclusion: `success`
-  - Head SHA: `c3801e787cc8d20312d5a54f94053ec5ce52f9b5`
-- Production health:
-  - `https://coder-survival-api.duckdns.org/health` returns `status=ok`, `db=connected`.
-  - `https://frontend-ashy-alpha-77.vercel.app/health` returns `status=ok`, `db=connected` through Vercel rewrite.
-- YC container:
-  - container status: `healthy`
-  - environment: `production`
-  - latest checked logs show startup, cron scheduling, and no app errors.
-- Production PP-18 smoke with test Telegram ID `918000002`:
-  - state create OK
-  - prestige preview locked before eligibility OK
-  - seeded eligibility OK
-  - eligible preview returned `31 PP`
-  - prestige execute OK: `prestige.level=1`, `currency=31`
-  - state after prestige OK: `level.maxEnergy=110`
-  - tap after prestige OK
-  - prestige shop OK, 5 items
-- Broad production smoke with test Telegram IDs `900000123` / `900000124`:
-  - frontend health OK
-  - API health OK
-  - state OK
-  - tap OK
-  - daily quests OK
-  - random event active OK
-  - pass status OK
-  - referral stats OK
-  - shop products OK
-  - buy intent contract OK
-  - valid achievement PNG OK
-  - authenticated GIF endpoints OK
-  - meme token auth secret OK
-  - internal economy OK
-  - payment confirm idempotency OK
-  - bot webhook GET returns `401`, which is acceptable for protected endpoint and confirms non-5xx reachability.
-- Browser frontend check:
-  - Direct browser opened `https://frontend-ashy-alpha-77.vercel.app`.
-  - Title: `Coder Survival`.
-  - UI rendered and was not blank.
-  - JS error logs: none.
-  - Direct browser shows `Telegram авторизация не прошла`, expected outside Telegram Mini App.
+## What This Dirty Batch Appears To Do
+- Replaces the old onboarding modal/overlay with `frontend/src/components/OnboardingCoach.jsx`.
+- Moves onboarding truth from fragile localStorage flags to backend-backed status:
+  - new `onboarding_status`
+  - `onboarding_completed_at`
+  - `onboarding_skipped_at`
+- Adds backend onboarding routes for:
+  - idempotent `POST /api/onboarding/complete`
+  - idempotent `POST /api/onboarding/skip`
+- Adds onboarding reward config in `backend/src/config/balance.js`.
+- Updates `/api/state` response to expose onboarding status and timestamps.
+- Adds frontend guardrails around overlay collisions, tap-area layout, and career beat suppression.
+- Deletes legacy onboarding components:
+  - `frontend/src/components/OnboardingModal.jsx`
+  - `frontend/src/components/OnboardingOverlay.jsx`
 
-## Known Caveats
-- `scripts/smoke-prod.ps1` is not currently the source of truth for YC prod smoke:
-  - it assumes local `docker-compose run` access and readable `.env`;
-  - on the YC VM this fails for `yc-user` without loosening secret permissions;
-  - do not chmod production secrets only to make this script pass.
-- Keep old/previous infrastructure available for at least 24 hours as rollback reference.
-- Direct browser validation cannot fully simulate Telegram WebApp `initData`; use real Telegram Mini App or signed test init data for auth-sensitive UI flows.
-- Backend log has a `pg` deprecation warning:
-  - `Calling client.query() when the client is already executing a query is deprecated...`
-  - Not release-blocking, but should be cleaned up in a later hardening pass.
+## Verification Already Run In This Session
+- Frontend static smoke:
+  - command: `node scripts/frontend-smoke.mjs`
+  - cwd: `frontend/`
+  - result: `frontend smoke checks passed`
+- Backend onboarding route tests:
+  - command: `node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --forceExit tests/onboarding.routes.test.js`
+  - cwd: `backend/`
+  - result: `PASS tests/onboarding.routes.test.js`
+  - suites: `1/1`
+  - tests: `20/20`
+
+These checks say the current onboarding batch is internally coherent. They do not prove the real Telegram Mini App UX is correct on-device.
+
+## Important Drift / Caveats
+- The previous `HANDOFF.md` content was stale and should not be used as the source of truth for branch, push status, or deploy readiness.
+- This branch is not a clean release branch. It is a local cleanup/audit branch with many uncommitted changes.
+- The current onboarding migration path uses new migrations `057` and `058`. That is acceptable only because they are higher than the existing migration range in this checkout; do not rewrite older migrations instead.
+- `frontend/scripts/frontend-smoke.mjs` now encodes several UX guardrails. If future edits touch overlay/tap behavior, rerun it before claiming a fix.
+- Backend tests emit a lot of auth debug logs and still require `--forceExit`; that is noisy but not currently a blocker for this track.
 
 ## Recommended Next Steps
-1. Commit this updated `HANDOFF.md` if desired.
-2. Do a real Telegram Mini App smoke from a phone/account:
-   - open bot;
-   - tap once;
-   - check quests;
-   - open shop;
-   - open Prestige preview/shop;
-   - confirm no auth loop or blank screen.
-3. Monitor production for 24 hours:
-   - health endpoint;
-   - container health;
-   - backend logs;
-   - BalanceAudit output;
-   - Telegram user reports.
-4. Improve `scripts/smoke-prod.ps1` for YC:
-   - support SSH target;
-   - use `sudo docker exec` or HTTP-only mode;
-   - avoid reading/chmodding production `.env` directly.
-5. Later hardening:
-   - remove the `pg` deprecation warning;
-   - document rollback command using the pushed image digest/tag;
-   - decide whether to move more secrets to Lockbox and standardize deploy automation.
+1. Keep this checkout on the single `onboarding / product UX` track until it is either committed cleanly or explicitly abandoned.
+2. Run a real Telegram Mini App smoke using `docs/onboarding-qa-checklist.md`.
+3. If the phone smoke passes, split the dirty tree into atomic local commits roughly in this order:
+   - backend migrations + onboarding routes + onboarding tests
+   - frontend onboarding coach + state integration
+   - frontend overlay/tap-area UX hardening
+   - docs/contracts/smoke script updates
+4. Do not push, deploy, or run production migrations from this branch without fresh explicit approval.
 
 ## Useful Commands
 ```powershell
 cd "C:\Users\Имярек\Downloads\Coder Survival\coder_survival_repo\coder_survival_fresh"
 git status --short --branch
+git diff --stat
+git log --oneline -5
 
-# Clear invalid env auth before gh/git GitHub operations
-$env:GITHUB_TOKEN=$null
-$env:GH_TOKEN=$null
+cd backend
+node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --forceExit tests/onboarding.routes.test.js
 
-# Health
-Invoke-RestMethod "https://coder-survival-api.duckdns.org/health" -TimeoutSec 15
-Invoke-RestMethod "https://frontend-ashy-alpha-77.vercel.app/health" -TimeoutSec 15
-
-# YC container status/logs
-ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i "C:\Users\Public\cs_openclaw_key" yc-user@111.88.243.88 "sudo docker inspect coder-survival-backend --format 'health={{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}} started={{.State.StartedAt}} image={{.Image}}'"
-ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i "C:\Users\Public\cs_openclaw_key" yc-user@111.88.243.88 "sudo docker logs --since=30m --tail=200 coder-survival-backend 2>&1"
-
-# CI status
-$env:GITHUB_TOKEN=$null
-$env:GH_TOKEN=$null
-gh run view 26755938753 --json status,conclusion,headSha,url
+cd ..\frontend
+node scripts/frontend-smoke.mjs
 ```
