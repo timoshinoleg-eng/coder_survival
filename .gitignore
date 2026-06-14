@@ -29,3 +29,13 @@ coverage/
 *.key
 *.diff.txt
 diff.txt
+
+# Local diagnostic / QA scripts (temporary, not commit-worthy)
+/check-db.mjs
+/compute-hash.mjs
+/qa-screenshot*.mjs
+
+# QA artifacts
+/frontend/qa-*.png
+/frontend_diff.txt
+/frontend_status.txt
