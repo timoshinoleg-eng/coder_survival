@@ -7,6 +7,11 @@ import GameScene from './scenes/GameScene.js';
 export default function PhaserGame({ onReady }) {
   const containerRef = useRef(null);
   const gameRef = useRef(null);
+  const onReadyRef = useRef(onReady);
+
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
 
   useEffect(() => {
     if (gameRef.current) return;
@@ -35,7 +40,7 @@ export default function PhaserGame({ onReady }) {
       scene: [BootScene, GameScene],
       callbacks: {
         postBoot: () => {
-          onReady?.();
+          onReadyRef.current?.();
         }
       }
     };
@@ -48,7 +53,7 @@ export default function PhaserGame({ onReady }) {
       gameRef.current?.destroy(true);
       gameRef.current = null;
     };
-  }, [onReady]);
+  }, []);
 
   return h('div', {
     ref: containerRef,
