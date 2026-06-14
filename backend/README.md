@@ -19,6 +19,8 @@ docker-compose up
 | GET | `/health` | Health check |
 | GET | `/api/state` | Состояние игрока |
 | POST | `/api/tap` | Тап (клик) |
+| POST | `/api/onboarding/complete` | Завершить обучение и получить награду |
+| POST | `/api/onboarding/skip` | Пропустить обучение без награды |
 | POST | `/api/buy` | Покупка предмета |
 | GET | `/api/leaderboard` | Топ игроков |
 

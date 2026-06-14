@@ -89,6 +89,82 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/onboarding/complete:
+    post:
+      tags:
+        - Onboarding
+      summary: Complete FTUE onboarding
+      description: >
+        Marks the first-time user experience as completed and grants the
+        one-time completion reward. Idempotent: repeated calls return the
+        current state without granting the reward again.
+      operationId: postOnboardingComplete
+      security:
+        - TelegramInitData: []
+      responses:
+        '200':
+          description: Onboarding completed (or already completed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingResponse'
+        '401':
+          description: Unauthorized — missing or invalid Telegram initData, or Telegram user not found in the database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Progression not yet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/onboarding/skip:
+    post:
+      tags:
+        - Onboarding
+      summary: Skip FTUE onboarding
+      description: >
+        Marks the first-time user experience as skipped without granting
+        rewards. Idempotent: repeated calls return the current state. Skipped
+        users are treated as finished and will not see onboarding again.
+      operationId: postOnboardingSkip
+      security:
+        - TelegramInitData: []
+      responses:
+        '200':
+          description: Onboarding skipped (or already finished)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingResponse'
+        '401':
+          description: Unauthorized — missing or invalid Telegram initData, or Telegram user not found in the database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Progression not yet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/tap:
     post:
       tags:
@@ -1114,6 +1190,82 @@ components:
       required:
         - error
 
+    OnboardingResponse:
+      type: object
+      description: Response from POST /api/onboarding/complete and /api/onboarding/skip
+      properties:
+        progression:
+          type: object
+          properties:
+            tier:
+              type: integer
+            commitsTotal:
+              type: integer
+            commitsCurrent:
+              type: integer
+            energy:
+              type: integer
+            depressionLevel:
+              type: number
+            streakDays:
+              type: integer
+            onboardingCompleted:
+              type: boolean
+            onboardingStatus:
+              type: string
+              description: 'not_started | skipped | completed'
+            onboardingCompletedAt:
+              type: string
+              format: date-time
+              nullable: true
+            onboardingSkippedAt:
+              type: string
+              format: date-time
+              nullable: true
+            inventory:
+              type: object
+            isBurnout:
+              type: boolean
+        game:
+          type: object
+          properties:
+            tier:
+              type: integer
+            commits_total:
+              type: integer
+            commits_current:
+              type: integer
+            energy:
+              type: integer
+            depression_level:
+              type: number
+            streak_days:
+              type: integer
+            onboarding_completed:
+              type: boolean
+            onboardingStatus:
+              type: string
+              description: 'not_started | skipped | completed'
+            onboardingCompletedAt:
+              type: string
+              format: date-time
+              nullable: true
+            onboardingSkippedAt:
+              type: string
+              format: date-time
+              nullable: true
+            inventory:
+              type: object
+            is_burnout:
+              type: boolean
+        serverNow:
+          type: string
+          format: date-time
+      required:
+        - progression
+        - game
+        - serverNow
+
     UserState:
       type: object
       description: Full player state returned by GET /api/state
@@ -1167,6 +1319,17 @@ components:
               format: date-time
             onboardingCompleted:
               type: boolean
+            onboardingStatus:
+              type: string
+              description: 'not_started | skipped | completed'
+            onboardingCompletedAt:
+              type: string
+              format: date-time
+              nullable: true
+            onboardingSkippedAt:
+              type: string
+              format: date-time
+              nullable: true
             inventory:
               type: object
             isAfflicted:
@@ -1188,6 +1351,23 @@ components:
               type: number
             xpTotal:
               type: integer
+        game:
+          type: object
+          properties:
+            onboarding_completed:
+              type: boolean
+            onboardingStatus:
+              type: string
+              description: 'not_started | skipped | completed'
+            onboardingCompletedAt:
+              type: string
+              format: date-time
+              nullable: true
+            onboardingSkippedAt:
+              type: string
+              format: date-time
+              nullable: true
+          description: Mirror of progression fields in snake_case; always includes onboarding_completed
         maxEnergy:
           type: integer
         recoveryIntervalSeconds:

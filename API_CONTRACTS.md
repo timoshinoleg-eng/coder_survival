@@ -1,8 +1,8 @@
 # API Contracts — Coder Survival
 
-> **Version:** 1.0.0  
-> **Last updated:** 2026-06-03  
-> **Base URL:** `https://api.codersurvival.app` (prod) / `http://localhost:3000` (local)  
+> **Version:** 1.1.0
+> **Last updated:** 2026-06-14
+> **Base URL:** `https://api.codersurvival.app` (prod) / `http://localhost:3000` (local)
 > **Auth:** Telegram WebApp InitData via `X-Telegram-Init-Data` header (except where noted)
 
 ---
@@ -131,14 +131,91 @@
 
 ---
 
-### 4. GET /api/user/profile
+### 4. POST /api/onboarding/complete
+
+| Field | Value |
+|-------|-------|
+| **Method** | `POST` |
+| **Path** | `/api/onboarding/complete` |
+| **Auth** | `initDataMiddleware` required |
+| **Description** | Marks FTUE/onboarding as completed and grants the one-time completion reward configured in `FTUE.ONBOARDING.COMPLETION_REWARD`. Idempotent: repeated calls return the current state without granting the reward again. |
+
+**Onboarding status values:** `onboardingStatus` is one of `not_started | skipped | completed`.
+
+**Request body:** none
+
+**Response:**
+```json
+{
+  "progression": {
+    "tier": 1,
+    "commitsTotal": 0,
+    "commitsCurrent": 0,
+    "energy": 100,
+    "depressionLevel": 0,
+    "streakDays": 0,
+    "onboardingCompleted": true,
+    "onboardingStatus": "completed",
+    "onboardingCompletedAt": "2026-06-14T10:43:06.425Z",
+    "onboardingSkippedAt": null,
+    "inventory": { "coffee_cups": 1 },
+    "isBurnout": false
+  },
+  "game": {
+    "tier": 1,
+    "commits_total": 0,
+    "commits_current": 0,
+    "energy": 100,
+    "depression_level": 0,
+    "streak_days": 0,
+    "onboarding_completed": true,
+    "onboardingStatus": "completed",
+    "onboardingCompletedAt": "2026-06-14T10:43:06.425Z",
+    "onboardingSkippedAt": null,
+    "inventory": { "coffee_cups": 1 },
+    "is_burnout": false
+  },
+  "serverNow": "2026-06-14T10:43:06.425Z"
+}
+```
+
+**Reward semantics:** The completion reward is additive — existing inventory counts for the same item are incremented, not replaced.
+
+**Error responses:**
+- `401` — Session expired, missing initData, or Telegram user not found in the database
+- `404` — Progression not yet created
+- `500` — Database or processing error
+
+---
+
+### 5. POST /api/onboarding/skip
+
+| Field | Value |
+|-------|-------|
+| **Method** | `POST` |
+| **Path** | `/api/onboarding/skip` |
+| **Auth** | `initDataMiddleware` required |
+| **Description** | Marks FTUE/onboarding as skipped without granting rewards. Idempotent: repeated calls return the current state. Skipped users are treated as finished and will not see onboarding again. |
+
+**Request body:** none
+
+**Response:** Same shape as `/api/onboarding/complete`, but `onboardingCompleted` / `onboarding_completed` is `true`, `onboardingStatus` is `"skipped"`, `onboardingSkippedAt` is set to the current time, `onboardingCompletedAt` remains `null`, and no reward is applied.
+
+**Error responses:**
+- `401` — Session expired, missing initData, or Telegram user not found in the database
+- `404` — Progression not yet created
+- `500` — Database or processing error
+
+---
+
+### 6. GET /api/user/profile
 
 | Field | Value |
 |-------|-------|
 | **Method** | `GET` |
 | **Path** | `/api/state` |
 | **Auth** | `initDataMiddleware` required |
-| **Description** | Full user state — profile, progression, active effects, quests, pass, team, battle status, onboarding, streak, and context offers. |
+| **Description** | Full user state — profile, progression, active effects, quests, pass, team, battle status, onboarding (`onboardingCompleted` / `onboarding_completed`), streak, and context offers. |
 
 **Query params:**
 - `timezoneOffset` — integer, minutes from UTC (default: 180)
@@ -166,9 +243,19 @@
     }
   },
   "progression": {
+    "onboardingCompleted": false,
+    "onboardingStatus": "not_started",
+    "onboardingCompletedAt": null,
+    "onboardingSkippedAt": null,
     "recovery_eta": 3600,
     "generator_status": [],
     "active_effects": []
+  },
+  "game": {
+    "onboarding_completed": false,
+    "onboardingStatus": "not_started",
+    "onboardingCompletedAt": null,
+    "onboardingSkippedAt": null
   },
   "dailyQuests": {
     "today": "2026-06-03",
@@ -191,7 +278,7 @@
 
 ---
 
-### 5. GET /api/leaderboard
+### 7. GET /api/leaderboard
 
 | Field | Value |
 |-------|-------|
@@ -379,6 +466,8 @@
 |--------|------|------|-------------|
 | POST | `/api/tap` | initData | Tap mechanic |
 | GET | `/api/state` | initData | Full user profile/state |
+| POST | `/api/onboarding/complete` | initData | Complete FTUE and grant reward |
+| POST | `/api/onboarding/skip` | initData | Skip FTUE permanently |
 | POST | `/api/buy` | initData | Buy / upgrade booster |
 | GET | `/api/leaderboard` | optional | Leaderboard |
 | GET/POST | `/api/quests` | initData | Daily quests + weekly sprint |
@@ -431,6 +520,7 @@
 ## Versioning
 
 - **v1.0** (2026-06-03) — Initial contract document
+- **v1.1** (2026-06-14) — Added FTUE onboarding endpoints (`/api/onboarding/complete`, `/api/onboarding/skip`) and clarified `onboardingCompleted`/`onboarding_completed` fields
 - Future changes: bump minor for additive, major for breaking
 
 ## Contact
