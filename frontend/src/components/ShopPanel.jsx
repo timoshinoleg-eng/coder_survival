@@ -19,7 +19,7 @@ const CATEGORY_ORDER = ['energy', 'stress', 'boost', 'pass'];
 
 export default function ShopPanel() {
   const { initData } = useTelegram();
-  const { contextOffer, showToast, shopOpen, closeShop } = useGameState();
+  const { contextOffer, showToast, shopOpen, closeShop, reset, refreshPass } = useGameState();
   const { walletAddress, connect } = useTonWallet();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -72,6 +72,13 @@ export default function ShopPanel() {
     }
   }, [shopOpen]);
 
+  const refreshAfterPurchase = useCallback(async (itemType) => {
+    await reset().catch(() => null);
+    if (itemType === 'premium_pass') {
+      await refreshPass().catch(() => null);
+    }
+  }, [reset, refreshPass]);
+
   const handleDealBuy = async (dealType) => {
     setBuying(`deal:${dealType}`);
     setBuyResult(null);
@@ -87,6 +94,7 @@ export default function ShopPanel() {
         audioManager.play('purchase');
         showToast(result.status === 'opened' ? 'Invoice открыт. После оплаты товар поступит автоматически.' : 'Покупка завершена!', 'success', 3000);
         Analytics.track('purchase_completed', { product_id: result.purchase?.itemType, price: result.purchase?.starsAmount, currency: 'stars', deal_type: dealType });
+        await refreshAfterPurchase(result.purchase?.itemType);
       }
     } catch (err) {
       setBuyResult({ success: false, productId: dealType, error: err.payload?.error || err.message || 'Ошибка покупки' });
@@ -120,6 +128,7 @@ export default function ShopPanel() {
           showToast('Покупка завершена! Товар скоро будет выдан.', 'success', 3000);
         }
         Analytics.track('purchase_completed', { product_id: productId, price: product?.stars, currency: 'stars' });
+        await refreshAfterPurchase(productId);
       }
     } catch (err) {
       setBuyResult({ success: false, productId, error: err.payload?.error || err.message || 'Ошибка покупки' });

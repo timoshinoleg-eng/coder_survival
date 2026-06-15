@@ -25,9 +25,16 @@ export function createDevInitData() {
 }
 
 export async function apiRequest(path, { method = 'GET', body, initData } = {}) {
+  const hasTelegramWebApp = typeof window !== 'undefined' && !!window.Telegram?.WebApp;
+  const isLocalDevHost = typeof window !== 'undefined'
+    && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  const hasTelegramScript = typeof document !== 'undefined'
+    && !!document.querySelector('script[src*="telegram-web-app.js"]');
+  const shouldUseDevInitData = isLocalDevHost || (!hasTelegramWebApp && !hasTelegramScript);
+  const requestInitData = initData || (shouldUseDevInitData ? createDevInitData() : '');
   const headers = {
     'Content-Type': 'application/json',
-    'X-Telegram-Init-Data': initData || createDevInitData()
+    'X-Telegram-Init-Data': requestInitData
   };
 
   const response = await fetch(`${API_BASE_URL}${path}`, {

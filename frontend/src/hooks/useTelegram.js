@@ -5,6 +5,7 @@ const TelegramContext = createContext(null);
 
 export function TelegramProvider({ children }) {
   const [tgReady, setTgReady] = useState(false);
+  const [tgTimedOut, setTgTimedOut] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -12,6 +13,7 @@ export function TelegramProvider({ children }) {
     if (window.Telegram?.WebApp) {
       console.log('[TelegramProvider] WebApp found immediately, initData length:', window.Telegram.WebApp.initData?.length || 0);
       setTgReady(true);
+      setTgTimedOut(false);
       return;
     }
     // Ждём загрузки telegram-web-app.js
@@ -19,12 +21,14 @@ export function TelegramProvider({ children }) {
       if (window.Telegram?.WebApp) {
         console.log('[TelegramProvider] WebApp loaded after poll, initData length:', window.Telegram.WebApp.initData?.length || 0);
         setTgReady(true);
+        setTgTimedOut(false);
         clearInterval(checkInterval);
       }
     }, 50);
     // Таймаут 5 секунд
     const timeout = setTimeout(() => {
       console.log('[TelegramProvider] Timeout waiting for WebApp');
+      setTgTimedOut(true);
       clearInterval(checkInterval);
     }, 5000);
     return () => {
@@ -34,6 +38,8 @@ export function TelegramProvider({ children }) {
   }, []);
 
   const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
+  const isLocalDev = typeof window !== 'undefined'
+    && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 
   const haptic = useCallback((type = 'light') => {
     if (tg?.HapticFeedback) {
@@ -77,6 +83,8 @@ export function TelegramProvider({ children }) {
 
   const value = {
     tg,
+    isPending: !tgReady && !tgTimedOut,
+    isLocalDev,
     user: tg?.initDataUnsafe?.user || null,
     initData: tg?.initData || '',
     startParam: tg?.initDataUnsafe?.start_param || '',

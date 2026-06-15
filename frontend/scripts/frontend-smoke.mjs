@@ -463,6 +463,67 @@ function assertDreamInterviewUsesServerResultState() {
   }
 }
 
+function assertTelegramInitDataRaceIsGuarded() {
+  const apiFile = "src/utils/api.js";
+  const api = read(apiFile);
+  if (/initData\s*\|\|\s*createDevInitData\(\)/.test(api)) {
+    failures.push(`${apiFile}: apiRequest must not substitute dev initData when Telegram WebApp exists but initData is still empty`);
+  }
+  if (!api.includes("window.Telegram?.WebApp") || !api.includes("hasTelegramScript") || !api.includes("isLocalDevHost")) {
+    failures.push(`${apiFile}: dev initData fallback should only be used for local dev or pages without Telegram WebApp script`);
+  }
+
+  const stateFile = "src/hooks/useGameState.js";
+  const state = read(stateFile);
+  if (!state.includes("telegram?.isPending") || !state.includes("telegram?.tg && !telegram?.initData")) {
+    failures.push(`${stateFile}: initial loadState must wait while Telegram WebApp exists but initData is empty`);
+  }
+}
+
+function assertPurchasesRefreshStateAfterSuccess() {
+  const shopFile = "src/components/ShopPanel.jsx";
+  const shop = read(shopFile);
+  if (!/\breset\b/.test(shop) || !/\brefreshPass\b/.test(shop)) {
+    failures.push(`${shopFile}: successful purchases must refresh game state and pass state`);
+  }
+  if (!shop.includes("reset().catch(() => null)") || !shop.includes("refreshPass().catch(() => null)")) {
+    failures.push(`${shopFile}: handleBuy must refresh state after successful paid purchases`);
+  }
+
+  const offerFile = "src/components/ContextOfferBanner.jsx";
+  const offer = read(offerFile);
+  if (!offer.includes("reset().catch(() => null)")) {
+    failures.push(`${offerFile}: successful context-offer purchases must refresh game state`);
+  }
+}
+
+function assertHelloWorldHasMobileControls() {
+  const file = "src/components/MiniGameHelloWorld.jsx";
+  const source = read(file);
+  if (!source.includes("handleInputKey")) {
+    failures.push(`${file}: keyboard and touch input should share one input handler`);
+  }
+  if (!source.includes("onClick: () => handleInputKey(key)") || !source.includes("onTouchStart:")) {
+    failures.push(`${file}: rendered key boxes must be clickable/touchable for mobile Telegram users`);
+  }
+}
+
+function assertDeployWorkflowsAreRunnable() {
+  const stagingFile = "../.github/workflows/deploy-staging.yml";
+  const staging = read(stagingFile);
+  const migrateIndex = staging.indexOf("npm run migrate");
+  const stopIndex = staging.indexOf("docker stop coder-survival-staging");
+  if (migrateIndex === -1 || stopIndex === -1 || migrateIndex > stopIndex) {
+    failures.push(`${stagingFile}: staging deploy must run migrations before replacing the running container`);
+  }
+
+  const manualFile = "../.github/workflows/manual-release.yml";
+  const manual = read(manualFile);
+  if (manual.includes("pwsh-lang/pwsh")) {
+    failures.push(`${manualFile}: manual release must not use the non-existent pwsh-lang/pwsh action`);
+  }
+}
+
 assertAppComponentReferencesAreImported();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
@@ -486,6 +547,10 @@ assertTapAreaDoesNotCoverReadableContent();
 assertTapHotPathDoesNotShakeCamera();
 assertOnboardingCoachHandlesCompleteErrors();
 assertDreamInterviewUsesServerResultState();
+assertTelegramInitDataRaceIsGuarded();
+assertPurchasesRefreshStateAfterSuccess();
+assertHelloWorldHasMobileControls();
+assertDeployWorkflowsAreRunnable();
 
 if (failures.length > 0) {
   console.error(failures.join("\n"));

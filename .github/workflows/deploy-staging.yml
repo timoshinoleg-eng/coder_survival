@@ -55,6 +55,11 @@ jobs:
           script: |
             cd /opt/coder-survival/backend
             docker build -t coder-survival-staging:latest .
+            docker run --rm \
+              -e NODE_ENV=production \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              -e BOT_TOKEN=${{ secrets.BOT_TOKEN }} \
+              coder-survival-staging:latest npm run migrate
             docker stop coder-survival-staging || true
             docker rm coder-survival-staging || true
             docker run -d \

@@ -8,7 +8,7 @@ const Z_INDEX_BANNER = 30;
 
 export default function ContextOfferBanner({ suppressed = false }) {
   const {
-    loading, contextOffer, dismissContextOffer, setShopOpen
+    loading, contextOffer, dismissContextOffer, setShopOpen, reset
   } = useGameState();
   const { initData } = useTelegram();
   const [buying, setBuying] = useState(false);
@@ -37,13 +37,14 @@ export default function ContextOfferBanner({ suppressed = false }) {
       const result = await startTelegramPurchase(contextOffer.productId, initData);
       if (result.success) {
         await dismissContextOffer(contextOffer.type);
+        await reset().catch(() => null);
       }
     } catch (err) {
       console.warn('Context offer buy failed:', err);
     } finally {
       setBuying(false);
     }
-  }, [contextOffer, dismissContextOffer, initData]);
+  }, [contextOffer, dismissContextOffer, initData, reset]);
 
   useEffect(() => {
     if (!contextOffer) {

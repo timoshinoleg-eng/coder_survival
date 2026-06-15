@@ -22,6 +22,8 @@ The mini-game deploy-readiness batch is intentionally centered on mini-games plu
 
 ```text
 .github/workflows/deploy-backend.yml
+.github/workflows/deploy-staging.yml
+.github/workflows/manual-release.yml
 backend/migrations/026_achievement_expansion.sql
 backend/migrations/031_phase9_skins_and_achievements.sql
 backend/migrations/033_phase10_final_social.sql
@@ -33,21 +35,29 @@ backend/src/utils/achievementsEngine.js
 backend/tests/minigame.integration.test.js
 backend/tests/phase10.unit.test.js
 backend/tests/phase9.unit.test.js
+frontend/src/components/ContextOfferBanner.jsx
 frontend/src/components/MiniGameArchitecturalCommittee.jsx
 frontend/src/components/MiniGameCodeReview.jsx
 frontend/src/components/MiniGameDreamInterview.jsx
 frontend/src/components/MiniGameHelloWorld.jsx
 frontend/src/components/MiniGameIPO.jsx
 frontend/src/components/MiniGameLauncher.jsx
+frontend/src/components/ShopPanel.jsx
 frontend/src/components/StatsBar.jsx
+frontend/src/hooks/useGameState.js
+frontend/src/hooks/useTelegram.js
 frontend/scripts/frontend-smoke.mjs
+frontend/src/utils/api.js
 HANDOFF.md
 ```
 
 ## What Changed
 - Mini-game launcher now uses Telegram `initData` from `useTelegram()` instead of relying on `useGameState()`.
 - Mini-games are visible from `StatsBar` without the stale `featureFlags?.minigameEnabled === true` gate.
+- Production Telegram auth no longer falls back to fake dev `initData` while the Telegram WebApp/initData is still loading.
+- Successful shop and context-offer purchases refresh global state immediately; premium pass purchases also refresh pass state.
 - Hello World, Code Review, Dream Interview, Architectural Committee, and IPO refresh global state after reward/failure completion.
+- Hello World supports mobile click/touch input in addition to physical keyboard input.
 - Hello World and Code Review guard against double `/complete` calls.
 - Dream Interview timeout flow no longer freezes after the timer expires.
 - Dream Interview result UI now trusts backend `payload.success`, so a Rubber Duck rescue cannot grant rewards while showing a failure result.
@@ -64,9 +74,11 @@ HANDOFF.md
 - Fresh DB migrations were fixed for the modern achievements schema.
 - Backend deploy workflow now runs migrations in the freshly built backend container before switching traffic.
 - Backend deploy workflow no longer ignores backend test failures via `continue-on-error: true`.
+- Staging deploy workflow now runs migrations before replacing the running staging container.
+- Manual release workflow no longer references the non-existent `pwsh-lang/pwsh@v1` action.
 
 ## Verification Evidence
-Fresh checks run in this session:
+Full release checks run before the Kimi blocker follow-up:
 
 ```text
 backend: npm test
@@ -86,6 +98,19 @@ result: 1 test suite passed, 6 tests passed
 
 repo: git diff --check
 result: clean
+```
+
+Fresh checks run after the Kimi blocker follow-up:
+
+```text
+frontend: node scripts/frontend-smoke.mjs
+result: frontend smoke checks passed
+
+frontend: npm run build
+result: Vite production build passed
+
+backend targeted: node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --forceExit tests/minigame.integration.test.js
+result: 1 test suite passed, 6 tests passed
 ```
 
 Targeted mini-game integration coverage now includes:
@@ -117,7 +142,6 @@ Recommended release path:
 ## Known Remaining Non-Blockers
 - Legacy `backend/src/utils/achievements.js` remains a no-op wrapper, and some non-mini-game routes still import it. This batch fixes the mini-game achievement path only.
 - Backend tests still print verbose auth/debug logs and use `--forceExit`; noisy, but not a mini-game deploy blocker.
-- Deploy workflow does not provide its own PostgreSQL service, so DB integration coverage still depends on the separate backend test workflow rather than the deploy job itself.
 - Deploy workflow has no automated rollback after a failed new-container health check; operational follow-up, not a mini-game code blocker.
 - Production smoke is still required after deployment because local integration tests do not prove Telegram client behavior or production secrets.
 

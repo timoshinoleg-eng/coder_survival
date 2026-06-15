@@ -142,28 +142,32 @@ export default function MiniGameHelloWorld({ open, onClose }) {
     }
   }, [initData, showToast, reset]);
 
+  const handleInputKey = useCallback((inputKey) => {
+    if (phase !== 'playing') return;
+    const key = inputKey.length === 1 ? inputKey.toUpperCase() : inputKey;
+    const expected = sequence[currentIndexRef.current];
+    if (key === expected || (expected === 'Enter' && key === 'Enter')) {
+      audioManager.play('tap');
+      haptic('light');
+      const nextIndex = currentIndexRef.current + 1;
+      setCurrentIndex(nextIndex);
+      currentIndexRef.current = nextIndex;
+      if (nextIndex >= sequence.length) {
+        finishGame(true, sequence.length);
+      }
+    } else {
+      finishGame(false, currentIndexRef.current);
+    }
+  }, [phase, sequence, finishGame, haptic]);
+
   useEffect(() => {
     if (phase !== 'playing') return;
     const handleKeyDown = (e) => {
-      const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-      const expected = sequence[currentIndexRef.current];
-      if (key === expected || (expected === 'Enter' && key === 'Enter')) {
-        audioManager.play('tap');
-        haptic('light');
-        const nextIndex = currentIndexRef.current + 1;
-        setCurrentIndex(nextIndex);
-        currentIndexRef.current = nextIndex;
-        if (nextIndex >= sequence.length) {
-          finishGame(true, sequence.length);
-        }
-      } else {
-        // Wrong key — fail immediately
-        finishGame(false, currentIndexRef.current);
-      }
+      handleInputKey(e.key);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [phase, sequence, finishGame, haptic]);
+  }, [phase, handleInputKey]);
 
   if (!open) return null;
 
@@ -251,6 +255,13 @@ export default function MiniGameHelloWorld({ open, onClose }) {
         },
       }, sequence.map((key, i) => h('div', {
         key: i,
+        role: 'button',
+        tabIndex: 0,
+        onClick: () => handleInputKey(key),
+        onTouchStart: (event) => {
+          event.preventDefault();
+          handleInputKey(key);
+        },
         style: {
           width: '48px',
           height: '48px',
@@ -264,6 +275,9 @@ export default function MiniGameHelloWorld({ open, onClose }) {
           fontWeight: 800,
           fontSize: '14px',
           animation: i === currentIndex ? 'pulse 0.8s infinite' : 'none',
+          cursor: 'pointer',
+          userSelect: 'none',
+          touchAction: 'manipulation',
         },
       }, key))),
     ]),

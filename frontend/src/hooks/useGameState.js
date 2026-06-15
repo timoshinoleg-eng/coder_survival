@@ -614,8 +614,9 @@ export function GameProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!telegram?.isLocalDev && (telegram?.isPending || (telegram?.tg && !telegram?.initData))) return;
     loadState();
-  }, [loadState]);
+  }, [loadState, telegram?.isLocalDev, telegram?.isPending, telegram?.tg, telegram?.initData]);
 
   // Сбрасываем loadStatePromise когда initData меняется (Telegram загрузился)
   useEffect(() => {

@@ -48,10 +48,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PowerShell
-        uses: pwsh-lang/pwsh@v1
-        # Fallback: Ubuntu images already have pwsh; this step is a no-op placeholder.
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
