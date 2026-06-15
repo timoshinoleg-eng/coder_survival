@@ -16,8 +16,32 @@ export function createBot() {
   const bot = new Bot(BOT_TOKEN);
 
   bot.command('start', async (ctx) => {
+    const startParam = ctx.start_param || ctx.startPayload || '';
     const username = ctx.from?.username || ctx.from?.first_name || 'Программист';
     const keyboard = new InlineKeyboard().webApp('Играть в Coder Survival', WEBAPP_URL);
+
+    if (startParam.startsWith('ref_') && BOT_BACKEND_SECRET) {
+      try {
+        await fetch(`${API_URL}/api/internal/referral/track-bot-entry`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Bot-Backend-Secret': BOT_BACKEND_SECRET
+          },
+          body: JSON.stringify({
+            telegramId: ctx.from?.id,
+            username: ctx.from?.username || null,
+            firstName: ctx.from?.first_name || null,
+            lastName: ctx.from?.last_name || null,
+            isPremium: ctx.from?.is_premium === true,
+            referrerId: startParam.replace('ref_', ''),
+            source: 'bot'
+          })
+        });
+      } catch (err) {
+        console.error('[Bot] Failed to track bot referral:', err?.message || err);
+      }
+    }
 
     await ctx.reply(
       `Привет, ${username}!\n\n` +
