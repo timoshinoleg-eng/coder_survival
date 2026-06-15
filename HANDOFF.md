@@ -4,7 +4,7 @@
 - Active repo: `C:\Users\Имярек\Downloads\Coder Survival\coder_survival_repo\coder_survival_fresh`
 - Verified git root: `C:/Users/Имярек/Downloads/Coder Survival/coder_survival_repo/coder_survival_fresh`
 - Current branch: `cleanup/post-deploy-audit`
-- Branch state before final packaging: `ahead 11` relative to `origin/cleanup/post-deploy-audit`
+- Remote branch: `origin/cleanup/post-deploy-audit`
 - Date of this handoff refresh: `2026-06-15`
 
 Treat the top-level `C:\Users\Имярек\Downloads\Coder Survival` folder as a workspace container, not the git root.
@@ -15,10 +15,10 @@ Treat the top-level `C:\Users\Имярек\Downloads\Coder Survival` folder as a
 Goal:
 - make the current 5 mini-games usable and coherent;
 - fix backend reward, achievement, migration, and deploy-path blockers;
-- leave the branch ready for push/PR/deploy smoke after final commit.
+- leave the branch ready for PR/merge/deploy smoke after final push.
 
 ## Current Worktree Scope
-At this refresh, the dirty batch is intentionally centered on mini-games plus supporting deploy/migration fixes:
+The mini-game deploy-readiness batch is intentionally centered on mini-games plus supporting deploy/migration fixes:
 
 ```text
 .github/workflows/deploy-backend.yml
@@ -40,6 +40,7 @@ frontend/src/components/MiniGameHelloWorld.jsx
 frontend/src/components/MiniGameIPO.jsx
 frontend/src/components/MiniGameLauncher.jsx
 frontend/src/components/StatsBar.jsx
+frontend/scripts/frontend-smoke.mjs
 HANDOFF.md
 ```
 
@@ -49,6 +50,8 @@ HANDOFF.md
 - Hello World, Code Review, Dream Interview, Architectural Committee, and IPO refresh global state after reward/failure completion.
 - Hello World and Code Review guard against double `/complete` calls.
 - Dream Interview timeout flow no longer freezes after the timer expires.
+- Dream Interview result UI now trusts backend `payload.success`, so a Rubber Duck rescue cannot grant rewards while showing a failure result.
+- Dream Interview now guards `finishGame` against duplicate completion requests.
 - IPO now uses a randomized 3-question run, requires 3/3 for success, rejects score > 3, and grants `cto_cape` only on perfect success.
 - Architectural Committee no longer promises an achievement in UI copy as a direct visible reward.
 - Backend mini-game completion no longer calls legacy no-op `checkAchievement`; it uses `checkAchievementsForUser`.
@@ -56,6 +59,7 @@ HANDOFF.md
   - `architect_winner`
   - `rubber_duck_unlock`
 - Dream Interview `skinFragment` reward no longer crashes on SQL update.
+- Mini-game failure counters no longer interpolate the validated `gameType` into SQL; the per-game failure key is parameterized.
 - Weekly sprint `minigamesCompleted` only increments on successful mini-games.
 - Fresh DB migrations were fixed for the modern achievements schema.
 - Backend deploy workflow now runs migrations in the freshly built backend container before switching traffic.
@@ -77,6 +81,9 @@ result: Vite production build passed
 frontend: node scripts/frontend-smoke.mjs
 result: frontend smoke checks passed
 
+backend targeted: node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --forceExit tests/minigame.integration.test.js
+result: 1 test suite passed, 6 tests passed
+
 repo: git diff --check
 result: clean
 ```
@@ -93,16 +100,15 @@ Targeted mini-game integration coverage now includes:
 Code-level deploy readiness: yes, for the mini-game scope above.
 
 Not yet done:
-- no commit made at the time this handoff was refreshed;
-- no push made at the time this handoff was refreshed;
+- no PR was opened from this machine because `gh` is not installed and no GitHub connector was available in this session;
+- no merge to `main` has been performed from this session;
 - no production deploy or production smoke was run.
 
 Recommended release path:
-1. Review final diff.
-2. Commit the full mini-game deploy-readiness batch.
-3. Push `cleanup/post-deploy-audit`.
-4. Open PR or merge through the normal protected path.
-5. After deployment, run production smoke on a safe test user:
+1. Open PR from `cleanup/post-deploy-audit` to `main`, or merge through the normal protected path.
+2. Confirm GitHub Actions on the PR/merge.
+3. Deploy backend/frontend through the normal pipeline.
+4. After deployment, run production smoke on a safe test user:
    - `/api/state`
    - `/api/minigame/start`
    - `/api/minigame/complete`
@@ -111,6 +117,8 @@ Recommended release path:
 ## Known Remaining Non-Blockers
 - Legacy `backend/src/utils/achievements.js` remains a no-op wrapper, and some non-mini-game routes still import it. This batch fixes the mini-game achievement path only.
 - Backend tests still print verbose auth/debug logs and use `--forceExit`; noisy, but not a mini-game deploy blocker.
+- Deploy workflow does not provide its own PostgreSQL service, so DB integration coverage still depends on the separate backend test workflow rather than the deploy job itself.
+- Deploy workflow has no automated rollback after a failed new-container health check; operational follow-up, not a mini-game code blocker.
 - Production smoke is still required after deployment because local integration tests do not prove Telegram client behavior or production secrets.
 
 ## Useful Commands

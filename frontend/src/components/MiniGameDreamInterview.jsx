@@ -38,19 +38,23 @@ export default function MiniGameDreamInterview({ open, onClose }) {
   const [correctCount, setCorrectCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_MS);
   const [reward, setReward] = useState(null);
+  const [success, setSuccess] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [answered, setAnswered] = useState(false);
   const questionTimerRef = useRef(null);
   const advanceTimerRef = useRef(null);
   const intervalRef = useRef(null);
+  const finishedRef = useRef(false);
 
   const resetGame = useCallback(() => {
+    finishedRef.current = false;
     setPhase('ready');
     setQuestions([]);
     setCurrentIndex(0);
     setCorrectCount(0);
     setTimeLeft(QUESTION_TIME_MS);
     setReward(null);
+    setSuccess(false);
     setAnswered(false);
     if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
     if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
@@ -102,9 +106,42 @@ export default function MiniGameDreamInterview({ open, onClose }) {
     setCurrentIndex(0);
     setCorrectCount(0);
     setReward(null);
+    setSuccess(false);
     setAnswered(false);
     setTimeLeft(QUESTION_TIME_MS);
   }, [haptic, initData, showToast]);
+
+  const finishGame = useCallback(async (finalCorrectCount) => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setSuccess(false);
+    setPhase('result');
+
+    try {
+      setClaiming(true);
+      const payload = await apiRequest('/api/minigame/complete', {
+        method: 'POST',
+        initData,
+        body: { gameType: 'dream_interview', score: finalCorrectCount }
+      });
+      const backendSuccess = payload?.success === true;
+      setSuccess(backendSuccess);
+      setReward(payload?.reward || null);
+      if (backendSuccess) {
+        showToast(`Собеседование пройдено! +${payload?.reward?.commits || 200} коммитов`, 'success', 3000);
+      } else {
+        showToast('Не набрано минимального балла. Попробуй завтра!', 'error', 2500);
+      }
+      await reset().catch(() => null);
+    } catch (err) {
+      showToast('Ошибка сохранения результата', 'error', 2000);
+    } finally {
+      setClaiming(false);
+    }
+  }, [initData, showToast, reset]);
 
   const advanceQuestion = useCallback((nextCorrectCount) => {
     if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
@@ -121,7 +158,7 @@ export default function MiniGameDreamInterview({ open, onClose }) {
       setTimeLeft(QUESTION_TIME_MS);
       return nextIdx;
     });
-  }, []);
+  }, [finishGame]);
 
   const handleAnswer = useCallback((optionIndex) => {
     if (answered) return;
@@ -144,33 +181,6 @@ export default function MiniGameDreamInterview({ open, onClose }) {
       advanceTimerRef.current = setTimeout(() => advanceQuestion(correctCount), 400);
     }
   }, [answered, questions, currentIndex, correctCount, advanceQuestion, haptic]);
-
-  const finishGame = useCallback(async (finalCorrectCount) => {
-    if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
-    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setPhase('result');
-
-    try {
-      setClaiming(true);
-      const payload = await apiRequest('/api/minigame/complete', {
-        method: 'POST',
-        initData,
-        body: { gameType: 'dream_interview', score: finalCorrectCount }
-      });
-      setReward(payload?.reward || null);
-      if (payload?.success) {
-        showToast(`Собеседование пройдено! +${payload?.reward?.commits || 200} коммитов`, 'success', 3000);
-      } else {
-        showToast('Не набрано минимального балла. Попробуй завтра!', 'error', 2500);
-      }
-      await reset().catch(() => null);
-    } catch (err) {
-      showToast('Ошибка сохранения результата', 'error', 2000);
-    } finally {
-      setClaiming(false);
-    }
-  }, [initData, showToast, reset]);
 
   // Per-question timer
   useEffect(() => {
@@ -304,9 +314,9 @@ export default function MiniGameDreamInterview({ open, onClose }) {
     ]),
 
     phase === 'result' && h('div', { style: { textAlign: 'center' } }, [
-      h('div', { style: { fontSize: '20px', marginBottom: '8px' } }, correctCount >= 4 ? '🎉' : '😬'),
-      h('div', { style: { fontSize: '14px', fontWeight: 700, color: correctCount >= 4 ? '#4ade80' : '#ef4444', marginBottom: '8px' } },
-        correctCount >= 4 ? 'Ты принят!' : 'Мы перезвоним...'
+      h('div', { style: { fontSize: '20px', marginBottom: '8px' } }, success ? '🎉' : '😬'),
+      h('div', { style: { fontSize: '14px', fontWeight: 700, color: success ? '#4ade80' : '#ef4444', marginBottom: '8px' } },
+        success ? 'Ты принят!' : 'Мы перезвоним...'
       ),
       h('div', { style: { fontSize: '12px', color: '#8ba1bb', marginBottom: '12px' } },
         `Правильных ответов: ${correctCount} / 5`

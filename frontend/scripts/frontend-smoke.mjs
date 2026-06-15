@@ -443,6 +443,26 @@ function assertOnboardingCoachHandlesCompleteErrors() {
   }
 }
 
+function assertDreamInterviewUsesServerResultState() {
+  const file = "src/components/MiniGameDreamInterview.jsx";
+  const source = read(file);
+
+  if (!source.includes("finishedRef")) {
+    failures.push(`${file}: finishGame must guard against duplicate completion requests`);
+  }
+  if (!source.includes("const [success, setSuccess] = useState(false)")) {
+    failures.push(`${file}: result screen must track backend success separately from client score`);
+  }
+  if (!/payload\?\.success\s*===\s*true/.test(source) || !source.includes("setSuccess(")) {
+    failures.push(`${file}: result screen must use payload.success from the backend response`);
+  }
+  const resultStart = source.indexOf("phase === 'result'");
+  const resultBlock = resultStart !== -1 ? source.slice(resultStart) : "";
+  if (/correctCount\s*>=\s*4/.test(resultBlock)) {
+    failures.push(`${file}: result screen must not infer success from correctCount >= 4`);
+  }
+}
+
 assertAppComponentReferencesAreImported();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
@@ -465,6 +485,7 @@ assertCareerBeatIdComparisonIsNormalized();
 assertTapAreaDoesNotCoverReadableContent();
 assertTapHotPathDoesNotShakeCamera();
 assertOnboardingCoachHandlesCompleteErrors();
+assertDreamInterviewUsesServerResultState();
 
 if (failures.length > 0) {
   console.error(failures.join("\n"));

@@ -250,15 +250,16 @@ router.post('/complete', validate(minigameSchema), async (req, res, next) => {
       if (!success) {
         // Track failure for secret achievement and GIF trigger
         try {
+          const gameFailureKey = `${gameType}_failures`;
           // Increment daily failure counter
           await client.query(
             `UPDATE progression
-             SET inventory = COALESCE(inventory, '{}') || jsonb_build_object(
+             SET inventory = COALESCE(inventory, '{}'::jsonb) || jsonb_build_object(
                'minigame_failures_today', COALESCE((inventory->>'minigame_failures_today')::int, 0) + 1,
-               '${gameType}_failures', COALESCE((inventory->>'${gameType}_failures')::int, 0) + 1
+               $2::text, COALESCE((inventory->>$2::text)::int, 0) + 1
              )
              WHERE user_id = $1`,
-            [userId]
+            [userId, gameFailureKey]
           );
 
           // Auto-send debug GIF after 10 failed code_review attempts
