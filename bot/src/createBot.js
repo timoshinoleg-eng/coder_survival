@@ -16,7 +16,9 @@ export function createBot() {
   const bot = new Bot(BOT_TOKEN);
 
   bot.command('start', async (ctx) => {
-    const startParam = ctx.start_param || ctx.startPayload || '';
+    const startParam = typeof ctx.match === 'string'
+      ? ctx.match
+      : (ctx.start_param || ctx.startPayload || '');
     const username = ctx.from?.username || ctx.from?.first_name || 'Программист';
     const keyboard = new InlineKeyboard().webApp('Играть в Coder Survival', WEBAPP_URL);
 
