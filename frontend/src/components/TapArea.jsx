@@ -329,13 +329,13 @@ export default function TapArea({ active }) {
         cursor: isExhausted ? 'not-allowed' : 'pointer',
         position: 'relative',
         overflow: 'hidden',
-        transform: pressed ? 'scale(0.93)' : 'scale(1)',
-        transition: 'transform 0.08s ease-out, border-color 0.25s, background 0.3s, color 0.2s',
+        transform: 'translateZ(0)',
+        transition: 'border-color 0.25s, background 0.3s, color 0.2s, box-shadow 0.12s ease-out',
         userSelect: 'none',
         touchAction: 'manipulation',
         WebkitTapHighlightColor: 'transparent',
         boxShadow: pressed
-          ? '0 0 24px rgba(74,222,128,0.45) inset'
+          ? '0 0 18px rgba(74,222,128,0.45) inset'
           : isExhausted || isBurnout
             ? '0 0 16px rgba(239,68,68,0.35)'
             : '0 4px 24px rgba(0,0,0,0.35)'

@@ -1,0 +1,6125 @@
+﻿
+> coder-survival-backend@0.1.0 test
+> node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --forceExit
+
+node.exe : (node:71404) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+C:\Users\Имярек\AppData\Roaming\npm\npm.ps1:24 знак:5
++     & "node$exe"  "$basedir/node_modules/npm/bin/npm-cli.js" $args
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((node:71404) Ex...nge at any time:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS tests/onboarding.routes.test.js (30.4 s)
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 194
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 90
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: c723100c08962687cf2f...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: c723100c08962687cf2f...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506693, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=910000001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /skip тАФ initData present: true, length: 195
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /skip тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 91
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: f643d8379515ef600a6c...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: f643d8379515ef600a6c...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /skip тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /skip тАФ authDate: 1781506695, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /skip тАФ ACCEPTED: user_id=910000002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_skipped { userId: 1 }
+
+      at log (src/routes/onboarding.js:194:13)
+
+    console.log
+      [auth] POST /skip тАФ initData present: true, length: 206
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /skip тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 102
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: c0078f4ff9ca490de162...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: c0078f4ff9ca490de162...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /skip тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /skip тАФ authDate: 1781506696, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /skip тАФ ACCEPTED: user_id=910000003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_skipped { userId: 1 }
+
+      at log (src/routes/onboarding.js:194:13)
+
+    console.log
+      [auth] POST /skip тАФ initData present: true, length: 206
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /skip тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 102
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: c0078f4ff9ca490de162...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: c0078f4ff9ca490de162...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /skip тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /skip тАФ authDate: 1781506696, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /skip тАФ ACCEPTED: user_id=910000003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 199
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 95
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 44cf38c73f1d7dcb66e9...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 44cf38c73f1d7dcb66e9...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506697, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000004
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_completed { userId: 1 }
+
+      at log (src/routes/onboarding.js:129:13)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 210
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 106
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 23e9e982232f72c31155...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 23e9e982232f72c31155...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506699, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_completed { userId: 1 }
+
+      at log (src/routes/onboarding.js:129:13)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 210
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 106
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 23e9e982232f72c31155...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 23e9e982232f72c31155...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506699, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /skip тАФ initData present: true, length: 209
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /skip тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 105
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 0b732722da51d06bb92c...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 0b732722da51d06bb92c...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /skip тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /skip тАФ authDate: 1781506700, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /skip тАФ ACCEPTED: user_id=910000006
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_skipped { userId: 1 }
+
+      at log (src/routes/onboarding.js:194:13)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 209
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 105
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 0b732722da51d06bb92c...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 0b732722da51d06bb92c...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506700, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000006
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 202
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 98
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 8f96b341c84128364382...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 8f96b341c84128364382...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506701, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=910000007
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 208
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 104
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 3c01f2298c4a16172cce...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 3c01f2298c4a16172cce...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506703, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000008
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_completed { userId: 1 }
+
+      at log (src/routes/onboarding.js:129:13)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 214
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 110
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 69310e5b3f0f13088758...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 69310e5b3f0f13088758...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506704, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000009
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_completed { userId: 1 }
+
+      at log (src/routes/onboarding.js:129:13)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 214
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 110
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 69310e5b3f0f13088758...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 69310e5b3f0f13088758...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506704, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000009
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 214
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 110
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 363c932298470c9b03dc...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 363c932298470c9b03dc...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506705, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000012
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_completed { userId: 1 }
+
+      at log (src/routes/onboarding.js:129:13)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 216
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 112
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: bebf3015dd5f7d12d4e4...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: bebf3015dd5f7d12d4e4...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506707, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=910000013
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_completed { userId: 1 }
+
+      at log (src/routes/onboarding.js:129:13)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 207
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 103
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 390bf7fc7b3f33a1cca4...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 390bf7fc7b3f33a1cca4...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506708, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=910000010
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /skip тАФ initData present: true, length: 201
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /skip тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 97
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: b1be581bf9f08da9b2a9...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: b1be581bf9f08da9b2a9...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /skip тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /skip тАФ authDate: 1781506709, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /skip тАФ ACCEPTED: user_id=910000011
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_skipped { userId: 1 }
+
+      at log (src/routes/onboarding.js:194:13)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 201
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 97
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: b1be581bf9f08da9b2a9...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: b1be581bf9f08da9b2a9...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506709, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=910000011
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: false, length: 0
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ REJECTED: Missing initData
+
+      at log (src/middleware/initData.js:24:13)
+
+    console.log
+      [auth] POST /skip тАФ initData present: false, length: 0
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /skip тАФ REJECTED: Missing initData
+
+      at log (src/middleware/initData.js:24:13)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 214
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 110
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e0b70ab6d051a963224b...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e0b70ab6d051a963224b...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506713, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=920000001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /skip тАФ initData present: true, length: 210
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /skip тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 106
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: fb39f8479ef0876e2dbc...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: fb39f8479ef0876e2dbc...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /skip тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /skip тАФ authDate: 1781506714, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /skip тАФ ACCEPTED: user_id=920000002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 209
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 105
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 0038c192456de3f7f4d9...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 0038c192456de3f7f4d9...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506716, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=920000003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_completed { userId: 1 }
+
+      at log (src/routes/onboarding.js:129:13)
+
+    console.log
+      [auth] POST /skip тАФ initData present: true, length: 209
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /skip тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 105
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 0038c192456de3f7f4d9...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 0038c192456de3f7f4d9...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /skip тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /skip тАФ authDate: 1781506716, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /skip тАФ ACCEPTED: user_id=920000003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 210
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 106
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 5d8d9dc574503d9983b0...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 5d8d9dc574503d9983b0...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506718, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=920000005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 210
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 106
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 5d8d9dc574503d9983b0...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 5d8d9dc574503d9983b0...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506718, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=920000005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      onboarding_completed { userId: 1 }
+
+      at log (src/routes/onboarding.js:129:13)
+
+PASS tests/achievements.integration.test.js (10.379 s)
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 822614267ae961c61bcf...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 822614267ae961c61bcf...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506722, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900010000
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 393b5be33d4a7995f330...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 393b5be33d4a7995f330...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506723, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900010001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 393b5be33d4a7995f330...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 393b5be33d4a7995f330...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506723, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900010001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ initData present: true, length: 189
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 85
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 3842a1e1df1199bf8b10...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 3842a1e1df1199bf8b10...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ authDate: 1781506724, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ ACCEPTED: user_id=900010002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 5caab483bc50322a7d0f...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 5caab483bc50322a7d0f...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ authDate: 1781506726, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ ACCEPTED: user_id=900010003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 5caab483bc50322a7d0f...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 5caab483bc50322a7d0f...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ authDate: 1781506726, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ ACCEPTED: user_id=900010003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.error
+      API Error: { status: 409, message: 'Already claimed' }
+
+    [0m [90m 3 |[39m [90m */[39m
+     [90m 4 |[39m [36mexport[39m [36mfunction[39m errorHandler(err[33m,[39m req[33m,[39m res[33m,[39m next)
+ {
+    [31m[1m>[22m[39m[90m 5 |[39m   console[33m.[39merror([32m'API Error:'[39m[33m,[39m err)[33m;[39m
+     [90m   |[39m           [31m[1m^[22m[39m
+     [90m 6 |[39m
+     [90m 7 |[39m   [90m// PostgreSQL ╨╛╤И╨╕╨▒╨║╨╕[39m
+     [90m 8 |[39m   [36mif[39m (err[33m.[39mcode [33m===[39m [32m'23505'[39m) {[0m
+
+      at error (src/middleware/errorHandler.js:5:11)
+      at Layer.handle_error (node_modules/express/lib/router/layer.js:71:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:326:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/express/lib/router/index.js:646:15
+      at next (node_modules/express/lib/router/index.js:265:14)
+      at next (node_modules/express/lib/router/route.js:141:14)
+      at next (src/routes/achievements.js:128:5)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 9a40b88a448110d0fbc5...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 9a40b88a448110d0fbc5...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ authDate: 1781506727, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /hello_world/claim тАФ ACCEPTED: user_id=900010004
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.error
+      API Error: { status: 404, message: 'Achievement not found' }
+
+    [0m [90m 3 |[39m [90m */[39m
+     [90m 4 |[39m [36mexport[39m [36mfunction[39m errorHandler(err[33m,[39m req[33m,[39m res[33m,[39m next)
+ {
+    [31m[1m>[22m[39m[90m 5 |[39m   console[33m.[39merror([32m'API Error:'[39m[33m,[39m err)[33m;[39m
+     [90m   |[39m           [31m[1m^[22m[39m
+     [90m 6 |[39m
+     [90m 7 |[39m   [90m// PostgreSQL ╨╛╤И╨╕╨▒╨║╨╕[39m
+     [90m 8 |[39m   [36mif[39m (err[33m.[39mcode [33m===[39m [32m'23505'[39m) {[0m
+
+      at error (src/middleware/errorHandler.js:5:11)
+      at Layer.handle_error (node_modules/express/lib/router/layer.js:71:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:326:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+      at next (node_modules/express/lib/router/index.js:280:10)
+      at node_modules/express/lib/router/index.js:646:15
+      at next (node_modules/express/lib/router/index.js:265:14)
+      at next (node_modules/express/lib/router/route.js:141:14)
+      at next (src/routes/achievements.js:128:5)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 377ba9281cb6a44f1883...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 377ba9281cb6a44f1883...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506728, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900010005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 190
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 86
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 51377eb908726af44137...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 51377eb908726af44137...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506729, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900010006
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/phase1.routesSmoke.test.js (8.4 s)
+  тЧП Console
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 189
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 85
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 952b41addf6d17f87769...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 952b41addf6d17f87769...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506732, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000020
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: ccddbe9a91597b8da93e...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506734, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000021
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.warn
+      [RateLimit] Burst limit triggered for user 1 tapCount: 11
+
+    [0m [90m 50 |[39m   [36mconst[39m effectiveBurstLimit [33m=[39m [33mMath[39m[33m.[39mmax(burstLimit[33m
+,[39m tapIncrement)[33m;[39m
+     [90m 51 |[39m   [36mif[39m (userTapCount [33m>[39m effectiveBurstLimit) {
+    [31m[1m>[22m[39m[90m 52 |[39m     console[33m.[39mwarn([32m'[RateLimit] Burst limit triggered for user'[3
+9m[33m,[39m userId[33m,[39m [32m'tapCount:'[39m[33m,[39m userTapCount)[33m;[39m
+     [90m    |[39m             [31m[1m^[22m[39m
+     [90m 53 |[39m     [36mreturn[39m {
+     [90m 54 |[39m       allowed[33m:[39m [36mfalse[39m[33m,[39m
+     [90m 55 |[39m       status[33m:[39m [35m429[39m[33m,[39m[0m
+
+      at warn (src/middleware/rateLimit.js:52:13)
+      at src/routes/tap.js:134:23
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 195
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 91
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7d8c98b19e04805963a9...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7d8c98b19e04805963a9...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506736, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000022
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 195
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 91
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7d8c98b19e04805963a9...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7d8c98b19e04805963a9...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506736, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000022
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 57a3985a2fe0dd3f4e98...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 57a3985a2fe0dd3f4e98...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506738, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=900000023
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/phase2.integration.test.js (7.696 s)
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 208
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, start_param, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 104
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 3f55e96447a19044c23d...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 3f55e96447a19044c23d...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506741, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=700002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 208
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, start_param, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 104
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 3f55e96447a19044c23d...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 3f55e96447a19044c23d...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506741, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=700002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 184
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 80
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7c7b65266c900f69122d...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7c7b65266c900f69122d...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506743, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=710001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /claim тАФ initData present: true, length: 184
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 80
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7c7b65266c900f69122d...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7c7b65266c900f69122d...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /claim тАФ authDate: 1781506743, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /claim тАФ ACCEPTED: user_id=710001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /claim тАФ initData present: true, length: 184
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 80
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7c7b65266c900f69122d...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7c7b65266c900f69122d...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /claim тАФ authDate: 1781506743, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /claim тАФ ACCEPTED: user_id=710001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 186
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 82
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 793772a9a959f0865a26...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 793772a9a959f0865a26...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506744, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=720001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: c337c32de5456ac4656a...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: c337c32de5456ac4656a...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506746, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=730001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST / тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: c337c32de5456ac4656a...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: c337c32de5456ac4656a...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST / тАФ authDate: 1781506746, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST / тАФ ACCEPTED: user_id=730001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: c337c32de5456ac4656a...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: c337c32de5456ac4656a...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506746, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=730001
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/phase1.energyThreshold.test.js (7.465 s)
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 1e7632ce5a524d028797...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 1e7632ce5a524d028797...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506749, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 194
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 90
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 80ccd0ad78bee30c5d77...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 80ccd0ad78bee30c5d77...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506751, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 204
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 100
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 1a67bfca3f4d4207c1fc...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 1a67bfca3f4d4207c1fc...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506752, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7ff977dd109d4d3c442f...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7ff977dd109d4d3c442f...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506754, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000004
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 196
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 92
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7ff977dd109d4d3c442f...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7ff977dd109d4d3c442f...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506754, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000004
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/stage2.rewardedVideo.test.js
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506756, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=760001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506756, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506756, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506756, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506756, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506756, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7acc84cd0573baa47651...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506756, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 197
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 93
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e7bbb75b172b41d91020...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e7bbb75b172b41d91020...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506758, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=760002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 197
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 93
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e7bbb75b172b41d91020...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e7bbb75b172b41d91020...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506758, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 197
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 93
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e7bbb75b172b41d91020...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e7bbb75b172b41d91020...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506758, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 197
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 93
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e7bbb75b172b41d91020...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e7bbb75b172b41d91020...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506758, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=760002
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/loginQuestSync.test.js (5.879 s)
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 4a620b1f601142a3c8c3...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 4a620b1f601142a3c8c3...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506761, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET /daily тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET /daily тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 4a620b1f601142a3c8c3...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 4a620b1f601142a3c8c3...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET /daily тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET /daily тАФ authDate: 1781506761, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET /daily тАФ ACCEPTED: user_id=880001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 190
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 86
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e818656ce5555e23ffad...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e818656ce5555e23ffad...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506763, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 07a78a5f280029b378a3...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 07a78a5f280029b378a3...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506764, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /claim тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 07a78a5f280029b378a3...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 07a78a5f280029b378a3...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /claim тАФ authDate: 1781506764, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /claim тАФ ACCEPTED: user_id=880003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 07a78a5f280029b378a3...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 07a78a5f280029b378a3...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506764, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /claim тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 07a78a5f280029b378a3...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 07a78a5f280029b378a3...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /claim тАФ authDate: 1781506764, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /claim тАФ ACCEPTED: user_id=880003
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/phase10.unit.test.js (27.101 s)
+PASS tests/mvp.randomEvents.test.js (14.568 s)
+PASS tests/stage2.routes.test.js (13.941 s)
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 64281d5776e2015bcd8c...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 64281d5776e2015bcd8c...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506809, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 64281d5776e2015bcd8c...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 64281d5776e2015bcd8c...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506809, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 195
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 91
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: a62a1d89df5884d3e479...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: a62a1d89df5884d3e479...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506811, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /claim тАФ initData present: true, length: 195
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 91
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: a62a1d89df5884d3e479...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: a62a1d89df5884d3e479...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /claim тАФ authDate: 1781506811, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /claim тАФ ACCEPTED: user_id=770002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /claim тАФ initData present: true, length: 195
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /claim тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 91
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: a62a1d89df5884d3e479...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: a62a1d89df5884d3e479...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /claim тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /claim тАФ authDate: 1781506811, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /claim тАФ ACCEPTED: user_id=770002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 195
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 91
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7196b89f3314b697b698...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7196b89f3314b697b698...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506813, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770004
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /full-clear тАФ initData present: true, length: 195
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /full-clear тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 91
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7196b89f3314b697b698...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7196b89f3314b697b698...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /full-clear тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /full-clear тАФ authDate: 1781506813, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /full-clear тАФ ACCEPTED: user_id=770004
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      full_clear_claimed { userId: 1, date: '2026-06-15', lootBox: 'skin_frag' }
+
+      at log (src/routes/quests.js:352:13)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 198
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 94
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 5eb2825e6461d5fcb0a5...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 5eb2825e6461d5fcb0a5...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506815, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /full-clear тАФ initData present: true, length: 198
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /full-clear тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 94
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 5eb2825e6461d5fcb0a5...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 5eb2825e6461d5fcb0a5...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /full-clear тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /full-clear тАФ authDate: 1781506815, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /full-clear тАФ ACCEPTED: user_id=770003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e2e1b44b7fbc1d34f2fa...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e2e1b44b7fbc1d34f2fa...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506817, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e2e1b44b7fbc1d34f2fa...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e2e1b44b7fbc1d34f2fa...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506817, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e2e1b44b7fbc1d34f2fa...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e2e1b44b7fbc1d34f2fa...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506817, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 190
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 86
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 637d6b33ee60ad78f42c...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 637d6b33ee60ad78f42c...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506819, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770006
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 190
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 86
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 637d6b33ee60ad78f42c...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 637d6b33ee60ad78f42c...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506819, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770006
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 189e96c30b790e3212b3...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 189e96c30b790e3212b3...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506820, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770007
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 189e96c30b790e3212b3...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 189e96c30b790e3212b3...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506820, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=770007
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/minigame.integration.test.js (10.584 s)
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: f7fe721103461c4bd54b...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: f7fe721103461c4bd54b...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506823, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 187
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 83
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: f7fe721103461c4bd54b...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: f7fe721103461c4bd54b...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506823, age: 1s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=880001
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 186
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 82
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e255510b7416ff60bd48...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e255510b7416ff60bd48...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506825, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 186
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 82
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: e255510b7416ff60bd48...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: e255510b7416ff60bd48...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506825, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=880002
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 188
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 84
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 8675c1236250e7ebd307...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 8675c1236250e7ebd307...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506827, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 188
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 84
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 8675c1236250e7ebd307...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 8675c1236250e7ebd307...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506827, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=880003
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 189
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 85
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: dc266517af12e9e25d9a...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: dc266517af12e9e25d9a...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506828, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880004
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 189
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 85
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: dc266517af12e9e25d9a...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: dc266517af12e9e25d9a...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506828, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=880004
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 17746bb936fe5a6b0e0b...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 17746bb936fe5a6b0e0b...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506830, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 17746bb936fe5a6b0e0b...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 17746bb936fe5a6b0e0b...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506830, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=880005
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 198
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 94
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7ae71f0598992c234df1...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7ae71f0598992c234df1...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506831, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=880006
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 198
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 94
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7ae71f0598992c234df1...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7ae71f0598992c234df1...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506831, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=880006
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 198
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 94
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7ae71f0598992c234df1...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7ae71f0598992c234df1...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506831, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=880006
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] POST /complete тАФ initData present: true, length: 198
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] POST /complete тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 94
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 7ae71f0598992c234df1...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 7ae71f0598992c234df1...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] POST /complete тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] POST /complete тАФ authDate: 1781506831, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] POST /complete тАФ ACCEPTED: user_id=880006
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/phase1.stressV2.test.js (6.902 s)
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 194
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 90
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 423b3c606fb1ac56adbe...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 423b3c606fb1ac56adbe...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506834, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000099
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 197
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 93
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 6ea60ee8f74c2b3ee712...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 6ea60ee8f74c2b3ee712...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506836, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000010
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 197
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 93
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 0bd844ac8bae697c7f83...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 0bd844ac8bae697c7f83...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506837, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000011
+
+      at log (src/middleware/initData.js:76:11)
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 193
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 89
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 5bd50ed59ae10a91c8fa...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 5bd50ed59ae10a91c8fa...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506839, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000012
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/phase2.unit.test.js
+PASS tests/smoke.idleEnergyRegen.test.js
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 190
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 86
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: 298bcd27e593af541010...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: 298bcd27e593af541010...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506846, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=999999001
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/phase4.unit.test.js
+PASS tests/phase1.passXp.test.js
+  тЧП Console
+
+    console.log
+      [auth] GET / тАФ initData present: true, length: 192
+
+      at log (src/middleware/initData.js:21:11)
+
+    console.log
+      [auth] GET / тАФ BOT_TOKEN present: true, NODE_ENV: test
+
+      at log (src/middleware/initData.js:29:11)
+
+    console.log
+      [verifyHash] sorted keys: auth_date, user
+
+      at log (src/middleware/initData.js:149:11)
+
+    console.log
+      [verifyHash] dataCheckString length: 88
+
+      at log (src/middleware/initData.js:150:11)
+
+    console.log
+      [verifyHash] expected hash: f4d7538898495c3a4cd4...
+
+      at log (src/middleware/initData.js:163:11)
+
+    console.log
+      [verifyHash] actual hash: f4d7538898495c3a4cd4...
+
+      at log (src/middleware/initData.js:164:11)
+
+    console.log
+      [verifyHash] timingSafeEqual result: true
+
+      at log (src/middleware/initData.js:175:11)
+
+    console.log
+      [auth] GET / тАФ hash validation result: true
+
+      at log (src/middleware/initData.js:49:13)
+
+    console.log
+      [auth] GET / тАФ authDate: 1781506852, age: 0s, maxAge: 3600s
+
+      at log (src/middleware/initData.js:69:11)
+
+    console.log
+      [auth] GET / тАФ ACCEPTED: user_id=900000002
+
+      at log (src/middleware/initData.js:76:11)
+
+PASS tests/loginReward.timezone.test.js
+PASS tests/tap.test.js
+  тЧП Console
+
+    console.warn
+      [AntiCheat] Pattern ban: { userId: 1, entropy: '0.000', cv: '0.000', averageCps: '33.33' }
+
+    [0m [90m 92 |[39m     history[33m.[39mbannedUntil [33m=[39m now [33m+[39m [33mBAN_COOLDOWN_MS[39m[33m;
+[39m
+     [90m 93 |[39m     history[33m.[39mbanScore [33m+=[39m getBanScoreIncrement([32m'layer1_cps_over_20'[39m)[
+33m;[39m
+    [31m[1m>[22m[39m[90m 94 |[39m     console[33m.[39mwarn([32m'[AntiCheat] Pattern ban:'[39m[33m,[39m {
+     [90m    |[39m             [31m[1m^[22m[39m
+     [90m 95 |[39m       userId[33m,[39m
+     [90m 96 |[39m       entropy[33m:[39m entropy[33m.[39mtoFixed([35m3[39m)[33m,[39m
+     [90m 97 |[39m       cv[33m:[39m cv[33m.[39mtoFixed([35m3[39m)[33m,[39m[0m
+
+      at warn (src/middleware/antiCheat.js:94:13)
+      at analyzeAndRecordTap (src/routes/tap.js:145:23)
+
+    console.warn
+      [RateLimit] Soft ban triggered for user 1 tapCount: 999
+
+    [0m [90m 40 |[39m
+     [90m 41 |[39m   [36mif[39m (userTapCount [33m>[39m softBanLimit) {
+    [31m[1m>[22m[39m[90m 42 |[39m     console[33m.[39mwarn([32m'[RateLimit] Soft ban triggered for user'[39m
+[33m,[39m userId[33m,[39m [32m'tapCount:'[39m[33m,[39m userTapCount)[33m;[39m
+     [90m    |[39m             [31m[1m^[22m[39m
+     [90m 43 |[39m     [36mreturn[39m {
+     [90m 44 |[39m       allowed[33m:[39m [36mfalse[39m[33m,[39m
+     [90m 45 |[39m       status[33m:[39m [35m429[39m[33m,[39m[0m
+
+      at warn (src/middleware/rateLimit.js:42:13)
+      at src/routes/tap.js:134:23
+
+    console.warn
+      [RateLimit] Burst limit triggered for user 1 tapCount: 110
+
+    [0m [90m 50 |[39m   [36mconst[39m effectiveBurstLimit [33m=[39m [33mMath[39m[33m.[39mmax(burstLimit[33m
+,[39m tapIncrement)[33m;[39m
+     [90m 51 |[39m   [36mif[39m (userTapCount [33m>[39m effectiveBurstLimit) {
+    [31m[1m>[22m[39m[90m 52 |[39m     console[33m.[39mwarn([32m'[RateLimit] Burst limit triggered for user'[3
+9m[33m,[39m userId[33m,[39m [32m'tapCount:'[39m[33m,[39m userTapCount)[33m;[39m
+     [90m    |[39m             [31m[1m^[22m[39m
+     [90m 53 |[39m     [36mreturn[39m {
+     [90m 54 |[39m       allowed[33m:[39m [36mfalse[39m[33m,[39m
+     [90m 55 |[39m       status[33m:[39m [35m429[39m[33m,[39m[0m
+
+      at warn (src/middleware/rateLimit.js:52:13)
+      at src/routes/tap.js:134:23
+
+    console.warn
+      [RateLimit] Soft ban triggered for user 1 tapCount: 999
+
+    [0m [90m 40 |[39m
+     [90m 41 |[39m   [36mif[39m (userTapCount [33m>[39m softBanLimit) {
+    [31m[1m>[22m[39m[90m 42 |[39m     console[33m.[39mwarn([32m'[RateLimit] Soft ban triggered for user'[39m
+[33m,[39m userId[33m,[39m [32m'tapCount:'[39m[33m,[39m userTapCount)[33m;[39m
+     [90m    |[39m             [31m[1m^[22m[39m
+     [90m 43 |[39m     [36mreturn[39m {
+     [90m 44 |[39m       allowed[33m:[39m [36mfalse[39m[33m,[39m
+     [90m 45 |[39m       status[33m:[39m [35m429[39m[33m,[39m[0m
+
+      at warn (src/middleware/rateLimit.js:42:13)
+      at src/routes/tap.js:134:23
+
+    console.warn
+      [AntiCheat] Pattern ban: { userId: 1, entropy: '0.000', cv: '0.000', averageCps: '33.33' }
+
+    [0m [90m 92 |[39m     history[33m.[39mbannedUntil [33m=[39m now [33m+[39m [33mBAN_COOLDOWN_MS[39m[33m;
+[39m
+     [90m 93 |[39m     history[33m.[39mbanScore [33m+=[39m getBanScoreIncrement([32m'layer1_cps_over_20'[39m)[
+33m;[39m
+    [31m[1m>[22m[39m[90m 94 |[39m     console[33m.[39mwarn([32m'[AntiCheat] Pattern ban:'[39m[33m,[39m {
+     [90m    |[39m             [31m[1m^[22m[39m
+     [90m 95 |[39m       userId[33m,[39m
+     [90m 96 |[39m       entropy[33m:[39m entropy[33m.[39mtoFixed([35m3[39m)[33m,[39m
+     [90m 97 |[39m       cv[33m:[39m cv[33m.[39mtoFixed([35m3[39m)[33m,[39m[0m
+
+      at warn (src/middleware/antiCheat.js:94:13)
+      at analyzeAndRecordTap (src/routes/tap.js:145:23)
+
+    console.warn
+      [RateLimit] Soft ban triggered for user 1 tapCount: 999
+
+    [0m [90m 40 |[39m
+     [90m 41 |[39m   [36mif[39m (userTapCount [33m>[39m softBanLimit) {
+    [31m[1m>[22m[39m[90m 42 |[39m     console[33m.[39mwarn([32m'[RateLimit] Soft ban triggered for user'[39m
+[33m,[39m userId[33m,[39m [32m'tapCount:'[39m[33m,[39m userTapCount)[33m;[39m
+     [90m    |[39m             [31m[1m^[22m[39m
+     [90m 43 |[39m     [36mreturn[39m {
+     [90m 44 |[39m       allowed[33m:[39m [36mfalse[39m[33m,[39m
+     [90m 45 |[39m       status[33m:[39m [35m429[39m[33m,[39m[0m
+
+      at warn (src/middleware/rateLimit.js:42:13)
+      at src/routes/tap.js:134:23
+
+PASS tests/buy.internalPayments.test.js
+PASS tests/phase3.unit.test.js
+PASS tests/pp18.prestige.unit.test.js
+PASS tests/phase7.unit.test.js
+PASS tests/shopCatalog.test.js
+PASS tests/stage3.oracles.test.js
+PASS tests/vnext.addPlayerXp.test.js
+PASS tests/anticheat.test.js
+PASS tests/mvp.performanceStatic.test.js
+PASS tests/phase5.unit.test.js
+PASS tests/mvp.dailyQuests.test.js
+PASS tests/progression.passiveDecay.test.js
+PASS tests/phase8.unit.test.js
+PASS tests/phase9.unit.test.js
+PASS tests/phase6.unit.test.js
+PASS tests/mvp.tapAnticheat.test.js
+PASS tests/stage2.oracles.test.js
+PASS tests/stage4.oracles.test.js
+PASS tests/mvp.databaseConfig.test.js
+PASS tests/rateLimit.test.js
+PASS tests/timezoneOffset.test.js
+
+Test Suites: 39 passed, 39 total
+Tests:       382 passed, 382 total
+Snapshots:   0 total
+Time:        177.359 s, estimated 267 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after 
+all tests finished?
