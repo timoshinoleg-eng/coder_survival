@@ -180,6 +180,7 @@ export default function StatsBar({ runtimeNow }) {
 
   const hotStreakActive = randomEventState?.hotStreakUntil && new Date(randomEventState.hotStreakUntil).getTime() > countdownNowMs;
   const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
+  const miniGamesEnabled = featureFlags?.minigameEnabled !== false;
 
   const handleWatchAd = useCallback(async () => {
     if (adLoading || energy >= maxEnergy) return;
@@ -536,7 +537,7 @@ export default function StatsBar({ runtimeNow }) {
                   },
                   "🎭",
                 ),
-                featureFlags?.minigameEnabled === true &&
+                miniGamesEnabled &&
                   h(
                     "button",
                     {
@@ -993,7 +994,7 @@ export default function StatsBar({ runtimeNow }) {
         open: careerOpen,
         onClose: () => setCareerOpen(false),
       }),
-      featureFlags?.minigameEnabled === true &&
+      miniGamesEnabled &&
         h(MiniGameLauncher, {
           open: miniGameOpen,
           onClose: () => setMiniGameOpen(false),
