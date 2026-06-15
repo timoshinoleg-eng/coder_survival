@@ -18,6 +18,14 @@ function getMilestoneReward(milestone) {
   return STAGE3.REFERRAL.MILESTONE_REWARDS[milestone]?.inviter || {};
 }
 
+function getClaimedMilestones(referralState, legacyClaimRows = []) {
+  const fromState = Array.isArray(referralState?.milestonesReached)
+    ? referralState.milestonesReached.map(Number)
+    : [];
+  const fromLegacy = legacyClaimRows.map((row) => Number(row.milestone));
+  return Array.from(new Set([...fromState, ...fromLegacy])).sort((a, b) => a - b);
+}
+
 async function getReferralProgress(client, userId) {
   const activeResult = await client.query(
     `SELECT
@@ -128,11 +136,18 @@ router.get('/stats', async (req, res, next) => {
       const { total, active } = await getReferralProgress(client, ensured.userId);
       const nextMilestone = REFERRAL_MILESTONES.find((m) => active < m) || null;
 
-      const claimedResult = await client.query(
-        `SELECT milestone FROM referral_milestone_claims WHERE user_id = $1`,
-        [ensured.userId]
-      );
-      const claimedMilestones = claimedResult.rows.map(r => r.milestone);
+      const [progressResult, claimedResult] = await Promise.all([
+        client.query(
+          `SELECT referral_state FROM progression WHERE user_id = $1`,
+          [ensured.userId]
+        ),
+        client.query(
+          `SELECT milestone FROM referral_milestone_claims WHERE user_id = $1`,
+          [ensured.userId]
+        )
+      ]);
+      const referralState = progressResult.rows[0]?.referral_state || {};
+      const claimedMilestones = getClaimedMilestones(referralState, claimedResult.rows);
 
       const milestones = REFERRAL_MILESTONES.map((target) => ({
         target,
@@ -181,7 +196,7 @@ router.get('/link', async (req, res, next) => {
       res.json({
         success: true,
         referralCode: ensured.code,
-        referralLink: `https://t.me/${getBotUsername()}?startapp=${ensured.code}`
+        referralLink: `https://t.me/${getBotUsername()}?start=${ensured.code}`
       });
     } finally {
       client.release();
@@ -231,7 +246,7 @@ router.get('/status', async (req, res, next) => {
       return res.json({
         success: true,
         referralCode: ensured.code,
-        referralLink: `https://t.me/${getBotUsername()}?startapp=${ensured.code}`,
+        referralLink: `https://t.me/${getBotUsername()}?start=${ensured.code}`,
         activeThresholdCommits: STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS,
         antiFarmDays: STAGE3.REFERRAL.ANTI_FARM_DAYS,
         total: progress.total,
@@ -266,7 +281,7 @@ router.post('/track', async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const refCode = req.body?.refCode || req.body?.referral_code || req.query?.startapp;
+  const refCode = req.body?.refCode || req.body?.referral_code || req.query?.start || req.query?.startapp;
   const inviterTelegramId = parseReferralCode(refCode);
   if (!inviterTelegramId) return res.status(400).json({ error: 'Неверная реферальная ссылка' });
 
