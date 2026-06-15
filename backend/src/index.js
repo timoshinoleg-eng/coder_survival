@@ -16,7 +16,7 @@ import stateRouter from "./routes/state.js";
 import buyRouter from "./routes/buy.js";
 import leaderboardRouter from "./routes/leaderboard.js";
 import generatorsRouter from './routes/generators.js';
-import referralRouter from "./routes/referral.js";
+import referralRouter, { internalReferralRouter } from "./routes/referral.js";
 import internalPaymentsRouter from "./routes/internalPayments.js";
 import internalObservationRouter from "./routes/internalObservation.js";
 import playerLevelRouter from "./routes/playerLevel.js";
@@ -161,6 +161,7 @@ app.use(
 );
 app.use("/api/referral", initDataMiddleware, referralRouter);
 app.use('/api/generators', initDataMiddleware, generatorsRouter);
+app.use("/api/internal/referral", internalReferralRouter);
 app.use("/api/internal/payments", internalPaymentsRouter);
 app.use("/api/internal/observation", internalObservationRouter);
 app.use("/api/player/level", initDataMiddleware, playerLevelRouter);
