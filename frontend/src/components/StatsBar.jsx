@@ -419,11 +419,12 @@ export default function StatsBar({ runtimeNow }) {
                   {
                     onClick: () => setDailySummaryOpen(true),
                     className: "pixel-button",
+                    title: "Ежедневная сводка",
                     style: {
                       background: "#122642",
                     },
                   },
-                  "🏆",
+                  "📊",
                 ),
                 h(
                   "button",
@@ -540,6 +541,8 @@ export default function StatsBar({ runtimeNow }) {
                     "button",
                     {
                       onClick: () => setMiniGameOpen(true),
+                      className: "pixel-button",
+                      title: "Мини-игры",
                       style: {
                         border: "1px solid #30527e",
                         background: depression >= 60 ? '#1a3a5c' : '#122642',
@@ -552,7 +555,7 @@ export default function StatsBar({ runtimeNow }) {
                         animation: depression >= 60 ? 'pulse 1.6s infinite' : 'none'
                       }
                     },
-                    '🐛'
+                    '🎮'
                   ),
                 antiCheat?.banScore >= 20 &&
                   h(
