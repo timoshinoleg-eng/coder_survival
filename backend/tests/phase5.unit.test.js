@@ -159,11 +159,12 @@ describe('Phase 5: Referral Rebalancing & Anti-Farm', () => {
     expect(unlocked[2].rewards.inviter.skin).toBe('team_lead');
   });
 
-  test('referral milestone rewards: new shape with commits/stars/skins', () => {
+  test('referral milestone rewards: new shape with stars/skins', () => {
     const rewards = STAGE3.REFERRAL.MILESTONE_REWARDS;
-    expect(rewards[1].inviter).toMatchObject({ commits: 50, energy: 25 });
+    expect(rewards[1].inviter).toMatchObject({ stars: 50 });
     expect(rewards[1].invited).toMatchObject({ commits: 100, inventory: { coffee_cups: 1 } });
-    expect(rewards[5].inviter).toMatchObject({ skin: 'team_lead', energy: 100 });
+    expect(rewards[3].inviter).toMatchObject({ stars: 200 });
+    expect(rewards[5].inviter).toMatchObject({ stars: 500, skin: 'team_lead' });
     expect(rewards[5].invited).toMatchObject({ commits: 100, stars: 5 });
   });
 

@@ -2,7 +2,6 @@ import { h } from "preact";
 import { useEffect, useState, useCallback } from "preact/hooks";
 import { apiRequest } from "../utils/api.js";
 import { useTelegram } from "../hooks/useTelegram.js";
-import { formatRewardPayload } from "../utils/rewardFormatting.js";
 import { Analytics } from "../utils/analytics.js";
 import ReferralChainPanel from "./ReferralChainPanel.jsx";
 
@@ -12,6 +11,15 @@ function skinLabel(skinId) {
     dark_mode_ide: 'Dark Mode IDE',
   };
   return labels[skinId] || skinId;
+}
+
+function formatMilestoneReward(reward = {}) {
+  const parts = [];
+  if (reward.stars) parts.push(`⭐ ${reward.stars}`);
+  if (reward.skin) parts.push(`🎨 ${skinLabel(reward.skin)}`);
+  if (reward.commits) parts.push(`+${reward.commits} коммитов`);
+  if (reward.energy) parts.push(`+${reward.energy} энергии`);
+  return parts.join(" · ") || "—";
 }
 
 export default function ReferralPanel({ open, onClose }) {
@@ -128,6 +136,15 @@ export default function ReferralPanel({ open, onClose }) {
           body: { milestone },
         });
         if (payload?.success) {
+          if (payload?.already_claimed) {
+            setState((s) => ({
+              ...s,
+              claimSuccess: "Награда уже была получена",
+              claimLoading: null,
+            }));
+            await loadData();
+            return;
+          }
           const reward = payload.reward || {};
           const parts = [];
           if (reward.commits) parts.push(`+${reward.commits} коммитов`);
@@ -563,13 +580,14 @@ export default function ReferralPanel({ open, onClose }) {
                             },
                           },
                           stats.milestones.map((m) => {
+                            const milestoneTarget = m.milestone ?? m.target;
                             const canClaim = m.reached && !m.claimed;
-                            const rewardLabel = formatRewardPayload(m.reward);
-                            const premiumEligible = (stats.premiumActive || 0) >= m.milestone;
+                            const rewardLabel = formatMilestoneReward(m.reward);
+                            const premiumEligible = (stats.premiumActive || 0) >= milestoneTarget;
                             return h(
                               "div",
                               {
-                                key: m.target,
+                                key: milestoneTarget,
                                 style: {
                                   display: "flex",
                                   alignItems: "center",
@@ -600,7 +618,7 @@ export default function ReferralPanel({ open, onClose }) {
                                           : "#c7ddf5",
                                       },
                                     },
-                                    `${m.target} активных рефералов`,
+                                    `${milestoneTarget} активных рефералов`,
                                   ),
                                   h(
                                     "span",
@@ -630,30 +648,30 @@ export default function ReferralPanel({ open, onClose }) {
                                       "button",
                                       {
                                         onClick: () =>
-                                          handleClaimMilestone(m.target),
+                                          handleClaimMilestone(milestoneTarget),
                                         disabled:
-                                          state.claimLoading === m.target,
+                                          state.claimLoading === milestoneTarget,
                                         style: {
                                           padding: "4px 8px",
                                           borderRadius: "6px",
                                           border: "none",
                                           background:
-                                            state.claimLoading === m.target
+                                            state.claimLoading === milestoneTarget
                                               ? "#274267"
                                               : "#4ade80",
                                           color:
-                                            state.claimLoading === m.target
+                                            state.claimLoading === milestoneTarget
                                               ? "#8ba1bb"
                                               : "#0a1f12",
                                           fontWeight: "bold",
                                           fontSize: "11px",
                                           cursor:
-                                            state.claimLoading === m.target
+                                            state.claimLoading === milestoneTarget
                                               ? "not-allowed"
                                               : "pointer",
                                         },
                                       },
-                                      state.claimLoading === m.target
+                                      state.claimLoading === milestoneTarget
                                         ? "..."
                                         : premiumEligible
                                           ? 'Забрать x5'
