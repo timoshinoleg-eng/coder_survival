@@ -1,28 +1,51 @@
 import { h } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 
 export default function GeneratorsPanel({ open, onClose }) {
   const { generatorState, randomEventState, dailyFarm, passiveLocRecovery, team, antiCheat, buyGenerator, refreshGenerators, showToast } = useGameState();
   const [buyingTier, setBuyingTier] = useState(null);
+  const [buyStatus, setBuyStatus] = useState(null);
+  const buyStatusTimerRef = useRef(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setBuyStatus(null);
+      if (buyStatusTimerRef.current) clearTimeout(buyStatusTimerRef.current);
+      return;
+    }
+    setBuyStatus(null);
     refreshGenerators?.().catch(() => null);
   }, [open, refreshGenerators]);
 
+  useEffect(() => {
+    return () => {
+      if (buyStatusTimerRef.current) clearTimeout(buyStatusTimerRef.current);
+    };
+  }, []);
+
   if (!open) return null;
+
+  function clearBuyStatusAfter(delay = 2200) {
+    if (buyStatusTimerRef.current) clearTimeout(buyStatusTimerRef.current);
+    buyStatusTimerRef.current = setTimeout(() => setBuyStatus(null), delay);
+  }
 
   async function handleBuy(tierId) {
     if (buyingTier) return;
     setBuyingTier(tierId);
+    setBuyStatus(null);
     try {
       const result = await buyGenerator(tierId);
+      setBuyStatus({ type: 'success', message: `Куплен ${tierId}: -${result.cost} LOC` });
       showToast?.(`Куплен ${tierId}: -${result.cost} LOC`, 'success', 1800);
     } catch (err) {
-      showToast?.(err?.message || 'Не удалось купить генератор', 'error', 2200);
+      const message = err?.message || 'Не удалось купить генератор';
+      setBuyStatus({ type: 'error', message });
+      showToast?.(message, 'error', 2200);
     } finally {
       setBuyingTier(null);
+      clearBuyStatusAfter();
     }
   }
 
@@ -57,6 +80,18 @@ export default function GeneratorsPanel({ open, onClose }) {
       h('strong', null, 'Генераторы'),
       h('button', { onClick: onClose, style: { border: 'none', background: 'transparent', color: '#9eb6d2', fontSize: '18px', cursor: 'pointer' } }, 'x'),
     ]),
+    buyStatus && h('div', {
+      style: {
+        fontSize: '12px',
+        fontWeight: 600,
+        padding: '8px 10px',
+        borderRadius: '6px',
+        textAlign: 'center',
+        background: buyStatus.type === 'success' ? '#1a3f25' : '#3f1a1a',
+        color: buyStatus.type === 'success' ? '#4ade80' : '#fca5a5',
+        border: `1px solid ${buyStatus.type === 'success' ? '#2d5a3e' : '#5a2d2d'}`,
+      },
+    }, buyStatus.message),
     h('div', { style: { fontSize: '12px', color: '#9eb6d2' } }, `Пассивный доход: ${generatorState?.passiveLocPerSecond || 0} LOC/сек`),
     h('div', { style: { fontSize: '12px', color: '#c7ddf5' } }, `FTUE: ${generatorState?.ftueAcceleration?.id || 'after_60min'}`),
     generatorState?.costMultiplier > 1 && h('div', { style: { fontSize: '12px', color: '#f87171' } }, `Event cost multiplier: x${generatorState.costMultiplier}`),
