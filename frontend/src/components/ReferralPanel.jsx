@@ -116,7 +116,7 @@ export default function ReferralPanel({ open, onClose }) {
     if (!state.referralLink) return;
     shareUrl(
       state.referralLink,
-      "Я выживаю в IT. Присоединяйся, вместе страдать веселее!",
+      "Я выживаю в IT в Coder Survival — тапаю коммиты и пью кофе, пока не выгорел. Присоединяйся, вместе гораздо веселее ☕️💀",
     );
     Analytics.track('referral_invite_sent', { channel: 'telegram' });
   }, [state.referralLink, shareUrl]);

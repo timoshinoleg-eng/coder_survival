@@ -180,6 +180,7 @@ export default function StatsBar({ runtimeNow }) {
 
   const hotStreakActive = randomEventState?.hotStreakUntil && new Date(randomEventState.hotStreakUntil).getTime() > countdownNowMs;
   const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
+  const miniGamesEnabled = featureFlags?.minigameEnabled !== false;
 
   const handleWatchAd = useCallback(async () => {
     if (adLoading || energy >= maxEnergy) return;
@@ -419,11 +420,12 @@ export default function StatsBar({ runtimeNow }) {
                   {
                     onClick: () => setDailySummaryOpen(true),
                     className: "pixel-button",
+                    title: "Ежедневная сводка",
                     style: {
                       background: "#122642",
                     },
                   },
-                  "🏆",
+                  "📊",
                 ),
                 h(
                   "button",
@@ -535,11 +537,13 @@ export default function StatsBar({ runtimeNow }) {
                   },
                   "🎭",
                 ),
-                featureFlags?.minigameEnabled === true &&
+                miniGamesEnabled &&
                   h(
                     "button",
                     {
                       onClick: () => setMiniGameOpen(true),
+                      className: "pixel-button",
+                      title: "Мини-игры",
                       style: {
                         border: "1px solid #30527e",
                         background: depression >= 60 ? '#1a3a5c' : '#122642',
@@ -552,7 +556,7 @@ export default function StatsBar({ runtimeNow }) {
                         animation: depression >= 60 ? 'pulse 1.6s infinite' : 'none'
                       }
                     },
-                    '🐛'
+                    '🎮'
                   ),
                 antiCheat?.banScore >= 20 &&
                   h(
@@ -990,7 +994,7 @@ export default function StatsBar({ runtimeNow }) {
         open: careerOpen,
         onClose: () => setCareerOpen(false),
       }),
-      featureFlags?.minigameEnabled === true &&
+      miniGamesEnabled &&
         h(MiniGameLauncher, {
           open: miniGameOpen,
           onClose: () => setMiniGameOpen(false),

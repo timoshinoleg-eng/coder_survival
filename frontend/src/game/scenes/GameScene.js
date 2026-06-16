@@ -289,9 +289,11 @@ export default class GameScene extends Phaser.Scene {
     const flashIntensity = Math.min(0.25, 0.12 + strength * 0.02);
     this.cameras.main.flash(100, 74, 222, 128, flashIntensity);
 
-    // Screen shake intensity based on strength
-    const shakeIntensity = Math.min(0.012, 0.004 + strength * 0.001);
-    this.cameras.main.shake(120, shakeIntensity);
+    // Ordinary taps should feel stable on mobile; reserve shake for big hits only.
+    if (!this.lowPowerEffects && strength >= 5) {
+      const shakeIntensity = Math.min(0.0045, 0.0015 + strength * 0.00035);
+      this.cameras.main.shake(90, shakeIntensity);
+    }
   }
 
   showRandomEvent(payload) {
@@ -434,11 +436,7 @@ export default class GameScene extends Phaser.Scene {
     this.tremorParticles.setPosition(avatarX, avatarY);
     this.tremorParticles.emitting = energyPercent <= 20;
 
-    if (energyPercent <= 20 && !this.tremorShakeTimer) {
-      this.tremorShakeTimer = setInterval(() => {
-        this.cameras.main.shake(200, 0.005);
-      }, 2000);
-    } else if (energyPercent > 20 && this.tremorShakeTimer) {
+    if (energyPercent > 20 && this.tremorShakeTimer) {
       clearInterval(this.tremorShakeTimer);
       this.tremorShakeTimer = null;
     }
