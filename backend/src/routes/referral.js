@@ -7,11 +7,173 @@ import { buildReferralClaimReward, getUnlockedReferralMilestones, parseReferralC
 import { checkAchievement } from '../utils/achievements.js';
 
 const router = Router();
+const internalReferralRouter = Router();
 const REFERRAL_MILESTONES = Object.keys(REFERRAL_MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
 const STAGE3_REFERRAL_MILESTONES = Object.keys(STAGE3.REFERRAL.MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
 
 function getBotUsername() {
   return process.env.BOT_USERNAME || 'coder_survival_bot';
+}
+
+async function bindReferral({
+  client,
+  referrerTelegramId,
+  referredTelegramId,
+  referredProfile = {},
+  isReferredPremium = false,
+  clientIp = null,
+  deviceFingerprint = null
+}) {
+  if (
+    !Number.isFinite(Number(referrerTelegramId)) ||
+    !Number.isFinite(Number(referredTelegramId)) ||
+    Number(referrerTelegramId) === Number(referredTelegramId)
+  ) {
+    return { ok: false, status: 400, error: 'Invalid referral payload' };
+  }
+
+  const referrerResult = await client.query(
+    `SELECT id FROM users WHERE telegram_id = $1`,
+    [Number(referrerTelegramId)]
+  );
+  if (referrerResult.rows.length === 0) {
+    return { ok: false, status: 404, error: 'Referrer not found' };
+  }
+
+  const referrerId = referrerResult.rows[0].id;
+  const referredUserResult = await client.query(
+    `INSERT INTO users (telegram_id, username, first_name, last_name)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (telegram_id) DO UPDATE SET
+       username = COALESCE(EXCLUDED.username, users.username),
+       first_name = COALESCE(EXCLUDED.first_name, users.first_name),
+       last_name = COALESCE(EXCLUDED.last_name, users.last_name)
+     RETURNING id`,
+    [
+      Number(referredTelegramId),
+      referredProfile.username || null,
+      referredProfile.firstName || null,
+      referredProfile.lastName || null
+    ]
+  );
+  const referredUserId = referredUserResult.rows[0].id;
+
+  if (referrerId === referredUserId) {
+    return { ok: false, status: 400, error: 'Self-referral is not allowed' };
+  }
+
+  await client.query(
+    `INSERT INTO progression (user_id)
+     VALUES ($1)
+     ON CONFLICT (user_id) DO NOTHING`,
+    [referredUserId]
+  );
+  const progressResult = await client.query(
+    `SELECT referral_state FROM progression WHERE user_id = $1 FOR UPDATE`,
+    [referredUserId]
+  );
+  const currentReferralState = progressResult.rows[0]?.referral_state || {};
+  const existingInvitedBy = Number(currentReferralState.invitedBy || 0);
+  if (existingInvitedBy && existingInvitedBy !== referrerId) {
+    return { ok: true, created: false, existing: true, status: 'already_referred' };
+  }
+
+  let fraudFlag = null;
+  let hardReject = false;
+  let rejectReason = null;
+
+  if (clientIp) {
+    const ipCountResult = await client.query(
+      `SELECT COUNT(*) as cnt
+       FROM referrals
+       WHERE bind_ip = $1::inet
+         AND created_at > NOW() - INTERVAL '1 day'`,
+      [clientIp]
+    );
+    const ipCount = parseInt(ipCountResult.rows[0].cnt, 10);
+    if (ipCount >= 5) {
+      hardReject = true;
+      rejectReason = 'ip_hard_limit';
+    } else if (ipCount >= 3) {
+      fraudFlag = 'high_ip_volume';
+    }
+  }
+
+  if (deviceFingerprint && !hardReject) {
+    const deviceResult = await client.query(
+      `SELECT referrer_id, COUNT(*) as cnt
+       FROM referrals
+       WHERE device_hash = $1
+         AND created_at > NOW() - INTERVAL '7 days'
+       GROUP BY referrer_id`,
+      [deviceFingerprint]
+    );
+    const uniqueReferrers = deviceResult.rows.length;
+    if (uniqueReferrers >= 3) {
+      hardReject = true;
+      rejectReason = 'device_multi_referrer';
+    } else if (uniqueReferrers >= 2) {
+      fraudFlag = fraudFlag || 'device_shared';
+    }
+  }
+
+  if (hardReject) {
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, context)
+       VALUES ($1, 'referral_bind_rejected', $2::jsonb)`,
+      [
+        referrerId,
+        JSON.stringify({
+          referredId: referredUserId,
+          reason: rejectReason,
+          bindIp: clientIp
+        })
+      ]
+    );
+    return { ok: true, created: false, existing: false, rejected: true, status: 'rejected' };
+  }
+
+  const insertResult = await client.query(
+    `INSERT INTO referrals (referrer_id, referred_id, status, bind_ip, device_hash, is_referred_premium)
+     VALUES ($1, $2, 'pending', $3::inet, $4, $5)
+     ON CONFLICT (referrer_id, referred_id) DO NOTHING
+     RETURNING id`,
+    [referrerId, referredUserId, clientIp, deviceFingerprint, isReferredPremium]
+  );
+
+  const tracked = trackReferral(currentReferralState, referrerId);
+  await client.query(
+    `UPDATE progression SET referral_state = $2 WHERE user_id = $1`,
+    [referredUserId, JSON.stringify(tracked.state)]
+  );
+
+  if (fraudFlag && insertResult.rows.length > 0) {
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, context)
+       VALUES ($1, 'referral_bind_flagged', $2::jsonb)`,
+      [
+        referrerId,
+        JSON.stringify({
+          referredId: referredUserId,
+          flag: fraudFlag,
+          bindIp: clientIp
+        })
+      ]
+    );
+  }
+
+  if (insertResult.rows.length > 0) {
+    await checkAchievement(client, referrerId, 'referral');
+  }
+
+  return {
+    ok: true,
+    created: insertResult.rows.length > 0,
+    existing: insertResult.rows.length === 0,
+    status: tracked.status,
+    referrerId,
+    referredUserId
+  };
 }
 
 async function ensureUserAndCode(client, telegramUser) {
@@ -117,7 +279,7 @@ router.get('/link', async (req, res, next) => {
       res.json({
         success: true,
         referralCode: ensured.code,
-        referralLink: `https://t.me/${getBotUsername()}?startapp=${ensured.code}`
+        referralLink: `https://t.me/${getBotUsername()}?start=${ensured.code}`
       });
     } finally {
       client.release();
@@ -175,7 +337,7 @@ router.get('/status', async (req, res, next) => {
       return res.json({
         success: true,
         referralCode: ensured.code,
-        referralLink: `https://t.me/${getBotUsername()}?startapp=${ensured.code}`,
+        referralLink: `https://t.me/${getBotUsername()}?start=${ensured.code}`,
         activeThresholdCommits: STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS,
         antiFarmDays: STAGE3.REFERRAL.ANTI_FARM_DAYS,
         total: Number(activeResult.rows[0]?.total || 0),
@@ -209,7 +371,7 @@ router.post('/track', async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const refCode = req.body?.refCode || req.body?.referral_code || req.query?.startapp;
+  const refCode = req.body?.refCode || req.body?.referral_code || req.query?.startapp || req.query?.start;
   const inviterTelegramId = parseReferralCode(refCode);
   if (!inviterTelegramId) return res.status(400).json({ error: 'Неверная реферальная ссылка' });
 
@@ -217,50 +379,80 @@ router.post('/track', async (req, res, next) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const inviterResult = await client.query(
-        `SELECT id FROM users WHERE telegram_id = $1`,
-        [Number(inviterTelegramId)]
-      );
-      if (inviterResult.rows.length === 0 || Number(inviterTelegramId) === Number(telegramUser.id)) {
+      const bindResult = await bindReferral({
+        client,
+        referrerTelegramId: Number(inviterTelegramId),
+        referredTelegramId: Number(telegramUser.id),
+        referredProfile: {
+          username: telegramUser.username || null,
+          firstName: telegramUser.first_name || null,
+          lastName: telegramUser.last_name || null
+        },
+        isReferredPremium: telegramUser.is_premium === true
+      });
+      if (!bindResult.ok) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Неверная реферальная ссылка' });
-      }
-      const invitedResult = await client.query(
-        `SELECT id FROM users WHERE telegram_id = $1`,
-        [telegramUser.id]
-      );
-      if (invitedResult.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'User not found' });
-      }
-
-      const inviterId = inviterResult.rows[0].id;
-      const invitedId = invitedResult.rows[0].id;
-      if (inviterId === invitedId) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Неверная реферальная ссылка' });
+        return res.status(bindResult.status).json({ error: bindResult.error });
       }
 
-      await client.query(
-        `INSERT INTO referrals (referrer_id, referred_id, status, is_referred_premium)
-         VALUES ($1, $2, 'pending', $3)
-         ON CONFLICT (referrer_id, referred_id) DO NOTHING`,
-        [inviterId, invitedId, telegramUser.is_premium === true]
-      );
-
-      const progressResult = await client.query(
-        `SELECT referral_state FROM progression WHERE user_id = $1 FOR UPDATE`,
-        [invitedId]
-      );
-      const tracked = trackReferral(progressResult.rows[0]?.referral_state || {}, inviterId);
-      await client.query(
-        `UPDATE progression SET referral_state = $2 WHERE user_id = $1`,
-        [invitedId, JSON.stringify(tracked.state)]
-      );
-
-      await checkAchievement(client, inviterId, 'referral');
       await client.query('COMMIT');
-      return res.json({ success: true, status: tracked.status });
+      return res.json({
+        success: true,
+        status: bindResult.status,
+        existing: bindResult.existing === true
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+internalReferralRouter.post('/track-bot-entry', async (req, res, next) => {
+  const secret = req.headers['x-bot-backend-secret'];
+  if (!process.env.BOT_BACKEND_SECRET || secret !== process.env.BOT_BACKEND_SECRET) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const telegramId = Number(req.body?.telegramId);
+  const referrerTelegramId = Number(req.body?.referrerId);
+  if (!Number.isFinite(telegramId) || !Number.isFinite(referrerTelegramId)) {
+    return res.status(400).json({ error: 'Invalid payload' });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const bindResult = await bindReferral({
+        client,
+        referrerTelegramId,
+        referredTelegramId: telegramId,
+        referredProfile: {
+          username: req.body?.username || null,
+          firstName: req.body?.firstName || null,
+          lastName: req.body?.lastName || null
+        },
+        isReferredPremium: req.body?.isPremium === true
+      });
+      if (!bindResult.ok) {
+        await client.query('ROLLBACK');
+        return res.status(bindResult.status).json({ error: bindResult.error });
+      }
+
+      await client.query('COMMIT');
+      // The current referrals schema has no source column, so bot/source is audit-only for now.
+      return res.json({
+        ok: true,
+        created: bindResult.created,
+        existing: bindResult.existing,
+        status: bindResult.status,
+        sourcePersisted: false
+      });
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -652,4 +844,5 @@ router.post('/claim-milestone', async (req, res, next) => {
   }
 });
 
+export { internalReferralRouter };
 export default router;
