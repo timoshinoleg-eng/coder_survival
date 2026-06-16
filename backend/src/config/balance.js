@@ -502,9 +502,9 @@ const STAGE3 = {
 
   REFERRAL: {
     MILESTONE_REWARDS: {
-      1: { inviter: { commits: 50, energy: 25 }, invited: { commits: 100, inventory: { coffee_cups: 1 } } },
-      3: { inviter: { commits: 200, energy: 50, stars: 5 }, invited: { commits: 100, energy: 25 } },
-      5: { inviter: { skin: 'team_lead', energy: 100 }, invited: { commits: 100, stars: 5 } }
+      1: { inviter: { stars: 50 }, invited: { commits: 100, inventory: { coffee_cups: 1 } } },
+      3: { inviter: { stars: 200 }, invited: { commits: 100, energy: 25 } },
+      5: { inviter: { stars: 500, skin: 'team_lead' }, invited: { commits: 100, stars: 5 } }
     },
     ACTIVE_THRESHOLD_COMMITS: 20,
     ANTI_FARM_DAYS: 2,

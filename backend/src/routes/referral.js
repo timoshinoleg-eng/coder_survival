@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { REFERRAL_ACTIVE_THRESHOLD_COMMITS, REFERRAL_MILESTONE_REWARDS, STAGE3 } from '../config/balance.js';
+import { STAGE3 } from '../config/balance.js';
 import { logDailyFarm } from '../utils/farmLog.js';
 import { ensurePlayerLevel, addPlayerXp } from '../utils/vnext.js';
 import { buildReferralClaimReward, getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
@@ -8,11 +8,96 @@ import { checkAchievement } from '../utils/achievements.js';
 
 const router = Router();
 const internalReferralRouter = Router();
-const REFERRAL_MILESTONES = Object.keys(REFERRAL_MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
+const REFERRAL_MILESTONES = Object.keys(STAGE3.REFERRAL.MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
 const STAGE3_REFERRAL_MILESTONES = Object.keys(STAGE3.REFERRAL.MILESTONE_REWARDS).map(Number).sort((a, b) => a - b);
 
 function getBotUsername() {
   return process.env.BOT_USERNAME || 'coder_survival_bot';
+}
+
+function getMilestoneReward(milestone) {
+  return STAGE3.REFERRAL.MILESTONE_REWARDS[milestone]?.inviter || {};
+}
+
+function getClaimedMilestones(referralState, legacyClaimRows = []) {
+  const fromState = Array.isArray(referralState?.milestonesReached)
+    ? referralState.milestonesReached.map(Number)
+    : [];
+  const fromLegacy = legacyClaimRows.map((row) => Number(row.milestone));
+  return Array.from(new Set([...fromState, ...fromLegacy])).sort((a, b) => a - b);
+}
+
+async function getReferralProgress(client, userId) {
+  const activeResult = await client.query(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(*) FILTER (
+         WHERE COALESCE(p.commits_total, 0) >= $2
+           AND p.first_active_at IS NOT NULL
+           AND p.first_active_at <= NOW() - ($3::int * INTERVAL '1 day')
+       )::int AS active,
+       COUNT(*) FILTER (
+         WHERE COALESCE(p.commits_total, 0) >= $2
+           AND p.first_active_at IS NOT NULL
+           AND p.first_active_at <= NOW() - ($3::int * INTERVAL '1 day')
+           AND r.is_referred_premium = TRUE
+       )::int AS premium_active
+     FROM referrals r
+     LEFT JOIN progression p ON p.user_id = r.referred_id
+     WHERE r.referrer_id = $1`,
+    [userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS, STAGE3.REFERRAL.ANTI_FARM_DAYS]
+  );
+
+  return {
+    total: Number(activeResult.rows[0]?.total || 0),
+    active: Number(activeResult.rows[0]?.active || 0),
+    premiumActive: Number(activeResult.rows[0]?.premium_active || 0)
+  };
+}
+
+async function applyReferralReward(client, userId, reward) {
+  const level = await ensurePlayerLevel(client, userId);
+  const maxEnergy = level.resolved?.maxEnergy || 100;
+  const energyAdd = Number(reward.energy || 0);
+  const commitsAdd = Number(reward.commits || 0);
+
+  let inventoryUpdate = '';
+  const inventoryParams = [];
+  let paramIdx = 5;
+
+  if (reward.stars) {
+    inventoryUpdate += `inventory = COALESCE(inventory, '{}'::jsonb) || jsonb_build_object($${paramIdx}, COALESCE((inventory->>$${paramIdx})::int, 0) + $${paramIdx + 1}),`;
+    inventoryParams.push('stars', Number(reward.stars));
+    paramIdx += 2;
+  }
+
+  await client.query(
+    `UPDATE progression
+     SET commits_total = commits_total + $2,
+         lifetime_loc = lifetime_loc + $2,
+         commits_current = commits_current + $2,
+         energy = LEAST($3, energy + $4)
+         ${inventoryUpdate ? `, ${inventoryUpdate}` : ''}
+     WHERE user_id = $1`,
+    [userId, commitsAdd, maxEnergy, energyAdd, ...inventoryParams]
+  );
+
+  if (commitsAdd > 0) {
+    await logDailyFarm(client, userId, commitsAdd);
+  }
+
+  if (reward.skin) {
+    await client.query(
+      `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
+       VALUES ($1, $2, false, NOW())
+       ON CONFLICT (user_id, skin_id) DO NOTHING`,
+      [userId, reward.skin]
+    );
+  }
+
+  if (reward.xp) {
+    await addPlayerXp(client, userId, Number(reward.xp));
+  }
 }
 
 async function bindReferral({
@@ -210,31 +295,25 @@ router.get('/stats', async (req, res, next) => {
         return res.status(ensured.status).json({ error: ensured.error });
       }
 
-      const statsResult = await client.query(
-        `SELECT
-          COUNT(*) as total,
-          COUNT(*) FILTER (
-            WHERE COALESCE(p.commits_total, 0) >= $2
-          ) as active
-         FROM referrals r
-         LEFT JOIN progression p ON p.user_id = r.referred_id
-         WHERE r.referrer_id = $1`,
-        [ensured.userId, REFERRAL_ACTIVE_THRESHOLD_COMMITS]
-      );
-
-      const total = parseInt(statsResult.rows[0].total);
-      const active = parseInt(statsResult.rows[0].active);
+      const { total, active } = await getReferralProgress(client, ensured.userId);
       const nextMilestone = REFERRAL_MILESTONES.find((m) => active < m) || null;
 
-      const claimedResult = await client.query(
-        `SELECT milestone FROM referral_milestone_claims WHERE user_id = $1`,
-        [ensured.userId]
-      );
-      const claimedMilestones = claimedResult.rows.map(r => r.milestone);
+      const [progressResult, claimedResult] = await Promise.all([
+        client.query(
+          `SELECT referral_state FROM progression WHERE user_id = $1`,
+          [ensured.userId]
+        ),
+        client.query(
+          `SELECT milestone FROM referral_milestone_claims WHERE user_id = $1`,
+          [ensured.userId]
+        )
+      ]);
+      const referralState = progressResult.rows[0]?.referral_state || {};
+      const claimedMilestones = getClaimedMilestones(referralState, claimedResult.rows);
 
       const milestones = REFERRAL_MILESTONES.map((target) => ({
         target,
-        reward: REFERRAL_MILESTONE_REWARDS[target] || {},
+        reward: getMilestoneReward(target),
         reached: active >= target,
         claimed: claimedMilestones.includes(target)
       }));
@@ -245,7 +324,7 @@ router.get('/stats', async (req, res, next) => {
         stats: {
           total,
           active,
-          activeThresholdCommits: REFERRAL_ACTIVE_THRESHOLD_COMMITS,
+          activeThresholdCommits: STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS,
           nextMilestone,
           milestones,
           claimedMilestones
@@ -299,16 +378,7 @@ router.get('/status', async (req, res, next) => {
       const ensured = await ensureUserAndCode(client, telegramUser);
       if (ensured.error) return res.status(ensured.status).json({ error: ensured.error });
 
-      const activeResult = await client.query(
-        `SELECT
-           COUNT(*)::int AS total,
-           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - ($3::int * INTERVAL '1 day'))::int AS active,
-           COUNT(*) FILTER (WHERE COALESCE(p.commits_total, 0) >= $2 AND p.first_active_at IS NOT NULL AND p.first_active_at <= NOW() - ($3::int * INTERVAL '1 day') AND r.is_referred_premium = TRUE)::int AS premium_active
-         FROM referrals r
-         LEFT JOIN progression p ON p.user_id = r.referred_id
-         WHERE r.referrer_id = $1`,
-        [ensured.userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS, STAGE3.REFERRAL.ANTI_FARM_DAYS]
-      );
+      const progress = await getReferralProgress(client, ensured.userId);
 
       const referredResult = await client.query(
         `SELECT
@@ -331,8 +401,9 @@ router.get('/status', async (req, res, next) => {
       );
       const referralState = claimedResult.rows[0]?.referral_state || {};
       const claimed = (referralState.milestonesReached || []).map(Number);
-      const active = Number(activeResult.rows[0]?.active || 0);
+      const active = progress.active;
       const pendingRewards = getUnlockedReferralMilestones(active, claimed);
+      const nextMilestone = STAGE3_REFERRAL_MILESTONES.find((milestone) => active < milestone) || null;
 
       return res.json({
         success: true,
@@ -340,9 +411,10 @@ router.get('/status', async (req, res, next) => {
         referralLink: `https://t.me/${getBotUsername()}?start=${ensured.code}`,
         activeThresholdCommits: STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS,
         antiFarmDays: STAGE3.REFERRAL.ANTI_FARM_DAYS,
-        total: Number(activeResult.rows[0]?.total || 0),
+        total: progress.total,
         active,
-        premiumActive: Number(activeResult.rows[0]?.premium_active || 0),
+        premiumActive: progress.premiumActive,
+        nextMilestone,
         referred: referredResult.rows.map(r => ({
           username: r.username,
           commitsTotal: r.commits_total,
@@ -353,7 +425,7 @@ router.get('/status', async (req, res, next) => {
         })),
         milestones: STAGE3_REFERRAL_MILESTONES.map((milestone) => ({
           milestone,
-          reward: STAGE3.REFERRAL.MILESTONE_REWARDS[milestone],
+          reward: getMilestoneReward(milestone),
           reached: active >= milestone,
           claimed: claimed.includes(milestone)
         })),
@@ -371,7 +443,7 @@ router.post('/track', async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const refCode = req.body?.refCode || req.body?.referral_code || req.query?.startapp || req.query?.start;
+  const refCode = req.body?.refCode || req.body?.referral_code || req.query?.start || req.query?.startapp;
   const inviterTelegramId = parseReferralCode(refCode);
   if (!inviterTelegramId) return res.status(400).json({ error: 'Неверная реферальная ссылка' });
 
@@ -494,59 +566,43 @@ router.post('/claim', async (req, res, next) => {
       const claimed = (referralState.milestonesReached || []).map(Number);
       if (claimed.includes(milestone)) {
         await client.query('ROLLBACK');
-        return res.status(409).json({ error: 'Already claimed' });
+        return res.json({
+          success: true,
+          already_claimed: true,
+          milestone,
+          reward: getMilestoneReward(milestone)
+        });
       }
 
-      const activeResult = await client.query(
-        `SELECT COUNT(*)::int AS active
-         FROM referrals r
-         LEFT JOIN progression p ON p.user_id = r.referred_id
-         WHERE r.referrer_id = $1
-           AND COALESCE(p.commits_total, 0) >= $2`,
-        [userId, STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS]
-      );
-      const active = Number(activeResult.rows[0]?.active || 0);
-      if (active < milestone) {
+      const progress = await getReferralProgress(client, userId);
+      if (progress.active < milestone) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Milestone not reached' });
       }
 
-      const reward = STAGE3.REFERRAL.MILESTONE_REWARDS[milestone]?.inviter || {};
+      const reward = buildReferralClaimReward(getMilestoneReward(milestone), progress.premiumActive >= milestone);
       const nextState = {
         ...referralState,
         milestonesReached: [...claimed, milestone].sort((a, b) => a - b),
         pendingRewards: (referralState.pendingRewards || []).filter((item) => Number(item.milestone) !== milestone)
       };
 
-      // Build inventory update
-      const inventoryUpdate = {};
-      if (reward.stars) inventoryUpdate.stars = reward.stars;
-      if (reward.skin) inventoryUpdate[`skin_${reward.skin}`] = 1;
-
       await client.query(
         `UPDATE progression
-         SET referral_state = $2,
-             energy = LEAST($3, energy + $4),
-             commits_total = commits_total + $5,
-             lifetime_loc = lifetime_loc + $5,
-             inventory = COALESCE(inventory, '{}'::jsonb) || $6::jsonb
+         SET referral_state = $2
          WHERE user_id = $1`,
-        [
-          userId,
-          JSON.stringify(nextState),
-          100, // maxEnergy default; proper cap would need rankMeta but 100 is safe floor
-          reward.energy || 0,
-          reward.commits || 0,
-          JSON.stringify(inventoryUpdate)
-        ]
+        [userId, JSON.stringify(nextState)]
       );
-
-      if (reward.xp) {
-        await addPlayerXp(client, userId, reward.xp);
-      }
+      await applyReferralReward(client, userId, reward);
 
       await client.query('COMMIT');
-      return res.json({ success: true, milestone, reward });
+      return res.json({
+        success: true,
+        already_claimed: false,
+        milestone,
+        reward,
+        premiumApplied: progress.premiumActive >= milestone
+      });
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -753,17 +809,8 @@ router.post('/claim-milestone', async (req, res, next) => {
       }
       const userId = userResult.rows[0].id;
 
-      const activeResult = await client.query(
-        `SELECT COUNT(*) as active,
-                COUNT(*) FILTER (WHERE r.is_referred_premium = TRUE) as premium_active
-         FROM referrals r
-         LEFT JOIN progression p ON p.user_id = r.referred_id
-         WHERE r.referrer_id = $1 AND COALESCE(p.commits_total, 0) >= $2`,
-        [userId, REFERRAL_ACTIVE_THRESHOLD_COMMITS]
-      );
-      const active = parseInt(activeResult.rows[0].active);
-      const premiumActive = parseInt(activeResult.rows[0].premium_active || 0, 10);
-      if (active < milestone) {
+      const progress = await getReferralProgress(client, userId);
+      if (progress.active < milestone) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Milestone not reached' });
       }
@@ -774,64 +821,33 @@ router.post('/claim-milestone', async (req, res, next) => {
       );
       if (claimedResult.rows.length > 0) {
         await client.query('ROLLBACK');
-        return res.status(409).json({ error: 'Already claimed' });
+        return res.json({
+          success: true,
+          already_claimed: true,
+          milestone,
+          reward: buildReferralClaimReward(rewardDef.inviter || {}, progress.premiumActive >= milestone),
+          premiumApplied: progress.premiumActive >= milestone
+        });
       }
 
-      const inviterReward = buildReferralClaimReward(rewardDef.inviter || {}, premiumActive >= milestone);
-
-      // Apply commits / energy via progression update
-      const level = await ensurePlayerLevel(client, userId);
-      const maxEnergy = level.resolved?.maxEnergy || 100;
-      const energyAdd = inviterReward.energy || 0;
-
-      let inventoryUpdate = '';
-      const inventoryParams = [];
-      let paramIdx = 4;
-
-      if (inviterReward.stars) {
-        inventoryUpdate += `inventory = COALESCE(inventory, '{}') || jsonb_build_object($${paramIdx}, COALESCE((inventory->>$${paramIdx})::int, 0) + $${paramIdx + 1}),`;
-        inventoryParams.push('stars', inviterReward.stars);
-        paramIdx += 2;
-      }
-
-      await client.query(
-        `UPDATE progression
-         SET commits_total = commits_total + $2,
-             lifetime_loc = lifetime_loc + $2,
-             commits_current = commits_current + $2,
-             energy = LEAST($3, energy + $4)
-             ${inventoryUpdate ? `, ${inventoryUpdate}` : ''}
-         WHERE user_id = $1`,
-        [userId, inviterReward.commits || 0, maxEnergy, energyAdd, ...inventoryParams]
-      );
-      if (Number(inviterReward.commits || 0) > 0) {
-        await logDailyFarm(client, userId, Number(inviterReward.commits || 0));
-      }
-
-      // Grant skin if present
-      if (inviterReward.skin) {
-        await client.query(
-          `INSERT INTO user_skins (user_id, skin_id, equipped, unlocked_at)
-           VALUES ($1, $2, false, NOW())
-           ON CONFLICT (user_id, skin_id) DO NOTHING`,
-          [userId, inviterReward.skin]
-        );
-      }
+      const inviterReward = buildReferralClaimReward(rewardDef.inviter || {}, progress.premiumActive >= milestone);
+      await applyReferralReward(client, userId, inviterReward);
 
       await client.query(
         `INSERT INTO referral_milestone_claims (user_id, milestone, reward_energy)
          VALUES ($1, $2, $3)`,
-        [userId, milestone, energyAdd]
+        [userId, milestone, Number(inviterReward.energy || 0)]
       );
 
       await client.query('COMMIT');
 
       res.json({
         success: true,
+        already_claimed: false,
         milestone,
         reward: inviterReward,
-        premiumApplied: premiumActive >= milestone,
-        newEnergy: energyAdd
+        premiumApplied: progress.premiumActive >= milestone,
+        newEnergy: Number(inviterReward.energy || 0)
       });
     } catch (err) {
       await client.query('ROLLBACK');
