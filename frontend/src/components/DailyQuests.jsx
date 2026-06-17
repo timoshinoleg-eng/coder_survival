@@ -177,7 +177,7 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
     }),
     list.some((quest) => quest.completed && !quest.claimed) && h('button', {
       type: 'button',
-      className: 'pixel-button',
+      className: 'pixel-button pixel-button--quest-claim',
       onClick: handleClaim,
       disabled: claiming,
       style: {
@@ -187,6 +187,7 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
         background: '#4ade80',
         color: '#052e16',
         fontWeight: 800,
+        fontSize: '12px',
       },
     }, claiming ? 'Забираем...' : 'Забрать награды'),
     daily?.fullClearAvailable && h('button', {

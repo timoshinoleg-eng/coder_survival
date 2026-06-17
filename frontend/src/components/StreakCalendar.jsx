@@ -18,7 +18,7 @@ export default function StreakCalendar() {
   const { streak, claimStreak, recoverStreak, showToast, setShopOpen } = useGameState();
   const [claiming, setClaiming] = useState(false);
   const [recovering, setRecovering] = useState(false);
-  const days = streak?.calendar || [];
+  const days = (streak?.calendar || []).slice();
   const loggedInToday = streak?.loggedInToday === true;
   const canRecover = streak?.canRecover === true;
   const recoveryCost = streak?.recoveryCost || 5;

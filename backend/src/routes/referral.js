@@ -66,7 +66,7 @@ async function applyReferralReward(client, userId, reward) {
   let paramIdx = 5;
 
   if (reward.stars) {
-    inventoryUpdate += `inventory = COALESCE(inventory, '{}'::jsonb) || jsonb_build_object($${paramIdx}, COALESCE((inventory->>$${paramIdx})::int, 0) + $${paramIdx + 1}),`;
+    inventoryUpdate += `inventory = COALESCE(inventory, '{}'::jsonb) || jsonb_build_object($${paramIdx}, COALESCE((inventory->>$${paramIdx})::int, 0) + $${paramIdx + 1})`;
     inventoryParams.push('stars', Number(reward.stars));
     paramIdx += 2;
   }

@@ -98,6 +98,10 @@ export default function ShopPanel() {
   };
 
   const handleBuy = async (productId) => {
+    if (productId === 'premium_pass') {
+      showToast('Premium Track скоро: checkout и эксклюзивные награды ещё в доработке.', 'info', 2600);
+      return;
+    }
     setBuying(productId);
     setBuyResult(null);
     const product = products.find(p => p.id === productId);
@@ -112,9 +116,7 @@ export default function ShopPanel() {
       });
       if (result.success) {
         audioManager.play('purchase');
-        if (productId === 'premium_pass') {
-          showToast('Premium Pass покупка создана. После оплаты откроется premium track.', 'success', 3000);
-        } else if (result.status === 'opened') {
+        if (result.status === 'opened') {
           showToast('Invoice открыт. После оплаты товар поступит автоматически.', 'info', 3000);
         } else {
           showToast('Покупка завершена! Товар скоро будет выдан.', 'success', 3000);
@@ -330,6 +332,7 @@ export default function ShopPanel() {
 
           filteredProducts.map((product) => {
             const isRecommended = product.id === recommendedId;
+            const isComingSoon = product.id === 'premium_pass';
             return h('div', {
               key: product.id,
               style: {
@@ -347,6 +350,16 @@ export default function ShopPanel() {
               h('div', { style: { flex: 1 } }, [
                 h('div', { style: { fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' } }, [
                   product.name,
+                  isComingSoon && h('span', {
+                    style: {
+                      fontSize: '9px',
+                      background: '#6b7280',
+                      color: '#f9fafb',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }
+                  }, 'СКОРО'),
                   isRecommended && h('span', {
                     style: {
                       fontSize: '9px',
@@ -358,27 +371,33 @@ export default function ShopPanel() {
                     }
                   }, 'REC')
                 ]),
-                h('div', { style: { fontSize: '11px', color: '#8ba1bb' } }, product.description)
+                h('div', { style: { fontSize: '11px', color: '#8ba1bb' } }, isComingSoon
+                  ? 'Покупка временно отключена: допиливаем checkout, скины и рамки.'
+                  : product.description)
               ]),
               h('div', { style: { textAlign: 'right' } }, [
                 h('div', { style: { fontWeight: 'bold', color: '#facc15', fontSize: '13px' } }, `⭐ ${product.stars}`),
                 h('button', {
                   onClick: () => handleBuy(product.id),
-                  disabled: buying === product.id,
+                  disabled: buying === product.id || isComingSoon,
                   style: {
                     marginTop: '4px',
                     padding: '4px 10px',
                     borderRadius: '6px',
                     border: 'none',
-                    background: buying === product.id ? '#274267' : '#4ade80',
-                    color: buying === product.id ? '#8ba1bb' : '#0a1f12',
+                    background: isComingSoon ? '#6b7280' : buying === product.id ? '#274267' : '#4ade80',
+                    color: isComingSoon ? '#e5e7eb' : buying === product.id ? '#8ba1bb' : '#0a1f12',
                     fontWeight: 'bold',
                     fontSize: '11px',
-                    cursor: buying === product.id ? 'not-allowed' : 'pointer'
+                    cursor: buying === product.id || isComingSoon ? 'not-allowed' : 'pointer'
                   }
-                }, buying === product.id ? '...' : 'Купить'),
+                }, isComingSoon ? 'Скоро' : buying === product.id ? '...' : 'Купить'),
                 h('button', {
                   onClick: async () => {
+                    if (isComingSoon) {
+                      showToast('TON-оплата для Premium Track вернётся позже вместе с полным релизом.', 'info', 2600);
+                      return;
+                    }
                     if (!walletAddress) {
                       await connect();
                       return;
@@ -392,16 +411,16 @@ export default function ShopPanel() {
                     marginTop: '4px',
                     padding: '4px 8px',
                     borderRadius: '6px',
-                    border: '1px solid #30527e',
-                    background: '#1a3a5c',
-                    color: '#dce9f9',
+                    border: isComingSoon ? '1px solid #6b7280' : '1px solid #30527e',
+                    background: isComingSoon ? '#374151' : '#1a3a5c',
+                    color: isComingSoon ? '#d1d5db' : '#dce9f9',
                     fontWeight: 'bold',
                     fontSize: '10px',
-                    cursor: 'pointer',
+                    cursor: isComingSoon ? 'not-allowed' : 'pointer',
                     display: 'block',
                     width: '100%'
                   }
-                }, walletAddress ? '💎 Pay with TON' : '💎 Connect TON')
+                }, isComingSoon ? '💎 Скоро' : walletAddress ? '💎 Pay with TON' : '💎 Connect TON')
               ])
             ]);
           }),

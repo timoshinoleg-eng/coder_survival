@@ -301,7 +301,7 @@ export default function ReferralPanel({ open, onClose }) {
                             marginBottom: "6px",
                           },
                         },
-                        "Твой друг получит +100 коммитов и эспрессо, когда наберёт 20 коммитов за 2 дня",
+                        "Приглашай активных друзей и забирай milestone-награды: 50/200/500 Stars и Team Lead skin.",
                       ),
                       h(
                         "div",

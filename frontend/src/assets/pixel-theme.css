@@ -53,6 +53,18 @@
   border-color: #60a5fa;
 }
 
+.pixel-button--quest-claim {
+  font-size: 12px;
+  text-shadow: none;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 0 1px rgba(5, 46, 22, 0.18) inset;
+}
+
+.pixel-button--quest-claim:active {
+  transform: none;
+  box-shadow: 0 0 0 1px rgba(5, 46, 22, 0.18) inset;
+}
+
 /* Text */
 .pixel-text {
   font-family: 'Press Start 2P', 'Courier New', monospace;

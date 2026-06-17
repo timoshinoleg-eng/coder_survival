@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
+import { useTelegramStories } from '../hooks/useTelegramStories.js';
 import { apiRequest } from '../utils/api.js';
 import { audioManager } from '../utils/AudioManager.js';
 
@@ -23,6 +24,7 @@ const FORMATS = [
 export default function MemeGenerator({ open, onClose }) {
   const { rankName, commits, streakDays, depression, energy, maxEnergy, user } = useGameState();
   const { shareText, haptic, initData } = useTelegram();
+  const { shareToStory, isAvailable: isStorySharingAvailable } = useTelegramStories();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [format, setFormat] = useState('1:1');
   const [loading, setLoading] = useState(true);
@@ -31,10 +33,13 @@ export default function MemeGenerator({ open, onClose }) {
 
   const template = MEME_TEMPLATES[selectedIndex];
   const imgSrc = `${API_BASE_URL}/api/meme?templateId=${template.id}&format=${format}`;
+  const isStoryMode = format === '9:16';
 
   useEffect(() => {
     if (open) {
       audioManager.duckForModal();
+      setSelectedIndex(Math.floor(Math.random() * MEME_TEMPLATES.length));
+      setFormat('1:1');
       setLoading(true);
       setError(false);
     } else {
@@ -49,6 +54,20 @@ export default function MemeGenerator({ open, onClose }) {
       setError(false);
     }
   }, [open, selectedIndex, format]);
+
+  const getCurrentBlob = useCallback(async () => {
+    if (blobUrl) {
+      const response = await fetch(blobUrl);
+      return response.blob();
+    }
+    const response = await fetch(imgSrc, {
+      headers: {
+        'X-Telegram-Init-Data': initData
+      }
+    });
+    if (!response.ok) throw new Error('Fetch failed');
+    return response.blob();
+  }, [blobUrl, imgSrc, initData]);
 
   useEffect(() => {
     if (!open) {
@@ -97,6 +116,25 @@ export default function MemeGenerator({ open, onClose }) {
 
   const handleShare = useCallback(async () => {
     haptic('success');
+
+    if (isStoryMode) {
+      try {
+        const imageBlob = await getCurrentBlob();
+        const storyText = `${template.label} · ${rankName || 'Junior'} · ${commits || 0} коммитов`;
+        const result = await shareToStory(imageBlob, storyText);
+        if (result?.success) {
+          try {
+            await apiRequest('/api/meme/share', {
+              method: 'POST',
+              body: { templateId: template.id, format, sharedTo: result.method || 'story' }
+            });
+          } catch (e) { /* non-blocking */ }
+          return;
+        }
+      } catch (err) {
+        console.log('Story share failed, falling back to generic share');
+      }
+    }
     
     // Пробуем нативный share с файлом (работает в мобильных браузерах и Telegram WebView)
     if (blobUrl && navigator.canShare) {
@@ -139,7 +177,7 @@ export default function MemeGenerator({ open, onClose }) {
     } catch (e) {
       // Non-blocking analytics
     }
-  }, [haptic, shareText, template, format, rankName, commits, streakDays, blobUrl]);
+  }, [haptic, shareText, template, format, rankName, commits, streakDays, blobUrl, isStoryMode, getCurrentBlob, shareToStory]);
 
   const handleDownload = useCallback(async () => {
     haptic('light');
@@ -202,56 +240,87 @@ export default function MemeGenerator({ open, onClose }) {
       flexDirection: 'column'
     }
   }, [
-    // Header
     h('div', {
       style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 14px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 2,
+        background: '#10192d',
         borderBottom: '1px solid #1f3552'
       }
     }, [
-      h('strong', { className: 'pixel-text', style: { fontSize: '12px' } }, '🎨 МЕМОГЕНЕРАТОР'),
-      h('button', {
-        onClick: onClose,
+      // Header
+      h('div', {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 14px',
+          borderBottom: '1px solid #1f3552'
+        }
+      }, [
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+          isStoryMode && h('button', {
+            onClick: () => { haptic('light'); setFormat('1:1'); },
+            className: 'pixel-button',
+            style: {
+              padding: '5px 8px',
+              background: '#131d33',
+              color: '#c7ddf5',
+              fontSize: '10px',
+              cursor: 'pointer'
+            }
+          }, '← Назад'),
+          h('strong', { className: 'pixel-text', style: { fontSize: '12px' } }, '🎨 МЕМОГЕНЕРАТОР')
+        ]),
+        h('button', {
+          onClick: onClose,
+          className: 'pixel-button',
+          style: {
+            border: 'none',
+            background: 'transparent',
+            color: '#9eb6d2',
+            fontSize: '18px',
+            cursor: 'pointer',
+            padding: '4px 8px',
+            lineHeight: 1
+          }
+        }, '×')
+      ]),
+
+      // Format toggle
+      h('div', {
+        style: {
+          display: 'flex',
+          gap: '6px',
+          padding: '10px 14px',
+          borderBottom: '1px solid #1f3552'
+        }
+      }, FORMATS.map(f => h('button', {
+        key: f.id,
+        onClick: () => { haptic('light'); setFormat(f.id); },
         className: 'pixel-button',
         style: {
-          border: 'none',
-          background: 'transparent',
-          color: '#9eb6d2',
-          fontSize: '18px',
+          flex: 1,
+          padding: '6px 0',
+          border: format === f.id ? `2px solid ${template.accentColor}` : '2px solid #1f3552',
+          background: format === f.id ? 'rgba(255,255,255,0.08)' : '#131d33',
+          color: format === f.id ? template.accentColor : '#9eb6d2',
+          fontSize: '11px',
           cursor: 'pointer',
-          padding: '4px 8px',
-          lineHeight: 1
+          fontWeight: format === f.id ? 700 : 400,
+          textTransform: 'uppercase'
         }
-      }, '×')
-    ]),
+      }, f.label))),
 
-    // Format toggle
-    h('div', {
-      style: {
-        display: 'flex',
-        gap: '6px',
-        padding: '10px 14px',
-        borderBottom: '1px solid #1f3552'
-      }
-    }, FORMATS.map(f => h('button', {
-      key: f.id,
-      onClick: () => { haptic('light'); setFormat(f.id); },
-      className: 'pixel-button',
-      style: {
-        flex: 1,
-        padding: '6px 0',
-        border: format === f.id ? `2px solid ${template.accentColor}` : '2px solid #1f3552',
-        background: format === f.id ? 'rgba(255,255,255,0.08)' : '#131d33',
-        color: format === f.id ? template.accentColor : '#9eb6d2',
-        fontSize: '11px',
-        cursor: 'pointer',
-        fontWeight: format === f.id ? 700 : 400,
-        textTransform: 'uppercase'
-      }
-    }, f.label))),
+      isStoryMode && h('div', {
+        style: {
+          padding: '0 14px 10px',
+          fontSize: '10px',
+          color: '#facc15'
+        }
+      }, isStorySharingAvailable() ? 'Stories-режим: можно сразу отправить картинку в Telegram Stories.' : 'Stories-режим: если Telegram Stories недоступен, сработает обычный share/download.')
+    ]),
 
     // Template selector
     h('div', {
@@ -278,6 +347,15 @@ export default function MemeGenerator({ open, onClose }) {
         whiteSpace: 'nowrap'
       }
     }, t.label))),
+    h('div', {
+      style: {
+        padding: '8px 14px 0',
+        fontSize: '10px',
+        color: '#8ba1bb'
+      }
+    }, isStoryMode
+      ? 'Stories делает вертикальный кадр и не прячет кнопку возврата.'
+      : 'Шаблон при открытии теперь меняется, чтобы мем не начинался каждый раз с одного и того же экрана.'),
 
     // Image preview
     h('div', {
@@ -339,7 +417,7 @@ export default function MemeGenerator({ open, onClose }) {
           cursor: 'pointer',
           textTransform: 'uppercase'
         }
-      }, '📤 Поделиться'),
+      }, isStoryMode ? '📤 В Stories' : '📤 Поделиться'),
       h('button', {
         onClick: handleDownload,
         className: 'pixel-button',

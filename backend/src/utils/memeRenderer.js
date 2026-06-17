@@ -114,6 +114,27 @@ function drawFlame(ctx, x, y, scale = 1) {
   ctx.fill();
 }
 
+function drawCodeCard(ctx, x, y, w, h, accentColor, headerText = 'FIX') {
+  drawPixelShadow(ctx, x, y, w, h, 'rgba(0,0,0,0.28)', 5);
+  ctx.fillStyle = '#111c31';
+  ctx.fillRect(x, y, w, h);
+  drawPixelBorder(ctx, x, y, w, h, accentColor, 3);
+  ctx.fillStyle = accentColor;
+  ctx.fillRect(x + 14, y + 14, w - 28, 14);
+  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(headerText, x + w / 2, y + 26);
+  drawCodeLines(ctx, x + 18, y + 42, [w - 64, w - 110, w - 88], '#4ade80');
+}
+
+function drawStickyNotes(ctx, x, y, colors) {
+  colors.forEach((color, index) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x + index * 24, y + (index % 2) * 8, 18, 18);
+  });
+}
+
 function drawTemplateScene(ctx, templateId, template, width, sceneY, sceneH) {
   const x = 42;
   const y = sceneY;
@@ -141,6 +162,13 @@ function drawTemplateScene(ctx, templateId, template, width, sceneY, sceneH) {
   if (templateId === 'works_on_my_machine') {
     drawMonitor(ctx, x + 34, y + 20, w - 68, h - 64, template.accentColor);
     drawCodeLines(ctx, x + 70, y + 54, [150, 96, 176, 122], '#4ade80');
+    ctx.fillStyle = '#5b3a1a';
+    ctx.fillRect(x + 46, y + h - 34, w - 92, 16);
+    ctx.fillStyle = '#e5e7eb';
+    ctx.fillRect(x + w - 94, y + h - 56, 18, 22);
+    ctx.fillStyle = '#7c2d12';
+    ctx.fillRect(x + w - 92, y + h - 58, 14, 6);
+    drawStickyNotes(ctx, x + 48, y + 26, ['#facc15', '#60a5fa', '#fb7185']);
     ctx.fillStyle = '#facc15';
     ctx.fillRect(x + w - 78, y + 36, 26, 26);
     ctx.fillStyle = '#0f172a';
@@ -150,21 +178,25 @@ function drawTemplateScene(ctx, templateId, template, width, sceneY, sceneH) {
   }
 
   if (templateId === 'deploy_friday') {
-    drawMonitor(ctx, x + 28, y + 18, w - 56, h - 58, template.accentColor);
-    ctx.fillStyle = '#ef4444';
-    ctx.fillRect(x + 72, y + 58, w - 144, 34);
-    ctx.fillStyle = '#fff7ed';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('DEPLOY', width / 2, y + 82);
+    drawCodeCard(ctx, x + 18, y + 18, w - 36, 72, template.accentColor, 'DEPLOY');
+    drawCodeCard(ctx, x + 40, y + 74, w - 96, 62, '#facc15', 'FRIDAY');
     drawFlame(ctx, x + 28, y + h - 88, 0.72);
     drawFlame(ctx, x + w - 62, y + h - 88, 0.72);
+    ctx.strokeStyle = '#fca5a5';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x + 54, y + h - 36);
+    ctx.lineTo(x + w - 54, y + 34);
+    ctx.stroke();
     return;
   }
 
   if (templateId === 'wtf_per_minute') {
-    drawMonitor(ctx, x + 30, y + 18, w - 60, h - 58, template.accentColor);
-    drawCodeLines(ctx, x + 64, y + 50, [170, 130, 190, 80, 156], '#86efac');
+    drawCodeCard(ctx, x + 24, y + 24, w - 48, h - 80, template.accentColor, 'ALERT');
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(x + 42, y + 42, 22, 22);
+    ctx.fillRect(x + 74, y + 42, w - 126, 10);
+    drawCodeLines(ctx, x + 64, y + 86, [170, 130, 190, 80, 156], '#86efac');
     ctx.strokeStyle = '#ef4444';
     ctx.lineWidth = 5;
     ctx.beginPath();
@@ -176,14 +208,12 @@ function drawTemplateScene(ctx, templateId, template, width, sceneY, sceneH) {
     return;
   }
 
-  drawMonitor(ctx, x + 34, y + 18, w - 68, h - 58, template.accentColor);
+  drawCodeCard(ctx, x + 26, y + 18, w - 52, 78, template.accentColor, 'STACK');
+  drawCodeCard(ctx, x + 52, y + 72, w - 104, 58, '#60a5fa', 'COPY');
   ctx.fillStyle = '#f97316';
-  ctx.fillRect(x + 70, y + 52, 34, 34);
-  ctx.fillRect(x + 112, y + 52, 128, 10);
-  ctx.fillRect(x + 112, y + 74, 92, 10);
-  ctx.fillStyle = '#60a5fa';
-  ctx.fillRect(x + 70, y + 106, 176, 8);
-  ctx.fillRect(x + 70, y + 124, 136, 8);
+  ctx.fillRect(x + 64, y + 40, 20, 20);
+  ctx.fillRect(x + 92, y + 40, w - 168, 8);
+  ctx.fillRect(x + 92, y + 58, w - 196, 8);
 }
 
 export async function renderMeme(templateId, format, stats) {

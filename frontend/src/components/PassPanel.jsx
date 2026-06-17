@@ -1,8 +1,6 @@
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
-import { apiRequest } from '../utils/api.js';
-import { useTelegram } from '../hooks/useTelegram.js';
 import Confetti from './Confetti.jsx';
 
 function iconForReward(reward) {
@@ -35,13 +33,31 @@ function labelForReward(reward) {
   return parts.join(', ') || 'Награда';
 }
 
+function premiumRewardHasPendingCosmetics(reward) {
+  return Boolean(reward?.skin || reward?.avatarFrame);
+}
+
+function labelForPremiumReward(reward) {
+  if (!reward) return '—';
+  const parts = [];
+  if (reward.energy) parts.push(`+${reward.energy} эн`);
+  if (reward.commitsCurrent) parts.push(`+${reward.commitsCurrent} коммитов`);
+  if (reward.stars) parts.push(`+${reward.stars}⭐`);
+  if (reward.muCurrency) parts.push(`+${reward.muCurrency} μ`);
+  if (reward.skin) parts.push('скин скоро');
+  if (reward.skinFragment) parts.push(`фрагмент ${reward.skinFragment}`);
+  if (reward.avatarFrame) parts.push('рамка скоро');
+  if (reward.depressionRelief) parts.push(`-${reward.depressionRelief} стресс`);
+  if (reward.booster) parts.push(`бустер ${reward.booster}`);
+  if (reward.title) parts.push(`титул ${reward.title}`);
+  return parts.join(', ') || 'Награда';
+}
+
 export default function PassPanel() {
   const { pass, refreshPass, claimPassReward, showToast } = useGameState();
-  const { initData } = useTelegram();
   const [open, setOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [claiming, setClaiming] = useState(null);
-  const [upgrading, setUpgrading] = useState(false);
   const prevLevelRef = useRef(null);
 
   const passMeta = pass?.pass || null;
@@ -78,25 +94,6 @@ export default function PassPanel() {
       showToast(err?.message || 'Не удалось забрать награду', 'error', 2000);
     } finally {
       setClaiming(null);
-    }
-  }
-
-  async function handleUpgrade(currency) {
-    setUpgrading(true);
-    try {
-      const payload = await apiRequest('/api/pass/upgrade', {
-        method: 'POST',
-        initData,
-        body: { currency }
-      });
-      if (payload?.success) {
-        showToast('Premium активирован!', 'success', 2500);
-        await refreshPass();
-      }
-    } catch (err) {
-      showToast(err?.message || 'Не удалось активировать Premium', 'error', 2500);
-    } finally {
-      setUpgrading(false);
     }
   }
 
@@ -196,42 +193,25 @@ export default function PassPanel() {
     }, [
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
         h('div', null, [
-          h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track закрыт'),
-          h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, 'Открой эксклюзивные награды: скины, рамки, μ-бонусы')
+          h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track скоро'),
+          h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, 'Покупку временно выключили. μ-бонусы остаются в плане сезона, скины и рамки ещё допиливаются.')
         ]),
       ]),
-      h('div', { style: { display: 'flex', gap: '8px' } }, [
-        h('button', {
-          onClick: () => handleUpgrade('stars'),
-          disabled: upgrading,
-          style: {
-            flex: 1,
-            padding: '6px 10px',
-            borderRadius: '6px',
-            border: 'none',
-            background: upgrading ? '#6b7280' : '#facc15',
-            color: '#1a1a2e',
-            fontWeight: 'bold',
-            fontSize: '11px',
-            cursor: upgrading ? 'not-allowed' : 'pointer'
-          }
-        }, upgrading ? '...' : '⭐ 499 Stars ($4.99)'),
-        h('button', {
-          onClick: () => handleUpgrade('ton'),
-          disabled: upgrading,
-          style: {
-            flex: 1,
-            padding: '6px 10px',
-            borderRadius: '6px',
-            border: '1px solid #4ade80',
-            background: 'transparent',
-            color: '#4ade80',
-            fontWeight: 'bold',
-            fontSize: '11px',
-            cursor: upgrading ? 'not-allowed' : 'pointer'
-          }
-        }, upgrading ? '...' : '💎 399 TON ($3.99)'),
-      ])
+      h('button', {
+        type: 'button',
+        onClick: () => showToast('Premium Track скоро: сначала добиваем оплату и эксклюзивные награды.', 'info', 2600),
+        style: {
+          width: '100%',
+          padding: '8px 10px',
+          borderRadius: '6px',
+          border: '1px solid #6b7280',
+          background: '#374151',
+          color: '#e5e7eb',
+          fontWeight: 'bold',
+          fontSize: '11px',
+          cursor: 'pointer'
+        }
+      }, 'Скоро')
     ]),
 
     // Expanded 50-level track
@@ -293,8 +273,9 @@ export default function PassPanel() {
               h('div', { style: { fontSize: '10px', color: '#facc15', marginBottom: '2px' } }, 'Premium'),
               h('div', { style: { fontSize: '11px', color: '#c7ddf5', display: 'flex', alignItems: 'center', gap: '4px' } }, [
                 h('span', null, iconForReward(r.premiumReward)),
-                h('span', { style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, labelForReward(r.premiumReward)),
+                h('span', { style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, labelForPremiumReward(r.premiumReward)),
               ]),
+              premiumRewardHasPendingCosmetics(r.premiumReward) && h('div', { style: { fontSize: '10px', color: '#facc15', marginTop: '3px' } }, 'Скин/рамка скоро'),
               unlocked && isPremium && !r.premiumClaimed && h('button', {
                 onClick: () => handleClaim(r.level, 'premium'),
                 disabled: claiming === `${r.level}:premium`,
@@ -310,7 +291,7 @@ export default function PassPanel() {
                   cursor: 'pointer'
                 }
               }, claiming === `${r.level}:premium` ? '...' : 'Забрать'),
-              unlocked && !isPremium && !r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#facc15' } }, '🔒 Premium'),
+              unlocked && !isPremium && !r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#facc15' } }, '🔒 Скоро'),
               r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#4ade80' } }, '✅'),
             ]),
           ]);
