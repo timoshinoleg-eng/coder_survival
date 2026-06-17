@@ -12,7 +12,7 @@ version: "3.3"
 
 services:
   backend:
-    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest
+    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:${BACKEND_IMAGE_TAG:-latest}
     build: ./backend
     environment:
       NODE_ENV: production

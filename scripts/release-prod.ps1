@@ -21,6 +21,9 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $frontendPath = Join-Path $repoRoot $FrontendDir
 $botPath = Join-Path $repoRoot $BotDir
 $smokeScript = Join-Path $PSScriptRoot "smoke-core-prod.ps1"
+$backendImageRepo = "cr.yandex/crpduv7gci2puq300f38/coder-survival-backend"
+$gitSha = (git -C $repoRoot rev-parse --short=12 HEAD).Trim()
+$backendImageTag = "git-$gitSha"
 $backendPayloadWhitelist = @(
   "backend/Dockerfile",
   "backend/package.json",
@@ -70,6 +73,8 @@ function Invoke-SshScript {
 
 Write-Host "=== Coder Survival Release ==="
 Write-Host "Started at: $(Get-Date -Format o)"
+Write-Host "Backend image: ${backendImageRepo}:${backendImageTag}"
+Write-Host "Backend latest alias: ${backendImageRepo}:latest"
 
 if (-not $AllowDirty) {
   $gitStatus = @(git -C $repoRoot status --porcelain)
@@ -208,7 +213,10 @@ with zipfile.ZipFile('/tmp/coder-survival-release.zip') as zf:
 print('release payload extracted')
 PY
 rm -f /tmp/coder-survival-release.zip
-docker build --no-cache -t cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest ./backend
+BACKEND_IMAGE_REPO='__BACKEND_IMAGE_REPO__'
+BACKEND_IMAGE_TAG='__BACKEND_IMAGE_TAG__'
+export BACKEND_IMAGE_TAG
+docker build --no-cache -t "${BACKEND_IMAGE_REPO}:${BACKEND_IMAGE_TAG}" -t "${BACKEND_IMAGE_REPO}:latest" ./backend
 docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ run --rm backend node src/migrate.js
 docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ up -d --force-recreate backend
 backend_container_id="$(docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ ps -q backend)"
@@ -223,6 +231,8 @@ exit 1
 '@
     $remoteScript = $remoteScript.Replace('__REMOTE_APP_DIR__', $RemoteAppDir)
     $remoteScript = $remoteScript.Replace('__BACKEND_COMPOSE_FILE__', $BackendComposeFile)
+    $remoteScript = $remoteScript.Replace('__BACKEND_IMAGE_REPO__', $backendImageRepo)
+    $remoteScript = $remoteScript.Replace('__BACKEND_IMAGE_TAG__', $backendImageTag)
 
     Write-Host ""
     Write-Host "==> Deploy backend on VM"
