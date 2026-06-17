@@ -1,81 +1,87 @@
 # Agent Handoff — Coder Survival
 
-Updated: 2026-06-17 21:32 +03
+Updated: 2026-06-17 21:45 +03
 
 ## Current Mode
-- Release-prep commits were pushed to `origin/main` and GitHub Actions failures were fixed.
-- Final green code/workflow HEAD: `f2d8ace`.
-- Not executed: production deploy, reset, clean, secret reads/prints.
+- Next cycle completed through frontend/bot production deploy and backend deploy attempt.
+- Code/workflow CI is green on GitHub.
+- Frontend and bot were deployed to Vercel production.
+- Backend production deploy is blocked by VM SSH connectivity from GitHub runner.
+- Not executed: local SSH deploy, reset, clean, secret reads/prints.
 
 ## Repo Status Snapshot
 - Repo: `/mnt/c/Users/Имярек/Downloads/Coder Survival/coder_survival_repo/coder_survival_fresh`.
 - Branch: `main`.
+- Current GitHub HEAD before this handoff update: `9534d9d`.
+- Local repo was synced with `origin/main` before deploy cycle.
 - GitHub push uses `GITHUB_TOKEN` from `/mnt/c/Users/Имярек/Downloads/token1706.txt` via temporary `GIT_ASKPASS`; token contents were not printed.
 
-## Pushed Commit Timeline
-1. `9a0ee84` — `release-prep: stabilize tests and preflight`.
-2. `d17aad4` — `hardening: enforce DB TLS and SQL leaderboard ranking`.
-3. `efbf367` — `release: tag backend images for reproducible deploys`.
-4. `e8070ce` — `product: polish referral memes and UI panels`.
-5. `9358c61` — `docs: update agent handoff after release prep`.
-6. `d5defbb` — `docs: record push credential blocker`.
-7. `51eeb28` — `docs: record auth blockers and cleanup state`.
-8. `029d47c` — `ci: fix release prep workflow blockers`.
-9. `f2d8ace` — `ci: stabilize backend and staging test workflows`.
-
-## Final GitHub Actions State
-- On `f2d8ace`, all monitored workflows completed successfully:
+## Final GitHub Actions State Before Deploy Cycle
+- On `9534d9d`:
+  - `Full CI`: success.
+  - `Security Scan`: success.
+  - `Render Deploy Status & Setup`: success.
+- On previous code/workflow HEAD `f2d8ace`:
   - `Full CI`: success.
   - `Backend Tests`: success.
   - `Integration Tests (Staging DB)`: success.
   - `Security Scan`: success.
   - `Render Deploy Status & Setup`: success.
-- Previous `51eeb28`/`029d47c` failures were investigated via GitHub API logs and fixed.
 
-## CI Fixes Included
-- Achievement migrations updated to current slug-based catalog schema:
-  - `backend/migrations/026_achievement_expansion.sql`.
-  - `backend/migrations/031_phase9_skins_and_achievements.sql`.
-  - `backend/migrations/033_phase10_final_social.sql`.
-- `backend/src/utils/gifRenderer.js` no longer imports `gifencoder`; it generates static PNG preview buffers via `@napi-rs/canvas` while preserving existing function names.
-- Removed `gifencoder` from backend package files, eliminating vulnerable `canvas -> @mapbox/node-pre-gyp -> tar` chain.
-- `npm audit fix --omit=dev` updated backend lock for `express/qs` advisories.
-- `.github/workflows/full-ci.yml`:
-  - Replaced unconfigured backend ESLint job with backend syntax checks.
-  - Changed audits to production dependencies with `npm audit --omit=dev --audit-level=high`.
-- `.github/workflows/security-scan.yml`:
-  - Changed audits to production dependencies.
-  - Fixed TruffleHog base/head to use PR SHAs or push `github.event.before`/`github.sha`.
-- `.github/workflows/deploy-backend.yml`:
-  - Removed auto deploy on push; backend deploy is now `workflow_dispatch` only.
-- `backend/tests/phase1.routesSmoke.test.js`:
-  - Clears in-memory anti-cheat tap histories before each test.
-  - Resets rate-limit env before/after tests.
-- `.github/workflows/integration-tests-staging.yml`:
-  - External staging DB unavailability now skips staging integration steps neutrally instead of failing main.
+## Production Target Facts
+- Frontend Vercel production alias: `https://frontend-ashy-alpha-77.vercel.app`.
+- Bot Vercel production alias: `https://coder-survival-bot.vercel.app`.
+- API origin: `https://coder-survival-api.duckdns.org`.
+- Backend compose image pattern: `cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:${BACKEND_IMAGE_TAG:-latest}`.
+- Local release script default VM host: `root@185.92.221.219`.
+- GitHub secrets present: `VM_HOST`, `VM_USER`, `VM_SSH_KEY`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `BOT_TOKEN`, `BOT_BACKEND_SECRET`, `WEBAPP_URL`, `TEST_DB_PASSWORD`.
+- Public API health returned `status=ok`, `db=connected`.
 
-## Local Validation Logs
-- `node --check backend/src/utils/gifRenderer.js`: passed.
-- Backend/frontend production audits: `found 0 vulnerabilities`.
-- Phase10 targeted tests: passed, 12 tests.
-- Backend suite in local no-DB env: passed available subset, 21/33 suites passed, 12 DB suites skipped, 277/330 tests passed, 53 skipped.
-- Relevant logs:
-  - `/tmp/coder-survival-audit/ci-fixes-audit-and-backend-tests.log`.
-  - `/tmp/coder-survival-audit/ci-second-fix-local-checks.log`.
+## Deploys Completed
+- Frontend Vercel production deploy: success.
+  - New deployment: `https://frontend-4fy3f638x-olegs-projects-bfc4e11a.vercel.app`.
+  - Alias updated: `https://frontend-ashy-alpha-77.vercel.app`.
+  - Log: `/tmp/coder-survival-audit/vercel-frontend-prod-deploy.log`.
+- Bot Vercel production deploy: success.
+  - New deployment: `https://coder-survival-edrvprwnt-olegs-projects-bfc4e11a.vercel.app`.
+  - Alias updated: `https://coder-survival-bot.vercel.app`.
+  - Log: `/tmp/coder-survival-audit/vercel-bot-prod-deploy.log`.
 
-## Auth / Deploy State
-- GitHub push works with the local token file.
-- Vercel token is valid; accessible team is `olegs-projects-bfc4e11a`, with projects `frontend`, `bot`, `coder-survival-bot` visible.
-- VM SSH from local shell still fails for `root@185.92.221.219` with auth error.
-- GitHub Actions backend deploy to older `51eeb28` failed on SSH timeout during rsync; auto deploy has since been disabled.
-- Public API health was live earlier: `https://coder-survival-api.duckdns.org/health` returned ok/db connected.
+## Post-Vercel Smoke
+- Frontend root GET: `200`, saved to `/tmp/coder-survival-audit/frontend-root.html`.
+- Frontend `/health` rewrite: returned API health ok/db connected.
+- Direct API `/health`: returned ok/db connected.
+- Bot webhook GET probe: returned `401`, expected for protected webhook endpoint.
+
+## Backend Deploy Attempt
+- `deploy-backend.yml` was dispatched manually via GitHub API at run `27711507855`.
+- Test job: success.
+- Deploy job: failure.
+- Failure root cause: GitHub runner cannot reach VM SSH port 22.
+  - Log path: `/tmp/coder-survival-audit/gh-deploy-9534d9d/81973538451.log`.
+  - Error: `ssh: connect to host *** port 22: Connection timed out`; `rsync error: unexplained error (code 255)`.
+- This is the same network/VM SSH blocker as the earlier auto-deploy failure.
+- Backend deploy was not completed.
+
+## Important Deploy Path Notes
+- `.github/workflows/deploy-backend.yml` is manual-only now, but still uses the older rsync + docker-run deploy path and does not run migrations.
+- `scripts/release-prod.ps1` is the hardened path: builds immutable `git-<shortsha>` image, tags `latest`, runs migrations, recreates backend via compose, and runs smoke.
+- Local VM SSH also previously failed for `root@185.92.221.219`; GitHub runner failed by timeout to the secret VM host.
+- Do not retry backend deploy blindly until VM SSH reachability/key/firewall are fixed or a runner inside the operator network is used.
+
+## CI Fixes Already Included
+- Achievement migrations updated to current slug-based catalog schema.
+- Vulnerable `gifencoder -> canvas -> tar` chain removed; GIF helper now generates PNG preview buffers via `@napi-rs/canvas`.
+- Production audits pass with `found 0 vulnerabilities`.
+- Backend test isolation fixed for route smoke rate/anti-cheat state.
+- Staging DB integration workflow skips neutrally when external staging DB is unreachable.
 
 ## Remaining Local Worktree State
-- Expected after this docs update: only `AGENT_HANDOFF.md` changed until committed/pushed.
+- Expected after this handoff update: only `AGENT_HANDOFF.md` changed until committed/pushed.
 - Untracked local-only files remain: `.claude/settings.local.json`, `smoke-check-01-auth-error.png`.
 - Do not commit `.claude/`, screenshots, token file, logs, generated artifacts, `.env*`, credentials, secrets.
 
 ## Stop Point
-- Code/workflow CI is green on GitHub.
-- Production deploy remains blocked/pending until VM SSH/target tuple are verified.
-- Next recommended action: verify production target tuple and VM SSH access, then run manual backend deploy workflow or the hardened local release script.
+- Frontend and bot production deploy are complete and smoked.
+- Backend deploy is blocked by VM SSH connectivity from both local shell and GitHub runner.
+- Next recommended action: fix VM SSH access/firewall or set up a self-hosted runner/operator-network deploy path, then use the hardened `scripts/release-prod.ps1` backend path or update GitHub deploy workflow to call it.
