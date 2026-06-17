@@ -48,7 +48,7 @@ describe('MVP performance guardrails', () => {
     const source = read('backend/src/routes/tap.js');
     expect(source).toContain('requestedTapCount');
     expect(source).toContain('actualTapCount');
-    expect(source).toContain('Math.min(20');
+    expect(source).toMatch(/Math\.min\(requestedTapCount,\s*20\)/);
     expect(source).not.toContain("getDailyQuestSummary");
     expect(source).not.toContain(".catch(() => {})");
   });
@@ -85,6 +85,20 @@ describe('MVP performance guardrails', () => {
     expect(source).toContain('tapIncrement');
     expect(source).toContain('rate_limit_user.tap_count + $2');
     expect(source).toContain('rate_limit_ip.tap_count + $2');
+  });
+
+  test('referral stars reward SQL does not leave a trailing SET comma', () => {
+    const source = read('backend/src/routes/referral.js');
+    expect(source).toContain("jsonb_build_object($${paramIdx}");
+    expect(source).not.toContain(" + $${paramIdx + 1}),`");
+  });
+
+  test('leaderboard aroundMe uses SQL ranking instead of application full-scan', () => {
+    const source = read('backend/src/routes/leaderboard.js');
+    expect(source).toContain('ROW_NUMBER() OVER');
+    expect(source).toContain('buildAroundMeQuery');
+    expect(source).not.toContain("query.replace('LIMIT $1', '')");
+    expect(source).not.toContain('allResult.rows.map');
   });
 
   test('heart attack reset returns the updated progression row without a follow-up SELECT', () => {

@@ -10,7 +10,7 @@ import { initDataMiddleware } from "./middleware/initData.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 import { startBalanceAuditJob } from "./jobs/balanceAudit.js";
-import { buildDatabaseUrl, shouldExitOnUnexpectedDbError } from "./config/database.js";
+import { buildDatabaseSslOptions, buildDatabaseUrl, shouldExitOnUnexpectedDbError } from "./config/database.js";
 import tapRouter from "./routes/tap.js";
 import stateRouter from "./routes/state.js";
 import buyRouter from "./routes/buy.js";
@@ -70,10 +70,7 @@ export const pool = new Pool({
   max: Number(process.env.DB_POOL_MAX || 50),
   connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 5000),
   idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS || 30000),
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
+  ssl: buildDatabaseSslOptions(process.env),
 });
 pool.on("error", (err) => {
   console.error("Unexpected DB error:", err);

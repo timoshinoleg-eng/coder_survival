@@ -1,4 +1,4 @@
-import { buildDatabaseUrl, shouldExitOnUnexpectedDbError } from '../src/config/database.js';
+import { buildDatabaseSslOptions, buildDatabaseUrl, shouldExitOnUnexpectedDbError } from '../src/config/database.js';
 
 describe('MVP local database config', () => {
   test('uses DB_PASSWORD when DB_PASS is not set', () => {
@@ -26,5 +26,26 @@ describe('MVP local database config', () => {
     expect(shouldExitOnUnexpectedDbError({ NODE_ENV: 'development' })).toBe(false);
     expect(shouldExitOnUnexpectedDbError({ NODE_ENV: 'test' })).toBe(false);
     expect(shouldExitOnUnexpectedDbError({ NODE_ENV: 'production' })).toBe(true);
+  });
+
+  test('uses verified TLS by default in production', () => {
+    expect(buildDatabaseSslOptions({ NODE_ENV: 'production' })).toEqual({ rejectUnauthorized: true });
+  });
+
+  test('allows explicit TLS disablement for local tooling', () => {
+    expect(buildDatabaseSslOptions({ NODE_ENV: 'production', DB_SSL: 'false' })).toBe(false);
+  });
+
+  test('supports inline certificate authority material', () => {
+    expect(buildDatabaseSslOptions({ NODE_ENV: 'production', DB_SSL_CA: 'CA_CERT' })).toEqual({
+      rejectUnauthorized: true,
+      ca: 'CA_CERT'
+    });
+  });
+
+  test('keeps insecure TLS as explicit opt-out only', () => {
+    expect(buildDatabaseSslOptions({ NODE_ENV: 'production', DB_SSL_REJECT_UNAUTHORIZED: 'false' })).toEqual({
+      rejectUnauthorized: false
+    });
   });
 });
