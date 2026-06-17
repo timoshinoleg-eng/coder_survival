@@ -6,6 +6,7 @@ import {
   TEST_DATABASE_URL,
 } from "./helpers/testDb.js";
 import { startTestServer } from "./helpers/testServer.js";
+import { clearAllTapHistories } from "../src/middleware/antiCheat.js";
 
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -19,6 +20,8 @@ describeIfDb("phase 1 regression smoke", () => {
   });
 
   beforeEach(async () => {
+    delete process.env.RATE_LIMIT_MAX_TAPS_PER_SECOND;
+    clearAllTapHistories();
     await resetTestDatabase();
   });
 
@@ -104,7 +107,11 @@ describeIfDb("phase 1 regression smoke", () => {
     expect(successes.length).toBeGreaterThanOrEqual(1);
     expect(rateLimited.length).toBeGreaterThanOrEqual(1);
 
-    process.env.RATE_LIMIT_MAX_TAPS_PER_SECOND = originalLimit;
+    if (originalLimit === undefined) {
+      delete process.env.RATE_LIMIT_MAX_TAPS_PER_SECOND;
+    } else {
+      process.env.RATE_LIMIT_MAX_TAPS_PER_SECOND = originalLimit;
+    }
   });
 
   test("GET /api/state returns updated progression after tap", async () => {
