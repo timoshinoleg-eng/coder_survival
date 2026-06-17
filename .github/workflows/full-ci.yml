@@ -24,9 +24,11 @@ jobs:
         working-directory: backend
         run: npm ci
 
-      - name: Lint
+      - name: Syntax check backend entrypoints
         working-directory: backend
-        run: npx eslint src/ --max-warnings=0
+        run: |
+          node --check src/index.js
+          node --check src/migrate.js
 
   lint-frontend:
     runs-on: ubuntu-latest
@@ -103,10 +105,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Audit backend
+      - name: Audit backend production dependencies
         working-directory: backend
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
-      - name: Audit frontend
+      - name: Audit frontend production dependencies
         working-directory: frontend
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high

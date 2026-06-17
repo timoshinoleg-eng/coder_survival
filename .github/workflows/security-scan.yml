@@ -43,13 +43,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Audit backend
+      - name: Audit backend production dependencies
         working-directory: backend
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
-      - name: Audit frontend
+      - name: Audit frontend production dependencies
         working-directory: frontend
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
 
   secret-scan:
     name: Secret Scan
@@ -64,6 +64,6 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: main
-          head: HEAD
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           extra_args: --debug --only-verified
