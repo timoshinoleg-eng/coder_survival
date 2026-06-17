@@ -1,21 +1,23 @@
 # Agent Handoff — Coder Survival
 
-Updated: 2026-06-17 20:15 +03
+Updated: 2026-06-17 20:28 +03
 
 ## Current Mode
 - Task completed: safe commit/release prep stage plus post-commit validation.
-- Executed: targeted staging, local commits by agreed slicing plan, post-commit validation, handoff update.
-- Not executed: deploy, push, reset, clean, checkout/restore unrelated changes, SSH/prod commands, secret reads/prints.
+- Executed: targeted staging, local commits by agreed slicing plan, post-commit validation, handoff update, pre-push fetch, attempted push.
+- Not executed: deploy, reset, clean, checkout/restore unrelated changes, SSH/prod commands, secret reads/prints.
+- Push blocker: `git push origin main` failed because HTTPS GitHub credentials are unavailable in this shell: `fatal: could not read Username for 'https://github.com': No such device or address`.
 - Global CodeGraph git hook failed during the first commit attempt (`npm error could not determine executable to run`), so commits were made with `--no-verify`; staged diffs were still checked with `git diff --cached --check` before each commit.
 
 ## Repo Status Snapshot
 - Working tree repo: `/mnt/c/Users/Имярек/Downloads/Coder Survival/coder_survival_repo/coder_survival_fresh`.
 - Branch: `main`.
 - Base before work: `b61a243` at `origin/main`, ahead/behind `0/0`.
-- Current local HEAD before this handoff docs commit: `e8070ce`.
-- Local branch was ahead of `origin/main` by 4 code commits; no push has been run.
+- Local branch is ahead of `origin/main` by 6 commits after the final handoff docs commit.
+- `git fetch origin main` succeeded before push attempt; remote was unchanged at that time.
+- Push did not complete; local commits are not on GitHub yet.
 
-## Commits Created
+## Commits Created Locally
 1. `9a0ee84` — `release-prep: stabilize tests and preflight`
    - Included `.gitattributes`, frontend test alias, backend test alignment, release preflight migration sanity and WSL Docker fallback.
 2. `d17aad4` — `hardening: enforce DB TLS and SQL leaderboard ranking`
@@ -24,7 +26,10 @@ Updated: 2026-06-17 20:15 +03
    - Included `BACKEND_IMAGE_TAG` compose support and `git-<shortsha>`/`latest` backend image tagging in release script.
 4. `e8070ce` — `product: polish referral memes and UI panels`
    - Included referral SQL hotfix, meme renderer visual updates, pixel theme and frontend panel polish.
-5. Pending/intended: docs handoff commit for this file, if it is still staged/committed by the active agent.
+5. `9358c61` — `docs: update agent handoff after release prep`
+   - Included handoff as durable repo state before push attempt.
+6. Final local HEAD — `docs: record push credential blocker`
+   - Records the push credential blocker and current stop point.
 
 ## Post-Commit Validation
 - Commit slicing review log: `/tmp/coder-survival-audit/commit-slicing-review.log`.
@@ -46,7 +51,7 @@ Updated: 2026-06-17 20:15 +03
 
 ## Remaining Local Worktree State
 - `frontend/package-lock.json` shows as modified in raw git status, but `git diff --ignore-cr-at-eol -- frontend/package-lock.json` has no meaningful diff; treat as CRLF/EOL noise and do not stage without explicit normalization decision.
-- Untracked/local-only files before handoff docs commit:
+- Untracked/local-only files:
   - `.claude/settings.local.json` — do not commit.
   - `smoke-check-01-auth-error.png` — do not commit unless explicitly needed as a product/debug artifact.
 - Forbidden/local artifacts were not staged: `.claude/`, screenshot PNG, logs, generated artifacts, backups, `node_modules`, `dist`, `build`, `coverage`, `.env*`, credentials, tokens, secrets.
@@ -60,10 +65,12 @@ Updated: 2026-06-17 20:15 +03
 - No SSH/prod/deploy commands were run.
 
 ## Remaining Release Constraints
+- Push requires GitHub credentials/token/credential helper in the active shell or changing remote to an authenticated URL/SSH remote.
 - Production target tuple still needs operator verification before deploy: frontend URL, API URL, bot webhook, VM host, DB host, image digest.
 - Decide whether to normalize/restore EOL-only `frontend/package-lock.json` noise; do not do mass normalization casually.
-- Push/release remain pending and were intentionally not executed during validation.
+- Deploy remains pending and was intentionally not executed.
 
 ## Stop Point
 - Commit slicing and post-commit validation are complete locally.
-- Next recommended action: create/push a branch or push `main` after final status review, then run deploy only after target tuple verification.
+- Push is blocked only by missing GitHub HTTPS credentials in this shell.
+- Next recommended action: configure credentials or switch remote to SSH, then run `git push origin main`; deploy only after target tuple verification.
