@@ -25,7 +25,7 @@ test('Oracle 1: quest determinism', () => {
 
 test('Oracle 2: pass XP conservation', () => {
   const result = addPassXp({ currentXp: 0, claimedLevels: [] }, 21000);
-  assert.strictEqual(calculatePassLevel(result.newState).currentLevel, 20);
+  assert.strictEqual(calculatePassLevel(result.newState).currentLevel, 50);
   assert.strictEqual(calculatePassLevel(result.newState).progressToNext, 1.0);
 });
 
@@ -80,12 +80,19 @@ test('pass boundary: 99/100 XP plus 2 XP unlocks level 1 claimable reward', () =
   assert.strictEqual(getClaimableRewards(result.newState).length, 1);
 });
 
-test('sprint pass config uses linear level * 100 XP', () => {
+test('sprint pass config uses 50-level tiered XP curve', () => {
   assert.strictEqual(STAGE2.PASS.SEASON_DAYS, 30);
-  assert.strictEqual(STAGE2.PASS.LEVELS.length, 20);
-  assert.deepStrictEqual(STAGE2.PASS.LEVELS.map((level) => level.requiredXp), Array.from({ length: 20 }, (_, index) => (index + 1) * 100));
+  assert.strictEqual(STAGE2.PASS.LEVELS.length, 50);
+  assert.deepStrictEqual(STAGE2.PASS.LEVELS.map((level) => level.requiredXp), [
+    ...Array(10).fill(100),
+    ...Array(10).fill(150),
+    ...Array(10).fill(200),
+    ...Array(10).fill(250),
+    ...Array(10).fill(300)
+  ]);
   assert.strictEqual(getPassRequiredXp(1), 100);
-  assert.strictEqual(getPassRequiredXp(20), 2000);
+  assert.strictEqual(getPassRequiredXp(20), 150);
+  assert.strictEqual(getPassRequiredXp(50), 300);
 });
 
 test('catch-up and weekend XP helpers follow prompt formulas', () => {

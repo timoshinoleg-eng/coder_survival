@@ -29,11 +29,11 @@ describe("recoverProgression passive depression decay", () => {
     const result = await recoverProgression(client, progression, 100);
 
     expect(result.energy).toBe(100);
-    expect(result.depression_level).toBe(15);
+    expect(result.depression_level).toBe(0);
     expect(result.event_state.randomEventState).toEqual(progression.event_state.randomEventState);
     expect(queries).toHaveLength(1);
     expect(queries[0].sql).toContain("UPDATE progression");
-    expect(queries[0].params[1]).toBe(15);
-    expect(queries[0].params[3]).toBe(100);
+    expect(queries[0].params[1]).toBe(0);
+    expect(queries[0].params[4]).toBe(100);
   });
 });

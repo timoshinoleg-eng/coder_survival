@@ -120,6 +120,7 @@ export async function ensureTestSchema() {
   }
 
   await seedTestAchievements();
+  await seedTestEventDefinitions();
 }
 
 export async function resetTestDatabase() {
@@ -132,8 +133,14 @@ export async function resetTestDatabase() {
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind = 'r'
-      AND c.relname <> 'schema_migrations'
-      AND c.relname <> 'achievements'
+      AND c.relname NOT IN (
+        'schema_migrations',
+        'achievements',
+        'event_definitions',
+        'skin_definitions',
+        'booster_definitions',
+        'programming_languages'
+      )
     ORDER BY c.relname
   `);
   if (result.rows.length === 0) return;
@@ -151,6 +158,29 @@ export async function resetTestDatabase() {
     await testPool.query("ROLLBACK");
     throw error;
   }
+}
+
+export async function seedTestEventDefinitions() {
+  if (!testPool) return;
+
+  await testPool.query(`
+    INSERT INTO event_definitions (slug, name, type, weight, duration_sec, reward_json, penalty_json) VALUES
+    ('bug_production', 'Bug in Production', 'negative', 15, 15, '{"depression": 2, "commits": 5}', '{"depression": 6, "energyDrainPercent": 0.08, "durationSeconds": 180}'),
+    ('code_review', 'Code Review', 'neutral', 18, 15, '{"commits": 10, "depression": 2}', '{"commits": -5, "depression": 4}'),
+    ('stack_overflow_down', 'Stack Overflow Down', 'negative', 8, 30, NULL, '{"depression": 3, "disableHelpSeconds": 30}'),
+    ('legacy_code', 'Legacy Code', 'negative', 12, 20, '{"depression": 4}', '{"depression": 8, "commits": -10, "durationSeconds": 60}'),
+    ('coffee_stain', 'Coffee Stain', 'neutral', 20, 15, '{"energy": 8, "depression": -4}', NULL),
+    ('golden_commit', 'Golden Commit', 'positive', 10, 13, '{"commits": 40, "depression": -4, "locPerSecMultiplier": 7, "durationSeconds": 77}', '{"depression": 2}'),
+    ('deploy_friday', 'Deploy Friday', 'negative', 12, 30, '{"depression": -2}', '{"depression": 8, "locLossRisk": 0.25}'),
+    ('open_source_contribution', 'Open Source Contribution', 'positive', 5, 15, '{"skin": "open_source_hero", "commits": 20}', NULL)
+    ON CONFLICT (slug) DO UPDATE SET
+      name = EXCLUDED.name,
+      type = EXCLUDED.type,
+      weight = EXCLUDED.weight,
+      duration_sec = EXCLUDED.duration_sec,
+      reward_json = EXCLUDED.reward_json,
+      penalty_json = EXCLUDED.penalty_json
+  `);
 }
 
 export async function seedTestAchievements() {

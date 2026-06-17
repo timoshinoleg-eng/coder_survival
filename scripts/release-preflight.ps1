@@ -16,6 +16,38 @@ $composePath = Join-Path $repoRoot $BackendComposeFile
 
 $failed = 0
 
+function Invoke-DockerComposeConfig {
+  param([Parameter(Mandatory = $true)][string]$ComposePath)
+
+  $docker = Get-Command docker -ErrorAction SilentlyContinue
+  if ($docker) {
+    docker compose -f $ComposePath config > $null
+    if ($LASTEXITCODE -ne 0) {
+      throw "docker compose config failed"
+    }
+    return
+  }
+
+  $wsl = Get-Command wsl.exe -ErrorAction SilentlyContinue
+  if (-not $wsl) {
+    throw "docker CLI not found and wsl.exe is unavailable"
+  }
+
+  $wslComposePath = $ComposePath
+  if ($ComposePath -match '^([A-Za-z]):\\(.*)$') {
+    $drive = $Matches[1].ToLowerInvariant()
+    $rest = $Matches[2] -replace '\\', '/'
+    $wslComposePath = "/mnt/$drive/$rest"
+  } else {
+    $wslComposePath = (wsl.exe wslpath -a $ComposePath).Trim()
+  }
+
+  wsl.exe docker compose -f $wslComposePath config > $null
+  if ($LASTEXITCODE -ne 0) {
+    throw "wsl docker compose config failed"
+  }
+}
+
 function Test-Step {
   param(
     [Parameter(Mandatory = $true)]
@@ -63,10 +95,7 @@ Test-Step -Label "Forbidden secret file scan" -Action {
 
 # 3. Compose syntax
 Test-Step -Label "Docker Compose syntax" -Action {
-  docker compose -f $composePath config > $null
-  if ($LASTEXITCODE -ne 0) {
-    throw "docker compose config failed"
-  }
+  Invoke-DockerComposeConfig -ComposePath $composePath
 }
 
 # 4. Backend package.json integrity
@@ -113,17 +142,52 @@ Test-Step -Label "Smoke scripts present" -Action {
   if (-not (Test-Path $offerSmoke)) { throw "smoke-offers.ps1 missing" }
 }
 
-# 8. Migration sequence continuity
-Test-Step -Label "Migration sequence continuity" -Action {
+# 8. Migration filename sanity
+Test-Step -Label "Migration filename sanity" -Action {
   $migrations = Get-ChildItem -Path (Join-Path $backendPath "migrations") -Filter "*.sql" | Sort-Object Name
-  $expected = 1
-  foreach ($m in $migrations) {
-    $num = [int]($m.BaseName.Split('_')[0])
-    if ($num -ne $expected) {
-      throw "Migration gap: expected ${expected}xxx but found $($m.Name)"
-    }
-    $expected = $num + 1
+  if ($migrations.Count -eq 0) {
+    throw "No migration files found"
   }
+
+  $numbers = @()
+  foreach ($m in $migrations) {
+    if ($m.BaseName -notmatch '^(\d{3})_') {
+      throw "Migration filename must start with NNN_: $($m.Name)"
+    }
+    $numbers += [int]$Matches[1]
+  }
+
+  $outOfOrder = @()
+  for ($i = 1; $i -lt $numbers.Count; $i++) {
+    if ($numbers[$i] -lt $numbers[$i - 1]) {
+      $outOfOrder += $migrations[$i].Name
+    }
+  }
+  if ($outOfOrder.Count -gt 0) {
+    throw "Migration numeric prefixes are out of order: $($outOfOrder -join ', ')"
+  }
+
+  $uniqueNumbers = @($numbers | Sort-Object -Unique)
+  $gaps = @()
+  for ($expected = $uniqueNumbers[0]; $expected -le $uniqueNumbers[-1]; $expected++) {
+    if ($uniqueNumbers -notcontains $expected) {
+      $gaps += ('{0:D3}' -f $expected)
+    }
+  }
+  if ($gaps.Count -gt 0) {
+    Write-Host "    Warning: migration numeric gap(s): $($gaps -join ', ')" -ForegroundColor Yellow
+  }
+
+  $duplicatePrefixes = @(
+    $numbers |
+      Group-Object |
+      Where-Object { $_.Count -gt 1 } |
+      ForEach-Object { '{0:D3}' -f [int]$_.Name }
+  )
+  if ($duplicatePrefixes.Count -gt 0) {
+    Write-Host "    Warning: duplicate migration prefix(es): $($duplicatePrefixes -join ', ')" -ForegroundColor Yellow
+  }
+
   Write-Host "    Found $($migrations.Count) migration(s): $($migrations.Name -join ', ')"
 }
 

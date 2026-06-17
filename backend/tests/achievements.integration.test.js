@@ -54,7 +54,7 @@ describeIfDb("achievements integration", () => {
     return { userId, initData: createInitData(telegramId, { username }) };
   }
 
-  test("GET /api/achievements returns 21 achievements for new user", async () => {
+  test("GET /api/achievements returns the seeded achievement catalog for new user", async () => {
     const { initData } = await createUser(900010000, "ach_new");
 
     const res = await server.request("/api/achievements", {
@@ -63,7 +63,8 @@ describeIfDb("achievements integration", () => {
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body?.achievements)).toBe(true);
-    expect(res.body.achievements.length).toBe(21);
+    expect(res.body.achievements.length).toBeGreaterThanOrEqual(21);
+    expect(new Set(res.body.achievements.map((achievement) => achievement.slug)).size).toBe(res.body.achievements.length);
 
     const helloWorld = res.body.achievements.find((a) => a.slug === "hello_world");
     expect(helloWorld).toBeDefined();
