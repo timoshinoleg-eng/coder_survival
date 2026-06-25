@@ -5,32 +5,101 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coder Survival — Выживи в IT-офисе</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f0f1a;
-      --bg-card: #16213e;
-      --bg-deep: #0a0a14;
-      --green: #4ade80;
-      --green-dim: #22c55e;
-      --gold: #facc15;
-      --blue: #60a5fa;
-      --purple: #8b5cf6;
-      --red: #ef4444;
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --border: #1e293b;
-      --font: 'Press Start 2P', monospace;
+      --bg: #08090d;
+      --bg-card: #0d1117;
+      --bg-deep: #010204;
+      --neon-green: #39ff14;
+      --neon-cyan: #00f0ff;
+      --neon-pink: #ff2d7b;
+      --neon-purple: #b026ff;
+      --neon-gold: #ffd700;
+      --neon-orange: #ff6b2b;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --muted: #6e7681;
+      --border: #21262d;
+      --glow-green: rgba(57,255,20,0.4);
+      --glow-cyan: rgba(0,240,255,0.3);
+      --glow-pink: rgba(255,45,123,0.3);
+      --font-pixel: 'Press Start 2P', monospace;
+      --font-mono: 'JetBrains Mono', 'Courier New', monospace;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-family: var(--font-mono);
       overflow-x: hidden;
     }
-    .pixel { font-family: var(--font); }
+    .pixel { font-family: var(--font-pixel); }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes glowPulse {
+      0%, 100% { box-shadow: 0 0 20px var(--glow-green), 0 0 40px rgba(57,255,20,0.1); }
+      50% { box-shadow: 0 0 30px var(--glow-green), 0 0 60px rgba(57,255,20,0.2), 0 0 80px rgba(57,255,20,0.05); }
+    }
+    @keyframes borderGlow {
+      0%, 100% { border-color: var(--neon-green); box-shadow: 0 0 8px var(--glow-green); }
+      50% { border-color: var(--neon-cyan); box-shadow: 0 0 12px var(--glow-cyan); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+      50% { transform: translateY(-12px) rotate(var(--rot, 0deg)); }
+    }
+    @keyframes drift {
+      0%, 100% { transform: translate(0, 0) rotate(var(--rot, 0deg)); }
+      25% { transform: translate(8px, -6px) rotate(var(--rot, 0deg)); }
+      50% { transform: translate(-4px, -10px) rotate(var(--rot, 0deg)); }
+      75% { transform: translate(-8px, -4px) rotate(var(--rot, 0deg)); }
+    }
+    @keyframes gridScroll {
+      0% { background-position: 0 0; }
+      100% { background-position: 40px 40px; }
+    }
+    @keyframes scanline {
+      0% { top: -100%; }
+      100% { top: 200%; }
+    }
+    @keyframes textGlow {
+      0%, 100% { text-shadow: 0 0 10px var(--glow-green), 2px 2px 0 var(--bg-deep); }
+      50% { text-shadow: 0 0 20px var(--glow-green), 0 0 40px rgba(57,255,20,0.3), 2px 2px 0 var(--bg-deep); }
+    }
+    @keyframes cardReveal {
+      from { opacity: 0; transform: translateY(40px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes typeIn {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+    @keyframes stepSlide {
+      from { opacity: 0; transform: translateX(-30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(1); opacity: 0.6; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes bgGradient {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
 
     /* Hero */
     .hero {
@@ -49,132 +118,200 @@
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
       background:
-        radial-gradient(circle at 20% 80%, rgba(74,222,128,0.08) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(96,165,250,0.06) 0%, transparent 50%),
-        radial-gradient(circle at 50% 50%, rgba(139,92,246,0.04) 0%, transparent 60%);
+        radial-gradient(ellipse at 20% 80%, rgba(57,255,20,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(0,240,255,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(176,38,255,0.03) 0%, transparent 60%);
       pointer-events: none;
+      animation: bgGradient 8s ease infinite;
+      background-size: 200% 200%;
     }
     .hero-grid {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
       background-image:
-        linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
+        linear-gradient(rgba(57,255,20,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(57,255,20,0.04) 1px, transparent 1px);
       background-size: 40px 40px;
+      animation: gridScroll 4s linear infinite;
+      pointer-events: none;
+    }
+    .hero-scanline {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
+      opacity: 0.15;
+      animation: scanline 6s linear infinite;
       pointer-events: none;
     }
     .hero-content { position: relative; z-index: 1; }
     .hero-badge {
       display: inline-block;
-      background: var(--bg-card);
-      border: 1px solid var(--green);
-      padding: 8px 16px;
-      font-size: 11px;
-      color: var(--green);
-      margin-bottom: 24px;
-      letter-spacing: 0.1em;
+      background: transparent;
+      border: 1px solid var(--neon-green);
+      padding: 8px 20px;
+      font-size: 10px;
+      color: var(--neon-green);
+      margin-bottom: 28px;
+      letter-spacing: 0.15em;
+      animation: fadeIn 0.8s ease, borderGlow 3s ease infinite;
     }
     .hero h1 {
-      font-family: var(--font);
-      font-size: clamp(24px, 5vw, 48px);
-      color: var(--green);
-      text-shadow: 3px 3px 0 var(--bg-deep);
-      margin-bottom: 16px;
+      font-family: var(--font-pixel);
+      font-size: clamp(28px, 6vw, 56px);
+      color: var(--neon-green);
+      margin-bottom: 20px;
       line-height: 1.3;
+      animation: fadeInUp 0.8s ease 0.2s both, textGlow 4s ease infinite;
     }
-    .hero h1 span { color: var(--gold); }
+    .hero h1 span {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 20px var(--glow-cyan), 2px 2px 0 var(--bg-deep);
+    }
     .hero-sub {
-      font-size: clamp(14px, 2.5vw, 18px);
+      font-size: clamp(14px, 2.5vw, 17px);
       color: var(--muted);
-      max-width: 600px;
-      margin: 0 auto 32px;
-      line-height: 1.6;
+      max-width: 550px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+      animation: fadeInUp 0.8s ease 0.4s both;
     }
     .hero-cta {
       display: inline-flex;
       align-items: center;
       gap: 12px;
-      background: var(--green);
-      color: var(--bg-deep);
-      font-family: var(--font);
-      font-size: 14px;
-      padding: 16px 32px;
-      border: none;
+      background: transparent;
+      color: var(--neon-green);
+      font-family: var(--font-pixel);
+      font-size: 13px;
+      padding: 16px 36px;
+      border: 2px solid var(--neon-green);
       cursor: pointer;
       text-decoration: none;
-      transition: transform 0.1s, box-shadow 0.1s;
-      box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+      animation: fadeInUp 0.8s ease 0.6s both, glowPulse 2s ease infinite;
+      transition: all 0.2s;
+    }
+    .hero-cta::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 0; height: 0;
+      background: var(--neon-green);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.4s, height 0.4s, opacity 0.4s;
+      opacity: 0;
+    }
+    .hero-cta:hover::before {
+      width: 300px; height: 300px;
+      opacity: 0.1;
     }
     .hero-cta:hover {
-      transform: translate(-2px, -2px);
-      box-shadow: 6px 6px 0 rgba(0,0,0,0.3);
+      background: rgba(57,255,20,0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px var(--glow-green), 0 0 60px rgba(57,255,20,0.15);
     }
     .hero-cta:active {
-      transform: translate(2px, 2px);
-      box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+      transform: translateY(1px);
     }
-    .hero-cta svg { width: 20px; height: 20px; }
+    .hero-cta svg { width: 18px; height: 18px; }
     .hero-stats {
       display: flex;
-      gap: 40px;
-      margin-top: 48px;
+      gap: 48px;
+      margin-top: 56px;
       justify-content: center;
       flex-wrap: wrap;
+      animation: fadeInUp 0.8s ease 0.8s both;
     }
     .hero-stat { text-align: center; }
     .hero-stat-num {
-      font-family: var(--font);
-      font-size: 24px;
-      color: var(--gold);
-      text-shadow: 2px 2px 0 var(--bg-deep);
+      font-family: var(--font-pixel);
+      font-size: 22px;
+      color: var(--neon-gold);
+      text-shadow: 0 0 12px rgba(255,215,0,0.4), 2px 2px 0 var(--bg-deep);
     }
     .hero-stat-label {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--muted);
-      margin-top: 4px;
+      margin-top: 6px;
+      letter-spacing: 0.05em;
     }
+
+    /* Floating code */
+    .float-code {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+      opacity: 0;
+      animation: fadeIn 1s ease forwards, drift 8s ease-in-out infinite;
+    }
+    .float-code.c1 { top: 12%; left: 4%; --rot: -5deg; color: rgba(57,255,20,0.1); animation-delay: 0s, 0s; }
+    .float-code.c2 { top: 22%; right: 6%; --rot: 3deg; color: rgba(0,240,255,0.08); animation-delay: 0.5s, 1s; }
+    .float-code.c3 { bottom: 18%; left: 8%; --rot: -2deg; color: rgba(176,38,255,0.07); animation-delay: 1s, 2s; }
+    .float-code.c4 { bottom: 28%; right: 4%; --rot: 4deg; color: rgba(255,45,123,0.06); animation-delay: 1.5s, 3s; }
+    .float-code.c5 { top: 45%; left: 2%; --rot: -8deg; color: rgba(57,255,20,0.05); animation-delay: 2s, 1.5s; }
+    .float-code.c6 { top: 60%; right: 3%; --rot: 6deg; color: rgba(0,240,255,0.04); animation-delay: 0.8s, 2.5s; }
 
     /* Terminal */
     .terminal {
-      max-width: 700px;
-      margin: 0 auto 80px;
+      max-width: 720px;
+      margin: -20px auto 80px;
       background: var(--bg-deep);
       border: 1px solid var(--border);
       overflow: hidden;
+      position: relative;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease 1s forwards;
+    }
+    .terminal::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--neon-green), transparent);
+      opacity: 0.5;
     }
     .terminal-bar {
       background: var(--bg-card);
-      padding: 8px 12px;
+      padding: 10px 14px;
       display: flex;
-      gap: 6px;
+      gap: 7px;
       align-items: center;
+      border-bottom: 1px solid var(--border);
     }
     .terminal-dot {
-      width: 10px; height: 10px;
+      width: 11px; height: 11px;
       border-radius: 50%;
     }
-    .terminal-dot.r { background: var(--red); }
-    .terminal-dot.y { background: var(--gold); }
-    .terminal-dot.g { background: var(--green); }
+    .terminal-dot.r { background: #ff5f57; }
+    .terminal-dot.y { background: #febc2e; }
+    .terminal-dot.g { background: #28c840; }
     .terminal-body {
-      padding: 20px;
-      font-family: 'Courier New', monospace;
+      padding: 22px;
+      font-family: var(--font-mono);
       font-size: 13px;
-      line-height: 1.8;
-      color: var(--green);
+      line-height: 1.9;
+      color: var(--neon-green);
     }
-    .terminal-body .prompt { color: var(--blue); }
-    .terminal-body .cmd { color: var(--text); }
+    .terminal-body .prompt { color: var(--neon-cyan); }
+    .terminal-body .cmd { color: var(--text-bright); }
     .terminal-body .output { color: var(--muted); }
-    .terminal-body .highlight { color: var(--gold); }
-    .terminal-body .error { color: var(--red); }
+    .terminal-body .highlight { color: var(--neon-gold); text-shadow: 0 0 8px rgba(255,215,0,0.3); }
+    .terminal-body .error { color: var(--neon-pink); text-shadow: 0 0 8px var(--glow-pink); }
+    .terminal-body .success { color: var(--neon-green); }
     .cursor-blink {
       display: inline-block;
       width: 8px;
-      height: 14px;
-      background: var(--green);
+      height: 15px;
+      background: var(--neon-green);
       animation: blink 1s step-end infinite;
       vertical-align: middle;
+      box-shadow: 0 0 8px var(--glow-green);
     }
     @keyframes blink {
       0%, 100% { opacity: 1; }
@@ -188,42 +325,66 @@
       padding: 80px 20px;
     }
     .section-title {
-      font-family: var(--font);
-      font-size: clamp(16px, 3vw, 24px);
+      font-family: var(--font-pixel);
+      font-size: clamp(16px, 3vw, 22px);
       text-align: center;
-      margin-bottom: 48px;
-      color: var(--text);
+      margin-bottom: 52px;
+      color: var(--text-bright);
+      text-shadow: 0 0 12px rgba(255,255,255,0.1);
     }
-    .section-title span { color: var(--green); }
+    .section-title span {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 15px var(--glow-cyan);
+    }
     .features-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
+      gap: 16px;
     }
     .feature-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      padding: 24px;
-      transition: border-color 0.2s, transform 0.2s;
+      padding: 28px 24px;
+      position: relative;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(40px);
+      transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    }
+    .feature-card.revealed {
+      animation: cardReveal 0.5s ease forwards;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 2px;
+      background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan), var(--neon-purple));
+      opacity: 0;
+      transition: opacity 0.3s;
     }
     .feature-card:hover {
-      border-color: var(--green);
-      transform: translateY(-2px);
+      border-color: var(--neon-green);
+      box-shadow: 0 0 20px rgba(57,255,20,0.08), inset 0 0 30px rgba(57,255,20,0.03);
+      transform: translateY(-4px);
     }
+    .feature-card:hover::before { opacity: 1; }
     .feature-icon {
-      font-size: 28px;
-      margin-bottom: 12px;
+      font-size: 32px;
+      margin-bottom: 14px;
+      filter: saturate(1.2);
     }
     .feature-title {
-      font-family: var(--font);
-      font-size: 12px;
-      color: var(--green);
-      margin-bottom: 8px;
+      font-family: var(--font-pixel);
+      font-size: 11px;
+      color: var(--neon-green);
+      margin-bottom: 10px;
+      text-shadow: 0 0 8px var(--glow-green);
     }
     .feature-desc {
-      font-size: 14px;
+      font-size: 13px;
       color: var(--muted);
-      line-height: 1.6;
+      line-height: 1.7;
     }
 
     /* How it works */
@@ -235,76 +396,94 @@
     .steps {
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 28px;
     }
     .step {
       display: flex;
-      gap: 20px;
+      gap: 24px;
       align-items: flex-start;
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+    .step.revealed {
+      animation: stepSlide 0.5s ease forwards;
     }
     .step-num {
-      font-family: var(--font);
-      font-size: 20px;
-      color: var(--green);
-      min-width: 40px;
-      text-shadow: 2px 2px 0 var(--bg-deep);
+      font-family: var(--font-pixel);
+      font-size: 18px;
+      color: var(--neon-cyan);
+      min-width: 44px;
+      text-shadow: 0 0 12px var(--glow-cyan);
+      position: relative;
+    }
+    .step-num::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: var(--neon-cyan);
+      opacity: 0.3;
     }
     .step-content h3 {
-      font-family: var(--font);
-      font-size: 12px;
-      color: var(--text);
-      margin-bottom: 6px;
+      font-family: var(--font-pixel);
+      font-size: 11px;
+      color: var(--text-bright);
+      margin-bottom: 8px;
     }
     .step-content p {
       font-size: 14px;
       color: var(--muted);
-      line-height: 1.6;
+      line-height: 1.7;
     }
 
     /* CTA bottom */
     .cta-bottom {
       text-align: center;
-      padding: 80px 20px;
-      background: linear-gradient(180deg, transparent, rgba(74,222,128,0.03));
+      padding: 100px 20px;
+      position: relative;
+    }
+    .cta-bottom::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(57,255,20,0.06) 0%, transparent 70%);
+      pointer-events: none;
     }
     .cta-bottom h2 {
-      font-family: var(--font);
+      font-family: var(--font-pixel);
       font-size: clamp(14px, 2.5vw, 20px);
-      margin-bottom: 24px;
+      margin-bottom: 28px;
+      animation: textGlow 3s ease infinite;
     }
-    .cta-bottom h2 span { color: var(--green); }
+    .cta-bottom h2 span { color: var(--neon-green); }
 
     /* Footer */
     footer {
       text-align: center;
-      padding: 32px 20px;
+      padding: 36px 20px;
       border-top: 1px solid var(--border);
       color: var(--muted);
       font-size: 12px;
     }
-    footer a { color: var(--green); text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
-
-    /* Floating code */
-    .float-code {
-      position: absolute;
-      font-family: 'Courier New', monospace;
-      font-size: 11px;
-      color: rgba(74,222,128,0.08);
-      white-space: nowrap;
-      pointer-events: none;
-      user-select: none;
+    footer a {
+      color: var(--neon-green);
+      text-decoration: none;
+      transition: text-shadow 0.2s;
     }
-    .float-code.c1 { top: 15%; left: 5%; transform: rotate(-5deg); }
-    .float-code.c2 { top: 25%; right: 8%; transform: rotate(3deg); }
-    .float-code.c3 { bottom: 20%; left: 10%; transform: rotate(-2deg); }
-    .float-code.c4 { bottom: 30%; right: 5%; transform: rotate(4deg); }
+    footer a:hover {
+      text-shadow: 0 0 8px var(--glow-green);
+    }
 
     /* Mobile */
     @media (max-width: 640px) {
-      .hero-stats { gap: 24px; }
-      .hero-stat-num { font-size: 18px; }
-      .terminal-body { font-size: 11px; padding: 14px; }
+      .hero-stats { gap: 28px; }
+      .hero-stat-num { font-size: 16px; }
+      .terminal-body { font-size: 11px; padding: 16px; }
+      .float-code { display: none; }
     }
   </style>
 </head>
@@ -313,10 +492,13 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-grid"></div>
+    <div class="hero-scanline"></div>
     <div class="float-code c1">while (alive) { code(); }</div>
     <div class="float-code c2">git commit -m "fix: life"</div>
     <div class="float-code c3">sudo rm -rf /bugs</div>
     <div class="float-code c4">// TODO: sleep later</div>
+    <div class="float-code c5">console.log("help me")</div>
+    <div class="float-code c6">process.exit(0) // eventually</div>
 
     <div class="hero-content">
       <div class="hero-badge pixel">TELEGRAM MINI APP</div>
@@ -366,7 +548,7 @@
       <br>
       <span class="prompt">coder@survival:~$</span> <span class="cmd">tap --commit</span><br>
       <span class="highlight">+15 LOC</span> <span class="output">(crit! x3)</span><br>
-      <span class="output">⚡ Энергия: 87/100</span><br>
+      <span class="success">⚡ Энергия: 87/100</span><br>
       <span class="error">😰 Стресс: 42/200</span><br>
       <br>
       <span class="prompt">coder@survival:~$</span> <span class="cmd">npm run deploy</span><br>
@@ -381,47 +563,47 @@
   <section class="features">
     <h2 class="section-title pixel">Что <span>внутри</span></h2>
     <div class="features-grid">
-      <div class="feature-card">
+      <div class="feature-card" data-delay="0">
         <div class="feature-icon">⌨️</div>
         <h3 class="feature-title pixel">Тапай код</h3>
         <p class="feature-desc">Каждый тап = коммит. Криты, стрики, генераторы. Idle-экономика работает даже когда ты спишь.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card" data-delay="80">
         <div class="feature-icon">💀</div>
         <h3 class="feature-title pixel">Шкала стресса</h3>
         <p class="feature-desc">0–200 единиц депрессии. На 100 — дебаффы. На 200 — Heart Attack. Делись позором с друзьями.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card" data-delay="160">
         <div class="feature-icon">🏢</div>
         <h3 class="feature-title pixel">Карьерный рост</h3>
         <p class="feature-desc">Junior → Middle → Senior → Lead → CTO. 50 уровней, 5 рангов, бесконечный грейнд.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card" data-delay="240">
         <div class="feature-icon">🎰</div>
         <h3 class="feature-title pixel">Случайные события</h3>
         <p class="feature-desc">Legacy Code, Deploy Friday, Golden Commit, Production Alert. Каждые 60–120 секунд — сюрприз.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card" data-delay="320">
         <div class="feature-icon">🏆</div>
         <h3 class="feature-title pixel">Спринт-пас</h3>
         <p class="feature-desc">30-дневные сезоны, 50 уровней, бесплатный и премиум треки. Double XP по выходным.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card" data-delay="400">
         <div class="feature-icon">👥</div>
         <h3 class="feature-title pixel">Команды</h3>
         <p class="feature-desc">Squads, Team Hackathon, социальное давление. Пропусти день — подведёшь всю команду.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card" data-delay="480">
         <div class="feature-icon">🎮</div>
         <h3 class="feature-title pixel">Мини-игры</h3>
         <p class="feature-desc">Hello World, Code Review, Dream Interview, Architectural Committee, IPO. 8 способов заработать.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card" data-delay="560">
         <div class="feature-icon">😂</div>
         <h3 class="feature-title pixel">UGC-мемы</h3>
         <p class="feature-desc">"It works on my machine", "404: Sleep not found". Генерируй PNG и делись позором.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card" data-delay="640">
         <div class="feature-icon">🔒</div>
         <h3 class="feature-title pixel">Античит</h3>
         <p class="feature-desc">3-слойная защита от ботов. Rate limiting, энтропийный анализ, серверная верификация.</p>
@@ -433,28 +615,28 @@
   <section class="how">
     <h2 class="section-title pixel">Как <span>играть</span></h2>
     <div class="steps">
-      <div class="step">
+      <div class="step" data-delay="0">
         <div class="step-num pixel">01</div>
         <div class="step-content">
           <h3>Открой бота в Telegram</h3>
           <p>Нажми кнопку ниже — бот создаст мини-приложение прямо в Telegram. Ничего скачивать не нужно.</p>
         </div>
       </div>
-      <div class="step">
+      <div class="step" data-delay="150">
         <div class="step-num pixel">02</div>
         <div class="step-content">
           <h3>Тапай и зарабатывай</h3>
           <p>Каждый тап = коммит. Собирай LOC, покупай генераторы, прокачивай карьеру от Junior до CTO.</p>
         </div>
       </div>
-      <div class="step">
+      <div class="step" data-delay="300">
         <div class="step-num pixel">03</div>
         <div class="step-content">
           <h3>Выживай</h3>
           <p>Следи за стрессом, ешь кофе, проходи мини-игры. Не дай Heart Attack убить твою сессию.</p>
         </div>
       </div>
-      <div class="step">
+      <div class="step" data-delay="450">
         <div class="step-num pixel">04</div>
         <div class="step-content">
           <h3>Соревнуйся</h3>
@@ -480,6 +662,21 @@
       <a href="https://github.com/timoshinoleg-eng/coder_survival">GitHub</a>
     </p>
   </footer>
+
+  <script>
+    // IntersectionObserver for scroll animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const delay = entry.target.dataset.delay || 0;
+          setTimeout(() => entry.target.classList.add('revealed'), delay);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.feature-card, .step').forEach(el => observer.observe(el));
+  </script>
 
 </body>
 </html>
