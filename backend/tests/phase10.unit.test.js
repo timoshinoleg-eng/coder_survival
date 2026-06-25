@@ -71,17 +71,23 @@ describe('Generator economy', () => {
   test('recoverPassiveLoc credits commits_current and total from passive income', async () => {
     const client = {
       query: async (sql, params) => {
+        if (sql.includes('SELECT is_premium')) {
+          return { rows: [{ is_premium: false }] };
+        }
         if (sql.includes('SELECT team_id FROM team_members')) {
           return { rows: [] };
         }
-        return {
-          rows: [{
-            user_id: 1,
-            commits_total: 12,
-            commits_current: 12,
-            generator_state: JSON.parse(params[2])
-          }]
-        };
+        if (sql.includes('UPDATE progression')) {
+          return {
+            rows: [{
+              user_id: 1,
+              commits_total: 12,
+              commits_current: 12,
+              generator_state: JSON.parse(params[2])
+            }]
+          };
+        }
+        return { rows: [] };
       }
     };
     const progression = {
@@ -100,10 +106,18 @@ describe('Generator economy', () => {
   });
 
   test('purchaseGenerator buys unlocked generator using commits_current', async () => {
+    const calls = [];
     const client = {
-      query: async (_sql, params) => ({
-        rows: [{ user_id: 1, commits_current: 0, generator_state: JSON.parse(params[2]) }]
-      })
+      query: async (sql, params) => {
+        calls.push({ sql, params });
+        if (sql.includes('SELECT team_id FROM team_members')) {
+          return { rows: [] };
+        }
+        if (sql.includes('UPDATE progression')) {
+          return { rows: [{ user_id: 1, commits_current: 0, generator_state: JSON.parse(params[2]) }] };
+        }
+        return { rows: [] };
+      }
     };
     const progression = {
       user_id: 1,

@@ -1,0 +1,41 @@
+{
+  "scan_timestamp": "2026-06-18T18:02:28.002811",
+  "repo_path": "C:\\Users\\Имярек\\Downloads\\Coder Survival\\coder_survival_repo\\coder_survival_fresh",
+  "total_files": 578,
+  "expected_files_approx": 574,
+  "total_directories": 83,
+  "key_directories": {
+    "backend": true,
+    "frontend": true,
+    "shared": false,
+    "docs": true,
+    "tests": false
+  },
+  "key_files": {
+    ".gitignore": true,
+    ".env.example": true,
+    "README.md": true,
+    "package.json": true,
+    "LICENSE": false
+  },
+  "generatorEconomy_js": {
+    "path": "backend\\src\\utils\\generatorEconomy.js",
+    "size": 4484,
+    "mtime": "2026-06-18T17:45:36.441157"
+  },
+  "empty_directories": [],
+  "anomalies": [
+    "Total files 578 is within tolerance of expected ~574 (delta=4)",
+    "Missing key directory: shared",
+    "Missing key directory: tests",
+    "Missing key file: LICENSE",
+    "No empty directories found",
+    "generatorEconomy.js found at expected path (backend/src/utils/generatorEconomy.js), size=4484 bytes, mtime=2026-06-18T17:45:36.441157",
+    "Backend test file at repo root: backend-test-d5e24cf.txt",
+    "Backend test file at repo root: backend-test-head.txt",
+    "Backend test file at repo root: backend-test-output.txt",
+    "Missing migration 015 (gap between 014 and 016)",
+    "Missing migration 053 (gap between 052 and 054)"
+  ],
+  "note": "Total 578 files matches expected ~574 within tolerance. No empty dirs. 2 missing key dirs (shared, tests). 1 missing key file (LICENSE). generatorEconomy.js present. Several report/planning files may be from previous sessions."
+}

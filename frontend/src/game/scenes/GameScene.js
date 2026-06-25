@@ -54,6 +54,7 @@ export default class GameScene extends Phaser.Scene {
     // Pose tracking
     this.prevPoseIndex = 0;
     this.crashTriggered = false;
+    this.lastHighStressShake = 0;
 
     // Idle animation
     this.tweens.add({
@@ -314,7 +315,7 @@ export default class GameScene extends Phaser.Scene {
     const nextDepression = Phaser.Math.Clamp(
       (gs.depression || 0) + (deltas.depressionDelta || 0),
       0,
-      100
+      200
     );
     const nextCommits = Math.max(0, (gs.commits || 0) + (deltas.commitsDelta || 0));
 
@@ -392,11 +393,20 @@ export default class GameScene extends Phaser.Scene {
       this.depressionOverlay.lineStyle(Math.max(width, height) * 0.08, 0x2a0000, alpha * 0.5);
       this.depressionOverlay.strokeCircle(width / 2, height / 2, Math.max(width, height) * 0.52);
     }
-    // High stress heartbeat pulse
+    // High stress heartbeat pulse (100–200 range)
     if (depression >= 160) {
       const pulseAlpha = 0.05 + Math.sin(this.time.now / 200) * 0.03;
       this.depressionOverlay.fillStyle(0x550000, pulseAlpha);
       this.depressionOverlay.fillRect(0, 0, width, height);
+    }
+    // Heart-attack range screen shake (180–200)
+    if (depression >= 180) {
+      const now = this.time.now;
+      if (now - this.lastHighStressShake > 900) {
+        const shakeIntensity = 0.005 + ((depression - 180) / 20) * 0.01;
+        this.cameras.main.shake(250, shakeIntensity);
+        this.lastHighStressShake = now;
+      }
     }
     this.updateGlow(depression);
   }

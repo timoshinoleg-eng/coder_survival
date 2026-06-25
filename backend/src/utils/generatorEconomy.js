@@ -4,6 +4,7 @@ import { logDailyFarm } from './farmLog.js';
 import { getGeneratorCostMultiplierFromEventState, getRandomEventLocMultiplier } from './randomEventState.js';
 import { updateTeamProgress } from './teams.js';
 import { getActiveEffects } from './activeEffects.js';
+import { STAGE2 } from '../config/balance.js';
 
 function toValidDate(value) {
   if (!value) return null;
@@ -43,6 +44,18 @@ export async function recoverPassiveLoc(client, progression, { accountAgeMinutes
     };
   }
 
+  const premiumCheck = await client.query(
+    `SELECT is_premium FROM player_passes
+     WHERE user_id = $1
+       AND pass_id = (SELECT id FROM sprint_passes WHERE is_active = TRUE LIMIT 1)`,
+    [progression.user_id]
+  );
+  const isPremium = premiumCheck.rows[0]?.is_premium === true;
+  const baseLoc = locEarned;
+  if (isPremium) {
+    locEarned = Math.floor(locEarned * STAGE2.PASS.premiumXpMultiplier);
+  }
+
   const result = await client.query(
     `UPDATE progression
      SET commits_total = commits_total + $2,
@@ -58,12 +71,42 @@ export async function recoverPassiveLoc(client, progression, { accountAgeMinutes
   await updateTeamProgress(client, progression.user_id, locEarned);
   await logDailyFarm(client, progression.user_id, locEarned);
 
+  if (isPremium && locEarned > baseLoc) {
+    const premiumBoost = locEarned - baseLoc;
+    const passResult = await client.query(
+      `SELECT id FROM sprint_passes WHERE is_active = TRUE LIMIT 1`
+    );
+    if (passResult.rows[0]) {
+      const PASS_XP_LOG_SAVEPOINT = 'pass_xp_log_optional';
+      let hasSavepoint = false;
+      try {
+        await client.query(`SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+        hasSavepoint = true;
+      } catch (_) {}
+      try {
+        await client.query(
+          `INSERT INTO pass_xp_log (user_id, pass_id, source, amount, context)
+           VALUES ($1, $2, 'generator_loc_boost', $3, $4::jsonb)`,
+          [progression.user_id, passResult.rows[0].id, premiumBoost, JSON.stringify({ baseLoc, boostedLoc: locEarned })]
+        );
+        if (hasSavepoint) await client.query(`RELEASE SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+      } catch (err) {
+        if (hasSavepoint) {
+          await client.query(`ROLLBACK TO SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+          await client.query(`RELEASE SAVEPOINT ${PASS_XP_LOG_SAVEPOINT}`);
+        }
+      }
+    }
+  }
+
   return {
     ...(result.rows[0] || progression),
     _passiveLocRecovery: {
       locEarned,
       elapsedSeconds,
       passiveLocPerSecond: effectivePerSecond,
+      isPremium,
+      baseLoc,
     },
   };
 }

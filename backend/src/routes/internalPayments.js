@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { applyItemEffect } from './buy.js';
 import { getProductById } from '../utils/shopCatalog.js';
+import { sendAlert } from '../utils/alertSender.js';
 
 const router = Router();
 
@@ -208,8 +209,29 @@ router.post('/telegram/confirm', async (req, res, next) => {
       client.release();
     }
   } catch (err) {
+    trackPaymentFailure(err);
     next(err);
   }
 });
+
+// --- Payment failure rate tracking ---
+const _paymentFailures = [];
+
+function trackPaymentFailure(err) {
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000; // 10 minutes
+  _paymentFailures.push(now);
+
+  // Prune old entries
+  while (_paymentFailures.length > 0 && _paymentFailures[0] < now - windowMs) {
+    _paymentFailures.shift();
+  }
+
+  if (_paymentFailures.length >= 3) {
+    const count = _paymentFailures.length;
+    _paymentFailures.length = 0;
+    sendAlert(`Payment failures spike: ${count} failures in 10 min. Latest: ${err.message}`);
+  }
+}
 
 export default router;

@@ -3,8 +3,17 @@ import { useCallback, useMemo, useState } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
+import { Analytics } from '../utils/analytics.js';
 
 const COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#c084fc'];
+
+const TIER_REWARDS = {
+  BRONZE: { threshold: 50, energy: 30, xp: 20, passXp: 10, skin: null, label: 'BRONZE 50%' },
+  SILVER: { threshold: 75, energy: 50, xp: 40, passXp: 20, skin: 'hackathon_contender', label: 'SILVER 75%' },
+  GOLD: { threshold: 100, energy: 100, xp: 80, passXp: 50, skin: 'hackathon_winner', label: 'GOLD 100%' }
+};
+
+const TIER_COLORS = { BRONZE: '#cd7f32', SILVER: '#cbd5e1', GOLD: '#facc15' };
 
 function PieChart({ members, total }) {
   const slices = useMemo(() => {
@@ -31,16 +40,110 @@ function PieChart({ members, total }) {
   });
 }
 
-function TierBadge({ label, active }) {
-  const palette = { BRONZE: '#cd7f32', SILVER: '#cbd5e1', GOLD: '#facc15' };
-  return h('span', {
+function TeamHealthBar({ healthPercent }) {
+  const color = healthPercent >= 80 ? '#22c55e' : healthPercent >= 50 ? '#eab308' : '#ef4444';
+  const label = healthPercent >= 80 ? 'Отлично' : healthPercent >= 50 ? 'Средне' : 'Критично';
+  return h('div', { style: { padding: '8px', borderRadius: '6px', background: '#13263d' } }, [
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#b8c7db', marginBottom: '5px' } }, [
+      h('span', null, 'Здоровье команды'),
+      h('span', { style: { color } }, `${label} · ${Math.round(healthPercent)}%`)
+    ]),
+    h('div', { style: { height: '6px', background: '#1c2b43', borderRadius: '3px', overflow: 'hidden' } },
+      h('div', { style: { width: `${Math.min(100, healthPercent)}%`, height: '100%', background: color, borderRadius: '3px', transition: 'width 0.3s' } })
+    )
+  ]);
+}
+
+function CountdownTimer({ hoursRemaining }) {
+  const daysLeft = Math.max(0, Math.ceil((hoursRemaining || 0) / 24));
+  const hoursLeft = Math.max(0, (hoursRemaining || 0) % 24);
+  const urgent = daysLeft <= 1;
+  return h('div', {
     style: {
-      color: active ? palette[label] : '#607086',
-      filter: active ? 'none' : 'grayscale(1)',
+      padding: '6px 10px',
+      borderRadius: '6px',
+      background: urgent ? '#3b1a0a' : '#13263d',
+      color: urgent ? '#fb923c' : '#93c5fd',
       fontSize: '12px',
-      fontWeight: 700
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px'
     }
-  }, label);
+  }, [
+    h('span', null, urgent ? '🔥' : '⏳'),
+    h('span', null, daysLeft > 0
+      ? `Осталось ${daysLeft} ${daysLeft === 1 ? 'день' : daysLeft < 5 ? 'дня' : 'дней'} ${hoursLeft}ч`
+      : `Осталось ${hoursLeft}ч`)
+  ]);
+}
+
+function TierRewardsPanel({ currentTier }) {
+  const tiers = ['BRONZE', 'SILVER', 'GOLD'];
+  const tierOrder = { BRONZE: 0, SILVER: 1, GOLD: 2 };
+  const achieved = tierOrder[currentTier] ?? -1;
+
+  return h('div', {
+    style: { padding: '8px', borderRadius: '6px', background: '#13263d', display: 'grid', gap: '6px' }
+  }, [
+    h('div', { style: { fontSize: '11px', color: '#b8c7db', fontWeight: 600 } }, 'Награды за tiers'),
+    ...tiers.map((tier, i) => {
+      const info = TIER_REWARDS[tier];
+      const isActive = i <= achieved;
+      const isCurrent = tierOrder[currentTier] === i;
+      return h('div', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '5px 8px',
+          borderRadius: '5px',
+          background: isActive ? '#1a2d47' : '#0e1a2b',
+          border: isCurrent ? `1px solid ${TIER_COLORS[tier]}` : '1px solid transparent',
+          opacity: isActive ? 1 : 0.45,
+          fontSize: '11px'
+        }
+      }, [
+        h('span', { style: { color: TIER_COLORS[tier], fontWeight: 700, minWidth: '58px' } }, info.label),
+        h('span', { style: { color: '#b8c7db', flex: 1 } }, [
+          `${info.energy}⚡ ${info.xp}xp`,
+          info.skin ? ` · скин ${info.skin}` : ''
+        ].join('')),
+        isCurrent && h('span', { style: { color: '#facc15', fontSize: '10px' } }, '✓')
+      ]);
+    })
+  ]);
+}
+
+function MemberRow({ member, index, fairShare, maxCommits }) {
+  const commits = member.commits || 0;
+  const ratio = fairShare > 0 ? commits / fairShare : 0;
+  const barWidth = maxCommits > 0 ? (commits / maxCommits) * 100 : 0;
+  const targetWidth = maxCommits > 0 ? (fairShare / maxCommits) * 100 : 0;
+  const color = COLORS[index % COLORS.length];
+  const status = ratio >= 1.2 ? 'leader' : ratio < 0.5 ? 'behind' : null;
+
+  return h('div', {
+    style: {
+      padding: '7px 8px',
+      background: '#14233a',
+      borderRadius: '6px',
+      display: 'grid',
+      gap: '4px'
+    }
+  }, [
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' } }, [
+      h('span', { style: { color } }, member.username || member.firstName || 'Player'),
+      h('span', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
+        h('span', null, `${commits}/${Math.round(fairShare)}`),
+        status === 'leader' && h('span', { style: { color: '#facc15', fontSize: '10px' } }, '⭐ лидер'),
+        status === 'behind' && h('span', { style: { color: '#fb923c', fontSize: '10px' } }, '⚠️ отстаёт')
+      ])
+    ]),
+    h('div', { style: { position: 'relative', height: '5px', background: '#1c2b43', borderRadius: '3px', overflow: 'hidden' } }, [
+      h('div', { style: { position: 'absolute', left: 0, top: 0, height: '100%', width: `${barWidth}%`, background: color, borderRadius: '3px', transition: 'width 0.3s' } }),
+      h('div', { style: { position: 'absolute', left: `${Math.min(100, targetWidth)}%`, top: '-1px', width: '2px', height: '7px', background: '#fff', opacity: 0.5, borderRadius: '1px' } })
+    ])
+  ]);
 }
 
 export default function TeamPanel({ open: controlledOpen, onClose }) {
@@ -59,6 +162,19 @@ export default function TeamPanel({ open: controlledOpen, onClose }) {
   const inTeam = hackathon?.inTeam === true;
   const progressPercent = Number(hackathon?.progressPercent || 0);
 
+  const memberCount = hackathon?.memberCount || hackathon?.members?.length || 1;
+  const target = hackathon?.target || 0;
+  const fairShare = memberCount > 0 ? target / memberCount : 0;
+  const members = hackathon?.members || [];
+  const maxCommits = Math.max(1, ...members.map((m) => m.commits || 0));
+
+  const teamHealthPercent = useMemo(() => {
+    if (!members.length || !fairShare) return 100;
+    const ratios = members.map((m) => Math.min((m.commits || 0) / fairShare, 2));
+    const avg = ratios.reduce((s, r) => s + r, 0) / ratios.length;
+    return Math.min(100, Math.max(0, avg * 100));
+  }, [members, fairShare]);
+
   const close = useCallback(() => {
     if (onClose) onClose();
     setLocalOpen(false);
@@ -74,6 +190,7 @@ export default function TeamPanel({ open: controlledOpen, onClose }) {
 
   const shareInviteCode = useCallback(() => {
     if (!teamMeta?.team?.invite_code) return;
+    try { Analytics.track('share_team_clicked', { teamId: teamMeta?.team?.id || null }); } catch (_) {}
     shareUrl(window.location.href, `Вступай в мою команду Coder Survival по коду: ${teamMeta.team.invite_code}`);
   }, [shareUrl, teamMeta?.team?.invite_code]);
 
@@ -181,11 +298,13 @@ export default function TeamPanel({ open: controlledOpen, onClose }) {
             }, 'Поделиться'),
           ]),
         ]),
+        h(TeamHealthBar, { healthPercent: teamHealthPercent }),
+        h(CountdownTimer, { hoursRemaining: hackathon?.hoursRemaining }),
         hackathon.behindAverage && h('div', {
           style: { padding: '8px', borderRadius: '6px', background: '#3b2b11', color: '#fde68a', fontSize: '12px' }
         }, `Команда на ${progressPercent}%. Твой вклад: ${hackathon.myContribution || 0}. Не подведи!`),
         h('div', { style: { display: 'flex', gap: '12px', alignItems: 'center' } }, [
-          h(PieChart, { members: hackathon.members || [], total: hackathon.progress || 0 }),
+          h(PieChart, { members, total: hackathon.progress || 0 }),
           h('div', { style: { flex: 1, minWidth: 0 } }, [
             h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#b8c7db' } }, [
               h('span', null, 'Хакатон недели'),
@@ -194,22 +313,18 @@ export default function TeamPanel({ open: controlledOpen, onClose }) {
             h('div', { style: { height: '10px', background: '#1c2b43', borderRadius: '6px', overflow: 'hidden', margin: '7px 0' } },
               h('div', { style: { width: `${progressPercent}%`, height: '100%', background: '#38bdf8' } })
             ),
-            h('div', { style: { fontSize: '12px', color: '#dbeafe' } }, `${hackathon.progress || 0}/${hackathon.target || 0} коммитов`),
-            h('div', { style: { display: 'flex', gap: '12px', marginTop: '8px' } }, [
-              h(TierBadge, { label: 'BRONZE', active: ['BRONZE', 'SILVER', 'GOLD'].includes(hackathon.currentTier) }),
-              h(TierBadge, { label: 'SILVER', active: ['SILVER', 'GOLD'].includes(hackathon.currentTier) }),
-              h(TierBadge, { label: 'GOLD', active: hackathon.currentTier === 'GOLD' })
-            ])
+            h('div', { style: { fontSize: '12px', color: '#dbeafe' } }, `${hackathon.progress || 0}/${target} коммитов · fair share: ${Math.round(fairShare)}/чел`)
           ])
         ]),
+        h(TierRewardsPanel, { currentTier: hackathon?.currentTier }),
         h('div', { style: { display: 'grid', gap: '6px' } },
-          (hackathon.members || []).map((member, index) => h('div', {
+          members.map((member, index) => h(MemberRow, {
             key: member.userId,
-            style: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '6px 8px', background: '#14233a', borderRadius: '6px' }
-          }, [
-            h('span', { style: { color: COLORS[index % COLORS.length] } }, member.username || member.firstName || 'Player'),
-            h('span', null, `${member.commits || 0}`)
-          ]))
+            member,
+            index,
+            fairShare,
+            maxCommits
+          }))
         ),
         h('button', {
           onClick: () => mutateTeam('/api/team/hackathon/claim', {}),

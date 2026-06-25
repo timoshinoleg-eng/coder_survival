@@ -1,0 +1,121 @@
+{
+  "timestamp": "2026-06-18T18:27:32.414886",
+  "deleted": [
+    {
+      "file": "backend-test-d5e24cf.txt",
+      "tracked": true,
+      "method": "git rm"
+    },
+    {
+      "file": "backend-test-head.txt",
+      "tracked": true,
+      "method": "git rm"
+    },
+    {
+      "file": "backend-test-output.txt",
+      "tracked": true,
+      "method": "git rm"
+    },
+    {
+      "file": "frontend/runtime-local-prod-fix-2.png",
+      "tracked": true,
+      "method": "git rm"
+    },
+    {
+      "file": "frontend/runtime-local-prod-fix.png",
+      "tracked": true,
+      "method": "git rm"
+    },
+    {
+      "file": "frontend/runtime-prod-after-deploy.png",
+      "tracked": true,
+      "method": "git rm"
+    }
+  ],
+  "moved": [
+    {
+      "file": "dsx_login.py",
+      "from": ".planning\\ui-reviews\\chatbot24\\dsx_login.py",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\dsx_login.py",
+      "tracked": true
+    },
+    {
+      "file": "dsx_login2.py",
+      "from": ".planning\\ui-reviews\\chatbot24\\dsx_login2.py",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\dsx_login2.py",
+      "tracked": true
+    },
+    {
+      "file": "dsx_login3.py",
+      "from": ".planning\\ui-reviews\\chatbot24\\dsx_login3.py",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\dsx_login3.py",
+      "tracked": true
+    },
+    {
+      "file": "dsx_login4.py",
+      "from": ".planning\\ui-reviews\\chatbot24\\dsx_login4.py",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\dsx_login4.py",
+      "tracked": true
+    },
+    {
+      "file": "dsx_login5.py",
+      "from": ".planning\\ui-reviews\\chatbot24\\dsx_login5.py",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\dsx_login5.py",
+      "tracked": true
+    },
+    {
+      "file": "dsx_login6.py",
+      "from": ".planning\\ui-reviews\\chatbot24\\dsx_login6.py",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\dsx_login6.py",
+      "tracked": true
+    },
+    {
+      "file": "dsx_login7.py",
+      "from": ".planning\\ui-reviews\\chatbot24\\dsx_login7.py",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\dsx_login7.py",
+      "tracked": true
+    },
+    {
+      "file": "dsx_login8.py",
+      "from": ".planning\\ui-reviews\\chatbot24\\dsx_login8.py",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\dsx_login8.py",
+      "tracked": true
+    },
+    {
+      "file": "login.js",
+      "from": ".planning\\ui-reviews\\chatbot24\\login.js",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\login.js",
+      "tracked": true
+    },
+    {
+      "file": "package-lock.json",
+      "from": ".planning\\ui-reviews\\chatbot24\\package-lock.json",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\package-lock.json",
+      "tracked": true
+    },
+    {
+      "file": "package.json",
+      "from": ".planning\\ui-reviews\\chatbot24\\package.json",
+      "to": "07_Archives_Backups\\chatbot24_ui_reviews\\package.json",
+      "tracked": true
+    }
+  ],
+  "renamed": [
+    {
+      "old": "024_create_achievements.sql",
+      "new": "053_create_achievements.sql",
+      "tracked": true,
+      "keeper": "024_pass_frontload_rewards.sql"
+    }
+  ],
+  "commit_success": true,
+  "push_success": true,
+  "errors": [],
+  "skipped_safety": [],
+  "file_counts": {
+    "duplicate_024_found": 2,
+    "chatbot24_files_found": 11,
+    "ui_reviews_chatbot24_removed": true,
+    "staged_files_for_commit": 18
+  }
+}

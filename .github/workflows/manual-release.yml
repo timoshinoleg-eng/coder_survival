@@ -21,6 +21,10 @@ name: Manual Release
 on:
   workflow_dispatch:
     inputs:
+      version_tag:
+        description: 'Release version tag (e.g., v0.1.1)'
+        required: true
+        type: string
       skip_vercel:
         description: 'Skip Vercel frontend + bot deploy'
         type: boolean
@@ -78,23 +82,61 @@ jobs:
         run: |
           docker compose -f docker-compose.backend.yml config > /dev/null
 
+      - name: Release Preflight
+        run: pwsh -File scripts/release-preflight.ps1
+
       - name: Run release-prod.ps1
         shell: pwsh
         run: |
           $params = @{
-            SkipVercel   = $${{ inputs.skip_vercel }}
-            SkipBackend  = $${{ inputs.skip_backend }}
-            SkipSmoke    = $${{ inputs.skip_smoke }}
-            AllowDirty   = $${{ inputs.allow_dirty }}
+            SkipVercel   = ${{ inputs.skip_vercel }}
+            SkipBackend  = ${{ inputs.skip_backend }}
+            SkipSmoke    = ${{ inputs.skip_smoke }}
+            AllowDirty   = ${{ inputs.allow_dirty }}
           }
           scripts/release-prod.ps1 @params
+
+      - name: Smoke Summary
+        if: always()
+        run: |
+          echo '## Smoke Test Results' >> $GITHUB_STEP_SUMMARY
+          echo '' >> $GITHUB_STEP_SUMMARY
+          echo '| Check | Status |' >> $GITHUB_STEP_SUMMARY
+          echo '|-------|--------|' >> $GITHUB_STEP_SUMMARY
+          echo '| Version | `${{ inputs.version_tag }}` |' >> $GITHUB_STEP_SUMMARY
+          echo '| Backend skip | ${{ inputs.skip_backend }} |' >> $GITHUB_STEP_SUMMARY
+          echo '| Vercel skip | ${{ inputs.skip_vercel }} |' >> $GITHUB_STEP_SUMMARY
+          echo '| Smoke skip | ${{ inputs.skip_smoke }} |' >> $GITHUB_STEP_SUMMARY
+          echo '| Commit | `${{ github.sha }}` |' >> $GITHUB_STEP_SUMMARY
+
+      - name: Create release manifest
+        if: success()
+        shell: pwsh
+        run: |
+          $manifest = @{
+            version    = "${{ inputs.version_tag }}"
+            sha        = "${{ github.sha }}"
+            timestamp  = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            workflow   = "manual-release"
+            triggered_by = "${{ github.actor }}"
+            inputs     = @{
+              skip_vercel  = [bool]::Parse("${{ inputs.skip_vercel }}")
+              skip_backend = [bool]::Parse("${{ inputs.skip_backend }}")
+              skip_smoke   = [bool]::Parse("${{ inputs.skip_smoke }}")
+              allow_dirty  = [bool]::Parse("${{ inputs.allow_dirty }}")
+            }
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content -Path "release-manifest.json"
+          echo "Release manifest created:"
+          Get-Content release-manifest.json
 
       - name: Upload release manifest artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-manifest
+          name: release-manifest-${{ inputs.version_tag }}
           path: |
+            release-manifest.json
             backend/src/**
             backend/migrations/**
             docker-compose.backend.yml

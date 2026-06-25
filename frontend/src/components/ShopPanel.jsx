@@ -7,6 +7,17 @@ import { useGameState } from '../hooks/useGameState.js';
 import { useTonWallet } from '../hooks/useTonWallet.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { Analytics } from '../utils/analytics.js';
+import PremiumPurchaseSuccess from './PremiumPurchaseSuccess.jsx';
+import PurchaseSuccess from './PurchaseSuccess.jsx';
+
+function getProductEffect(productId) {
+  const effects = {
+    energy_refill: { text: '+100 Energy', icon: '\u26a1' },
+    depression_cure: { text: 'Depression cured', icon: '\ud83d\udc9a' },
+    tier_boost: { text: 'Rank boosted', icon: '\u2b50' },
+  };
+  return effects[productId] || { text: 'Purchased!', icon: '\u2705' };
+}
 
 const CATEGORY_LABELS = {
   energy: '⚡ Энергия',
@@ -28,6 +39,8 @@ export default function ShopPanel() {
   const [buyResult, setBuyResult] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeSales, setActiveSales] = useState(null);
+  const [showPremiumSuccess, setShowPremiumSuccess] = useState(false);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(null);
 
   useEffect(() => {
     if (!shopOpen) {
@@ -86,6 +99,10 @@ export default function ShopPanel() {
       if (result.success) {
         audioManager.play('purchase');
         showToast(result.status === 'opened' ? 'Invoice открыт. После оплаты товар поступит автоматически.' : 'Покупка завершена!', 'success', 3000);
+        if (result.status !== 'opened') {
+          const dealProduct = { id: result.purchase?.itemType, name: result.purchase?.itemType };
+          setPurchaseSuccess({ product: dealProduct, effect: getProductEffect(result.purchase?.itemType) });
+        }
         Analytics.track('purchase_completed', { product_id: result.purchase?.itemType, price: result.purchase?.starsAmount, currency: 'stars', deal_type: dealType });
       }
     } catch (err) {
@@ -98,14 +115,10 @@ export default function ShopPanel() {
   };
 
   const handleBuy = async (productId) => {
-    if (productId === 'premium_pass') {
-      showToast('Premium Track скоро: checkout и эксклюзивные награды ещё в доработке.', 'info', 2600);
-      return;
-    }
     setBuying(productId);
     setBuyResult(null);
     const product = products.find(p => p.id === productId);
-    Analytics.track('purchase_initiated', { product_id: productId, price: product?.stars });
+    Analytics.track('purchase_intent', { product_id: productId, price: product?.stars });
     try {
       const result = await startTelegramPurchase(productId, initData);
       setBuyResult({
@@ -120,6 +133,11 @@ export default function ShopPanel() {
           showToast('Invoice открыт. После оплаты товар поступит автоматически.', 'info', 3000);
         } else {
           showToast('Покупка завершена! Товар скоро будет выдан.', 'success', 3000);
+          if (productId === 'premium_pass') {
+            setShowPremiumSuccess(true);
+          } else {
+            setPurchaseSuccess({ product, effect: getProductEffect(productId) });
+          }
         }
         Analytics.track('purchase_completed', { product_id: productId, price: product?.stars, currency: 'stars' });
       }
@@ -332,7 +350,6 @@ export default function ShopPanel() {
 
           filteredProducts.map((product) => {
             const isRecommended = product.id === recommendedId;
-            const isComingSoon = product.id === 'premium_pass';
             return h('div', {
               key: product.id,
               style: {
@@ -350,16 +367,6 @@ export default function ShopPanel() {
               h('div', { style: { flex: 1 } }, [
                 h('div', { style: { fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' } }, [
                   product.name,
-                  isComingSoon && h('span', {
-                    style: {
-                      fontSize: '9px',
-                      background: '#6b7280',
-                      color: '#f9fafb',
-                      padding: '1px 5px',
-                      borderRadius: '4px',
-                      fontWeight: 'bold'
-                    }
-                  }, 'СКОРО'),
                   isRecommended && h('span', {
                     style: {
                       fontSize: '9px',
@@ -371,33 +378,27 @@ export default function ShopPanel() {
                     }
                   }, 'REC')
                 ]),
-                h('div', { style: { fontSize: '11px', color: '#8ba1bb' } }, isComingSoon
-                  ? 'Покупка временно отключена: допиливаем checkout, скины и рамки.'
-                  : product.description)
+                h('div', { style: { fontSize: '11px', color: '#8ba1bb' } }, product.description)
               ]),
               h('div', { style: { textAlign: 'right' } }, [
                 h('div', { style: { fontWeight: 'bold', color: '#facc15', fontSize: '13px' } }, `⭐ ${product.stars}`),
                 h('button', {
                   onClick: () => handleBuy(product.id),
-                  disabled: buying === product.id || isComingSoon,
+                  disabled: buying === product.id,
                   style: {
                     marginTop: '4px',
                     padding: '4px 10px',
                     borderRadius: '6px',
                     border: 'none',
-                    background: isComingSoon ? '#6b7280' : buying === product.id ? '#274267' : '#4ade80',
-                    color: isComingSoon ? '#e5e7eb' : buying === product.id ? '#8ba1bb' : '#0a1f12',
+                    background: buying === product.id ? '#274267' : '#4ade80',
+                    color: buying === product.id ? '#8ba1bb' : '#0a1f12',
                     fontWeight: 'bold',
                     fontSize: '11px',
-                    cursor: buying === product.id || isComingSoon ? 'not-allowed' : 'pointer'
+                    cursor: buying === product.id ? 'not-allowed' : 'pointer'
                   }
-                }, isComingSoon ? 'Скоро' : buying === product.id ? '...' : 'Купить'),
+                }, buying === product.id ? '...' : 'Купить'),
                 h('button', {
                   onClick: async () => {
-                    if (isComingSoon) {
-                      showToast('TON-оплата для Premium Track вернётся позже вместе с полным релизом.', 'info', 2600);
-                      return;
-                    }
                     if (!walletAddress) {
                       await connect();
                       return;
@@ -405,22 +406,22 @@ export default function ShopPanel() {
                     // Placeholder TON payment flow
                     const tonPrice = (product.stars / 100).toFixed(2);
                     showToast(`TON Pay: ${product.name} — ${tonPrice} TON (placeholder)`, 'info', 3000);
-                    Analytics.track('purchase_initiated', { product_id: product.id, price: tonPrice, currency: 'ton' });
+                    Analytics.track('purchase_intent', { product_id: product.id, price: tonPrice, currency: 'ton' });
                   },
                   style: {
                     marginTop: '4px',
                     padding: '4px 8px',
                     borderRadius: '6px',
-                    border: isComingSoon ? '1px solid #6b7280' : '1px solid #30527e',
-                    background: isComingSoon ? '#374151' : '#1a3a5c',
-                    color: isComingSoon ? '#d1d5db' : '#dce9f9',
+                    border: '1px solid #30527e',
+                    background: '#1a3a5c',
+                    color: '#dce9f9',
                     fontWeight: 'bold',
                     fontSize: '10px',
-                    cursor: isComingSoon ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                     display: 'block',
                     width: '100%'
                   }
-                }, isComingSoon ? '💎 Скоро' : walletAddress ? '💎 Pay with TON' : '💎 Connect TON')
+                }, walletAddress ? '💎 Pay with TON' : '💎 Connect TON')
               ])
             ]);
           }),
@@ -437,6 +438,15 @@ export default function ShopPanel() {
           }, buyResult.success
             ? `Покупка создана. Статус: ${buyResult.invoiceStatus || 'opened'}.`
             : buyResult.error)
-        ])
+        ]),
+
+    showPremiumSuccess && h(PremiumPurchaseSuccess, {
+      onClose: () => setShowPremiumSuccess(false)
+    }),
+    purchaseSuccess && h(PurchaseSuccess, {
+      product: purchaseSuccess.product,
+      effect: purchaseSuccess.effect,
+      onClose: () => setPurchaseSuccess(null)
+    })
   ]));
 }

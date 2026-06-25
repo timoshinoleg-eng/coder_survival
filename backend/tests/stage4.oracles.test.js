@@ -17,7 +17,7 @@ test('Oracle 1: event rotation returns exactly one event per week index', () => 
   expect(STAGE4.EVENTS.MAX_CONCURRENT).toBe(1);
   expect(getCurrentEvent(0).id).toBe('coffee_week');
   expect(getCurrentEvent(1).id).toBe('weekend_hackathon');
-  expect(getCurrentEvent(4).id).toBe('coffee_week');
+  expect(getCurrentEvent(4).id).toBe('ship_week');
 });
 
 test('Oracle 2: activeDays gate weekend and friday events deterministically', () => {
@@ -109,4 +109,25 @@ test('Oracle 11: FTUE event suppression blocks or dampens negative events', () =
   expect(getFtueEventSuppression(10).rule).toBe('negative_events_at_50_percent_weight');
   expect(getFtueEventSuppression(16).rule).toBe('full_event_pool');
   expect(pickRandomEvent(0.2, { accountAgeMinutes: 3 }).type).not.toBe('negative');
+});
+
+test('Oracle 12: ship_week event modifiers and bonus quest work correctly', () => {
+  const shipWeek = getCurrentEvent(4);
+  expect(shipWeek.id).toBe('ship_week');
+  expect(shipWeek.name).toBe('Ship Week');
+  expect(shipWeek.description).toBe('Commuting code to prod! Commits count x3.');
+  expect(shipWeek.modifiers.commitMult).toBe(3.0);
+  expect(shipWeek.modifiers.energyRecoveryMult).toBe(1.5);
+  
+  // Test modifiers apply correctly
+  expect(applyEventModifiers(100, shipWeek.modifiers, 'commits')).toBe(300);
+  expect(applyEventModifiers(20, shipWeek.modifiers, 'energyRecovery')).toBe(30);
+  
+  // Test bonus quest generation
+  const quest = generateEventBonusQuest(shipWeek);
+  expect(quest.id).toBe('q_event_bonus');
+  expect(quest.type).toBe('q_bonus_ship');
+  expect(quest.target).toBe(3);
+  expect(quest.reward).toEqual({ type: 'skin_fragment', amount: 2 });
+  expect(quest.isEvent).toBe(true);
 });

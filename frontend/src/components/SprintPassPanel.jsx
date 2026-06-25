@@ -3,6 +3,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { useGameState } from '../hooks/useGameState.js';
+import { startTelegramPurchase } from '../utils/purchases.js';
 import { formatRewardPayload } from '../utils/rewardFormatting.js';
 
 function premiumRewardHasPendingCosmetics(payload = {}) {
@@ -37,10 +38,30 @@ export default function SprintPassPanel({ open, onClose }) {
   const rewards = pass?.rewards || [];
   const hasPremium = Boolean(pass?.playerPass?.isPremium);
 
+  // Premium proximity nudge — find next premium reward within 2 levels
+  const nextPremiumLevel = !hasPremium
+    ? rewards
+        .filter(r => r.level > playerPass?.currentLevel && r.level <= playerPass?.currentLevel + 2 && r.premiumReward)
+        .find(() => true)
+    : null;
+
+  // Find next unclaimed free reward above current level
+  const nextFreeReward = rewards.find(r => r.level > (playerPass?.currentLevel || 0) && !r.freeClaimed);
+
+  // Completion percentage
+  const completionPct = Math.round(((playerPass?.currentLevel || 0) / rewards.length) * 100);
+
   useEffect(() => {
     if (!open) return;
     apiRequest('/api/pass/xp-sources', { initData }).then(setXpSources).catch(() => null);
   }, [open, initData]);
+
+  // Auto-scroll to current level on open
+  useEffect(() => {
+    if (!open) return;
+    const el = document.getElementById(`sprint-level-${playerPass?.currentLevel}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [open, playerPass?.currentLevel]);
 
   useEffect(() => {
     if (!open || !rewards) return undefined;
@@ -121,7 +142,18 @@ export default function SprintPassPanel({ open, onClose }) {
 
   async function handleUnlockPremium() {
     if (unlockingPremium) return;
-    showToast('Premium Track скоро: допиливаем оплату и эксклюзивные награды.', 'info', 2800);
+    setUnlockingPremium(true);
+    try {
+      const result = await startTelegramPurchase('premium_pass', initData);
+      if (result.success) {
+        showToast(result.status === 'opened' ? 'Invoice открыт. После оплаты Premium Pass активируется автоматически.' : 'Premium Pass куплен!', 'success', 3000);
+        await refreshPass();
+      }
+    } catch (err) {
+      showToast(err?.payload?.error || err?.message || 'Ошибка покупки', 'error', 2500);
+    } finally {
+      setUnlockingPremium(false);
+    }
   }
 
   return h('div', {
@@ -149,10 +181,12 @@ export default function SprintPassPanel({ open, onClose }) {
       boxShadow: '0 18px 48px rgba(0, 0, 0, 0.35)'
     }
   }, [
+    h('style', null, '@keyframes premiumPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1.0; } }\n.premium-nudge-star { animation: premiumPulse 2s infinite; color: #FFD700; font-size: 14px; }'),
+
     h('div', {
       style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid #1f3552' }
     }, [
-      h('strong', null, `🎯 ${passMeta.seasonName || 'Спринт-Пасс'}`),
+      h('strong', null, `🎯 ${passMeta.seasonName || 'Спринт-Пасс'} · ${completionPct}%`),
       h('button', { onClick: onClose, style: { border: 'none', background: 'transparent', color: '#9eb6d2', fontSize: '18px', cursor: 'pointer', padding: 0, lineHeight: 1 } }, '×')
     ]),
 
@@ -171,6 +205,12 @@ export default function SprintPassPanel({ open, onClose }) {
           transition: 'width 0.4s ease'
         }
       })),
+      nextFreeReward && h('div', { style: { marginTop: '6px', fontSize: '11px', color: '#8ba1bb' } }, [
+        h('span', { style: { color: '#4ade80', marginRight: '4px' } }, '→'),
+        h('span', { style: { color: '#4ade80' } }, 'Next: '),
+        h('span', null, formatRewardPayload(nextFreeReward.freeReward)),
+        h('span', { style: { color: '#8ba1bb', marginLeft: '4px' } }, `(ур. ${nextFreeReward.level})`),
+      ]),
       !hasPremium && h('div', {
         style: {
           marginTop: '10px',
@@ -185,24 +225,24 @@ export default function SprintPassPanel({ open, onClose }) {
         }
         }, [
           h('div', null, [
-          h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track скоро'),
-          h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, `Покупку временно выключили. μ-бонусы останутся, скины и рамки ещё допиливаем${premiumPassPrice ? ` · плановая цена ⭐ ${premiumPassPrice}` : ''}.`)
+          h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track'),
+          h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, `Откройте эксклюзивные награды${premiumPassPrice ? ` · плановая цена ⭐ ${premiumPassPrice}` : ''}`)
         ]),
         h('button', {
           onClick: handleUnlockPremium,
-          disabled: true,
+          disabled: unlockingPremium,
           style: {
             padding: '6px 10px',
             borderRadius: '6px',
             border: 'none',
-            background: '#6b7280',
-            color: '#e5e7eb',
+            background: unlockingPremium ? '#274267' : '#facc15',
+            color: unlockingPremium ? '#8ba1bb' : '#1a1a2e',
             fontWeight: 'bold',
             fontSize: '11px',
-            cursor: 'not-allowed',
+            cursor: unlockingPremium ? 'not-allowed' : 'pointer',
             whiteSpace: 'nowrap'
           }
-        }, 'Скоро')
+        }, unlockingPremium ? '...' : `⭐ ${premiumPassPrice || 499} Купить`)
       ])
     ]),
 
@@ -244,21 +284,28 @@ export default function SprintPassPanel({ open, onClose }) {
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 14px' } },
       rewards.map((r) => {
         const unlocked = r.unlocked;
+        const isMilestone = r.level % 5 === 0;
+        const isBigMilestone = r.level === 25 || r.level === 50;
         return h('div', {
           key: r.level,
+          id: `sprint-level-${r.level}`,
           style: {
             display: 'grid',
             gridTemplateColumns: '36px 1fr 1fr',
             gap: '8px',
             alignItems: 'center',
-            padding: '8px',
-            background: unlocked ? '#131d33' : '#0f1729',
+            padding: isMilestone ? '10px 8px' : '8px',
+            background: unlocked ? (isMilestone ? '#162a4a' : '#131d33') : '#0f1729',
             borderRadius: '8px',
-            border: unlocked ? '1px solid #30527e' : '1px solid #1f3552',
-            opacity: unlocked ? 1 : 0.6
+            border: unlocked ? (isMilestone ? '2px solid #FFD700' : '1px solid #30527e') : '1px solid #1f3552',
+            opacity: unlocked ? 1 : 0.6,
+            boxShadow: isMilestone && unlocked ? '0 0 8px rgba(255,215,0,0.15)' : 'none',
           }
         }, [
-          h('div', { style: { fontWeight: 'bold', fontSize: '13px', color: unlocked ? '#facc15' : '#8ba1bb' } }, r.level),
+          h('div', { style: { fontWeight: 'bold', fontSize: isMilestone ? '14px' : '13px', color: unlocked ? '#facc15' : '#8ba1bb' } }, [
+            isBigMilestone && h('span', { style: { display: 'block', fontSize: '14px', marginBottom: '1px' } }, '🏆'),
+            r.level,
+          ]),
 
           // Free track
           h('div', null, [
@@ -283,9 +330,16 @@ export default function SprintPassPanel({ open, onClose }) {
           ]),
 
           // Premium track
-          h('div', null, [
+          h('div', { style: { position: 'relative' } }, [
+            r.level === nextPremiumLevel?.level && h('span', {
+              className: 'premium-nudge-star',
+              style: { position: 'absolute', top: '-2px', right: '-2px', fontSize: '14px', lineHeight: 1, zIndex: 1 }
+            }, '★'),
             h('div', { style: { fontSize: '10px', color: '#facc15', marginBottom: '2px' } }, 'Premium'),
             h('div', { style: { fontSize: '11px', color: '#c7ddf5' } }, formatPremiumReward(r.premiumReward)),
+            r.level === nextPremiumLevel?.level && h('div', {
+              style: { fontSize: '9px', color: '#FFD700', marginTop: '2px', animation: 'premiumPulse 2s infinite' }
+            }, `${nextPremiumLevel.level - playerPass.currentLevel} ур. до награды!`),
             premiumRewardHasPendingCosmetics(r.premiumReward) && h('div', { style: { fontSize: '10px', color: '#facc15', marginTop: '3px' } }, 'Скин/рамка будут включены позже'),
             unlocked && hasPremium && !r.premiumClaimed && h('button', {
               onClick: () => handleClaim(r.level, 'premium'),
@@ -302,7 +356,7 @@ export default function SprintPassPanel({ open, onClose }) {
                 cursor: 'pointer'
               }
             }, claiming === `${r.level}:premium` ? '...' : 'Забрать'),
-            unlocked && !hasPremium && !r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#facc15' } }, '🔒 Скоро'),
+            unlocked && !hasPremium && !r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#facc15' } }, '🔒'),
             r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#4ade80' } }, '✅')
           ])
         ]);

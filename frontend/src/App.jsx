@@ -93,6 +93,7 @@ function AppInner() {
   const legacyTapSyncRef = useRef(false);
   const previousHotStreakActiveRef = useRef(false);
   const previousProductionAlertActiveRef = useRef(false);
+  const lastDrainRef = useRef(0);
   const sessionIdRef = useRef(null);
   const sessionStartTimeRef = useRef(null);
   const sessionStartScoreRef = useRef(null);
@@ -327,16 +328,13 @@ function AppInner() {
   useEffect(() => {
     if (!runtimeEventState.productionAlertUntil) return undefined;
     const timer = setInterval(() => {
-      const until = new Date(runtimeEventState.productionAlertUntil).getTime();
-      if (Date.now() >= until) {
-        setRuntimeEventState((current) => ({ ...current, productionAlertUntil: null }));
-        clearInterval(timer);
-        return;
-      }
+      const now = Date.now();
+      if (now - lastDrainRef.current < 60000) return;
+      lastDrainRef.current = now;
       applyEventDeltas({ energyDelta: -8, depressionDelta: 0, commitsDelta: 0 });
     }, 60000);
     return () => clearInterval(timer);
-  }, [applyEventDeltas, runtimeEventState.productionAlertUntil]);
+  }, [!!runtimeEventState.productionAlertUntil, applyEventDeltas]);
 
   useEffect(() => {
     const timer = setInterval(() => setRuntimeNow(Date.now()), 1000);

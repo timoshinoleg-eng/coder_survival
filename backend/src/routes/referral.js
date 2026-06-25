@@ -279,6 +279,94 @@ async function ensureUserAndCode(client, telegramUser) {
 }
 
 /**
+ * GET /api/referral/social-proof
+ */
+router.get('/social-proof', async (req, res, next) => {
+  try {
+    const client = await pool.connect();
+    try {
+      const weeklyJoinsResult = await client.query(
+        `SELECT COUNT(*)::int AS count
+         FROM users
+         WHERE created_at >= NOW() - INTERVAL '7 days'`
+      );
+
+      const topReferrerResult = await client.query(
+        `SELECT
+           u.username,
+           COUNT(*)::int AS active_count
+         FROM referrals r
+         JOIN users u ON u.id = r.referrer_id
+         LEFT JOIN progression p ON p.user_id = r.referred_id
+         WHERE r.status != 'rejected'
+           AND COALESCE(p.commits_total, 0) >= $1
+           AND p.first_active_at IS NOT NULL
+           AND p.first_active_at <= NOW() - ($2::int * INTERVAL '1 day')
+         GROUP BY r.referrer_id, u.username
+         ORDER BY active_count DESC
+         LIMIT 1`,
+        [STAGE3.REFERRAL.ACTIVE_THRESHOLD_COMMITS, STAGE3.REFERRAL.ANTI_FARM_DAYS]
+      );
+
+      res.json({
+        success: true,
+        weeklyJoins: weeklyJoinsResult.rows[0]?.count || 0,
+        topReferrer: topReferrerResult.rows[0]
+          ? { name: topReferrerResult.rows[0].username || 'Аноним', count: topReferrerResult.rows[0].active_count }
+          : null,
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/referral/activity
+ */
+router.get('/activity', async (req, res, next) => {
+  try {
+    const client = await pool.connect();
+    try {
+      const rows = await client.query(
+        `SELECT
+           al.action,
+           al.context,
+           al.created_at,
+           u.username
+         FROM audit_logs al
+         LEFT JOIN users u ON u.id = al.user_id
+         WHERE al.action IN ('referral_bind_flagged', 'referral_bind_rejected')
+            OR al.context->>'action' IN ('referral_bind', 'referral_active')
+         ORDER BY al.created_at DESC
+         LIMIT 10`
+      );
+
+      const activity = rows.rows.map((r) => {
+        const ctx = r.context || {};
+        const referredUsername = ctx.referredUsername || null;
+        const isNowActive = r.action === 'referral_bind_flagged' ? false : (ctx.action === 'referral_active');
+        return {
+          action: r.action,
+          username: r.username,
+          referredUsername,
+          isNowActive,
+          createdAt: r.created_at,
+        };
+      });
+
+      res.json({ success: true, activity });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/referral/stats
  */
 router.get('/stats', async (req, res, next) => {

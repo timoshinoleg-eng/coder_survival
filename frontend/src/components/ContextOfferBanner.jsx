@@ -3,6 +3,17 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
+import { Analytics } from '../utils/analytics.js';
+import PurchaseSuccess from './PurchaseSuccess.jsx';
+
+function getOfferEffect(productId) {
+  const effects = {
+    energy_refill: { text: '+100 Energy', icon: '\u26a1' },
+    depression_cure: { text: 'Depression cured', icon: '\ud83d\udc9a' },
+    tier_boost: { text: 'Rank boosted', icon: '\u2b50' },
+  };
+  return effects[productId] || { text: 'Purchased!', icon: '\u2705' };
+}
 
 export default function ContextOfferBanner() {
   const {
@@ -10,6 +21,7 @@ export default function ContextOfferBanner() {
   } = useGameState();
   const { initData } = useTelegram();
   const [buying, setBuying] = useState(false);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(null);
 
   const handleDismiss = useCallback(() => {
     if (contextOffer?.type) {
@@ -21,6 +33,7 @@ export default function ContextOfferBanner() {
 
   const handleGoShop = useCallback(() => {
     if (contextOffer?.type) {
+      try { Analytics.track('offer_clicked', { offerType: contextOffer.type, source: contextOffer.source || 'banner' }); } catch (_) {}
       dismissContextOffer(contextOffer.type).catch((err) => {
         console.warn('Context offer dismiss before shop failed:', err);
       });
@@ -30,11 +43,16 @@ export default function ContextOfferBanner() {
 
   const handleBuy = useCallback(async () => {
     if (!contextOffer) return;
+    try { Analytics.track('offer_clicked', { offerType: contextOffer.type, source: contextOffer.source || 'banner' }); } catch (_) {}
     setBuying(true);
     try {
       const result = await startTelegramPurchase(contextOffer.productId, initData);
       if (result.success) {
         await dismissContextOffer(contextOffer.type);
+        setPurchaseSuccess({
+          product: { id: contextOffer.productId, name: contextOffer.title },
+          effect: getOfferEffect(contextOffer.productId)
+        });
       }
     } catch (err) {
       console.warn('Context offer buy failed:', err);
@@ -115,6 +133,12 @@ export default function ContextOfferBanner() {
           cursor: 'pointer'
         }
       }, 'Закрыть')
-    ])
+    ]),
+
+    purchaseSuccess && h(PurchaseSuccess, {
+      product: purchaseSuccess.product,
+      effect: purchaseSuccess.effect,
+      onClose: () => setPurchaseSuccess(null)
+    })
   ]);
 }

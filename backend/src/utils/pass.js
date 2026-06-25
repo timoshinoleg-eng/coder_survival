@@ -50,6 +50,21 @@ export function applyPassXpSourceMultiplier(amount, source, date = new Date()) {
   return Math.floor(normalized * getWeekendXpMultiplier(date));
 }
 
+export async function applyPremiumXpMultiplier(client, userId, xpAmount) {
+  const pass = await getActivePass(client);
+  if (!pass || xpAmount <= 0) return { xpAmount, isPremium: false };
+
+  const playerPass = await client.query(
+    `SELECT is_premium FROM player_passes WHERE user_id = $1 AND pass_id = $2`,
+    [userId, pass.id]
+  );
+  const isPremium = playerPass.rows[0]?.is_premium === true;
+  if (!isPremium) return { xpAmount, isPremium: false };
+
+  const boosted = Math.floor(xpAmount * PASS.premiumXpMultiplier);
+  return { xpAmount: boosted, isPremium: true, passId: pass.id, baseAmount: xpAmount };
+}
+
 export async function getActivePass(client) {
   const result = await client.query(
     `SELECT id, season_number, season_name, start_date, end_date, theme

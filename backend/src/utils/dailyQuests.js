@@ -136,6 +136,10 @@ export function checkQuestProgress(quests, eventType, eventValue) {
       case 'social_share':
       case 'watch_ad':
       case 'buy_generator':
+      case 'burnout_recover':
+      case 'shop_purchase':
+      case 'referral_invite':
+      case 'team_hackathon':
         newProgress += typeof eventValue === 'number' ? eventValue : 1;
         break;
       default:

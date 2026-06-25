@@ -166,9 +166,10 @@ export default function TapArea({ active }) {
   ].filter(Boolean).join(' ');
   const depressionClass =
     isBurnout ? 'depression-burnout'
-      : depression >= DEPRESSION_AFFLICTION ? 'depression-high'
-        : depression >= 60 ? 'depression-med'
-          : 'depression-low';
+      : depression >= 160 ? 'depression-critical'
+        : depression >= DEPRESSION_AFFLICTION ? 'depression-high'
+          : depression >= 60 ? 'depression-med'
+            : 'depression-low';
   const buttonText = isExhausted
     ? '⚡ Нет энергии'
     : isBurnout
@@ -255,6 +256,7 @@ export default function TapArea({ active }) {
       .depression-low { background: #FFD700; }
       .depression-med { background: #FF8C00; }
       .depression-high { background: #DC143C; animation: pulseRed 2s infinite; }
+      .depression-critical { background: #8B0000; animation: pulseRed 0.8s infinite; box-shadow: 0 0 12px rgba(139,0,0,0.7); }
       .depression-burnout { background: #2F2F2F; color: #FF0000; }
     `),
 

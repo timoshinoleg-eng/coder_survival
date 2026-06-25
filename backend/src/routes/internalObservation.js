@@ -473,6 +473,8 @@ async function getContextOffersSlice(client, days) {
     fatigueResult,
     sourceBreakdownResult,
     sourceConversionResult,
+    clicksResult,
+    clickSourceResult,
   ] = await Promise.all([
     client.query(
       `SELECT
@@ -633,6 +635,31 @@ async function getContextOffersSlice(client, days) {
        ORDER BY i.offer_type, i.source`,
       [days],
     ),
+    client.query(
+      `SELECT
+         context->>'offerType' AS offer_type,
+         COUNT(*) AS clicks,
+         COUNT(DISTINCT user_id) AS unique_users
+       FROM audit_logs
+       WHERE action = 'offer_clicked'
+         AND created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       GROUP BY context->>'offerType'
+       ORDER BY clicks DESC, offer_type`,
+      [days],
+    ),
+    client.query(
+      `SELECT
+         context->>'offerType' AS offer_type,
+         context->>'source' AS source,
+         COUNT(*) AS clicks,
+         COUNT(DISTINCT user_id) AS unique_users
+       FROM audit_logs
+       WHERE action = 'offer_clicked'
+         AND created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       GROUP BY context->>'offerType', context->>'source'
+       ORDER BY offer_type, source`,
+      [days],
+    ),
   ]);
 
   return {
@@ -696,6 +723,17 @@ async function getContextOffersSlice(client, days) {
         ),
       };
     }),
+    clicksByType: clicksResult.rows.map((row) => ({
+      offerType: row.offer_type,
+      clicks: Number(row.clicks || 0),
+      uniqueUsers: Number(row.unique_users || 0),
+    })),
+    clicksBySource: clickSourceResult.rows.map((row) => ({
+      offerType: row.offer_type,
+      source: row.source,
+      clicks: Number(row.clicks || 0),
+      uniqueUsers: Number(row.unique_users || 0),
+    })),
   };
 }
 
@@ -964,6 +1002,7 @@ async function getShopPurchasesSlice(client, days) {
     conversionByDayResult,
     intentResult,
     paymentResult,
+    shopOpenedResult,
   ] = await Promise.all([
     client.query(
       `SELECT
@@ -1044,6 +1083,18 @@ async function getShopPurchasesSlice(client, days) {
        WHERE created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
        GROUP BY item_type, status
        ORDER BY item_type, status`,
+      [days],
+    ),
+    client.query(
+      `SELECT
+         DATE(created_at) AS day,
+         COUNT(*) AS opens,
+         COUNT(DISTINCT user_id) AS unique_users
+       FROM audit_logs
+       WHERE action = 'shop_opened'
+         AND created_at >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+       GROUP BY DATE(created_at)
+       ORDER BY day DESC`,
       [days],
     ),
   ]);
@@ -1178,6 +1229,7 @@ async function getShopPurchasesSlice(client, days) {
       }),
     stepCoverage: {
       trackedSteps: [
+        "shop_open",
         "purchase_intent",
         "purchase_row_created",
         "purchase_status_pending",
@@ -1186,12 +1238,16 @@ async function getShopPurchasesSlice(client, days) {
         "payment_record_completed",
       ],
       missingSteps: [
-        "shop_open",
         "invoice_link_created",
         "payment_confirm_duplicate",
         "payment_confirm_failure",
       ],
     },
+    shopOpenedByDay: shopOpenedResult.rows.map((row) => ({
+      day: row.day,
+      opens: Number(row.opens || 0),
+      uniqueUsers: Number(row.unique_users || 0),
+    })),
     completionByDay: conversionByDayResult.rows.map((row) => ({
       day: row.day,
       pending: Number(row.pending || 0),
@@ -1358,23 +1414,29 @@ function buildOffersLegacy(sqlSlices) {
         completedPurchaseUserRatePct: row.completedPurchaseUserRatePct,
       }),
     ),
+    clicksByType: sqlSlices.contextOffers.clicksByType,
+    clicksBySource: sqlSlices.contextOffers.clicksBySource,
   };
 }
 
 function buildShopLegacy(sqlSlices) {
-  return sqlSlices.shopPurchases.funnelByItem.map((row) => ({
-    itemType: row.itemType,
-    intentCount: row.buyRequestCount,
-    purchasesTotal: row.purchaseRows,
-    purchasesCompleted: row.purchasesCompleted,
-    purchasesPending: row.purchasesPending,
-    purchasesFailed: row.purchasesFailed,
-    paymentRecordsCompleted: row.paymentRecordsCompleted,
-    starsCompleted: row.starsCompleted,
-    starsCaptured: row.starsCaptured,
-    completionRatePct: row.purchaseToCompletedPct,
-    intentToCompletedRatePct: row.intentToCompletedPct,
-  }));
+  return {
+    funnelByItem: sqlSlices.shopPurchases.funnelByItem.map((row) => ({
+      itemType: row.itemType,
+      intentCount: row.buyRequestCount,
+      purchasesTotal: row.purchaseRows,
+      purchasesCompleted: row.purchasesCompleted,
+      purchasesPending: row.purchasesPending,
+      purchasesFailed: row.purchasesFailed,
+      paymentRecordsCompleted: row.paymentRecordsCompleted,
+      starsCompleted: row.starsCompleted,
+      starsCaptured: row.starsCaptured,
+      completionRatePct: row.purchaseToCompletedPct,
+      intentToCompletedRatePct: row.intentToCompletedPct,
+    })),
+    shopOpenedByDay: sqlSlices.shopPurchases.shopOpenedByDay,
+    stepCoverage: sqlSlices.shopPurchases.stepCoverage,
+  };
 }
 
 function buildQuestsLegacy(sqlSlices) {

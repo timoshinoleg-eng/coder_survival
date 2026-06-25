@@ -4,11 +4,18 @@ import { apiRequest } from "../utils/api.js";
 import { useTelegram } from "../hooks/useTelegram.js";
 import { useGameState } from "../hooks/useGameState.js";
 import { formatRewardPayload } from "../utils/rewardFormatting.js";
+import { Analytics } from "../utils/analytics.js";
 
 export default function EventPanel({ open, onClose }) {
   const { initData } = useTelegram();
   const { event, crunchTime, showToast } = useGameState();
   const [claiming, setClaiming] = useState(false);
+
+  useEffect(() => {
+    if (open && event) {
+      try { Analytics.track('event_panel_opened', { eventType: 'hackathon', eventId: event.id || null }); } catch (_) {}
+    }
+  }, [open, event]);
 
   const handleClaim = useCallback(async () => {
     if (!event || event.myContribution?.claimed) return;

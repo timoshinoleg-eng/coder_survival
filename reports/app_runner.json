@@ -1,0 +1,112 @@
+{
+  "repo_root": "C:\\Users\\Имярек\\Downloads\\Coder Survival\\coder_survival_repo\\coder_survival_fresh",
+  "timestamp": "2025-06-18T17:45:00+03:00",
+  "status": "ready_to_build",
+  "summary": {
+    "root_package_json": {
+      "exists": true,
+      "name": "coder-survival",
+      "scripts": {
+        "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+        "test": "npm run test --prefix backend && npm run test --prefix frontend",
+        "prepare": "husky install"
+      },
+      "dev_dependencies": ["concurrently", "husky", "lint-staged", "vercel"],
+      "dependencies": ["chokidar"]
+    },
+    "backend_package_json": {
+      "exists": true,
+      "name": "coder-survival-backend",
+      "version": "0.1.0",
+      "type": "module",
+      "main": "src/index.js",
+      "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js",
+        "migrate": "node src/migrate.js",
+        "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --forceExit",
+        "docker:build": "docker build -t cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest .",
+        "docker:push": "docker push cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest",
+        "deploy": "npm run docker:build && npm run docker:push"
+      },
+      "dependencies": ["@napi-rs/canvas", "cors", "dotenv", "express", "helmet", "node-cron", "pg", "zod"],
+      "dev_dependencies": ["jest", "nodemon"],
+      "engines": {"node": ">=20.0.0"}
+    },
+    "frontend_package_json": {
+      "exists": true,
+      "name": "coder-survival",
+      "version": "0.1.0",
+      "type": "module",
+      "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "test": "npm run smoke",
+        "preview": "vite preview",
+        "smoke": "node scripts/frontend-smoke.mjs",
+        "analyze": "vite build --mode analyze"
+      },
+      "dependencies": ["@amplitude/analytics-browser", "@tonconnect/sdk", "@tonconnect/ui-react", "phaser", "preact"],
+      "dev_dependencies": ["@preact/preset-vite", "rollup-plugin-visualizer", "vite"]
+    },
+    "node_modules": {
+      "root": false,
+      "backend": false,
+      "frontend": false,
+      "note": "npm install is required in all three directories before any build or dev command will work"
+    },
+    "entry_points": {
+      "backend_src_index_js": true,
+      "frontend_index_html": true,
+      "backend_src_dir": true,
+      "frontend_src_dir": true
+    },
+    "env_files": {
+      "root": {
+        "env_example": true,
+        "keys": ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD", "BOT_TOKEN", "BOT_BACKEND_SECRET", "WEBAPP_URL", "INIT_DATA_MAX_AGE_SECONDS", "RATE_LIMIT_MAX_TAPS_PER_SECOND", "RATE_LIMIT_SOFT_BAN_THRESHOLD", "RATE_LIMIT_DAILY_CAP_PER_IP", "ADSGRAM_SECRET", "PROPELLER_SECRET"]
+      },
+      "backend": {
+        "env_example": true,
+        "keys": ["NODE_ENV", "PORT", "DATABASE_URL", "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD", "DB_PASS", "TEST_DB_HOST", "TEST_DB_PORT", "TEST_DB_NAME", "TEST_DB_USER", "TEST_DB_PASSWORD", "BOT_TOKEN", "WEBAPP_URL", "RATE_LIMIT_MAX_TAPS_PER_SECOND", "RATE_LIMIT_SOFT_BAN_THRESHOLD", "RATE_LIMIT_DAILY_CAP_PER_IP", "INIT_DATA_MAX_AGE_SECONDS", "BOT_BACKEND_SECRET", "TIER_THRESHOLDS", "ADSGRAM_SECRET", "PROPELLER_SECRET", "AMPLITUDE_API_KEY", "FRONTEND_URL"]
+      },
+      "frontend": {
+        "env_example": true,
+        "keys": ["VITE_AMPLITUDE_API_KEY", "VITE_ADSGRAM_BLOCK_ID", "VITE_ADS_PROVIDER", "VITE_ENABLE_REWARDED_ADS"]
+      }
+    },
+    "deployment_configs": {
+      "docker": {
+        "dockerfile_backend": true,
+        "dockerfile_frontend": true,
+        "docker_compose_backend": true,
+        "docker_compose_prod": true,
+        "docker_compose_backend_local": true
+      },
+      "paas": {
+        "render_yaml": true,
+        "vercel_json": true
+      },
+      "process_manager": {
+        "ecosystem_config_js": true
+      }
+    },
+    "prerequisites_to_run": {
+      "step_1": "npm install (root) — installs concurrently, husky, lint-staged, vercel, chokidar",
+      "step_2": "npm install (backend) — installs express, pg, cors, helmet, dotenv, zod, node-cron, @napi-rs/canvas, jest, nodemon",
+      "step_3": "npm install (frontend) — installs preact, phaser, @tonconnect/sdk, @tonconnect/ui-react, @amplitude/analytics-browser, vite, @preact/preset-vite, rollup-plugin-visualizer",
+      "step_4": "Create .env files in backend and frontend based on .env.example (or set env vars externally)",
+      "step_5": "Backend requires PostgreSQL database (local via docker-compose.yml or external like Yandex Cloud)",
+      "step_6": "Run backend migrations: npm run migrate (in backend dir)",
+      "step_7": "Start dev servers: npm run dev (from root) or separately in backend/frontend"
+    },
+    "problems": [],
+    "notes": [
+      "Backend is ESM (type: module) and requires Node >= 20.0.0",
+      "Frontend is a Vite + Preact app; no separate dev server needed beyond Vite",
+      "Docker Compose for local dev includes PostgreSQL; production uses external DB (Yandex Cloud / Render)",
+      "Production frontend is hosted on Vercel; backend on Render or Yandex Cloud via Docker",
+      "Bot service exists in repo but is not mentioned in root package.json scripts"
+    ]
+  }
+}

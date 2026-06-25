@@ -104,9 +104,9 @@ export default function StatsBar({ runtimeNow }) {
   const energyColor =
     energyPercent > 50 ? "#4ade80" : energyPercent > 20 ? "#facc15" : "#ef4444";
   const depressionColor =
-    depression < 50 ? "#4ade80" : depression < 100 ? "#facc15" : "#ef4444";
+    depression < 50 ? "#4ade80" : depression < 100 ? "#facc15" : depression < 150 ? "#fb923c" : "#ef4444";
   const isLowEnergy = energyPercent <= 20;
-  const isHighStress = depression >= 100;
+  const isHighStress = depression >= 150;
 
   const displayLevel = levelInRank || 1;
 

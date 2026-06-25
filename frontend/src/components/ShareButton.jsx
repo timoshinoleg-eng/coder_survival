@@ -1,6 +1,7 @@
 import { h } from 'preact';
 import { useCallback, useMemo, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import { Analytics } from '../utils/analytics.js';
 import { MEME_TEMPLATES } from '../utils/canvasTemplates.js';
 
 const TEMPLATE_ASPECT = {
@@ -131,6 +132,7 @@ export default function ShareButton() {
 
   const share = useCallback(async () => {
     if (!template || busy) return;
+    try { Analytics.track('share_referral_clicked', { channel: 'share_card' }); } catch (_) {}
     setBusy(true);
     try {
       const blob = await generateShareCard(template, {

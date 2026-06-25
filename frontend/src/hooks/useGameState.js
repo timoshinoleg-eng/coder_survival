@@ -100,6 +100,7 @@ function normalizeQuestPayload(payload) {
     accountAgeDays: payload.accountAgeDays ?? payload.daily?.accountAgeDays ?? null,
     fullClearAvailable: payload.fullClearAvailable ?? payload.daily?.fullClearAvailable ?? false,
     fullClearClaimed: payload.fullClearClaimed ?? payload.daily?.fullClearClaimed ?? false,
+    rerollsRemaining: payload.rerollsRemaining ?? payload.daily?.rerollsRemaining ?? 2,
     total: payload.daily?.total ?? (payload.quests || []).length,
     completed: payload.daily?.completed ?? (payload.quests || []).filter((quest) => quest.completed).length,
     claimable: payload.daily?.claimable ?? (payload.quests || []).filter((quest) => quest.completed && !quest.claimed).length,
@@ -893,6 +894,18 @@ export function GameProvider({ children }) {
     return payload;
   }, [loadState, refreshPass, refreshQuests, telegram?.initData]);
 
+  const rerollQuest = useCallback(async () => {
+    const payload = await apiRequest("/api/quests/reroll", {
+      method: "POST",
+      initData: telegram?.initData,
+      body: withTimezoneBody(),
+    });
+    if (payload?.success) {
+      await refreshQuests().catch(() => null);
+    }
+    return payload;
+  }, [refreshQuests, telegram?.initData]);
+
   const claimStreak = useCallback(async () => {
     const payload = await apiRequest("/api/streak/claim", {
       method: "POST",
@@ -980,7 +993,7 @@ export function GameProvider({ children }) {
         Math.max(0, (current.energy || 0) + (deltas.energyDelta || 0))
       );
       const nextDepression = Math.min(
-        100,
+        200,
         Math.max(0, (current.depression || 0) + (deltas.depressionDelta || 0))
       );
       const nextCommits = Math.max(0, (current.commits || 0) + (deltas.commitsDelta || 0));
@@ -1007,6 +1020,7 @@ export function GameProvider({ children }) {
     claimQuests,
     claimDailyQuest: claimQuests,
     claimFullClear,
+    rerollQuest,
     refreshPass,
     claimPassReward,
     refreshStreak,

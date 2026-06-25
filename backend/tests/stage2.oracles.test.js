@@ -20,7 +20,7 @@ test('Oracle 1: quest determinism', () => {
   const q1 = generateDailyQuests('test_user', '2026-05-10', 1, 1);
   const q2 = generateDailyQuests('test_user', '2026-05-10', 1, 1);
   assert.deepStrictEqual(q1.map((quest) => quest.id), q2.map((quest) => quest.id));
-  assert.deepStrictEqual(q1.map((quest) => quest.id), ['q_login', 'q_tap300', 'q_earn10000', 'q_bonus_buy_generator']);
+  assert.deepStrictEqual(q1.map((quest) => quest.id), ['q_login', 'q_tap300', 'q_earn10000', 'q_bonus_burnout']);
 });
 
 test('Oracle 2: pass XP conservation', () => {

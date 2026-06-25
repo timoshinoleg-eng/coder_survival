@@ -47,8 +47,9 @@ export default function OnboardingModal({ visible, onClose }) {
   }, [step, visible]);
 
   const fakeDepression = useMemo(() => {
-    if (step !== 2) return Math.round(depression || 0);
-    return Math.min(100, Math.max(Math.round(depression || 0), tutorialTaps * 2));
+    const pct = Math.round(((depression || 0) / 200) * 100);
+    if (step !== 2) return Math.min(100, pct);
+    return Math.min(100, Math.max(pct, tutorialTaps * 2));
   }, [depression, step, tutorialTaps]);
 
   const handleTutorialTap = useCallback(() => {

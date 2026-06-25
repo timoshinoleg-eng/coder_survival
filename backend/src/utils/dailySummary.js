@@ -103,17 +103,17 @@ export async function calculateDailySummaryScores(client, date = null) {
   // A referral is active if referred user has commits_total >= 20 and first_active_at >= 2 days ago
   const referralsResult = await client.query(
     `SELECT
-       r.inviter_id,
+       r.referrer_id,
        COUNT(*) AS cnt
      FROM referrals r
-     JOIN progression p ON p.user_id = r.invited_id
+     JOIN progression p ON p.user_id = r.referred_id
      WHERE p.commits_total >= $1
        AND p.first_active_at IS NOT NULL
        AND p.first_active_at <= $2::timestamptz
-     GROUP BY r.inviter_id`,
+     GROUP BY r.referrer_id`,
     [REFERRAL.ACTIVE_THRESHOLD_COMMITS, start.toISOString()]
   );
-  const activeReferralsMap = new Map(referralsResult.rows.map(r => [r.inviter_id, parseInt(r.cnt, 10)]));
+  const activeReferralsMap = new Map(referralsResult.rows.map(r => [r.referrer_id, parseInt(r.cnt, 10)]));
 
   // Fetch equipped team_lead skins for all active users
   const userIds = activityResult.rows.map(r => r.user_id);

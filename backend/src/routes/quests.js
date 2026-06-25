@@ -181,6 +181,7 @@ router.get(['/', '/daily'], async (req, res) => {
     const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
     const state = await getOrCreateQuestState(client, userId, today, false);
     const fullClearAvailable = isFullClearAvailable(state.quests, state.fullClearClaimed);
+    const rerollsRemaining = Math.max(0, 2 - Number(state.rerollsUsed || 0));
 
     return res.json({
       date: today,
@@ -189,13 +190,15 @@ router.get(['/', '/daily'], async (req, res) => {
       avgDailyFarm: state.avgDailyFarm ?? null,
       fullClearAvailable,
       fullClearClaimed: state.fullClearClaimed === true,
+      rerollsRemaining,
       daily: {
         quests: state.quests,
         total: state.quests.length,
         completed: state.quests.filter((quest) => quest.completed).length,
         claimable: state.quests.filter((quest) => quest.completed && !quest.claimed).length,
         fullClearAvailable,
-        fullClearClaimed: state.fullClearClaimed === true
+        fullClearClaimed: state.fullClearClaimed === true,
+        rerollsRemaining,
       }
     });
   } catch (err) {
@@ -480,6 +483,107 @@ router.post('/weekly/claim', async (req, res) => {
   } catch (err) {
     if (client) await client.query('ROLLBACK');
     console.error('Weekly sprint claim error:', err);
+    return res.status(500).json({ error: 'Технический сбой' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// POST /api/quests/reroll — reroll the daily bonus quest
+// Max 2 rerolls/day: 1st free, 2nd costs 50 stars
+router.post('/reroll', async (req, res) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) {
+    return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const timezoneOffset = getTimezoneOffset(req);
+    const today = getTodayDate(timezoneOffset);
+    const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
+    const state = await getOrCreateQuestState(client, userId, today, true);
+
+    const rerollsUsed = Number(state.rerollsUsed || 0);
+    if (rerollsUsed >= 2) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Все замены на сегодня использованы', rerollsRemaining: 0 });
+    }
+
+    const isPaid = rerollsUsed >= 1;
+    if (isPaid) {
+      const progressionResult = await client.query(
+        `SELECT inventory FROM progression WHERE user_id = $1 FOR UPDATE`,
+        [userId]
+      );
+      const inventory = progressionResult.rows[0]?.inventory || {};
+      const starsAvailable = Number(inventory.stars || 0);
+      if (starsAvailable < 50) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Недостаточно звёзд', rerollsRemaining: 2 - rerollsUsed });
+      }
+      await client.query(
+        `UPDATE progression
+         SET inventory = jsonb_set(inventory, '{stars}', (COALESCE(inventory->>'stars','0')::int - 50)::text::jsonb)
+         WHERE user_id = $1`,
+        [userId]
+      );
+    }
+
+    const currentBonusQuest = state.quests.find((q) => q.isBonus === true);
+    const currentBonusId = currentBonusQuest?.id;
+    const pool = DAILY_QUEST.POOLS.BONUS;
+    const filtered = pool.filter((q) => q.id !== currentBonusId);
+    const newTemplate = filtered[Math.floor(Math.random() * filtered.length)] || pool[0];
+
+    const avgDailyFarm = state.avgDailyFarm || 100;
+    const rawReward = avgDailyFarm * 0.5;
+    const bonusQuestReward = Math.floor(Number.isFinite(rawReward) ? rawReward : 250);
+
+    const newBonusQuest = {
+      id: newTemplate.id,
+      type: newTemplate.type,
+      target: newTemplate.target,
+      reward: { commitsCurrent: bonusQuestReward },
+      isBonus: true,
+      progress: 0,
+      completed: false,
+      claimed: false,
+      expiresAt: null,
+    };
+
+    state.quests = state.quests.map((q) => (q.isBonus === true ? newBonusQuest : q));
+    state.rerollsUsed = rerollsUsed + 1;
+
+    await client.query(
+      `UPDATE progression SET daily_quests_state = $2 WHERE user_id = $1`,
+      [userId, JSON.stringify(state)]
+    );
+
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, context)
+       VALUES ($1, 'quest_reroll', $2::jsonb)`,
+      [userId, JSON.stringify({
+        oldQuestId: currentBonusId,
+        newQuestId: newBonusQuest.id,
+        paid: isPaid,
+        rerollsUsed: state.rerollsUsed,
+      })]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      success: true,
+      newQuest: newBonusQuest,
+      rerollsRemaining: Math.max(0, 2 - state.rerollsUsed),
+    });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK');
+    console.error('Quest reroll error:', err);
     return res.status(500).json({ error: 'Технический сбой' });
   } finally {
     if (client) client.release();

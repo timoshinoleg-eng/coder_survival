@@ -1,6 +1,9 @@
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import { useTelegram } from '../hooks/useTelegram.js';
+import { startTelegramPurchase } from '../utils/purchases.js';
+import { Analytics } from '../utils/analytics.js';
 import Confetti from './Confetti.jsx';
 
 function iconForReward(reward) {
@@ -55,9 +58,11 @@ function labelForPremiumReward(reward) {
 
 export default function PassPanel() {
   const { pass, refreshPass, claimPassReward, showToast } = useGameState();
+  const { initData } = useTelegram();
   const [open, setOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [claiming, setClaiming] = useState(null);
+  const [buyingPremium, setBuyingPremium] = useState(false);
   const prevLevelRef = useRef(null);
 
   const passMeta = pass?.pass || null;
@@ -68,10 +73,23 @@ export default function PassPanel() {
   const daysRemaining = passMeta?.daysRemaining ?? 0;
   const totalLevels = 50;
 
+  // Premium proximity nudge — find next premium reward within 2 levels
+  const nextPremiumLevel = !isPremium
+    ? rewards
+        .filter(r => r.level > currentLevel && r.level <= currentLevel + 2 && r.premiumReward)
+        .find(() => true)
+    : null;
+
   const nextLevelRequired = rewards.find(r => r.level === currentLevel)?.requiredXp || 0;
   const currentLevelProgress = (!nextLevelRequired || currentLevel >= totalLevels)
     ? 100
     : Math.min(100, Math.round((playerPass?.currentXp || 0) / nextLevelRequired * 100));
+
+  // Find next unclaimed free reward above current level
+  const nextFreeReward = rewards.find(r => r.level > currentLevel && !r.freeClaimed);
+
+  // Completion percentage
+  const completionPct = Math.round((currentLevel / totalLevels) * 100);
 
   useEffect(() => {
     if (prevLevelRef.current !== null && currentLevel > prevLevelRef.current) {
@@ -81,6 +99,12 @@ export default function PassPanel() {
     }
     prevLevelRef.current = currentLevel;
   }, [currentLevel]);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = document.getElementById(`pass-level-${currentLevel}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [open, currentLevel]);
 
   async function handleClaim(level, track) {
     setClaiming(`${level}:${track}`);
@@ -94,6 +118,24 @@ export default function PassPanel() {
       showToast(err?.message || 'Не удалось забрать награду', 'error', 2000);
     } finally {
       setClaiming(null);
+    }
+  }
+
+  async function handleBuyPremium() {
+    if (buyingPremium) return;
+    setBuyingPremium(true);
+    try {
+      const result = await startTelegramPurchase('premium_pass', initData);
+      if (result.success) {
+        showToast(result.status === 'opened' ? 'Invoice открыт. После оплаты Premium Pass активируется автоматически.' : 'Premium Pass куплен!', 'success', 3000);
+        Analytics.track('purchase_completed', { product_id: 'premium_pass', price: 499, currency: 'stars' });
+        await refreshPass();
+      }
+    } catch (err) {
+      showToast(err?.payload?.error || err?.message || 'Ошибка покупки', 'error', 2500);
+      Analytics.track('purchase_failed', { product_id: 'premium_pass', stage: 'checkout' });
+    } finally {
+      setBuyingPremium(false);
     }
   }
 
@@ -114,13 +156,18 @@ export default function PassPanel() {
     },
   }, [
     showConfetti && h(Confetti),
-    h('style', null, '@keyframes passPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 16px rgba(250,204,21,.45); } }'),
+    h('style', null, '@keyframes passPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 16px rgba(250,204,21,.45); } }\n@keyframes premiumPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1.0; } }\n.premium-nudge-star { animation: premiumPulse 2s infinite; color: #FFD700; font-size: 14px; }'),
 
     // Header
     h('button', {
       type: 'button',
       onClick: () => {
-        setOpen((value) => !value);
+        setOpen((value) => {
+          if (!value) {
+            try { Analytics.track('pass_panel_opened', { currentLevel, isPremium }); } catch (_) {}
+          }
+          return !value;
+        });
         refreshPass?.();
       },
       style: {
@@ -137,7 +184,7 @@ export default function PassPanel() {
         cursor: 'pointer',
       },
     }, [
-      h('span', null, `${passMeta?.seasonName || 'Season Pass'} · ${currentLevel}/${totalLevels}`),
+      h('span', null, `${passMeta?.seasonName || 'Season Pass'} · ${currentLevel}/${totalLevels} (${completionPct}%)`),
       h('span', { style: { color: '#8ba1bb', fontSize: '12px' } }, `${daysRemaining} дн.`),
     ]),
 
@@ -157,6 +204,15 @@ export default function PassPanel() {
           transition: 'width 0.4s ease'
         }
       })),
+    ]),
+
+    // Next free reward preview
+    nextFreeReward && h('div', { style: { padding: '4px 12px 0', fontSize: '11px', color: '#8ba1bb' } }, [
+      h('span', { style: { color: '#4ade80', marginRight: '4px' } }, '→'),
+      h('span', { style: { color: '#4ade80' } }, 'Next: '),
+      h('span', null, iconForReward(nextFreeReward.freeReward)),
+      h('span', { style: { marginLeft: '4px' } }, labelForReward(nextFreeReward.freeReward)),
+      h('span', { style: { color: '#8ba1bb', marginLeft: '4px' } }, `(ур. ${nextFreeReward.level})`),
     ]),
 
     // Season timer & claimable summary
@@ -187,31 +243,31 @@ export default function PassPanel() {
         border: '1px solid #5b4a0a',
         background: 'linear-gradient(90deg, rgba(250, 204, 21, 0.12), rgba(250, 204, 21, 0.04))',
         display: 'flex',
-        flexDirection: 'column',
-        gap: '8px'
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '10px'
       }
     }, [
-      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
-        h('div', null, [
-          h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track скоро'),
-          h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, 'Покупку временно выключили. μ-бонусы остаются в плане сезона, скины и рамки ещё допиливаются.')
-        ]),
+      h('div', null, [
+        h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track'),
+        h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, 'Откройте эксклюзивные награды · ⭐ 499')
       ]),
       h('button', {
         type: 'button',
-        onClick: () => showToast('Premium Track скоро: сначала добиваем оплату и эксклюзивные награды.', 'info', 2600),
+        onClick: handleBuyPremium,
+        disabled: buyingPremium,
         style: {
-          width: '100%',
           padding: '8px 10px',
           borderRadius: '6px',
-          border: '1px solid #6b7280',
-          background: '#374151',
-          color: '#e5e7eb',
+          border: 'none',
+          background: buyingPremium ? '#274267' : '#facc15',
+          color: buyingPremium ? '#8ba1bb' : '#1a1a2e',
           fontWeight: 'bold',
           fontSize: '11px',
-          cursor: 'pointer'
+          cursor: buyingPremium ? 'not-allowed' : 'pointer',
+          whiteSpace: 'nowrap'
         }
-      }, 'Скоро')
+      }, buyingPremium ? '...' : '⭐ 499 Купить')
     ]),
 
     // Expanded 50-level track
@@ -226,22 +282,28 @@ export default function PassPanel() {
         rewards.map((r) => {
           const unlocked = r.unlocked;
           const isMilestone = r.level % 5 === 0;
+          const isBigMilestone = r.level === 25 || r.level === 50;
           return h('div', {
             key: r.level,
+            id: `pass-level-${r.level}`,
             style: {
               display: 'grid',
               gridTemplateColumns: '32px 1fr 1fr',
               gap: '8px',
               alignItems: 'center',
-              padding: '6px 8px',
+              padding: isMilestone ? '10px 8px' : '6px 8px',
               background: unlocked ? (isMilestone ? '#162a4a' : '#131d33') : '#0f1729',
               borderRadius: '8px',
-              border: unlocked ? (isMilestone ? '1px solid #facc15' : '1px solid #30527e') : '1px solid #1f3552',
+              border: unlocked ? (isMilestone ? '2px solid #FFD700' : '1px solid #30527e') : '1px solid #1f3552',
               opacity: unlocked ? 1 : 0.55,
+              boxShadow: isMilestone && unlocked ? '0 0 8px rgba(255,215,0,0.15)' : 'none',
             }
           }, [
             // Level number
-            h('div', { style: { fontWeight: 'bold', fontSize: '12px', color: unlocked ? '#facc15' : '#8ba1bb', textAlign: 'center' } }, r.level),
+            h('div', { style: { fontWeight: 'bold', fontSize: isMilestone ? '13px' : '12px', color: unlocked ? '#facc15' : '#8ba1bb', textAlign: 'center' } }, [
+              isBigMilestone && h('span', { style: { display: 'block', fontSize: '14px', marginBottom: '1px' } }, '🏆'),
+              r.level,
+            ]),
 
             // Free track
             h('div', null, [
@@ -269,12 +331,19 @@ export default function PassPanel() {
             ]),
 
             // Premium track
-            h('div', null, [
+            h('div', { style: { position: 'relative' } }, [
+              r.level === nextPremiumLevel?.level && h('span', {
+                className: 'premium-nudge-star',
+                style: { position: 'absolute', top: '-2px', right: '-2px', fontSize: '14px', lineHeight: 1, zIndex: 1 }
+              }, '★'),
               h('div', { style: { fontSize: '10px', color: '#facc15', marginBottom: '2px' } }, 'Premium'),
               h('div', { style: { fontSize: '11px', color: '#c7ddf5', display: 'flex', alignItems: 'center', gap: '4px' } }, [
                 h('span', null, iconForReward(r.premiumReward)),
                 h('span', { style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, labelForPremiumReward(r.premiumReward)),
               ]),
+              r.level === nextPremiumLevel?.level && h('div', {
+                style: { fontSize: '9px', color: '#FFD700', marginTop: '2px', animation: 'premiumPulse 2s infinite' }
+              }, `${nextPremiumLevel.level - currentLevel} ур. до награды!`),
               premiumRewardHasPendingCosmetics(r.premiumReward) && h('div', { style: { fontSize: '10px', color: '#facc15', marginTop: '3px' } }, 'Скин/рамка скоро'),
               unlocked && isPremium && !r.premiumClaimed && h('button', {
                 onClick: () => handleClaim(r.level, 'premium'),
@@ -291,7 +360,7 @@ export default function PassPanel() {
                   cursor: 'pointer'
                 }
               }, claiming === `${r.level}:premium` ? '...' : 'Забрать'),
-              unlocked && !isPremium && !r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#facc15' } }, '🔒 Скоро'),
+              unlocked && !isPremium && !r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#facc15' } }, '🔒'),
               r.premiumClaimed && h('span', { style: { fontSize: '10px', color: '#4ade80' } }, '✅'),
             ]),
           ]);

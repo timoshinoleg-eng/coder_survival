@@ -53,6 +53,7 @@ import { startTeamHackathonCron } from "./jobs/teamHackathonCron.js";
 import { startAchievementCron } from "./jobs/achievementCron.js";
 import { startRandomEventCron } from "./jobs/randomEventCron.js";
 import { startFlashSaleCron } from "./jobs/flashSaleCron.js";
+import { startHealthAlert } from "./jobs/healthAlert.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -250,4 +251,5 @@ if (isEntrypoint) {
   startAchievementCron();
   startRandomEventCron();
   startFlashSaleCron();
+  startHealthAlert();
 }

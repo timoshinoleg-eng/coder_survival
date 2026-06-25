@@ -53,12 +53,12 @@ describe('MVP performance guardrails', () => {
     expect(source).not.toContain(".catch(() => {})");
   });
 
-  test('tap context offers run after the tap transaction commits', () => {
+  test('tap context offers run inside the transaction before commit', () => {
     const source = read('backend/src/routes/tap.js');
     const lastCommitIndex = source.lastIndexOf("await client.query('COMMIT');");
     const offerIndex = source.indexOf('await getContextOffer');
     expect(lastCommitIndex).toBeGreaterThan(-1);
-    expect(offerIndex).toBeGreaterThan(lastCommitIndex);
+    expect(offerIndex).toBeLessThan(lastCommitIndex);
   });
 
   test('sprint pass claim inserts the claim before applying reward', () => {

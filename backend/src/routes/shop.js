@@ -209,4 +209,38 @@ router.post('/purchase-deal', validate(purchaseDealSchema), async (req, res, nex
   }
 });
 
+router.post('/opened', async (req, res) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) {
+    return res.status(401).json({ error: 'No user in initData' });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      const userResult = await client.query(
+        `SELECT id FROM users WHERE telegram_id = $1`,
+        [telegramUser.id]
+      );
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      const userId = userResult.rows[0].id;
+
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, context)
+         VALUES ($1, 'shop_opened', $2::jsonb)`,
+        [userId, JSON.stringify({ source: 'api', timestamp: Date.now() })]
+      );
+
+      res.json({ success: true });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Failed to log shop_opened:', err);
+    res.status(500).json({ error: 'Failed to log event' });
+  }
+});
+
 export default router;

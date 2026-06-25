@@ -62,3 +62,11 @@ LEFT JOIN player_passes pp
 WHERE al.action = 'pass_premium_unlock'
 ORDER BY al.created_at DESC
 LIMIT 50;
+
+-- ─── Premium vs free XP comparison ────────────────────────────────────────
+SELECT
+  AVG(pl.xp_total) FILTER (WHERE pp.is_premium) AS avg_xp_premium,
+  AVG(pl.xp_total) FILTER (WHERE NOT pp.is_premium OR pp.is_premium IS NULL) AS avg_xp_free
+FROM player_levels pl
+LEFT JOIN player_passes pp ON pl.user_id = pp.user_id
+WHERE pp.pass_id = (SELECT id FROM sprint_passes WHERE is_active = TRUE LIMIT 1);

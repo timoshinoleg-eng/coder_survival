@@ -195,7 +195,7 @@ export const TAP_MECHANICS = {
   depressionGainPerTap: 0.5,
   depressionGainLowEnergy: 0.5,
   depressionGainCriticalEnergy: 1.0,
-  depressionRecoveryPerEnergy: 2,
+  depressionRecoveryPerEnergy: 5,
   depressionPenaltyMultiplier: 0.5,
   maxDepression: DEPRESSION_SCALE.HEART_ATTACK_THRESHOLD,
   afflictionDepression: DEPRESSION_SCALE.AFFLICTION_THRESHOLD,
@@ -263,7 +263,11 @@ const STAGE2 = {
       BONUS: [
         { id: 'q_bonus_watch_ad', type: 'watch_ad', target: 1, reward: { commitsCurrent: 250 } },
         { id: 'q_bonus_buy_generator', type: 'buy_generator', target: 1, reward: { commitsCurrent: 250 } },
-        { id: 'q_bonus_commit', type: 'commit_total', target: 10000, reward: { commitsCurrent: 250 } }
+        { id: 'q_bonus_commit', type: 'commit_total', target: 10000, reward: { commitsCurrent: 250 } },
+        { id: 'q_bonus_burnout', type: 'burnout_recover', target: 1, reward: { commitsCurrent: 250 } },
+        { id: 'q_bonus_premium_buy', type: 'shop_purchase', target: 1, reward: { commitsCurrent: 250 } },
+        { id: 'q_bonus_referral', type: 'referral_invite', target: 1, reward: { commitsCurrent: 250 } },
+        { id: 'q_bonus_team', type: 'team_hackathon', target: 1000, reward: { commitsCurrent: 250 } }
       ]
     },
     FULL_CLEAR: {
@@ -337,6 +341,7 @@ const STAGE2 = {
       45: { energy: 220, avatarFrame: 'cto_glow', muCurrency: 3, stars: 25 },
       50: { energy: 300, stars: 100, skin: 'legendary_architect', muCurrency: 5, title: 'Season Legend' }
     },
+    premiumXpMultiplier: 1.2,
     CATCH_UP: {
       missedDayPercent: DEFAULTS.BATTLE_PASS.catchUp.missedDayPercent,
       weekendMultiplier: 2.0,
@@ -561,7 +566,29 @@ const STAGE4 = {
       { id: 'coffee_week', name: 'Кофейная неделя', weekIndex: 0, modifiers: { energyRecoveryMult: 2.0 }, bonusQuest: { type: 'consume_coffee', target: 5, reward: { energy: 50 } } },
       { id: 'weekend_hackathon', name: 'Хакатон выходного дня', weekIndex: 1, modifiers: { commitMult: 2.0 }, activeDays: [6, 0] },
       { id: 'bug_hunt', name: 'Охота на баги', weekIndex: 2, modifiers: { critChanceAdd: 0.10 }, bonusQuest: { type: 'crit_count', target: 10, reward: { skinFragment: 'bug_hunter_gold' } } },
-      { id: 'crunch_time', name: 'Кранч-тайм', weekIndex: 3, modifiers: { depressionImmunityMinutes: 60 }, activeDays: [5], bonusQuest: { type: 'tap_count', target: 100, reward: { skin: 'overtime_hero' } } }
+      { id: 'crunch_time', name: 'Кранч-тайм', weekIndex: 3, modifiers: { depressionImmunityMinutes: 60 }, activeDays: [5], bonusQuest: { type: 'tap_count', target: 100, reward: { skin: 'overtime_hero' } } },
+      {
+        id: 'ship_week',
+        name: 'Ship Week',
+        description: 'Commuting code to prod! Commits count x3.',
+        duration: 7,
+        modifiers: {
+          commitMult: 3.0,
+          energyRecoveryMult: 1.5,
+        },
+        bonusQuest: {
+          type: 'q_bonus_ship',
+          name: 'Ship 3 commits',
+          description: 'Ship 3 commits this week',
+          target: 3,
+          reward: { type: 'skin_fragment', amount: 2 },
+        },
+        tiers: {
+          bronze: { threshold: 0.5, rewards: { energy: 50, xp: 200 } },
+          silver: { threshold: 0.75, rewards: { energy: 100, xp: 500, passXp: 200 } },
+          gold: { threshold: 1.0, rewards: { energy: 200, xp: 1000, passXp: 500, stars: 50 } },
+        },
+      },
     ],
     EVENT_DURATION_DAYS: 7,
     MAX_CONCURRENT: 1

@@ -1,0 +1,41 @@
+{
+  "repo": "C:\Users\Имярек\Downloads\Coder Survival\coder_survival_repo\coder_survival_fresh",
+  "timestamp": "2026-06-17",
+  "last_5_commits": [
+    "b68e42e docs: record deploy status and backend blocker",
+    "9534d9d docs: record green CI status",
+    "f2d8ace ci: stabilize backend and staging test workflows",
+    "029d47c ci: fix release prep workflow blockers",
+    "51eeb28 docs: record auth blockers and cleanup state"
+  ],
+  "dirty_file_count": 0,
+  "dirty_files": [],
+  "current_branch": "main",
+  "local_branches": [
+    "cleanup/post-deploy-audit",
+    "cleanup/post-deploy-audit-snapshot",
+    "feat/frontend/splash-onboarding",
+    "feat/security/hardening",
+    "feat/ux-polish-generators-panel",
+    "feature/fix-referral-attribution",
+    "feature/upgrade-referral-rewards",
+    "main"
+  ],
+  "origin_url": "https://github.com/timoshinoleg-eng/coder_survival.git",
+  "local_head": "b68e42e997675413b3c0fadcd2375925891c4efc",
+  "remote_head": "b68e42e997675413b3c0fadcd2375925891c4efc",
+  "local_matches_remote": true,
+  "ahead_behind": "in_sync",
+  "merge_conflicts": false,
+  "unmerged_files": [],
+  "stash_count": 3,
+  "stashes": [
+    "stash@{0}: On main: WIP: UX-polish — residual untracked files",
+    "stash@{1}: On cleanup/post-deploy-audit: WIP: UX-polish — GeneratorsPanel buyStatus + StatsBar accessibility",
+    "stash@{2}: WIP on feat/frontend/splash-onboarding: f7f28ab security: add rate limiting, helmet, cors, zod validation, telegram hmac"
+  ],
+  "issues": [
+    "3 stash entries present — non-critical but should be reviewed for cleanup"
+  ],
+  "healthy": true
+}

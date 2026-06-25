@@ -13,11 +13,12 @@ import {
   updateDailyQuestProgress
 } from '../utils/vnext.js';
 import { recordEventContribution } from '../utils/events.js';
-import { addPassXp, applyPassXpSourceMultiplier, getActivePass } from '../utils/pass.js';
+import { addPassXp, applyPassXpSourceMultiplier, applyPremiumXpMultiplier, getActivePass } from '../utils/pass.js';
 import { logPassXp } from '../utils/passXpLog.js';
 import { getContextOffer, recordOfferImpression } from '../utils/offers.js';
 import { updateTeamProgress } from '../utils/teams.js';
 import { checkAchievementsForUser } from '../utils/achievementsEngine.js';
+import { ensureAchievementRows } from '../utils/achievements.js';
 import { addEffect, getActiveEffects } from '../utils/activeEffects.js';
 import { calculateTapDelta, calculateDepressionDelta } from '../utils/tap.js';
 import { getUserActiveLanguage, getLanguageEffectMultipliers } from '../utils/languages.js';
@@ -45,7 +46,7 @@ router.post('/', validate(tapSchema), async (req, res) => {
   }
 
   const { session_id, tapCount } = req.body;
-  const requestedTapCount = tapCount;
+  const requestedTapCount = Math.max(1, Math.min(20, Math.floor(Number(tapCount) || 1)));
   const telegramId = telegramUser.id;
   const username = telegramUser.username || null;
   const firstName = telegramUser.first_name || null;
@@ -72,6 +73,9 @@ router.post('/', validate(tapSchema), async (req, res) => {
     );
     const userId = userResult.rows[0].id;
     const insertedUser = userResult.rows[0].inserted === true;
+    if (insertedUser) {
+      await ensureAchievementRows(client, userId);
+    }
 
     const levelBefore = await ensurePlayerLevel(client, userId);
     const rankMeta = getRankMeta(levelBefore.resolved.rank);
@@ -108,7 +112,7 @@ router.post('/', validate(tapSchema), async (req, res) => {
     const currentDepression = Number(recoveredProgress.depression_level ?? 0);
     const currentCommitsTotal = Number(recoveredProgress.commits_total ?? 0);
 
-    const activeEffects = getActiveEffects(recoveredProgress.active_effects || {});
+    const activeEffects = getActiveEffects(recoveredProgress.active_effects || {}, new Date(Date.now()));
     const infiniteEnergy = activeEffects.red_bull_mode?.infiniteEnergy || false;
     const mechanicalMult = activeEffects.mechanical_keyboard?.locPerClickMult || 1;
 
@@ -330,12 +334,16 @@ router.post('/', validate(tapSchema), async (req, res) => {
 
     const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
     const passXpAmount = applyPassXpSourceMultiplier(levelAfter.xpDelta ?? xpDelta, 'tap_xp', new Date());
-    const passResult = await addPassXp(client, userId, passXpAmount);
+    const premiumResult = await applyPremiumXpMultiplier(client, userId, passXpAmount);
+    const finalPassXp = premiumResult.xpAmount;
+    const passResult = await addPassXp(client, userId, finalPassXp);
 
     const activePass = await getActivePass(client);
     if (activePass && passResult?.playerPass) {
-      const tapPassXp = passXpAmount;
-      await logPassXp(client, userId, activePass.id, 'tap', tapPassXp, { commitsDelta: tapResult.commitsDelta });
+      await logPassXp(client, userId, activePass.id, 'tap', finalPassXp, { commitsDelta: tapResult.commitsDelta });
+      if (premiumResult.isPremium && premiumResult.baseAmount) {
+        await logPassXp(client, userId, premiumResult.passId, 'premium_boost', finalPassXp - premiumResult.baseAmount, { source: 'tap', baseXp: premiumResult.baseAmount });
+      }
     }
 
     await updateTeamProgress(client, userId, tapResult.commitsDelta);
@@ -516,8 +524,6 @@ router.post('/', validate(tapSchema), async (req, res) => {
       );
     }
 
-    await client.query('COMMIT');
-
     if (contextOfferInput && offerUserId) {
       try {
         contextOffer = await getContextOffer(client, offerUserId, contextOfferInput);
@@ -528,6 +534,8 @@ router.post('/', validate(tapSchema), async (req, res) => {
         console.error('Context offer update failed:', offerErr);
       }
     }
+
+    await client.query('COMMIT');
 
     // Check achievements
     let achievementsEarned = [];

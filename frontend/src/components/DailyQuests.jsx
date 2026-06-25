@@ -1,6 +1,7 @@
 import { h } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
+import { Analytics } from '../utils/analytics.js';
 
 function rewardText(reward = {}) {
   const parts = [];
@@ -34,6 +35,10 @@ function questTitle(quest) {
     q_bonus_commit: 'Бонус: коммиты',
     q_bonus_watch_ad: 'Бонус: реклама',
     q_bonus_buy_generator: 'Бонус: генератор',
+    q_bonus_burnout: 'Бонус: выгорание',
+    q_bonus_premium_buy: 'Бонус: магазин',
+    q_bonus_referral: 'Бонус: реферал',
+    q_bonus_team: 'Бонус: команда',
   };
   return titles[quest.id] || quest.id;
 }
@@ -42,14 +47,28 @@ function questHint(quest) {
   if (quest.type === 'watch_ad') return 'Открой рекламную награду, когда энергия просядет.';
   if (quest.type === 'buy_generator') return 'Купи любого генератора в панели ⚙.';
   if (quest.type === 'commit_total') return 'Любой earned LOC идёт в прогресс этого задания.';
+  if (quest.type === 'burnout_recover') return 'Дойди до депрессии ≥50 и восстановись.';
+  if (quest.type === 'shop_purchase') return 'Купи любой товар в магазине.';
+  if (quest.type === 'referral_invite') return 'Отправь приглашение другу.';
+  if (quest.type === 'team_hackathon') return 'Внеси вклад в хакатон команды.';
   return null;
 }
 
 export default function DailyQuests({ modal = false, open = true, onClose }) {
-  const { daily, quests, antiCheat, claimQuests, claimFullClear } = useGameState();
+  const { daily, quests, antiCheat, claimQuests, claimFullClear, rerollQuest } = useGameState();
   const [claiming, setClaiming] = useState(false);
   const [openingChest, setOpeningChest] = useState(false);
+  const [rerolling, setRerolling] = useState(false);
   const list = quests || daily?.quests || [];
+  const rerollsRemaining = daily?.rerollsRemaining ?? 2;
+
+  useEffect(() => {
+    if (open) {
+      const completed = daily?.completed || list.filter((q) => q.completed).length;
+      const total = list.length || 5;
+      try { Analytics.track('quest_panel_opened', { completedCount: completed, totalCount: total }); } catch (_) {}
+    }
+  }, [open]);
 
   if (modal && !open) return null;
 
@@ -75,6 +94,16 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
     }, 3000);
   }
 
+  async function handleReroll() {
+    if (rerolling || rerollsRemaining <= 0) return;
+    setRerolling(true);
+    try {
+      await rerollQuest();
+    } finally {
+      setRerolling(false);
+    }
+  }
+
   const content = h('section', {
     className: modal ? '' : 'pixel-panel',
     style: {
@@ -88,6 +117,8 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
     h('style', null, `
       @keyframes questGoldPulse { 0%, 100% { box-shadow: 0 0 0 rgba(250,204,21,0); } 50% { box-shadow: 0 0 18px rgba(250,204,21,0.45); } }
       @keyframes chestOpen { 0% { transform: scale(1) rotate(0); } 40% { transform: scale(1.08) rotate(-2deg); } 100% { transform: scale(1) rotate(0); } }
+      @keyframes questBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+      @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     `),
     h('div', {
       style: {
@@ -97,9 +128,24 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
       },
     }, [
       h('strong', { className: 'pixel-text', style: { fontSize: '13px' } }, 'Дневные квесты'),
-      h('span', { style: { color: '#8ba1bb', fontSize: '11px' } },
-        `${daily?.completed || list.filter((quest) => quest.completed).length}/${list.length || 5}`
-      ),
+      (() => {
+        const completedCount = daily?.completed || list.filter((quest) => quest.completed).length;
+        const totalCount = list.length || 5;
+        return h('span', { style: { color: '#8ba1bb', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' } }, [
+          completedCount >= 3 && totalCount > 0 && h('span', {
+            style: {
+              background: '#facc15',
+              color: '#1a1a1a',
+              borderRadius: '999px',
+              padding: '1px 6px',
+              fontSize: '10px',
+              fontWeight: 800,
+              animation: 'shimmer 2s infinite',
+            },
+          }, `${completedCount}/${totalCount} выполнено`),
+          !(completedCount >= 3) && h('span', null, `${completedCount}/${totalCount}`),
+        ]);
+      })(),
     ]),
     (daily?.avgDailyFarm || daily?.accountAgeDays) && h('div', {
       style: {
@@ -148,12 +194,39 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
             ]),
             h('div', { style: { color: '#8ba1bb', fontSize: '11px', marginTop: '2px' } }, rewardText(quest.reward)),
             questHint(quest) && h('div', { style: { color: '#60a5fa', fontSize: '10px', marginTop: '4px' } }, questHint(quest)),
+            claimable && h('div', {
+              style: {
+                color: '#4ade80',
+                fontSize: '10px',
+                marginTop: '4px',
+                fontWeight: 700,
+                animation: 'shimmer 1.5s infinite',
+              },
+            }, '✨ Готово!'),
+            isBonus && rerollsRemaining > 0 && h('button', {
+              type: 'button',
+              onClick: handleReroll,
+              disabled: rerolling,
+              style: {
+                marginTop: '6px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                border: '1px solid #facc15',
+                background: rerolling ? '#3b3000' : '#1a1500',
+                color: rerollsRemaining > 1 ? '#facc15' : '#9ca3af',
+                fontSize: '10px',
+                fontWeight: 700,
+                cursor: rerolling ? 'not-allowed' : 'pointer',
+                opacity: rerolling ? 0.6 : 1,
+              },
+            }, rerolling ? '⏳ Заменяем...' : rerollsRemaining > 1 ? '🔄 Заменить (бесплатно)' : '🔄 Заменить (50 ⭐)'),
           ]),
           h('span', {
             style: {
               color: quest.claimed ? '#4ade80' : claimable ? '#facc15' : '#60a5fa',
               fontSize: '12px',
               fontWeight: 800,
+              flexShrink: 0,
             },
           }, quest.claimed ? '✓' : `${quest.progress}/${quest.target}`),
         ]),
@@ -188,8 +261,9 @@ export default function DailyQuests({ modal = false, open = true, onClose }) {
         color: '#052e16',
         fontWeight: 800,
         fontSize: '12px',
+        animation: claiming ? 'none' : 'questBounce 1.2s infinite',
       },
-    }, claiming ? 'Забираем...' : 'Забрать награды'),
+    }, claiming ? 'Забираем...' : '✨ Забрать награды'),
     daily?.fullClearAvailable && h('button', {
       type: 'button',
       className: 'pixel-button',
