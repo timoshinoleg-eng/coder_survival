@@ -67,9 +67,9 @@ export default function BurnoutMeter({ runtimeNow }) {
                     title: "Resolve is tested...",
                     style: {
                       marginLeft: "2px",
-                      fontSize: "10px",
+                      fontSize: "var(--text-sm)",
                       cursor: "help",
-                      color: "#facc15",
+                      color: "var(--accent-gold)",
                     },
                   },
                   "⚠️"
@@ -81,9 +81,9 @@ export default function BurnoutMeter({ runtimeNow }) {
                     title: "Heart attack imminent!",
                     style: {
                       marginLeft: "2px",
-                      fontSize: "10px",
+                      fontSize: "var(--text-sm)",
                       cursor: "help",
-                      color: "#ef4444",
+                      color: "var(--danger)",
                     },
                   },
                   "❤️"
@@ -96,7 +96,7 @@ export default function BurnoutMeter({ runtimeNow }) {
               style: {
                 flex: 1,
                 height: "8px",
-                background: "#0f3460",
+                background: "var(--bg-button)",
                 borderRadius: "0",
                 overflow: "hidden",
                 position: "relative",
@@ -146,7 +146,7 @@ export default function BurnoutMeter({ runtimeNow }) {
               border: "1px solid #5a2d2d",
               padding: "6px 10px",
               fontSize: "11px",
-              color: "#ef4444",
+              color: "var(--danger)",
               fontWeight: 700,
               gap: "8px",
               zIndex: 5,

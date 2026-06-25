@@ -92,7 +92,7 @@ export default function OnboardingModal({ visible, onClose }) {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 16px;
+        padding: var(--space-4);
         backdrop-filter: blur(4px);
       }
       .onboarding-card {
@@ -115,7 +115,7 @@ export default function OnboardingModal({ visible, onClose }) {
         min-height: 44px;
         border: 0;
         border-radius: 10px;
-        background: #4ade80;
+        background: var(--accent-green);
         color: #052e16;
         font-weight: 800;
         font-size: 15px;
@@ -123,7 +123,7 @@ export default function OnboardingModal({ visible, onClose }) {
       }
       .onboarding-secondary {
         min-height: 44px;
-        border: 1px solid #334155;
+        border: 1px solid var(--border-panel);
         border-radius: 10px;
         background: #172033;
         color: #dbeafe;
@@ -135,7 +135,7 @@ export default function OnboardingModal({ visible, onClose }) {
         min-height: 44px;
         border: 0;
         background: transparent;
-        color: #94a3b8;
+        color: var(--text-muted);
         font-size: 24px;
         cursor: pointer;
       }
@@ -157,8 +157,8 @@ export default function OnboardingModal({ visible, onClose }) {
         },
       }, [
         h('div', null, [
-          h('div', { style: { fontSize: '18px', fontWeight: 800 } }, current.title),
-          h('div', { style: { fontSize: '12px', color: '#94a3b8', marginTop: '3px' } },
+          h('div', { style: { fontSize: 'var(--text-2xl)', fontWeight: 800 } }, current.title),
+          h('div', { style: { fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginTop: '3px' } },
             `${step + 1}/${STEPS.length}`
           ),
         ]),
@@ -174,7 +174,7 @@ export default function OnboardingModal({ visible, onClose }) {
         className: 'onboarding-spotlight',
         style: { display: 'flex', flexDirection: 'column', gap: '12px' },
       }, [
-        h('div', { style: { fontSize: '15px', color: '#e2e8f0' } }, 'Тапай, чтобы кодить'),
+        h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } }, 'Тапай, чтобы кодить'),
         h('button', {
           type: 'button',
           className: 'onboarding-primary',
@@ -191,25 +191,25 @@ export default function OnboardingModal({ visible, onClose }) {
         className: 'onboarding-energy-flash',
         style: { display: 'flex', flexDirection: 'column', gap: '12px' },
       }, [
-        h('div', { style: { fontSize: '15px', color: '#e2e8f0' } },
+        h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } },
           'Энергия тратится. Отдохни — восстановится'
         ),
         h('div', {
           style: {
             height: '10px',
             borderRadius: '999px',
-            background: '#1e293b',
+            background: 'var(--border-subtle)',
             overflow: 'hidden',
           },
         }, h('div', {
           style: {
             width: `${Math.max(0, Math.min(100, Math.round(energy)))}%`,
             height: '100%',
-            background: '#ef4444',
+            background: 'var(--danger)',
             transition: 'width 300ms ease',
           },
         })),
-        h('div', { style: { color: '#94a3b8', fontSize: '13px' } },
+        h('div', { style: { color: 'var(--text-muted)', fontSize: 'var(--text-md)' } },
           'Полное восстановление через 4:32'
         ),
         h('button', { type: 'button', className: 'onboarding-secondary', onClick: () => setStep(2) },
@@ -218,21 +218,21 @@ export default function OnboardingModal({ visible, onClose }) {
       ]),
 
       step === 2 && h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } }, [
-        h('div', { style: { fontSize: '15px', color: '#e2e8f0' } },
+        h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } },
           'Код без отдыха = стресс. Следи за шкалой'
         ),
         h('div', {
           style: {
             height: '10px',
             borderRadius: '999px',
-            background: '#1e293b',
+            background: 'var(--border-subtle)',
             overflow: 'hidden',
           },
         }, h('div', {
           style: {
             width: `${fakeDepression}%`,
             height: '100%',
-            background: fakeDepression >= 4 ? '#facc15' : '#4ade80',
+            background: fakeDepression >= 4 ? 'var(--accent-gold)' : 'var(--accent-green)',
             transition: 'width 450ms ease, background 450ms ease',
           },
         })),
@@ -246,9 +246,9 @@ export default function OnboardingModal({ visible, onClose }) {
           style: {
             padding: '10px',
             borderRadius: '8px',
-            background: '#0f172a',
+            background: 'var(--bg-deep)',
             color: '#dbeafe',
-            fontSize: '13px',
+            fontSize: 'var(--text-md)',
           },
         }, 'Отдыхай, энергия восстановится, стресс упадёт'),
         h('button', { type: 'button', className: 'onboarding-primary', onClick: () => setStep(3) },
@@ -257,7 +257,7 @@ export default function OnboardingModal({ visible, onClose }) {
       ]),
 
       step === 3 && h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } }, [
-        h('div', { style: { fontSize: '15px', color: '#e2e8f0' } },
+        h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } },
           'Выполняй 3 квеста в день — получай кофе и опыт'
         ),
         h('div', {
@@ -270,11 +270,11 @@ export default function OnboardingModal({ visible, onClose }) {
             padding: '12px',
             borderRadius: '10px',
             background: '#172033',
-            border: '1px solid #334155',
+            border: '1px solid var(--border-panel)',
           },
         }, [
           h('span', { style: { color: '#dbeafe', fontWeight: 700 } }, 'Дневные квесты'),
-          h('span', { style: { color: '#4ade80', fontWeight: 800 } }, `${daily?.quests?.length || 3}/день`),
+          h('span', { style: { color: 'var(--accent-green)', fontWeight: 800 } }, `${daily?.quests?.length || 3}/день`),
         ]),
         h('button', {
           type: 'button',

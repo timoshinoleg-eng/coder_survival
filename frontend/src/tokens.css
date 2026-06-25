@@ -1,0 +1,57 @@
+:root {
+  --bg-primary: #1a1a2e;
+  --bg-panel: #16213e;
+  --bg-deep: #0f172a;
+  --bg-button: #0f3460;
+  --bg-button-active: #1a3a5c;
+  --bg-button-hover: #122642;
+
+  --accent-green: #4ade80;
+  --accent-gold: #facc15;
+  --accent-blue: #60a5fa;
+  --accent-purple: #8b5cf6;
+  --accent-orange: #fb923c;
+
+  --danger: #ef4444;
+  --danger-light: #f87171;
+  --danger-dark: #dc2626;
+  --warning: #f59e0b;
+  --success: #22c55e;
+
+  --text-primary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --text-accent: #4ade80;
+
+  --border-panel: #334155;
+  --border-button: #4ade80;
+  --border-subtle: #1e293b;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+
+  --text-xs: 9px;
+  --text-sm: 10px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 16px;
+  --text-2xl: 18px;
+  --text-3xl: 22px;
+
+  --shadow-panel: 4px 4px 0 #0f172a;
+  --shadow-text: 2px 2px 0 #0f172a;
+  --shadow-button-press: translate(2px, 2px);
+
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}

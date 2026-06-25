@@ -109,11 +109,11 @@ export default function TapArea({ active }) {
       showToast(`Сильный коммит: +${deltaCommits}`, 'success', 1000);
     } else if (deltaCommits > 1) {
       textContent = `+${deltaCommits} коммита`;
-      textColor = '#4ade80';
+      textColor = 'var(--accent-green)';
       textSize = '15px';
     } else {
       textContent = '+1';
-      textColor = '#4ade80';
+      textColor = 'var(--accent-green)';
       textSize = '16px';
     }
 
@@ -125,7 +125,7 @@ export default function TapArea({ active }) {
         x + (Math.random() * 40 - 20),
         y - 30,
         `+${deltaXp} XP`,
-        '#60a5fa',
+        'var(--accent-blue)',
         '12px'
       );
     }
@@ -227,8 +227,8 @@ export default function TapArea({ active }) {
         padding: '6px 14px',
         borderRadius: '20px',
         background: '#3f1a1a',
-        color: '#ef4444',
-        fontSize: '12px',
+        color: 'var(--danger)',
+        fontSize: 'var(--text-base)',
         fontWeight: 600,
         border: '1px solid #5a2d2d',
         whiteSpace: 'nowrap',
@@ -321,13 +321,13 @@ export default function TapArea({ active }) {
           : isBurnout
             ? 'rgba(255, 69, 0, 0.5)'
           : 'radial-gradient(circle at 40% 40%, #2d5a3e, #1a3f25)',
-        border: `3px solid ${isExhausted || isBurnout ? '#ff4500' : '#4ade80'}`,
+        border: `3px solid ${isExhausted || isBurnout ? '#ff4500' : 'var(--accent-green)'}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: "'Press Start 2P', 'Courier New', monospace",
-        fontSize: '14px',
-        color: isExhausted || isBurnout ? '#ffe4dc' : '#4ade80',
+        fontFamily: "var(--font-pixel)",
+        fontSize: 'var(--text-lg)',
+        color: isExhausted || isBurnout ? '#ffe4dc' : 'var(--accent-green)',
         cursor: isExhausted ? 'not-allowed' : 'pointer',
         position: 'relative',
         overflow: 'hidden',

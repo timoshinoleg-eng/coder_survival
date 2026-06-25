@@ -102,9 +102,9 @@ export default function StatsBar({ runtimeNow }) {
   const energyPercent =
     maxEnergy > 0 ? Math.round((energy / maxEnergy) * 100) : 0;
   const energyColor =
-    energyPercent > 50 ? "#4ade80" : energyPercent > 20 ? "#facc15" : "#ef4444";
+    energyPercent > 50 ? "var(--accent-green)" : energyPercent > 20 ? "var(--accent-gold)" : "var(--danger)";
   const depressionColor =
-    depression < 50 ? "#4ade80" : depression < 100 ? "#facc15" : depression < 150 ? "#fb923c" : "#ef4444";
+    depression < 50 ? "var(--accent-green)" : depression < 100 ? "var(--accent-gold)" : depression < 150 ? "var(--accent-orange)" : "var(--danger)";
   const isLowEnergy = energyPercent <= 20;
   const isHighStress = depression >= 150;
 
@@ -173,8 +173,8 @@ export default function StatsBar({ runtimeNow }) {
   const runtimeModeLabel = useMemo(() => {
     const hotStreakActive = randomEventState?.hotStreakUntil && new Date(randomEventState.hotStreakUntil).getTime() > countdownNowMs;
     const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
-    if (hotStreakActive) return { text: '🔥 Hot Streak active: повышенный темп', color: '#4ade80' };
-    if (productionAlertActive) return { text: '🚨 Production Alert active: энергия убывает', color: '#f87171' };
+    if (hotStreakActive) return { text: '🔥 Hot Streak active: повышенный темп', color: 'var(--accent-green)' };
+    if (productionAlertActive) return { text: '🚨 Production Alert active: энергия убывает', color: 'var(--danger-light)' };
     return null;
   }, [countdownNowMs, randomEventState?.hotStreakUntil, randomEventState?.productionAlertUntil]);
 
@@ -207,11 +207,11 @@ export default function StatsBar({ runtimeNow }) {
         padding: "10px 14px",
         display: "flex",
         flexDirection: "column",
-        gap: "8px",
-        fontSize: "12px",
+        gap: "var(--space-2)",
+        fontSize: "var(--text-base)",
         color: "#e0e0e0",
         userSelect: "none",
-        fontFamily: "'Press Start 2P', 'Courier New', monospace",
+        fontFamily: "var(--font-pixel)",
       },
     },
     [
@@ -248,7 +248,7 @@ export default function StatsBar({ runtimeNow }) {
                   "span",
                   {
                     style: {
-                      fontSize: "13px",
+                      fontSize: "var(--text-md)",
                       display: "flex",
                       alignItems: "center",
                       gap: "2px",
@@ -258,7 +258,7 @@ export default function StatsBar({ runtimeNow }) {
                     "🔥",
                     h(
                       "span",
-                      { style: { color: "#facc15", fontWeight: "bold" } },
+                      { style: { color: "var(--accent-gold)", fontWeight: "bold" } },
                       streakDays,
                     ),
                   ],
@@ -269,7 +269,7 @@ export default function StatsBar({ runtimeNow }) {
                   {
                     style: {
                       fontSize: "11px",
-                      color: "#8b5cf6",
+                      color: "var(--accent-purple)",
                       fontWeight: "bold",
                       border: "1px solid #5b21b6",
                       padding: "2px 6px",
@@ -285,9 +285,9 @@ export default function StatsBar({ runtimeNow }) {
                   "span",
                   {
                     style: {
-                      fontSize: "10px",
+                      fontSize: "var(--text-sm)",
                       color: antiCheat.banScore >= 50 ? "#fda4af" : "#fde68a",
-                      border: `1px solid ${antiCheat.banScore >= 50 ? '#ef4444' : '#f59e0b'}`,
+                      border: `1px solid ${antiCheat.banScore >= 50 ? 'var(--danger)' : 'var(--warning)'}`,
                       padding: "3px 6px",
                       background: antiCheat.banScore >= 50 ? "#3f1a1a" : "#3b2f10",
                     },
@@ -309,20 +309,20 @@ export default function StatsBar({ runtimeNow }) {
                   {
                   style: {
                     fontWeight: "bold",
-                    color: hotStreakActive ? "#facc15" : "#4ade80",
-                    fontSize: "13px",
+                    color: hotStreakActive ? "var(--accent-gold)" : "var(--accent-green)",
+                    fontSize: "var(--text-md)",
                   },
                 },
                 `${commits}`,
               ),
               hotStreakActive && h(
                 "div",
-                { style: { fontSize: "10px", color: "#facc15" } },
+                { style: { fontSize: "var(--text-sm)", color: "var(--accent-gold)" } },
                 'Hot Streak',
               ),
                 h(
                   "div",
-                  { style: { fontSize: "10px", color: "#8ba1bb" } },
+                  { style: { fontSize: "var(--text-sm)", color: "#8ba1bb" } },
                   "коммитов",
                 ),
               ]),
@@ -333,7 +333,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setQuestsOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: daily?.claimable ? "#1a3a5c" : "#122642",
+                      background: daily?.claimable ? "var(--bg-button-active)" : "var(--bg-button-hover)",
                       animation: daily?.claimable
                         ? "pulse 1.6s infinite"
                         : "none",
@@ -348,7 +348,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setShopOpen(true),
                     className: isLowEnergy ? "pixel-button pixel-button--danger" : "pixel-button",
                     style: {
-                      background: isLowEnergy || isHighStress ? "#1a3a5c" : "#122642",
+                      background: isLowEnergy || isHighStress ? "var(--bg-button-active)" : "var(--bg-button-hover)",
                       animation: isLowEnergy ? "pulse 1.6s infinite" : "none",
                     },
                   },
@@ -360,7 +360,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setBoostersOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "🚀",
@@ -371,7 +371,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setGeneratorsOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: generatorState?.passiveLocPerSecond > 0 ? "#163255" : "#122642",
+                      background: generatorState?.passiveLocPerSecond > 0 ? "#163255" : "var(--bg-button-hover)",
                     },
                   },
                   "⚙",
@@ -382,7 +382,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setReferralOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "🔗",
@@ -393,7 +393,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setBattleOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: dailyBattle?.active ? '#1a3a5c' : '#122642',
+                      background: dailyBattle?.active ? 'var(--bg-button-active)' : 'var(--bg-button-hover)',
                       position: 'relative',
                     },
                   },
@@ -408,7 +408,7 @@ export default function StatsBar({ runtimeNow }) {
                         width: '10px',
                         height: '10px',
                         borderRadius: '50%',
-                        background: '#ef4444',
+                        background: 'var(--danger)',
                         boxShadow: '0 0 6px rgba(239,68,68,0.8)',
                         animation: 'pulse 1.5s infinite',
                       }
@@ -422,7 +422,7 @@ export default function StatsBar({ runtimeNow }) {
                     className: "pixel-button",
                     title: "Ежедневная сводка",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "📊",
@@ -433,7 +433,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setEventOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "⚡",
@@ -444,7 +444,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setPassOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "🎯",
@@ -455,7 +455,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setAchievementsOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                       position: "relative",
                     },
                   },
@@ -470,9 +470,9 @@ export default function StatsBar({ runtimeNow }) {
                         minWidth: '16px',
                         height: '16px',
                         borderRadius: '50%',
-                        background: '#ef4444',
+                        background: 'var(--danger)',
                         color: '#fff',
-                        fontSize: '10px',
+                        fontSize: 'var(--text-sm)',
                         fontWeight: 800,
                         display: 'flex',
                         alignItems: 'center',
@@ -488,7 +488,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setTeamOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "👥",
@@ -499,7 +499,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setTeamBattleOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "🛡️",
@@ -510,7 +510,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setLeaderboardOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "🏆",
@@ -521,7 +521,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => { haptic('light'); setMemeOpen(true); },
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "🎨",
@@ -532,7 +532,7 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setSkinOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: "#122642",
+                      background: "var(--bg-button-hover)",
                     },
                   },
                   "🎭",
@@ -546,7 +546,7 @@ export default function StatsBar({ runtimeNow }) {
                       title: "Мини-игры",
                       style: {
                         border: "1px solid #30527e",
-                        background: depression >= 60 ? '#1a3a5c' : '#122642',
+                        background: depression >= 60 ? 'var(--bg-button-active)' : 'var(--bg-button-hover)',
                         color: '#dce9f9',
                         borderRadius: '8px',
                         padding: '5px 8px',
@@ -577,8 +577,8 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: () => setLanguageOpen(true),
                     className: "pixel-button",
                     style: {
-                      background: activeLanguage ? "#1a3a5c" : "#122642",
-                      fontSize: "13px",
+                      background: activeLanguage ? "var(--bg-button-active)" : "var(--bg-button-hover)",
+                      fontSize: "var(--text-md)",
                       position: "relative",
                     },
                     title: activeLanguage
@@ -620,7 +620,7 @@ export default function StatsBar({ runtimeNow }) {
               style: {
                 flex: 1,
                 height: "6px",
-                background: "#0f3460",
+                background: "var(--bg-button)",
                 borderRadius: "0",
                 overflow: "hidden",
               },
@@ -664,11 +664,11 @@ export default function StatsBar({ runtimeNow }) {
           },
         },
         [
-          h("span", { style: { color: "#60a5fa" } }, `⚙ ${generatorState.passiveLocPerSecond || 0} LOC/сек`),
+          h("span", { style: { color: "var(--accent-blue)" } }, `⚙ ${generatorState.passiveLocPerSecond || 0} LOC/сек`),
           h("span", null, `FTUE: ${generatorState.ftueAcceleration?.id || 'after_60min'}`),
           dailyFarm?.avgDailyFarm ? h("span", { style: { color: "#8ba1bb" } }, `Ø ${dailyFarm.avgDailyFarm}/день`) : null,
           passiveLocRecovery?.locEarned
-            ? h("span", { style: { color: "#4ade80" } }, `+${passiveLocRecovery.locEarned} offline`)
+            ? h("span", { style: { color: "var(--accent-green)" } }, `+${passiveLocRecovery.locEarned} offline`)
             : null,
         ],
       ),
@@ -691,7 +691,7 @@ export default function StatsBar({ runtimeNow }) {
         {
           style: {
             fontSize: "11px",
-            color: "#facc15",
+            color: "var(--accent-gold)",
             borderTop: "1px solid #17304f",
             paddingTop: "6px",
             display: "flex",
@@ -731,7 +731,7 @@ export default function StatsBar({ runtimeNow }) {
               style: {
                 flex: 1,
                 height: "8px",
-                background: "#0f3460",
+                background: "var(--bg-button)",
                 borderRadius: "0",
                 overflow: "hidden",
               },
@@ -740,7 +740,7 @@ export default function StatsBar({ runtimeNow }) {
               style: {
                 width: `${energyPercent}%`,
                 height: "100%",
-                background: productionAlertActive ? '#f87171' : energyColor,
+                background: productionAlertActive ? 'var(--danger-light)' : energyColor,
                 transition: "width 0.25s ease, background 0.3s ease",
                 boxShadow: isLowEnergy
                   ? "0 0 10px rgba(239,68,68,0.55)"
@@ -784,8 +784,8 @@ export default function StatsBar({ runtimeNow }) {
                 "span",
                 {
                   style: {
-                    fontSize: "10px",
-                    color: "#ef4444",
+                    fontSize: "var(--text-sm)",
+                    color: "var(--danger)",
                     fontWeight: 700,
                     animation: "pulse 1.2s infinite",
                   },
@@ -797,8 +797,8 @@ export default function StatsBar({ runtimeNow }) {
                 "span",
                 {
                   style: {
-                    fontSize: "10px",
-                    color: "#ef4444",
+                    fontSize: "var(--text-sm)",
+                    color: "var(--danger)",
                     fontWeight: 700,
                     animation: "pulse 1.2s infinite",
                   },
@@ -836,12 +836,12 @@ export default function StatsBar({ runtimeNow }) {
                     onClick: handleWatchAd,
                     disabled: adLoading,
                     style: {
-                      fontSize: "10px",
+                      fontSize: "var(--text-sm)",
                       padding: "3px 8px",
                       borderRadius: "6px",
                       border: "1px solid #30527e",
-                      background: adLoading ? "#1a3a5c" : "#0f3460",
-                      color: "#60a5fa",
+                      background: adLoading ? "var(--bg-button-active)" : "var(--bg-button)",
+                      color: "var(--accent-blue)",
                       cursor: adLoading ? "wait" : "pointer",
                       opacity: adLoading ? 0.7 : 1,
                     },
@@ -854,12 +854,12 @@ export default function StatsBar({ runtimeNow }) {
                   {
                     onClick: drinkCoffee,
                     style: {
-                      fontSize: "10px",
+                      fontSize: "var(--text-sm)",
                       padding: "3px 8px",
                       borderRadius: "6px",
                       border: "1px solid #5a3e2d",
                       background: "#2d2a1a",
-                      color: "#facc15",
+                      color: "var(--accent-gold)",
                       cursor: "pointer",
                     },
                   },
@@ -880,7 +880,7 @@ export default function StatsBar({ runtimeNow }) {
               padding: "6px 10px",
               borderRadius: "6px",
               background: "#3f1a1a",
-              color: "#ef4444",
+              color: "var(--danger)",
               fontSize: "11px",
               fontWeight: 600,
               border: "1px solid #5a2d2d",
@@ -906,7 +906,7 @@ export default function StatsBar({ runtimeNow }) {
               ...(toast.type === "success"
                 ? {
                     background: "linear-gradient(90deg, #1a3f25, #2d5a3e)",
-                    color: "#4ade80",
+                    color: "var(--accent-green)",
                   }
                 : toast.type === "error"
                   ? {

@@ -46,7 +46,7 @@ export default function LevelUpModal() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '16px',
+      padding: 'var(--space-4)',
       animation: 'fade-in-up 0.3s ease-out',
       pointerEvents: 'auto',
       touchAction: 'manipulation'
@@ -57,7 +57,7 @@ export default function LevelUpModal() {
       position: 'relative',
       width: 'min(360px, 100%)',
       background: 'linear-gradient(180deg, #16213e 0%, #0f1b30 100%)',
-      border: isRankUp ? '2px solid #facc15' : '2px solid #60a5fa',
+      border: isRankUp ? '2px solid var(--accent-gold)' : '2px solid var(--accent-blue)',
       borderRadius: '12px',
       padding: '24px',
       textAlign: 'center',
@@ -74,26 +74,26 @@ export default function LevelUpModal() {
       style: {
         fontSize: '40px',
         lineHeight: 1,
-        marginBottom: '12px',
+        marginBottom: 'var(--space-3)',
         position: 'relative',
         zIndex: 1
       }
     }, isRankUp ? '🏆' : '⭐'),
     h('div', {
       style: {
-        fontSize: '18px',
+        fontSize: 'var(--text-2xl)',
         fontWeight: 'bold',
         marginBottom: '6px',
-        color: isRankUp ? '#facc15' : '#60a5fa',
+        color: isRankUp ? 'var(--accent-gold)' : 'var(--accent-blue)',
         position: 'relative',
         zIndex: 1
       }
     }, isRankUp ? 'Повышение!' : 'Новый уровень!'),
     h('div', {
       style: {
-        fontSize: '14px',
+        fontSize: 'var(--text-lg)',
         color: '#c7ddf5',
-        marginBottom: '16px',
+        marginBottom: 'var(--space-4)',
         position: 'relative',
         zIndex: 1
       }
@@ -105,10 +105,10 @@ export default function LevelUpModal() {
       style: {
         background: '#131d33',
         borderRadius: '8px',
-        padding: '12px',
-        marginBottom: '16px',
+        padding: 'var(--space-3)',
+        marginBottom: 'var(--space-4)',
         textAlign: 'left',
-        fontSize: '12px',
+        fontSize: 'var(--text-base)',
         color: '#9eb6d2',
         position: 'relative',
         zIndex: 1
@@ -124,10 +124,10 @@ export default function LevelUpModal() {
         padding: '10px 24px',
         borderRadius: '8px',
         border: 'none',
-        background: isRankUp ? '#facc15' : '#3b82f6',
-        color: isRankUp ? '#1a1a2e' : '#ffffff',
+        background: isRankUp ? 'var(--accent-gold)' : '#3b82f6',
+        color: isRankUp ? 'var(--bg-primary)' : '#ffffff',
         fontWeight: 'bold',
-        fontSize: '14px',
+        fontSize: 'var(--text-lg)',
         cursor: 'pointer',
         position: 'relative',
         zIndex: 1
