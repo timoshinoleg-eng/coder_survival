@@ -2,13 +2,13 @@ import { h } from "preact";
 import { useState, useEffect, useCallback } from "preact/hooks";
 import { apiRequest } from "../utils/api.js";
 import { useTelegram } from "../hooks/useTelegram.js";
-import { useGameState } from "../hooks/useGameState.js";
+import { useColdGameState } from "../hooks/useGameState.js";
 import { formatRewardPayload } from "../utils/rewardFormatting.js";
 import { Analytics } from "../utils/analytics.js";
 
 export default function EventPanel({ open, onClose }) {
   const { initData } = useTelegram();
-  const { event, crunchTime, showToast } = useGameState();
+  const { event, crunchTime, showToast } = useColdGameState();
   const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {

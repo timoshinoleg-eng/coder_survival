@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { useGameState } from '../hooks/useGameState.js';
+import { useColdGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
 import { Analytics } from '../utils/analytics.js';
@@ -57,7 +57,7 @@ function labelForPremiumReward(reward) {
 }
 
 export default function PassPanel() {
-  const { pass, refreshPass, claimPassReward, showToast } = useGameState();
+  const { pass, refreshPass, claimPassReward, showToast } = useColdGameState();
   const { initData } = useTelegram();
   const [open, setOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);

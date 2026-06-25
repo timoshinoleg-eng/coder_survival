@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
 import { startTelegramPurchase, startDealPurchase } from '../utils/purchases.js';
 import { useTelegram } from '../hooks/useTelegram.js';
-import { useGameState } from '../hooks/useGameState.js';
+import { useColdGameState } from '../hooks/useGameState.js';
 import { useTonWallet } from '../hooks/useTonWallet.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { Analytics } from '../utils/analytics.js';
@@ -30,7 +30,7 @@ const CATEGORY_ORDER = ['energy', 'stress', 'boost', 'pass'];
 
 export default function ShopPanel() {
   const { initData } = useTelegram();
-  const { contextOffer, showToast, shopOpen, closeShop } = useGameState();
+  const { contextOffer, showToast, shopOpen, closeShop } = useColdGameState();
   const { walletAddress, connect } = useTonWallet();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);

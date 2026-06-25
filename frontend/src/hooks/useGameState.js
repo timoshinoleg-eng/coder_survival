@@ -3,7 +3,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "p
 import { useTelegram } from "./useTelegram.js";
 import { apiRequest } from "../utils/api.js";
 
-const DEFAULT_STATE = {
+const HOT_DEFAULT = {
   commits: 0,
   energy: 100,
   maxEnergy: 100,
@@ -13,14 +13,10 @@ const DEFAULT_STATE = {
   serverNow: null,
   serverClockOffsetMs: 0,
   depression: 0,
-  level: 1,
-  exp: 0,
   totalTaps: 0,
-  coffeeCups: 0,
-  streakDays: 0,
-  tierName: "",
-  user: null,
   todayTaps: 0,
+  coffeeCups: 0,
+  exp: 0,
   sessionId: null,
   loading: true,
   syncing: false,
@@ -31,10 +27,24 @@ const DEFAULT_STATE = {
   xpTotal: 0,
   xpProgress: 0,
   xpRequiredForNext: null,
+  isBurnout: false,
+  isCrit: false,
+  critTier: null,
+  lastTapDelta: null,
+  generatorState: null,
+  randomEventState: null,
+  dailyFarm: null,
+  passiveLocRecovery: null,
+  streakDays: 0,
+};
+
+const COLD_DEFAULT = {
+  user: null,
+  level: 1,
+  tierName: "",
   daily: null,
   quests: null,
   loginReward: null,
-  lastTapDelta: null,
   levelUp: null,
   toast: null,
   purchaseStatus: null,
@@ -61,26 +71,20 @@ const DEFAULT_STATE = {
   featureFlags: {},
   stressCohort: "control",
   contextOffer: null,
-  isBurnout: false,
   burnoutAffliction: false,
   forcedBreakUntil: null,
-  isCrit: false,
-  critTier: null,
   inventory: {},
   showOnboarding: false,
   memePrompt: null,
   weeklySprint: null,
-  generatorState: null,
-  randomEventState: null,
-  dailyFarm: null,
-  passiveLocRecovery: null,
   antiCheat: null,
   prestige: null,
   dailyBattle: null,
   activeLanguage: null,
 };
 
-const GameContext = createContext(null);
+const HotGameContext = createContext(null);
+const ColdGameContext = createContext(null);
 
 function withTimezoneBody(body = {}) {
   const offset = new Date().getTimezoneOffset() * -1;
@@ -127,8 +131,9 @@ function mergeMinimalEvent(currentEvent, minimalEvent) {
 
 export function GameProvider({ children }) {
   const telegram = useTelegram();
-  const [state, setState] = useState(DEFAULT_STATE);
-  const stateRef = useRef(DEFAULT_STATE);
+  const [hotState, setHotState] = useState(HOT_DEFAULT);
+  const [coldState, setColdState] = useState(COLD_DEFAULT);
+  const mergedRef = useRef({ ...HOT_DEFAULT, ...COLD_DEFAULT });
   const pendingTapsRef = useRef(0);
   const processingTapRef = useRef(false);
   const tapRetryTimerRef = useRef(null);
@@ -143,11 +148,15 @@ export function GameProvider({ children }) {
   const toastTimerRef = useRef(null);
   const previousAchievementsRef = useRef(null);
 
+  useEffect(() => {
+    mergedRef.current = { ...hotState, ...coldState };
+  }, [hotState, coldState]);
+
   const showToast = useCallback((message, type = "info", duration = 2500) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setState((current) => ({ ...current, toast: { message, type, visible: true } }));
+    setColdState((current) => ({ ...current, toast: { message, type, visible: true } }));
     toastTimerRef.current = setTimeout(() => {
-      setState((current) => ({ ...current, toast: null }));
+      setColdState((current) => ({ ...current, toast: null }));
     }, duration);
   }, []);
 
@@ -155,7 +164,7 @@ export function GameProvider({ children }) {
     const game = payload?.game || payload?.state || payload?.progression;
     if (!game) return;
 
-    const sessionId = payload?.activeSession?.sessionId || stateRef.current.sessionId || null;
+    const sessionId = payload?.activeSession?.sessionId || mergedRef.current.sessionId || null;
     const onboardingCompleted =
       game.onboarding_completed ??
       game.onboardingCompleted ??
@@ -163,16 +172,16 @@ export function GameProvider({ children }) {
       payload?.onboardingCompleted ??
       true;
     const inventory = game.inventory || payload?.inventory || {};
-    const newRank = payload?.level?.rank ?? stateRef.current.rank ?? 1;
+    const newRank = payload?.level?.rank ?? mergedRef.current.rank ?? 1;
     const newLevelInRank =
       payload?.level?.levelInRank ??
       payload?.level?.level_in_rank ??
-      stateRef.current.levelInRank ??
+      mergedRef.current.levelInRank ??
       1;
     const newRankName =
       payload?.level?.rankName ||
       payload?.level?.rank_name ||
-      stateRef.current.rankName ||
+      mergedRef.current.rankName ||
       "";
 
     let levelUp = null;
@@ -184,7 +193,7 @@ export function GameProvider({ children }) {
         levelInRank: newLevelInRank,
         rankMeta: {
           commitsPerTap: payload?.level?.commitsPerTap ?? null,
-          maxEnergy: payload?.level?.maxEnergy ?? stateRef.current.maxEnergy ?? null,
+          maxEnergy: payload?.level?.maxEnergy ?? mergedRef.current.maxEnergy ?? null,
         },
         isRankUp: newRank > previous.rank,
       };
@@ -209,9 +218,8 @@ export function GameProvider({ children }) {
       );
     }
 
-    setState((current) => ({
+    setHotState((current) => ({
       ...current,
-      user: payload?.user ?? current.user ?? null,
       commits: Number(game.commits_total ?? game.commitsTotal ?? current.commits),
       energy: Number(game.energy ?? current.energy),
       maxEnergy: payload?.maxEnergy ?? payload?.level?.maxEnergy ?? current.maxEnergy,
@@ -227,10 +235,7 @@ export function GameProvider({ children }) {
         ? new Date(payload.serverNow).getTime() - Date.now()
         : current.serverClockOffsetMs,
       depression: Number(game.depression_level ?? game.depressionLevel ?? current.depression),
-      level: Number(game.tier ?? current.level),
-      exp: Number(game.commits_current ?? game.commitsCurrent ?? current.exp),
-      streakDays: Number(game.streak_days ?? game.streakDays ?? current.streakDays),
-      tierName: game.tierName || current.tierName || "",
+      totalTaps: current.totalTaps,
       todayTaps: Number(payload?.today?.taps ?? current.todayTaps ?? 0),
       rank: newRank,
       rankName: newRankName,
@@ -246,6 +251,46 @@ export function GameProvider({ children }) {
         payload?.level?.required_for_next_level ??
         current.xpRequiredForNext ??
         null,
+      streakDays: Number(game.streak_days ?? game.streakDays ?? current.streakDays),
+      exp: Number(game.commits_current ?? game.commitsCurrent ?? current.exp),
+      isBurnout:
+        payload?.isBurnout ??
+        payload?.is_burnout ??
+        game.is_burnout ??
+        game.isBurnout ??
+        current.isBurnout ??
+        false,
+      isCrit: payload?.isCrit ?? current.isCrit ?? false,
+      critTier: Object.prototype.hasOwnProperty.call(payload || {}, "critTier")
+        ? payload.critTier
+        : current.critTier,
+      generatorState: payload?.generatorState ?? payload?.generator_state ?? current.generatorState ?? null,
+      randomEventState: payload?.randomEventState ?? payload?.random_event_state ?? current.randomEventState ?? null,
+      dailyFarm: payload?.dailyFarm ?? payload?.daily_farm ?? current.dailyFarm ?? null,
+      passiveLocRecovery: payload?.passiveLocRecovery ?? payload?.passive_loc_recovery ?? current.passiveLocRecovery ?? null,
+      coffeeCups: Number(inventory.coffee_cups ?? inventory.coffeeCups ?? current.coffeeCups ?? 0),
+      lastTapDelta: payload?.delta
+        ? {
+            commits: payload.delta.commits,
+            energy: payload.delta.energy,
+            depression: payload.delta.depression,
+            xp: payload.xpDelta ?? null,
+            isCrit: payload?.isCrit ?? false,
+            critTier: payload?.critTier ?? null,
+            isBurnout: payload?.isBurnout ?? false,
+          }
+        : current.lastTapDelta,
+      sessionId,
+      loading: false,
+      syncing: false,
+      error: null,
+    }));
+
+    setColdState((current) => ({
+      ...current,
+      user: payload?.user ?? current.user ?? null,
+      tierName: game.tierName || current.tierName || "",
+      level: Number(game.tier ?? current.level),
       daily: payload?.daily ? normalizeQuestPayload(payload) : current.daily,
       loginReward: payload?.loginReward ?? current.loginReward ?? null,
       event: payload?.event ? mergeMinimalEvent(current.event, payload.event) : current.event,
@@ -257,10 +302,6 @@ export function GameProvider({ children }) {
       achievements: payload?.achievements ?? current.achievements ?? [],
       skins: payload?.skins ?? current.skins ?? null,
       activeEffects: payload?.activeEffects ?? payload?.active_effects ?? current.activeEffects ?? {},
-      generatorState: payload?.generatorState ?? payload?.generator_state ?? current.generatorState ?? null,
-      randomEventState: payload?.randomEventState ?? payload?.random_event_state ?? current.randomEventState ?? null,
-      dailyFarm: payload?.dailyFarm ?? payload?.daily_farm ?? current.dailyFarm ?? null,
-      passiveLocRecovery: payload?.passiveLocRecovery ?? payload?.passive_loc_recovery ?? current.passiveLocRecovery ?? null,
       antiCheat: payload?.antiCheat ?? payload?.anti_cheat ?? current.antiCheat ?? null,
       activeLanguage: payload?.activeLanguage ?? payload?.active_language ?? current.activeLanguage ?? null,
       prestige: payload?.prestige
@@ -280,13 +321,6 @@ export function GameProvider({ children }) {
       featureFlags: payload?.featureFlags ?? payload?.feature_flags ?? current.featureFlags ?? {},
       stressCohort: payload?.stressCohort ?? payload?.stress_cohort ?? current.stressCohort ?? "control",
       contextOffer: hasContextOffer ? payload.contextOffer : current.contextOffer,
-      isBurnout:
-        payload?.isBurnout ??
-        payload?.is_burnout ??
-        game.is_burnout ??
-        game.isBurnout ??
-        current.isBurnout ??
-        false,
       burnoutAffliction:
         payload?.burnoutAffliction ??
         payload?.burnout_affliction ??
@@ -301,41 +335,21 @@ export function GameProvider({ children }) {
         game.forcedBreakUntil ??
         current.forcedBreakUntil ??
         null,
-      isCrit: payload?.isCrit ?? current.isCrit ?? false,
-      critTier: Object.prototype.hasOwnProperty.call(payload || {}, "critTier")
-        ? payload.critTier
-        : current.critTier,
       inventory,
-      coffeeCups: Number(inventory.coffee_cups ?? inventory.coffeeCups ?? current.coffeeCups ?? 0),
       showOnboarding: onboardingCompleted === false,
-      lastTapDelta: payload?.delta
-        ? {
-            commits: payload.delta.commits,
-            energy: payload.delta.energy,
-            depression: payload.delta.depression,
-            xp: payload.xpDelta ?? null,
-            isCrit: payload?.isCrit ?? false,
-            critTier: payload?.critTier ?? null,
-            isBurnout: payload?.isBurnout ?? false,
-          }
-        : current.lastTapDelta,
       levelUp: levelUp ?? null,
       memePrompt: levelUp
         ? { trigger: 'levelUp', rankName: newRankName }
         : current.memePrompt,
-      sessionId,
-      loading: false,
-      syncing: false,
-      error: null,
     }));
-  }, []);
+  }, [showToast]);
 
   const applyTapState = useCallback((payload) => {
     if (!payload) return;
     if (payload?.heartAttackReset) {
       showToast('💥 Heart Attack! Сессия сброшена, но прогресс карьеры сохранён.', 'error', 2800);
     }
-    setState((current) => ({
+    setHotState((current) => ({
       ...current,
       commits: Number(payload.totalCommits ?? current.commits),
       energy: Number(payload.energy ?? current.energy),
@@ -355,11 +369,14 @@ export function GameProvider({ children }) {
         achievementsEarned: payload.achievements_earned || [],
       },
       syncing: false,
-      memePrompt: payload?.heartAttackReset
-        ? { trigger: 'heartAttack', rankName: current.rankName }
-        : current.memePrompt,
       error: null,
     }));
+    if (payload?.heartAttackReset) {
+      setColdState((current) => ({
+        ...current,
+        memePrompt: { trigger: 'heartAttack', rankName: mergedRef.current.rankName },
+      }));
+    }
   }, [showToast]);
 
   const refreshQuests = useCallback(async () => {
@@ -367,13 +384,13 @@ export function GameProvider({ children }) {
       initData: telegram?.initData,
     });
     const daily = normalizeQuestPayload(payload);
-    setState((current) => ({ ...current, quests: daily?.quests || [], daily }));
+    setColdState((current) => ({ ...current, quests: daily?.quests || [], daily }));
     return payload;
   }, [telegram?.initData]);
 
   const refreshPass = useCallback(async () => {
     const payload = await apiRequest("/api/pass", { initData: telegram?.initData });
-    setState((current) => ({ ...current, pass: payload }));
+    setColdState((current) => ({ ...current, pass: payload }));
     return payload;
   }, [telegram?.initData]);
 
@@ -381,9 +398,9 @@ export function GameProvider({ children }) {
     const payload = await apiRequest(`/api/streak?${timezoneQuery()}`, {
       initData: telegram?.initData,
     });
-    setState((current) => ({
+    setColdState((current) => ({ ...current, streak: payload }));
+    setHotState((current) => ({
       ...current,
-      streak: payload,
       streakDays: Number(payload?.currentStreak ?? current.streakDays),
     }));
     return payload;
@@ -393,7 +410,7 @@ export function GameProvider({ children }) {
     const payload = await apiRequest(`/api/rewarded-video/status?${timezoneQuery()}`, {
       initData: telegram?.initData,
     });
-    setState((current) => ({ ...current, rewardedVideo: payload }));
+    setColdState((current) => ({ ...current, rewardedVideo: payload }));
     return payload;
   }, [telegram?.initData]);
 
@@ -401,7 +418,7 @@ export function GameProvider({ children }) {
     const payload = await apiRequest(`/api/team/hackathon?${timezoneQuery()}`, {
       initData: telegram?.initData,
     });
-    setState((current) => ({ ...current, teamHackathon: payload }));
+    setColdState((current) => ({ ...current, teamHackathon: payload }));
     return payload;
   }, [telegram?.initData]);
 
@@ -421,7 +438,7 @@ export function GameProvider({ children }) {
     fetchingBattlesRef.current = true;
     try {
       const payload = await apiRequest("/api/battle/active", { initData: telegram?.initData });
-      setState((current) => ({
+      setColdState((current) => ({
         ...current,
         battles: payload?.battles || [],
         battleHistory: payload?.history || [],
@@ -435,7 +452,7 @@ export function GameProvider({ children }) {
 
   const refreshReferral = useCallback(async () => {
     const payload = await apiRequest("/api/referral/status", { initData: telegram?.initData });
-    setState((current) => ({ ...current, referral: payload }));
+    setColdState((current) => ({ ...current, referral: payload }));
     return payload;
   }, [telegram?.initData]);
 
@@ -443,7 +460,7 @@ export function GameProvider({ children }) {
     const payload = await apiRequest(`/api/events?${timezoneQuery()}`, {
       initData: telegram?.initData,
     });
-    setState((current) => ({
+    setColdState((current) => ({
       ...current,
       liveEvent: payload,
       careerStory: payload?.careerStory ?? current.careerStory,
@@ -456,14 +473,14 @@ export function GameProvider({ children }) {
     const payload = await apiRequest(`/api/quests/weekly?${timezoneQuery()}`, {
       initData: telegram?.initData,
     });
-    setState((current) => ({ ...current, weeklySprint: payload }));
+    setColdState((current) => ({ ...current, weeklySprint: payload }));
     return payload;
   }, [telegram?.initData]);
 
   const refreshDailyBattle = useCallback(async () => {
     try {
       const payload = await apiRequest('/api/daily-battle/current', { initData: telegram?.initData });
-      setState((current) => ({ ...current, dailyBattle: payload }));
+      setColdState((current) => ({ ...current, dailyBattle: payload }));
       return payload;
     } catch (_e) {
       return null;
@@ -475,7 +492,7 @@ export function GameProvider({ children }) {
     fetchingGeneratorsRef.current = true;
     try {
       const payload = await apiRequest('/api/generators', { initData: telegram?.initData });
-      setState((current) => ({
+      setHotState((current) => ({
         ...current,
         commits: Number(payload?.commitsTotal ?? current.commits),
         exp: Number(payload?.commitsCurrent ?? current.exp),
@@ -497,7 +514,7 @@ export function GameProvider({ children }) {
     }
 
     const promise = (async () => {
-      setState((current) => ({ ...current, loading: true, error: null }));
+      setHotState((current) => ({ ...current, loading: true, error: null }));
       try {
       const [
         statePayload,
@@ -528,12 +545,11 @@ export function GameProvider({ children }) {
 
       applyServerState(statePayload);
       const daily = normalizeQuestPayload(questsPayload);
-      setState((current) => ({
+      setColdState((current) => ({
         ...current,
         quests: daily?.quests || [],
         daily,
         streak: streakPayload,
-        streakDays: Number(streakPayload?.currentStreak ?? current.streakDays),
         pass: passPayload,
         rewardedVideo: rewardedPayload,
         teamHackathon: hackathonPayload,
@@ -545,12 +561,16 @@ export function GameProvider({ children }) {
         careerStory: liveEventPayload?.careerStory ?? current.careerStory,
         weeklySprint: weeklySprintPayload,
         dailyBattle: dailyBattlePayload,
+      }));
+      setHotState((current) => ({
+        ...current,
+        streakDays: Number(streakPayload?.currentStreak ?? current.streakDays),
         loading: false,
         syncing: false,
         error: null,
       }));
       } catch (err) {
-      setState((current) => ({
+      setHotState((current) => ({
         ...current,
         loading: false,
         syncing: false,
@@ -589,7 +609,7 @@ export function GameProvider({ children }) {
       initData: telegram?.initData,
       body: withTimezoneBody({ tier }),
     });
-    setState((current) => ({
+    setColdState((current) => ({
       ...current,
       weeklySprint: current.weeklySprint
         ? {
@@ -604,19 +624,17 @@ export function GameProvider({ children }) {
   }, [loadState, telegram?.initData]);
 
   const setRandomEventState = useCallback((randomEventState) => {
-    setState((current) => ({ ...current, randomEventState }));
+    setHotState((current) => ({ ...current, randomEventState }));
   }, []);
 
   useEffect(() => {
     loadState();
   }, [loadState]);
 
-  // Сбрасываем loadStatePromise когда initData меняется (Telegram загрузился)
   useEffect(() => {
     loadStatePromiseRef.current = null;
   }, [telegram?.initData]);
 
-  // Clean up any pending tap/refresh/toast timers if the provider ever unmounts.
   useEffect(() => {
     return () => {
       if (tapRetryTimerRef.current) {
@@ -639,7 +657,7 @@ export function GameProvider({ children }) {
     let cancelled = false;
 
     const getDelay = () => {
-      const battles = stateRef.current.battles || [];
+      const battles = mergedRef.current.battles || [];
       if (battles.some((battle) => {
         const hoursLeft = (new Date(battle.expiresAt).getTime() - Date.now()) / 3600000;
         return battle.status === "active" && hoursLeft <= 1;
@@ -661,7 +679,7 @@ export function GameProvider({ children }) {
       }, getDelay());
     };
 
-    if ((state.battles || []).length > 0) {
+    if ((coldState.battles || []).length > 0) {
       schedule();
     }
 
@@ -669,17 +687,17 @@ export function GameProvider({ children }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [refreshBattles, state.battles?.length]);
+  }, [refreshBattles, coldState.battles?.length]);
 
   useEffect(() => {
-    if ((state.battles || []).length === 0) {
+    if ((coldState.battles || []).length === 0) {
       battlePollingStartedAtRef.current = Date.now();
       return;
     }
     if (!battlePollingStartedAtRef.current) {
       battlePollingStartedAtRef.current = Date.now();
     }
-  }, [state.battles?.length]);
+  }, [coldState.battles?.length]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -698,30 +716,28 @@ export function GameProvider({ children }) {
   }, [refreshDailyBattle]);
 
   useEffect(() => {
-    // Expose an immutable snapshot so Phaser cannot mutate React state directly.
-    window.__GAME_STATE__ = JSON.parse(JSON.stringify(state));
-    stateRef.current = state;
-  }, [state]);
+    window.__GAME_STATE__ = JSON.parse(JSON.stringify(mergedRef.current));
+  }, [hotState, coldState]);
 
   useEffect(() => {
-    if (state.loginReward?.claimed) {
-      const rewardText = state.loginReward.reward ? `+${state.loginReward.reward.energy || 0} энергии` : "";
-      showToast(`День ${state.loginReward.streak} подряд! ${rewardText}`.trim(), "success", 3000);
+    if (coldState.loginReward?.claimed) {
+      const rewardText = coldState.loginReward.reward ? `+${coldState.loginReward.reward.energy || 0} энергии` : "";
+      showToast(`День ${coldState.loginReward.streak} подряд! ${rewardText}`.trim(), "success", 3000);
     }
-  }, [state.loginReward?.claimed, state.loginReward?.streak, showToast]);
+  }, [coldState.loginReward?.claimed, coldState.loginReward?.streak, showToast]);
 
   useEffect(() => {
-    if (!state.achievements || state.achievements.length === 0) return;
+    if (!coldState.achievements || coldState.achievements.length === 0) return;
 
     if (!previousAchievementsRef.current) {
       previousAchievementsRef.current = new Map(
-        state.achievements.map((achievement) => [achievement.id, achievement.completed === true]),
+        coldState.achievements.map((achievement) => [achievement.id, achievement.completed === true]),
       );
       return;
     }
 
     const previousAchievements = previousAchievementsRef.current;
-    state.achievements.forEach((achievement) => {
+    coldState.achievements.forEach((achievement) => {
       const wasCompleted = previousAchievements.get(achievement.id) === true;
       if (achievement.completed && !wasCompleted) {
         showToast(`🏆 Достижение: ${achievement.name || achievement.id}!`, "success", 4000);
@@ -729,9 +745,9 @@ export function GameProvider({ children }) {
     });
 
     previousAchievementsRef.current = new Map(
-      state.achievements.map((achievement) => [achievement.id, achievement.completed === true]),
+      coldState.achievements.map((achievement) => [achievement.id, achievement.completed === true]),
     );
-  }, [state.achievements, showToast]);
+  }, [coldState.achievements, showToast]);
 
   const flushTapQueue = useCallback(async () => {
     if (processingTapRef.current) return;
@@ -739,26 +755,26 @@ export function GameProvider({ children }) {
     let retryScheduled = false;
 
     try {
-      const currentState = stateRef.current;
+      const currentState = mergedRef.current;
       if (currentState.energy <= 0) {
         pendingTapsRef.current = 0;
-        setState((current) => ({ ...current, syncing: false }));
+        setHotState((current) => ({ ...current, syncing: false }));
         return;
       }
 
       const tapCount = Math.min(20, pendingTapsRef.current, Math.max(1, Math.floor(currentState.energy || 1)));
       if (tapCount <= 0) {
-        setState((current) => ({ ...current, syncing: false }));
+        setHotState((current) => ({ ...current, syncing: false }));
         return;
       }
       pendingTapsRef.current -= tapCount;
-      setState((current) => ({ ...current, syncing: true, error: null }));
+      setHotState((current) => ({ ...current, syncing: true, error: null }));
 
       try {
         const payload = await apiRequest("/api/tap", {
           method: "POST",
           initData: telegram?.initData,
-          body: { session_id: stateRef.current.sessionId, tapCount },
+          body: { session_id: mergedRef.current.sessionId, tapCount },
         });
 
         if (Object.prototype.hasOwnProperty.call(payload || {}, "commitsDelta")) {
@@ -766,7 +782,7 @@ export function GameProvider({ children }) {
         } else {
           applyServerState(payload);
         }
-        setState((current) => ({
+        setHotState((current) => ({
           ...current,
           totalTaps: current.totalTaps + (payload?.commitsDelta > 0 ? tapCount : 0),
         }));
@@ -776,10 +792,6 @@ export function GameProvider({ children }) {
         pendingTapsRef.current += tapCount;
         const rawRetryAfterSeconds = Number(err?.payload?.retryAfter);
         const isRateLimit = err.status === 429;
-        // Only retry short server-side cool-downs (burst_limit). Long bans (anti-cheat,
-        // soft-ban) outlast our retry window and would leave the queue stuck retrying
-        // while the user sees no feedback. For those we drop the batch and surface a
-        // clear recoverable message so the user can tap again after the real cooldown.
         const shortCooldown = !isRateLimit || !Number.isFinite(rawRetryAfterSeconds) || rawRetryAfterSeconds <= 10;
         const retryDelayMs = isRateLimit
           ? Math.max(1000, Math.min(10000, (Number.isFinite(rawRetryAfterSeconds) ? rawRetryAfterSeconds : 1) * 1000))
@@ -810,7 +822,7 @@ export function GameProvider({ children }) {
             showToast("Не удалось сохранить тап", "error", 2000);
           }
         }
-        setState((current) => ({
+        setHotState((current) => ({
           ...current,
           syncing: false,
           error: null,
@@ -819,7 +831,7 @@ export function GameProvider({ children }) {
     } finally {
       processingTapRef.current = false;
       if (pendingTapsRef.current === 0) {
-        setState((current) => ({ ...current, syncing: false }));
+        setHotState((current) => ({ ...current, syncing: false }));
       } else if (!retryScheduled) {
         window.setTimeout(() => flushTapQueue(), 0);
       }
@@ -827,7 +839,7 @@ export function GameProvider({ children }) {
   }, [applyServerState, applyTapState, schedulePostTapRefresh, showToast, telegram?.initData]);
 
   const tap = useCallback(() => {
-    const currentState = stateRef.current;
+    const currentState = mergedRef.current;
     if (currentState.energy <= 0) return;
     pendingTapsRef.current += 1;
     if (tapRetryTimerRef.current) return;
@@ -835,28 +847,28 @@ export function GameProvider({ children }) {
   }, [flushTapQueue]);
 
   const clearLevelUp = useCallback(() => {
-    setState((current) => ({ ...current, levelUp: null }));
+    setColdState((current) => ({ ...current, levelUp: null }));
   }, []);
 
   const setShopOpen = useCallback((open) => {
-    setState((current) => ({ ...current, shopOpen: Boolean(open) }));
+    setColdState((current) => ({ ...current, shopOpen: Boolean(open) }));
   }, []);
 
   const closeShop = useCallback(() => {
-    setState((current) => ({ ...current, shopOpen: false }));
+    setColdState((current) => ({ ...current, shopOpen: false }));
   }, []);
 
   const setBoostersOpen = useCallback((open) => {
-    setState((current) => ({ ...current, boostersOpen: Boolean(open) }));
+    setColdState((current) => ({ ...current, boostersOpen: Boolean(open) }));
   }, []);
 
   const closeBoosters = useCallback(() => {
-    setState((current) => ({ ...current, boostersOpen: false }));
+    setColdState((current) => ({ ...current, boostersOpen: false }));
   }, []);
 
   const mergeSkinState = useCallback((nextSkins) => {
     if (!nextSkins) return;
-    setState((current) => ({
+    setColdState((current) => ({
       ...current,
       skins: {
         ...current.skins,
@@ -874,7 +886,7 @@ export function GameProvider({ children }) {
       body: withTimezoneBody(questId ? { questId } : {}),
     });
     const daily = normalizeQuestPayload(payload);
-    setState((current) => ({
+    setColdState((current) => ({
       ...current,
       quests: daily?.quests || current.quests,
       daily: daily || current.daily,
@@ -912,9 +924,12 @@ export function GameProvider({ children }) {
       initData: telegram?.initData,
       body: withTimezoneBody(),
     });
-    setState((current) => ({
+    setColdState((current) => ({
       ...current,
       streak: { ...current.streak, ...payload },
+    }));
+    setHotState((current) => ({
+      ...current,
       streakDays: Number(payload?.currentStreak ?? current.streakDays),
     }));
     refreshPass().catch(() => null);
@@ -930,9 +945,12 @@ export function GameProvider({ children }) {
       initData: telegram?.initData,
       body: withTimezoneBody(),
     });
-    setState((current) => ({
+    setColdState((current) => ({
       ...current,
       streak: { ...current.streak, ...payload },
+    }));
+    setHotState((current) => ({
+      ...current,
       streakDays: Number(payload?.currentStreak ?? current.streakDays),
     }));
     await loadState().catch(() => null);
@@ -943,7 +961,7 @@ export function GameProvider({ children }) {
     const payload = await apiRequest("/api/achievements", {
       initData: telegram?.initData,
     });
-    setState((current) => ({ ...current, achievements: payload?.achievements || [] }));
+    setColdState((current) => ({ ...current, achievements: payload?.achievements || [] }));
     return payload;
   }, [telegram?.initData]);
 
@@ -960,9 +978,12 @@ export function GameProvider({ children }) {
       initData: telegram?.initData,
       body: withTimezoneBody(),
     });
-    setState((current) => ({
+    setHotState((current) => ({
       ...current,
       energy: Number(payload?.newEnergy ?? current.energy),
+    }));
+    setColdState((current) => ({
+      ...current,
       rewardedVideo: {
         ...current.rewardedVideo,
         remainingToday: payload?.remainingToday ?? current.rewardedVideo?.remainingToday,
@@ -977,7 +998,7 @@ export function GameProvider({ children }) {
       initData: telegram?.initData,
       body: { tierId },
     });
-    setState((current) => ({
+    setHotState((current) => ({
       ...current,
       generatorState: payload?.generatorState ?? current.generatorState,
       exp: Number(payload?.progression?.commits_current ?? current.exp),
@@ -987,9 +1008,9 @@ export function GameProvider({ children }) {
   }, [loadState, telegram?.initData]);
 
   const applyEventDeltas = useCallback((deltas) => {
-    setState((current) => {
+    setHotState((current) => {
       const nextEnergy = Math.min(
-        current.maxEnergy || 100,
+        mergedRef.current.maxEnergy || 100,
         Math.max(0, (current.energy || 0) + (deltas.energyDelta || 0))
       );
       const nextDepression = Math.min(
@@ -1006,11 +1027,26 @@ export function GameProvider({ children }) {
     });
   }, []);
 
-  const value = useMemo(() => ({
-    ...state,
+  const hotValue = useMemo(() => ({
+    ...hotState,
     tap,
     applyEventDeltas,
     clearLevelUp,
+    refreshGenerators,
+    setRandomEventState,
+    reset: loadState,
+  }), [
+    hotState,
+    tap,
+    applyEventDeltas,
+    clearLevelUp,
+    refreshGenerators,
+    setRandomEventState,
+    loadState,
+  ]);
+
+  const coldValue = useMemo(() => ({
+    ...coldState,
     showToast,
     setShopOpen,
     closeShop,
@@ -1034,11 +1070,10 @@ export function GameProvider({ children }) {
     refreshReferral,
     refreshLiveEvent,
     refreshWeeklySprint,
-    refreshGenerators,
     claimWeeklySprintTier,
-    setRandomEventState,
     completeRewardedVideo,
     buyGenerator,
+    reset: loadState,
     acceptBattle: async (battleId) => {
       const payload = await apiRequest("/api/battle/accept", {
         method: "POST",
@@ -1072,7 +1107,7 @@ export function GameProvider({ children }) {
         initData: telegram?.initData,
         body: { beatId },
       });
-      setState((current) => ({
+      setColdState((current) => ({
         ...current,
         careerStory: payload?.careerStory ?? current.careerStory,
       }));
@@ -1085,7 +1120,7 @@ export function GameProvider({ children }) {
         initData: telegram?.initData,
         body: { offerType },
       });
-      setState((current) => ({ ...current, contextOffer: null }));
+      setColdState((current) => ({ ...current, contextOffer: null }));
     },
     drinkCoffee: async () => {
       try {
@@ -1109,17 +1144,17 @@ export function GameProvider({ children }) {
         initData: telegram?.initData,
       });
       applyServerState(payload);
-      setState((current) => ({ ...current, showOnboarding: false }));
+      setColdState((current) => ({ ...current, showOnboarding: false }));
       localStorage.setItem("cs_onboarding_completed", "1");
       return payload;
     },
     skipOnboarding: () => {
       console.log("onboarding_skipped");
       localStorage.setItem("cs_onboarding_skipped", String(Date.now()));
-      setState((current) => ({ ...current, showOnboarding: true }));
+      setColdState((current) => ({ ...current, showOnboarding: true }));
     },
     equipSkin: async (skinId) => {
-      if (equippingSkinRef.current) return stateRef.current.skins ?? null;
+      if (equippingSkinRef.current) return mergedRef.current.skins ?? null;
       equippingSkinRef.current = true;
       try {
         const payload = await apiRequest("/api/skins/equip", {
@@ -1137,11 +1172,11 @@ export function GameProvider({ children }) {
         equippingSkinRef.current = false;
       }
     },
-    setMemePrompt: (prompt) => setState((current) => ({ ...current, memePrompt: prompt })),
-    clearMemePrompt: () => setState((current) => ({ ...current, memePrompt: null })),
+    setMemePrompt: (prompt) => setColdState((current) => ({ ...current, memePrompt: prompt })),
+    clearMemePrompt: () => setColdState((current) => ({ ...current, memePrompt: null })),
     refreshLanguages: async () => {
       const payload = await apiRequest("/api/languages/my", { initData: telegram?.initData });
-      setState((current) => ({ ...current, activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage }));
+      setColdState((current) => ({ ...current, activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage }));
       return payload;
     },
     equipLanguage: async (languageSlug) => {
@@ -1151,19 +1186,15 @@ export function GameProvider({ children }) {
         body: { languageSlug },
       });
       if (payload?.success) {
-        setState((current) => ({
+        setColdState((current) => ({
           ...current,
           activeLanguage: payload?.languages?.find((l) => l.is_active) || current.activeLanguage,
         }));
       }
       return payload;
     },
-    reset: loadState,
   }), [
-    state,
-    tap,
-    applyEventDeltas,
-    clearLevelUp,
+    coldState,
     showToast,
     setShopOpen,
     closeShop,
@@ -1187,7 +1218,6 @@ export function GameProvider({ children }) {
     refreshWeeklySprint,
     refreshGenerators,
     claimWeeklySprintTier,
-    setRandomEventState,
     completeRewardedVideo,
     buyGenerator,
     refreshDailyBattle,
@@ -1195,9 +1225,21 @@ export function GameProvider({ children }) {
     telegram?.initData,
   ]);
 
-  return h(GameContext.Provider, { value }, children);
+  return h(HotGameContext.Provider, { value: hotValue },
+    h(ColdGameContext.Provider, { value: coldValue }, children)
+  );
+}
+
+export function useHotGameState() {
+  return useContext(HotGameContext);
+}
+
+export function useColdGameState() {
+  return useContext(ColdGameContext);
 }
 
 export function useGameState() {
-  return useContext(GameContext);
+  const hot = useHotGameState();
+  const cold = useColdGameState();
+  return useMemo(() => ({ ...hot, ...cold }), [hot, cold]);
 }

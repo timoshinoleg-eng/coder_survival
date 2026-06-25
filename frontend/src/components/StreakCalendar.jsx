@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import { useGameState } from '../hooks/useGameState.js';
+import { useColdGameState } from '../hooks/useGameState.js';
 
 const BREAK_MESSAGES = [
   "Ты пропустил день. Дедлайн победил.",
@@ -15,7 +15,7 @@ function getRandomBreakMessage() {
 }
 
 export default function StreakCalendar() {
-  const { streak, claimStreak, recoverStreak, showToast, setShopOpen } = useGameState();
+  const { streak, claimStreak, recoverStreak, showToast, setShopOpen } = useColdGameState();
   const [claiming, setClaiming] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const days = (streak?.calendar || []).slice();

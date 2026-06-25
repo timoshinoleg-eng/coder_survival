@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useGameState } from '../hooks/useGameState.js';
+import { useColdGameState } from '../hooks/useGameState.js';
 import { Analytics } from '../utils/analytics.js';
 
 function rewardText(reward = {}) {
@@ -55,7 +55,7 @@ function questHint(quest) {
 }
 
 export default function DailyQuests({ modal = false, open = true, onClose }) {
-  const { daily, quests, antiCheat, claimQuests, claimFullClear, rerollQuest } = useGameState();
+  const { daily, quests, antiCheat, claimQuests, claimFullClear, rerollQuest } = useColdGameState();
   const [claiming, setClaiming] = useState(false);
   const [openingChest, setOpeningChest] = useState(false);
   const [rerolling, setRerolling] = useState(false);

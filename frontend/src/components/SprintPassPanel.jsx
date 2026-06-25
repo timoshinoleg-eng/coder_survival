@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
 import { useTelegram } from '../hooks/useTelegram.js';
-import { useGameState } from '../hooks/useGameState.js';
+import { useColdGameState } from '../hooks/useGameState.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
 import { formatRewardPayload } from '../utils/rewardFormatting.js';
 
@@ -31,7 +31,7 @@ function formatPremiumReward(payload = {}) {
 
 export default function SprintPassPanel({ open, onClose }) {
   const { initData } = useTelegram();
-  const { pass, showToast, refreshPass, claimPassReward } = useGameState();
+  const { pass, showToast, refreshPass, claimPassReward } = useColdGameState();
   const [claiming, setClaiming] = useState(null);
   const [unlockingPremium, setUnlockingPremium] = useState(false);
   const [xpSources, setXpSources] = useState(null);

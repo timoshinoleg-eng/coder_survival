@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useCallback, useMemo, useState } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
-import { useGameState } from '../hooks/useGameState.js';
+import { useColdGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { Analytics } from '../utils/analytics.js';
 
@@ -147,7 +147,7 @@ function MemberRow({ member, index, fairShare, maxCommits }) {
 }
 
 export default function TeamPanel({ open: controlledOpen, onClose }) {
-  const game = useGameState();
+  const game = useColdGameState();
   const { initData, shareUrl } = useTelegram();
   const [localOpen, setLocalOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState('');

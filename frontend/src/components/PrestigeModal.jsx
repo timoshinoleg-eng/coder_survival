@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { useGameState } from '../hooks/useGameState.js';
+import { useColdGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { apiRequest } from '../utils/api.js';
 import { audioManager } from '../utils/AudioManager.js';
@@ -35,7 +35,7 @@ function StatRow({ label, value, color = COLORS.text }) {
 }
 
 export default function PrestigeModal() {
-  const gameState = useGameState();
+  const gameState = useColdGameState();
   const { haptic, initData } = useTelegram() || {};
   const [stage, setStage] = useState(STAGE.PREVIEW);
   const [loading, setLoading] = useState(false);

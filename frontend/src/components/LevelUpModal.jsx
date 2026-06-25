@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { useGameState } from '../hooks/useGameState.js';
+import { useColdGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { RANK_ORDER } from '../hooks/usePlayerRank.js';
@@ -8,7 +8,7 @@ import { Analytics } from '../utils/analytics.js';
 import Confetti from './Confetti.jsx';
 
 export default function LevelUpModal() {
-  const { levelUp, clearLevelUp } = useGameState();
+  const { levelUp, clearLevelUp } = useColdGameState();
   const { haptic } = useTelegram();
   const [showConfetti, setShowConfetti] = useState(false);
 
