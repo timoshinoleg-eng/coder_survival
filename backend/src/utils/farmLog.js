@@ -25,17 +25,15 @@ export async function getRollingAvgDailyFarm(client, userId) {
 }
 
 export async function getDailyFarmSummary(client, userId) {
-  const [avgDailyFarm, recentRows] = await Promise.all([
-    getRollingAvgDailyFarm(client, userId),
-    client.query(
-      `SELECT farm_date, loc_earned
-       FROM daily_farm_log
-       WHERE user_id = $1
-       ORDER BY farm_date DESC
-       LIMIT 7`,
-      [userId]
-    )
-  ]);
+  const avgDailyFarm = await getRollingAvgDailyFarm(client, userId);
+  const recentRows = await client.query(
+    `SELECT farm_date, loc_earned
+     FROM daily_farm_log
+     WHERE user_id = $1
+     ORDER BY farm_date DESC
+     LIMIT 7`,
+    [userId]
+  );
 
   return {
     avgDailyFarm,

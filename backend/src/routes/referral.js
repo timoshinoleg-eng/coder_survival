@@ -386,16 +386,14 @@ router.get('/stats', async (req, res, next) => {
       const { total, active } = await getReferralProgress(client, ensured.userId);
       const nextMilestone = REFERRAL_MILESTONES.find((m) => active < m) || null;
 
-      const [progressResult, claimedResult] = await Promise.all([
-        client.query(
-          `SELECT referral_state FROM progression WHERE user_id = $1`,
-          [ensured.userId]
-        ),
-        client.query(
-          `SELECT milestone FROM referral_milestone_claims WHERE user_id = $1`,
-          [ensured.userId]
-        )
-      ]);
+      const progressResult = await client.query(
+        `SELECT referral_state FROM progression WHERE user_id = $1`,
+        [ensured.userId]
+      );
+      const claimedResult = await client.query(
+        `SELECT milestone FROM referral_milestone_claims WHERE user_id = $1`,
+        [ensured.userId]
+      );
       const referralState = progressResult.rows[0]?.referral_state || {};
       const claimedMilestones = getClaimedMilestones(referralState, claimedResult.rows);
 
