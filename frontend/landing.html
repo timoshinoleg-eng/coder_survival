@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coder Survival — Выживи в IT-офисе</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --bg-card: #16213e;
+      --bg-deep: #0a0a14;
+      --green: #4ade80;
+      --green-dim: #22c55e;
+      --gold: #facc15;
+      --blue: #60a5fa;
+      --purple: #8b5cf6;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --border: #1e293b;
+      --font: 'Press Start 2P', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+    .pixel { font-family: var(--font); }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(circle at 20% 80%, rgba(74,222,128,0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(96,165,250,0.06) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(139,92,246,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-grid {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image:
+        linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+    .hero-content { position: relative; z-index: 1; }
+    .hero-badge {
+      display: inline-block;
+      background: var(--bg-card);
+      border: 1px solid var(--green);
+      padding: 8px 16px;
+      font-size: 11px;
+      color: var(--green);
+      margin-bottom: 24px;
+      letter-spacing: 0.1em;
+    }
+    .hero h1 {
+      font-family: var(--font);
+      font-size: clamp(24px, 5vw, 48px);
+      color: var(--green);
+      text-shadow: 3px 3px 0 var(--bg-deep);
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+    .hero h1 span { color: var(--gold); }
+    .hero-sub {
+      font-size: clamp(14px, 2.5vw, 18px);
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
+    }
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--green);
+      color: var(--bg-deep);
+      font-family: var(--font);
+      font-size: 14px;
+      padding: 16px 32px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.1s, box-shadow 0.1s;
+      box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+    }
+    .hero-cta:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 rgba(0,0,0,0.3);
+    }
+    .hero-cta:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+    }
+    .hero-cta svg { width: 20px; height: 20px; }
+    .hero-stats {
+      display: flex;
+      gap: 40px;
+      margin-top: 48px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .hero-stat { text-align: center; }
+    .hero-stat-num {
+      font-family: var(--font);
+      font-size: 24px;
+      color: var(--gold);
+      text-shadow: 2px 2px 0 var(--bg-deep);
+    }
+    .hero-stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Terminal */
+    .terminal {
+      max-width: 700px;
+      margin: 0 auto 80px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .terminal-bar {
+      background: var(--bg-card);
+      padding: 8px 12px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .terminal-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .terminal-dot.r { background: var(--red); }
+    .terminal-dot.y { background: var(--gold); }
+    .terminal-dot.g { background: var(--green); }
+    .terminal-body {
+      padding: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--green);
+    }
+    .terminal-body .prompt { color: var(--blue); }
+    .terminal-body .cmd { color: var(--text); }
+    .terminal-body .output { color: var(--muted); }
+    .terminal-body .highlight { color: var(--gold); }
+    .terminal-body .error { color: var(--red); }
+    .cursor-blink {
+      display: inline-block;
+      width: 8px;
+      height: 14px;
+      background: var(--green);
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Features */
+    .features {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 80px 20px;
+    }
+    .section-title {
+      font-family: var(--font);
+      font-size: clamp(16px, 3vw, 24px);
+      text-align: center;
+      margin-bottom: 48px;
+      color: var(--text);
+    }
+    .section-title span { color: var(--green); }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 24px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover {
+      border-color: var(--green);
+      transform: translateY(-2px);
+    }
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+    .feature-title {
+      font-family: var(--font);
+      font-size: 12px;
+      color: var(--green);
+      margin-bottom: 8px;
+    }
+    .feature-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* How it works */
+    .how {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 80px 20px;
+    }
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .step-num {
+      font-family: var(--font);
+      font-size: 20px;
+      color: var(--green);
+      min-width: 40px;
+      text-shadow: 2px 2px 0 var(--bg-deep);
+    }
+    .step-content h3 {
+      font-family: var(--font);
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .step-content p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* CTA bottom */
+    .cta-bottom {
+      text-align: center;
+      padding: 80px 20px;
+      background: linear-gradient(180deg, transparent, rgba(74,222,128,0.03));
+    }
+    .cta-bottom h2 {
+      font-family: var(--font);
+      font-size: clamp(14px, 2.5vw, 20px);
+      margin-bottom: 24px;
+    }
+    .cta-bottom h2 span { color: var(--green); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 32px 20px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    footer a { color: var(--green); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Floating code */
+    .float-code {
+      position: absolute;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: rgba(74,222,128,0.08);
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+    }
+    .float-code.c1 { top: 15%; left: 5%; transform: rotate(-5deg); }
+    .float-code.c2 { top: 25%; right: 8%; transform: rotate(3deg); }
+    .float-code.c3 { bottom: 20%; left: 10%; transform: rotate(-2deg); }
+    .float-code.c4 { bottom: 30%; right: 5%; transform: rotate(4deg); }
+
+    /* Mobile */
+    @media (max-width: 640px) {
+      .hero-stats { gap: 24px; }
+      .hero-stat-num { font-size: 18px; }
+      .terminal-body { font-size: 11px; padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-grid"></div>
+    <div class="float-code c1">while (alive) { code(); }</div>
+    <div class="float-code c2">git commit -m "fix: life"</div>
+    <div class="float-code c3">sudo rm -rf /bugs</div>
+    <div class="float-code c4">// TODO: sleep later</div>
+
+    <div class="hero-content">
+      <div class="hero-badge pixel">TELEGRAM MINI APP</div>
+      <h1 class="pixel">CODER<br><span>SURVIVAL</span></h1>
+      <p class="hero-sub">
+        Тапай код, зарабатывай коммиты, выживай в IT-офисе.
+        Баги, дедлайны, продакшен-алерты — всё настоящее.
+      </p>
+      <a href="https://t.me/coder_survival_bot" class="hero-cta pixel" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        ИГРАТЬ В TELEGRAM
+      </a>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-num pixel">50+</div>
+          <div class="hero-stat-label">уровней карьеры</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num pixel">5</div>
+          <div class="hero-stat-label">типов генераторов</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num pixel">8</div>
+          <div class="hero-stat-label">мини-игр</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num pixel">∞</div>
+          <div class="hero-stat-label">багов в проде</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Terminal -->
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="terminal-dot r"></div>
+      <div class="terminal-dot y"></div>
+      <div class="terminal-dot g"></div>
+    </div>
+    <div class="terminal-body">
+      <span class="prompt">coder@survival:~$</span> <span class="cmd">./start_session.sh</span><br>
+      <span class="output">[INFO] Загружаю проект...</span><br>
+      <span class="output">[WARN] 47 незакрытых issues</span><br>
+      <span class="error">[CRITICAL] Прод в отладке! Все на тапки!</span><br>
+      <br>
+      <span class="prompt">coder@survival:~$</span> <span class="cmd">tap --commit</span><br>
+      <span class="highlight">+15 LOC</span> <span class="output">(crit! x3)</span><br>
+      <span class="output">⚡ Энергия: 87/100</span><br>
+      <span class="error">😰 Стресс: 42/200</span><br>
+      <br>
+      <span class="prompt">coder@survival:~$</span> <span class="cmd">npm run deploy</span><br>
+      <span class="error">[ERROR] Friday Deploy triggered!</span><br>
+      <span class="highlight">🎲 Шанс badge "Friday Deployer": 30%</span><br>
+      <br>
+      <span class="prompt">coder@survival:~$</span> <span class="cursor-blink"></span>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section class="features">
+    <h2 class="section-title pixel">Что <span>внутри</span></h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⌨️</div>
+        <h3 class="feature-title pixel">Тапай код</h3>
+        <p class="feature-desc">Каждый тап = коммит. Криты, стрики, генераторы. Idle-экономика работает даже когда ты спишь.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💀</div>
+        <h3 class="feature-title pixel">Шкала стресса</h3>
+        <p class="feature-desc">0–200 единиц депрессии. На 100 — дебаффы. На 200 — Heart Attack. Делись позором с друзьями.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏢</div>
+        <h3 class="feature-title pixel">Карьерный рост</h3>
+        <p class="feature-desc">Junior → Middle → Senior → Lead → CTO. 50 уровней, 5 рангов, бесконечный грейнд.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎰</div>
+        <h3 class="feature-title pixel">Случайные события</h3>
+        <p class="feature-desc">Legacy Code, Deploy Friday, Golden Commit, Production Alert. Каждые 60–120 секунд — сюрприз.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏆</div>
+        <h3 class="feature-title pixel">Спринт-пас</h3>
+        <p class="feature-desc">30-дневные сезоны, 50 уровней, бесплатный и премиум треки. Double XP по выходным.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👥</div>
+        <h3 class="feature-title pixel">Команды</h3>
+        <p class="feature-desc">Squads, Team Hackathon, социальное давление. Пропусти день — подведёшь всю команду.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎮</div>
+        <h3 class="feature-title pixel">Мини-игры</h3>
+        <p class="feature-desc">Hello World, Code Review, Dream Interview, Architectural Committee, IPO. 8 способов заработать.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">😂</div>
+        <h3 class="feature-title pixel">UGC-мемы</h3>
+        <p class="feature-desc">"It works on my machine", "404: Sleep not found". Генерируй PNG и делись позором.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3 class="feature-title pixel">Античит</h3>
+        <p class="feature-desc">3-слойная защита от ботов. Rate limiting, энтропийный анализ, серверная верификация.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="how">
+    <h2 class="section-title pixel">Как <span>играть</span></h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num pixel">01</div>
+        <div class="step-content">
+          <h3>Открой бота в Telegram</h3>
+          <p>Нажми кнопку ниже — бот создаст мини-приложение прямо в Telegram. Ничего скачивать не нужно.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num pixel">02</div>
+        <div class="step-content">
+          <h3>Тапай и зарабатывай</h3>
+          <p>Каждый тап = коммит. Собирай LOC, покупай генераторы, прокачивай карьеру от Junior до CTO.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num pixel">03</div>
+        <div class="step-content">
+          <h3>Выживай</h3>
+          <p>Следи за стрессом, ешь кофе, проходи мини-игры. Не дай Heart Attack убить твою сессию.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num pixel">04</div>
+        <div class="step-content">
+          <h3>Соревнуйся</h3>
+          <p>Лидерборды, дейли-баттлы, командные хакатоны. Делись мемами и зови друзей.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA bottom -->
+  <section class="cta-bottom">
+    <h2 class="pixel">Готов <span>выжить</span>?</h2>
+    <a href="https://t.me/coder_survival_bot" class="hero-cta pixel" target="_blank">
+      НАЧАТЬ ИГРУ
+    </a>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>Coder Survival © 2026 · Сделано с ❤️ и багами</p>
+    <p style="margin-top: 8px;">
+      <a href="https://t.me/coder_survival_bot">Telegram Bot</a> ·
+      <a href="https://github.com/timoshinoleg-eng/coder_survival">GitHub</a>
+    </p>
+  </footer>
+
+</body>
+</html>
