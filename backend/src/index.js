@@ -54,6 +54,8 @@ import { startAchievementCron } from "./jobs/achievementCron.js";
 import { startRandomEventCron } from "./jobs/randomEventCron.js";
 import { startFlashSaleCron } from "./jobs/flashSaleCron.js";
 import { startHealthAlert } from "./jobs/healthAlert.js";
+import { startSeasonRotationCron } from "./jobs/seasonRotationCron.js";
+import seasonAdminRouter from "./routes/seasonAdmin.js";
 
 // Загружаем .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -211,6 +213,7 @@ app.use("/api/analytics", initDataMiddleware, analyticsRouter);
 app.use("/api/boosters", initDataMiddleware, boostersRouter);
 app.use("/api/languages", initDataMiddleware, languagesRouter);
 app.use("/api/wallet", initDataMiddleware, walletRouter);
+app.use("/api/admin/season", seasonAdminRouter);
 
 // Error handler
 app.use(errorHandler);
@@ -252,4 +255,5 @@ if (isEntrypoint) {
   startRandomEventCron();
   startFlashSaleCron();
   startHealthAlert();
+  startSeasonRotationCron();
 }
