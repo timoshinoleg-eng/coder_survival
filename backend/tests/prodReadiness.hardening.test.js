@@ -94,27 +94,30 @@ describeIfDb("prod-readiness hardening", () => {
     });
   });
 
-  describe("shop requires Telegram initData", () => {
-    test("401 without initData, 200 with initData", async () => {
+  describe("shop auth model: public catalog, authenticated mutations", () => {
+    test("GET /api/shop/products is a public read (200, no auth)", async () => {
       const anon = await server.request("/api/shop/products");
-      expect(anon.status).toBe(401);
+      expect(anon.status).toBe(200);
+      expect(Array.isArray(anon.body.products)).toBe(true);
+    });
 
-      const authed = await server.request("/api/shop/products", {
-        headers: { "X-Telegram-Init-Data": createInitData(900100001) },
+    test("POST /api/shop/purchase-deal requires initData (401 without)", async () => {
+      const anon = await server.request("/api/shop/purchase-deal", {
+        method: "POST",
+        body: { dealType: "daily_deal" },
       });
-      expect(authed.status).toBe(200);
-      expect(Array.isArray(authed.body.products)).toBe(true);
+      expect(anon.status).toBe(401);
     });
   });
 
   describe("client XP mint endpoint removed", () => {
-    test("POST /api/player/level/xp no longer exists (404)", async () => {
+    test("POST /api/player/level/xp is gone (410, no XP minted)", async () => {
       const res = await server.request("/api/player/level/xp", {
         method: "POST",
         headers: { "X-Telegram-Init-Data": createInitData(900100002) },
         body: { amount: 1000000, source: "tap" },
       });
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(410);
     });
   });
 
