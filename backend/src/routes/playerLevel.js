@@ -40,8 +40,12 @@ router.get('/', async (req, res, next) => {
 // `amount` verbatim), which drives career rank, energy and skin unlocks. It was
 // never called by the front-end — all legitimate XP is granted server-side
 // inside the tap / quest / streak / referral / hackathon flows via
-// `addPlayerXp`. The endpoint has been removed. XP must only be awarded by
-// server-authoritative game actions, never by direct client request.
+// `addPlayerXp`. The endpoint is removed; XP must only be awarded by
+// server-authoritative game actions. This tombstone returns a clean JSON 410
+// (instead of an HTML 404) so any lingering client gets a clear signal.
+router.post('/xp', (req, res) => {
+  res.status(410).json({ error: 'Endpoint removed: XP is granted server-side only.' });
+});
 
 router.get('/rank', async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
