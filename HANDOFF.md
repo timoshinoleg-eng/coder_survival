@@ -1,5 +1,8 @@
 # Handoff: Coder Survival
 
+> ⚠️ **Устаревший статус-документ.** Каноничное текущее состояние:
+> `docs/PRODUCTION_READINESS_REPORT.md` и `docs/CURRENT_ARCHITECTURE.md`.
+
 ## Workspace
 - Active repo: `C:\Users\Имярек\Downloads\Coder Survival\coder_survival_repo\coder_survival_fresh`
 - Branch: `main`
