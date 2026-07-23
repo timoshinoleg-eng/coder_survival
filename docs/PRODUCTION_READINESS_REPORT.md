@@ -11,12 +11,16 @@
 
 > **Update log — round 2 (2026-07-24):** The first push of this branch was NOT
 > mergeable: CI showed 13 failing backend tests (10 API-contract + 3 hardening)
-> and 2 new CodeQL High findings (missing rate limiting on the admin and booster
-> routes). The initial claim that "only owner actions remain" was wrong. Round 2
-> fixes them all — see §4.6. The full backend suite (378 tests) now passes in a
-> CI-equivalent (UTC Postgres) environment, and rate limiting was added to the
-> flagged routes. The `deploy-preview` check requires an owner `VERCEL_TOKEN`
-> secret; that job is `continue-on-error` and does not block merge (§4.6).
+> and 2 CodeQL High findings (missing rate limiting), plus an intermittent flake.
+> The initial claim that "only owner actions remain" was wrong. Round 2 fixed
+> them all — see §4.6.
+>
+> **CI is now GREEN** on the branch head: `test` (both push + pull_request
+> triggers), `integration-test`, `CodeQL` (0 alerts) + `CodeQL Analysis`,
+> lint/build/audit/secret-scan all pass. The full backend suite is **378/378**,
+> verified stable across repeated runs under a CI-equivalent (UTC) Postgres. The
+> **only** non-green check is `deploy-preview`, which needs an owner-held
+> `VERCEL_TOKEN`; that job is `continue-on-error` (non-blocking) — see §4.6.
 
 ---
 
