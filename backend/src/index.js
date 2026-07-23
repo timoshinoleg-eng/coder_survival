@@ -8,7 +8,6 @@ import { dirname, join } from "path";
 
 import { initDataMiddleware } from "./middleware/initData.js";
 import { adminAuthMiddleware } from "./middleware/adminAuth.js";
-import { adminRateLimiter, boosterRateLimiter } from "./middleware/apiRateLimit.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 // Optional Telegram auth: validate initData when the header is present, else
@@ -254,10 +253,10 @@ app.use("/api/daily-summary", initDataMiddleware, dailySummaryRouter);
 app.use("/api/daily-battle", initDataMiddleware, dailyBattleRouter);
 app.use("/api/prestige", initDataMiddleware, prestigeRouter);
 app.use("/api/analytics", initDataMiddleware, analyticsRouter);
-app.use("/api/boosters", initDataMiddleware, boosterRateLimiter, boostersRouter);
+app.use("/api/boosters", initDataMiddleware, boostersRouter);
 app.use("/api/languages", initDataMiddleware, languagesRouter);
 app.use("/api/wallet", initDataMiddleware, walletRouter);
-app.use("/api/admin/season", adminRateLimiter, adminAuthMiddleware, seasonAdminRouter);
+app.use("/api/admin/season", adminAuthMiddleware, seasonAdminRouter);
 
 // Error handler
 app.use(errorHandler);
