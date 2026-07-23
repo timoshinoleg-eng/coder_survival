@@ -57,7 +57,9 @@ router.get(['/', '/status'], async (req, res) => {
     );
     const passStatus = await getPassStatus(client, userId);
     await client.query('COMMIT');
-    if (!passStatus) return res.json({ success: true, status: null });
+    // Keep a consistent top-level shape even when there is no active pass, so
+    // clients can always read catchUp / weekendDoubleXpActive.
+    if (!passStatus) return res.json({ success: true, status: null, catchUp, weekendDoubleXpActive: getWeekendXpMultiplier(new Date()) > 1 });
     return res.json({ ...passStatus, success: true, status: passStatus, catchUp, weekendDoubleXpActive: getWeekendXpMultiplier(new Date()) > 1 });
   } catch (err) {
     if (client) {
