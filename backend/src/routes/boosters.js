@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { addEffect, getActiveEffects } from '../utils/activeEffects.js';
 import { checkAchievement } from '../utils/achievements.js';
+import { boosterRateLimiter } from '../middleware/apiRateLimit.js';
 
 const router = Router();
 
@@ -161,7 +162,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/purchase', async (req, res) => {
+router.post('/purchase', boosterRateLimiter, async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
   const { boosterSlug } = req.body || {};
@@ -228,7 +229,7 @@ router.post('/purchase', async (req, res) => {
   }
 });
 
-router.post('/activate', async (req, res) => {
+router.post('/activate', boosterRateLimiter, async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
   const { boosterSlug } = req.body || {};
