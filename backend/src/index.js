@@ -8,7 +8,20 @@ import { dirname, join } from "path";
 
 import { initDataMiddleware } from "./middleware/initData.js";
 import { adminAuthMiddleware } from "./middleware/adminAuth.js";
+import { adminRateLimiter, boosterRateLimiter } from "./middleware/apiRateLimit.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+
+// Optional Telegram auth: validate initData when the header is present, else
+// proceed unauthenticated (req.telegramUser = null). Routers behind this still
+// enforce auth per-endpoint by checking req.telegramUser?.user, so public reads
+// (catalogs, active event) work while mutations stay protected.
+function optionalInitData(req, res, next) {
+  if (req.headers["x-telegram-init-data"]) {
+    return initDataMiddleware(req, res, next);
+  }
+  req.telegramUser = null;
+  next();
+}
 
 import { startBalanceAuditJob } from "./jobs/balanceAudit.js";
 import { buildDatabaseSslOptions, buildDatabaseUrl, shouldExitOnUnexpectedDbError } from "./config/database.js";
@@ -195,7 +208,9 @@ app.use("/api/internal/observation", internalObservationRouter);
 app.use("/api/player/level", initDataMiddleware, playerLevelRouter);
 app.use("/api/player", initDataMiddleware, playerLevelRouter);
 app.use("/api/quests", initDataMiddleware, questsRouter);
-app.use("/api/shop", initDataMiddleware, shopRouter);
+// Shop: catalog/active-sales are public reads; purchase-deal/opened enforce auth
+// inside the router (they require req.telegramUser?.user).
+app.use("/api/shop", optionalInitData, shopRouter);
 app.use(
   "/api/battle",
   (req, res, next) => {
@@ -207,7 +222,8 @@ app.use(
   },
   battleRouter,
 );
-app.use("/api/event", initDataMiddleware, eventRouter);
+// Event: /active is a public read; claim/resolve enforce auth inside the router.
+app.use("/api/event", optionalInitData, eventRouter);
 app.use("/api/events", initDataMiddleware, eventsRouter);
 app.use("/api/pass", initDataMiddleware, passRouter);
 app.use("/api/team", initDataMiddleware, teamRouter);
@@ -238,10 +254,10 @@ app.use("/api/daily-summary", initDataMiddleware, dailySummaryRouter);
 app.use("/api/daily-battle", initDataMiddleware, dailyBattleRouter);
 app.use("/api/prestige", initDataMiddleware, prestigeRouter);
 app.use("/api/analytics", initDataMiddleware, analyticsRouter);
-app.use("/api/boosters", initDataMiddleware, boostersRouter);
+app.use("/api/boosters", initDataMiddleware, boosterRateLimiter, boostersRouter);
 app.use("/api/languages", initDataMiddleware, languagesRouter);
 app.use("/api/wallet", initDataMiddleware, walletRouter);
-app.use("/api/admin/season", adminAuthMiddleware, seasonAdminRouter);
+app.use("/api/admin/season", adminRateLimiter, adminAuthMiddleware, seasonAdminRouter);
 
 // Error handler
 app.use(errorHandler);
