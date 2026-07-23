@@ -197,8 +197,25 @@ function assertGameProviderValueIsMemoized() {
   if (!source.includes("useMemo")) {
     failures.push(`${file}: GameProvider value must be memoized`);
   }
-  if (!source.includes("const value = useMemo(() =>")) {
-    failures.push(`${file}: context value must be created through useMemo`);
+  // The context was split into hot/cold dual contexts for tap performance. Both
+  // provider values must be memoized so high-frequency hot updates never force a
+  // re-render of cold consumers (and vice-versa).
+  if (!source.includes("const hotValue = useMemo(") || !source.includes("const coldValue = useMemo(")) {
+    failures.push(`${file}: hot/cold context values must both be created through useMemo`);
+  }
+}
+
+// Telegram's iOS WebView can black-screen when Phaser selects the WebGL
+// renderer. The game MUST pin the Canvas renderer; this guard fails the build if
+// anyone reintroduces Phaser.AUTO or Phaser.WEBGL.
+function assertPhaserUsesCanvasRenderer() {
+  const file = "src/game/PhaserGame.js";
+  const source = read(file);
+  if (!/type:\s*Phaser\.CANVAS/.test(source)) {
+    failures.push(`${file}: Phaser game config must set type: Phaser.CANVAS`);
+  }
+  if (/Phaser\.AUTO/.test(source) || /Phaser\.WEBGL/.test(source)) {
+    failures.push(`${file}: Phaser renderer must not use Phaser.AUTO or Phaser.WEBGL (iOS WebView black screen)`);
   }
 }
 
@@ -292,6 +309,7 @@ assertStreakClaimDoesNotBlockOnFullStateReload();
 assertRandomEventPollingIsNotAggressive();
 assertPhaserResizeDoesNotRestartScene();
 assertGameProviderValueIsMemoized();
+assertPhaserUsesCanvasRenderer();
 assertBatchTapsAreUsed();
 assertSingleOwnerRandomEventPolling();
 assertTimerAndPollingDeduplication();
