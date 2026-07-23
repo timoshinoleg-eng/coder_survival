@@ -8,6 +8,7 @@ import { dirname, join } from "path";
 
 import { initDataMiddleware } from "./middleware/initData.js";
 import { adminAuthMiddleware } from "./middleware/adminAuth.js";
+import { readApiRateLimiter } from "./middleware/apiRateLimit.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 // Optional Telegram auth: validate initData when the header is present, else
@@ -209,7 +210,7 @@ app.use("/api/player", initDataMiddleware, playerLevelRouter);
 app.use("/api/quests", initDataMiddleware, questsRouter);
 // Shop: catalog/active-sales are public reads; purchase-deal/opened enforce auth
 // inside the router (they require req.telegramUser?.user).
-app.use("/api/shop", optionalInitData, shopRouter);
+app.use("/api/shop", readApiRateLimiter, optionalInitData, shopRouter);
 app.use(
   "/api/battle",
   (req, res, next) => {
@@ -222,7 +223,7 @@ app.use(
   battleRouter,
 );
 // Event: /active is a public read; claim/resolve enforce auth inside the router.
-app.use("/api/event", optionalInitData, eventRouter);
+app.use("/api/event", readApiRateLimiter, optionalInitData, eventRouter);
 app.use("/api/events", initDataMiddleware, eventsRouter);
 app.use("/api/pass", initDataMiddleware, passRouter);
 app.use("/api/team", initDataMiddleware, teamRouter);
