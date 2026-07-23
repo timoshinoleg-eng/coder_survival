@@ -2,10 +2,31 @@
 
 > The automation used to open this PR authenticates via an integration that
 > lacks the GitHub `workflow` permission, so it **cannot commit changes under
-> `.github/workflows/`**. The three changes below are part of this
-> prod-readiness pass but must be applied by a maintainer with workflow write
-> access (commit them to the `hyperagent/prod-readiness` branch, or apply on
-> merge). Each is small and low-risk.
+> `.github/workflows/`**. The changes below are part of this prod-readiness pass
+> but must be applied by a maintainer with workflow write access (commit them to
+> the `hyperagent/prod-readiness` branch, or apply on merge). Each is small and
+> low-risk.
+
+## 0. `deploy-preview` check (VERCEL_TOKEN) — makes the failing preview check green
+
+`.github/workflows/preview.yml` runs `vercel --token=${{ secrets.VERCEL_TOKEN }}`.
+Without that secret the step fails, so the `deploy-preview` check shows red. The
+job is already `continue-on-error: true`, so **it does not block merge** — but to
+make the check green either:
+
+- **Add the secret** (preferred): set repo secret `VERCEL_TOKEN`, and confirm the
+  hard-coded `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` env values in `preview.yml`
+  match the current Vercel project; **or**
+- **Guard the deploy step** so it skips cleanly when the token is absent:
+
+```diff
+       - name: Deploy to Vercel
+         working-directory: frontend
++        if: ${{ env.VERCEL_TOKEN != '' }}
++        env:
++          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+         run: vercel --yes --token=${{ secrets.VERCEL_TOKEN }}
+```
 
 ## 1. `.github/workflows/backend-tests.yml` — add migration bootstrap gate
 ```diff
