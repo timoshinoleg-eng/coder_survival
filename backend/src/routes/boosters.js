@@ -175,7 +175,7 @@ router.post('/purchase', async (req, res) => {
     if (defResult.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Booster not found' }); }
     const def = defResult.rows[0];
     const progResult = await client.query(
-      `SELECT stars, active_effects, depression_level, energy, commits_current, tier, commits_total, lifetime_loc, prestige_count, prestige_level, mu_currency, generator_state, event_state, streak_days, inventory, skins
+      `SELECT stars, active_effects, depression_level, energy, commits_current, tier, commits_total, lifetime_loc, prestige_count, prestige_level, mu_currency, generator_state, event_state, streak_days, inventory
        FROM progression WHERE user_id = $1 FOR UPDATE`,
       [userId]
     );
