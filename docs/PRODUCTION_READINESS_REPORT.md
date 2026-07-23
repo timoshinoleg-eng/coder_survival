@@ -9,11 +9,21 @@
 > `HANDOFF.md` / `AGENT_HANDOFF.md` / `project-status.json` status claims, which
 > were stale and mutually contradictory (see “Documentation drift” below).
 
+> **Update log — round 2 (2026-07-24):** The first push of this branch was NOT
+> mergeable: CI showed 13 failing backend tests (10 API-contract + 3 hardening)
+> and 2 new CodeQL High findings (missing rate limiting on the admin and booster
+> routes). The initial claim that "only owner actions remain" was wrong. Round 2
+> fixes them all — see §4.6. The full backend suite (378 tests) now passes in a
+> CI-equivalent (UTC Postgres) environment, and rate limiting was added to the
+> flagged routes. The `deploy-preview` check requires an owner `VERCEL_TOKEN`
+> secret; that job is `continue-on-error` and does not block merge (§4.6).
+
 ---
 
 ## 1. Verdict
 
-**CONDITIONAL GO.**
+**CONDITIONAL GO** — contingent on a green CI re-run of the round-2 commits
+(backend `test` + `CodeQL`), then the owner actions below.
 
 The release blockers that were fixable from source have been fixed and verified.
 Remaining conditions are owner-only actions that cannot be performed from the
@@ -145,19 +155,54 @@ Renderer verdict: **SAFE** — `PhaserGame.js` pins `Phaser.CANVAS`; regression 
   tests, and docs never enter the build context.
 - **`backend-tests.yml`**: added the migration bootstrap gate.
 
+### 4.6 Round-2 fixes — making CI actually green
+
+The first push was not mergeable. Root causes and fixes:
+
+**Backend test failures (13 in CI).** These suites only became *runnable* once the
+migration fix let `ensureTestSchema()` succeed; their assertions then exposed a
+mix of real bugs and over-broad auth:
+
+| Area | Root cause | Fix |
+|------|-----------|-----|
+| `booster purchase` 500 (2 hardening tests) | The purchase `SELECT` referenced a non-existent `progression.skins` column — **every booster purchase was returning 500**, a real pre-existing bug my test surfaced | Dropped `skins` from the `SELECT` (nothing reads it; skins live in `user_skins`). |
+| `GET /api/shop/products`, `/active-sales` 401 (3 contract tests) | My blanket `initDataMiddleware` on `/api/shop` broke the public catalog contract | `/api/shop` now uses **optional auth**: catalog/sales are public reads; `purchase-deal`/`opened` still require valid initData (they check `req.telegramUser`). My hardening test was corrected to assert this model. |
+| `GET /api/event/active` 401 + missing `myContribution` (3 contract tests) | Event router was auth-required; `/active` is meant to be auth-optional, and the no-event branch omitted `myContribution` | `/api/event` uses optional auth; no-event response now includes `myContribution: null`. |
+| `GET /api/state` returned `telegramId`/`depressionLevel` as **strings** (2 contract tests) | `BIGINT`/`NUMERIC` columns come back as strings from `pg` | Coerced `telegramId`, `energy`, `depressionLevel`, `streakDays` with `Number(...)`. |
+| `GET /api/pass` missing `weekendDoubleXpActive`/`catchUp` (2 contract tests) | The "no active season" early-return omitted those keys | That branch now returns the same top-level keys. |
+| `POST /api/player/level/xp` test threw on HTML 404 (1 hardening test) | Removed route 404'd with HTML; test parsed JSON | Added a JSON **410 Gone** tombstone; test asserts 410. |
+
+**CodeQL — 2 High "missing rate limiting".** Added `express-rate-limit` (7.5.1)
+and applied limiters to the flagged routes: `adminRateLimiter` on
+`/api/admin/season` and `boosterRateLimiter` on `/api/boosters` (disabled under
+`NODE_ENV=test`). See `backend/src/middleware/apiRateLimit.js`.
+
+**`deploy-preview` check.** Fails because it needs an owner-held `VERCEL_TOKEN`
+secret (`vercel --token=...`). The job is declared `continue-on-error: true`, so
+it does **not** block merge. Owner action: add `VERCEL_TOKEN` (and confirm
+`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` in `preview.yml`), or guard the deploy step
+to skip when the secret is absent (see `docs/pending-workflow-changes.md`).
+
+**Not regressions:** `loginReward.timezone` and `phase2.integration` fail only
+when the local Postgres runs in a non-UTC timezone (my sandbox was
+`Europe/Moscow`). Under a UTC Postgres (as in CI) the **entire suite passes,
+378/378**, verified across repeated runs.
+
 ---
 
 ## 5. Test evidence
 
 | Check | How | Result |
 |-------|-----|--------|
+| **Full backend suite** | `jest --runInBand`, Postgres 15 **UTC** (CI-equivalent) | **378 passed / 378, 36 suites, 0 fail** |
+| Full suite — repeatability | flaky-suite subset run ×3 under UTC | 3/3 green |
 | Fresh-DB migrations | local PG15, runner ordering | **57/57 applied, 0 fail** |
-| Migration idempotency | re-run | **57 skipped, 0 applied** |
+| Migration idempotency | `migrate.js` run twice | 2nd run **57 skipped** |
 | Event-claim atomic gate | SQL double-update | `UPDATE 1` then `UPDATE 0` |
-| Backend JS syntax | `node --check` (all `src/**`) | **PASS** |
-| Bot JS syntax | `node --check` | **PASS** |
+| Backend + bot JS syntax | `node --check` (all `src/**`, bot) | **PASS** |
 | Frontend smoke | `node scripts/frontend-smoke.mjs` | **PASS** (was FAIL on `main`) |
-| New backend tests | `tests/prodReadiness.hardening.test.js` | authored; runs in CI (admin auth, shop initData, XP removal, git_push_force gate, concurrent claim, migration idempotency) |
+| Lockfile sync | `npm ci` | OK (express-rate-limit resolved) |
+| Rate limiting | `express-rate-limit` on `/api/admin/season`, `/api/boosters` | CodeQL High addressed |
 
 `jest` (full suite + new tests) and `vite build` execute in CI
 (`backend-tests.yml` has a Postgres 15 service; registry available there).
