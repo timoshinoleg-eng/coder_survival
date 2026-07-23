@@ -26,7 +26,35 @@
       height: 100%;
       display: flex;
       flex-direction: column;
+      /* Respect iOS notch / Dynamic Island / home indicator safe areas. */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
+    #boot-fallback {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+      color: #e6e6e6;
+      padding: 24px;
+    }
+    #boot-fallback .spinner {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,.2); border-top-color: #4a9eff;
+      animation: bootspin 0.9s linear infinite;
+    }
+    #boot-fallback .boot-error { display: none; }
+    #boot-fallback.timed-out .spinner,
+    #boot-fallback.timed-out .boot-loading { display: none; }
+    #boot-fallback.timed-out .boot-error { display: block; }
+    #boot-fallback button {
+      margin-top: 10px; padding: 12px 24px; border: none; border-radius: 10px;
+      background: #4a9eff; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer;
+    }
+    @keyframes bootspin { to { transform: rotate(360deg); } }
     #game-container {
       flex: 1;
       position: relative;
@@ -46,7 +74,40 @@
   </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <!-- Boot fallback: replaced by Preact once the app mounts. If the app never
+         mounts (JS error, hung network), the timeout below shows a retry path
+         instead of a permanent blank screen. -->
+    <div id="boot-fallback">
+      <div class="spinner"></div>
+      <div class="boot-loading">Загрузка…</div>
+      <div class="boot-error">
+        <div style="font-size:38px">🐛</div>
+        <div style="font-size:16px;font-weight:bold;margin-top:8px">Не удалось загрузить</div>
+        <div style="font-size:13px;opacity:.7;max-width:300px;margin-top:6px">
+          Проверь соединение и попробуй снова.
+        </div>
+        <button onclick="window.location.reload()">Перезапустить</button>
+      </div>
+    </div>
+  </div>
+  <noscript>
+    <div style="display:flex;align-items:center;justify-content:center;height:100dvh;padding:24px;text-align:center;color:#e6e6e6;font-family:monospace">
+      Для запуска Coder Survival нужен включённый JavaScript. Открой игру внутри Telegram.
+    </div>
+  </noscript>
+  <script>
+    // If the SPA has not replaced the boot fallback within 12s, reveal a retry UI.
+    (function () {
+      var TIMEOUT_MS = 12000;
+      setTimeout(function () {
+        var fb = document.getElementById('boot-fallback');
+        if (fb && document.body.contains(fb)) {
+          fb.classList.add('timed-out');
+        }
+      }, TIMEOUT_MS);
+    })();
+  </script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
