@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 import { initDataMiddleware } from "./middleware/initData.js";
+import { adminAuthMiddleware } from "./middleware/adminAuth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 import { startBalanceAuditJob } from "./jobs/balanceAudit.js";
@@ -101,17 +102,44 @@ app.use(
     crossOriginEmbedderPolicy: false,
   }),
 );
+// CORS allowlist.
+// Telegram WebView origins (t.me / telegram.org) are always allowed. Production
+// front-end origins must be configured explicitly via FRONTEND_URL and/or
+// CORS_ALLOWED_ORIGINS (comma-separated). The permissive `*.vercel.app` preview
+// origin is NOT allowed by default — it lets any attacker-controlled Vercel
+// project make credentialed cross-origin requests. It is re-enabled only when
+// an operator opts in with ALLOW_VERCEL_PREVIEW_ORIGINS=true, and as a
+// backward-compatibility fallback when NO explicit front-end origin is
+// configured (so an un-migrated deployment does not break — a warning is
+// logged on boot instead).
+const isProd = process.env.NODE_ENV === "production";
+const explicitOrigins = [
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+  ...(process.env.CORS_ALLOWED_ORIGINS
+    ? process.env.CORS_ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+    : []),
+];
+const allowVercelPreviews =
+  process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === "true" || explicitOrigins.length === 0;
+if (allowVercelPreviews && process.env.ALLOW_VERCEL_PREVIEW_ORIGINS !== "true") {
+  console.warn(
+    "[cors] No FRONTEND_URL/CORS_ALLOWED_ORIGINS configured — falling back to " +
+      "allowing *.vercel.app origins. Set CORS_ALLOWED_ORIGINS to your production " +
+      "origin(s) to close this.",
+  );
+}
+const corsWhitelist = [
+  /^https?:\/\/([a-zA-Z0-9-]+\.)?t\.me$/,
+  /^https?:\/\/([a-zA-Z0-9-]+\.)?telegram\.org$/,
+  ...(allowVercelPreviews ? [/^https?:\/\/([a-zA-Z0-9-]+\.)?vercel\.app$/] : []),
+  ...(isProd ? [] : ["http://localhost:5173", "http://127.0.0.1:5173"]),
+  ...explicitOrigins,
+];
 app.use(
   cors({
     origin: (origin, callback) => {
-      const whitelist = [
-        /^https?:\/\/([a-zA-Z0-9-]+\.)?t\.me$/,
-        /^https?:\/\/([a-zA-Z0-9-]+\.)?telegram\.org$/,
-        /^https?:\/\/([a-zA-Z0-9-]+\.)?vercel\.app$/,
-        "http://localhost:5173",
-      ];
-      if (process.env.FRONTEND_URL) whitelist.push(process.env.FRONTEND_URL);
-      if (!origin || whitelist.some((w) => (typeof w === "string" ? origin === w : w.test(origin)))) {
+      // Allow same-origin / non-browser (no Origin header) requests.
+      if (!origin || corsWhitelist.some((w) => (typeof w === "string" ? origin === w : w.test(origin)))) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -167,7 +195,7 @@ app.use("/api/internal/observation", internalObservationRouter);
 app.use("/api/player/level", initDataMiddleware, playerLevelRouter);
 app.use("/api/player", initDataMiddleware, playerLevelRouter);
 app.use("/api/quests", initDataMiddleware, questsRouter);
-app.use("/api/shop", shopRouter);
+app.use("/api/shop", initDataMiddleware, shopRouter);
 app.use(
   "/api/battle",
   (req, res, next) => {
@@ -213,7 +241,7 @@ app.use("/api/analytics", initDataMiddleware, analyticsRouter);
 app.use("/api/boosters", initDataMiddleware, boostersRouter);
 app.use("/api/languages", initDataMiddleware, languagesRouter);
 app.use("/api/wallet", initDataMiddleware, walletRouter);
-app.use("/api/admin/season", seasonAdminRouter);
+app.use("/api/admin/season", adminAuthMiddleware, seasonAdminRouter);
 
 // Error handler
 app.use(errorHandler);
