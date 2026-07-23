@@ -14,7 +14,7 @@ router.get('/active', async (req, res, next) => {
     try {
       const event = await getActiveEvent(client);
       if (!event) {
-        return res.json({ success: true, event: null });
+        return res.json({ success: true, event: null, myContribution: null });
       }
 
       let myContribution = null;
