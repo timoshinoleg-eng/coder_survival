@@ -42,3 +42,13 @@ export const boosterRateLimiter = makeLimiter({
   max: 30,
   message: 'Too many booster requests',
 });
+
+// General limiter for authenticated read/query routes that also expose public
+// reads (shop catalog, active event). Generous ceiling — high enough not to
+// affect normal play, low enough to blunt scraping/DoS. Also satisfies CodeQL's
+// rate-limiting requirement on these authorization-performing routes.
+export const readApiRateLimiter = makeLimiter({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: 'Too many requests',
+});
