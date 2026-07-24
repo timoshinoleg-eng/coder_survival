@@ -7,12 +7,22 @@
 > the `hyperagent/prod-readiness` branch, or apply on merge). Each is small and
 > low-risk.
 
-## 0. `deploy-preview` check (VERCEL_TOKEN) — makes the failing preview check green
+## 0. `deploy-preview` check (VERCEL_TOKEN) — optional, cosmetic
 
 `.github/workflows/preview.yml` runs `vercel --token=${{ secrets.VERCEL_TOKEN }}`.
-Without that secret the step fails, so the `deploy-preview` check shows red. The
-job is already `continue-on-error: true`, so **it does not block merge** — but to
-make the check green either:
+Without that secret the step fails, so the `deploy-preview` check shows red.
+Read its status precisely:
+
+- The job is `continue-on-error: true`, so it **does not block merge** — and,
+  symmetrically, **a green workflow run does NOT prove a Vercel preview was
+  actually created** (the deploy step may have failed inside a green run).
+- Without `VERCEL_TOKEN` the deploy should either **skip cleanly** (guard below)
+  or remain explicitly optional as it is now.
+- **Production deployment must not depend on this preview job** — the production
+  path is the manual backend deploy plus Vercel's own Git integration for the
+  frontend. Do not add the secret to code.
+
+To make the check meaningful, either:
 
 - **Add the secret** (preferred): set repo secret `VERCEL_TOKEN`, and confirm the
   hard-coded `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` env values in `preview.yml`
