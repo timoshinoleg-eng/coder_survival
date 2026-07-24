@@ -507,7 +507,7 @@ router.get("/", async (req, res, next) => {
       res.json({
         user: {
           id: user.id,
-          telegramId: user.telegram_id,
+          telegramId: Number(user.telegram_id),
           username: user.username,
           firstName: user.first_name,
           lastName: user.last_name,
@@ -523,9 +523,9 @@ router.get("/", async (req, res, next) => {
               tierName: getTierName(passiveProgression.tier),
               commitsTotal: parseInt(passiveProgression.commits_total),
               commitsCurrent: parseInt(passiveProgression.commits_current),
-              energy: passiveProgression.energy,
-              depressionLevel: passiveProgression.depression_level,
-              streakDays: passiveProgression.streak_days,
+              energy: Number(passiveProgression.energy),
+              depressionLevel: Number(passiveProgression.depression_level ?? 0),
+              streakDays: Number(passiveProgression.streak_days ?? 0),
               updatedAt: passiveProgression.updated_at,
               onboardingCompleted: passiveProgression.onboarding_completed === true,
               inventory: passiveProgression.inventory || {},

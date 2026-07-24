@@ -1,0 +1,15 @@
+# Keep secrets, local deps and non-runtime files out of the Docker build context.
+node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+tests
+coverage
+*.md
+Dockerfile
+.dockerignore
+*.log
+.DS_Store

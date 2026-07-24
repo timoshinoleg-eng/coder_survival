@@ -69,11 +69,18 @@ export async function claimEventReward(client, userId) {
     return { error: 'Already claimed', status: 409 };
   }
 
-  await client.query(
+  // Atomic, idempotent claim gate. The conditional UPDATE succeeds only for the
+  // first caller; concurrent duplicate claims match 0 rows (already claimed), so
+  // the reward is credited exactly once even under a race. The pre-checks above
+  // stay for friendly error messages, but this UPDATE is the authoritative gate.
+  const claimUpdate = await client.query(
     `UPDATE event_contributions SET claimed = TRUE, updated_at = NOW()
-     WHERE user_id = $1 AND event_id = $2`,
+     WHERE user_id = $1 AND event_id = $2 AND claimed = FALSE`,
     [userId, event.id]
   );
+  if (claimUpdate.rowCount === 0) {
+    return { error: 'Already claimed', status: 409 };
+  }
 
   // Audit on significant action (claim), not per-tap
   await client.query(

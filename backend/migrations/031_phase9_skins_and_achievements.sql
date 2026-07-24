@@ -11,17 +11,26 @@ ON CONFLICT (skin_id) DO NOTHING;
 -- Add condition column to achievements for minigame-specific triggers
 ALTER TABLE achievements ADD COLUMN IF NOT EXISTS condition JSONB DEFAULT NULL;
 
-INSERT INTO achievements (slug, name, description, category, rarity, trigger_type, is_progressive, criteria, reward, condition)
-VALUES (
-  'architect_winner',
-  'Архитектор',
-  'Победа в Архитектурном комитете',
-  'special',
-  'epic',
-  'special',
-  false,
-  '{"target": 1}',
-  '{"commits": 100}',
-  '{"gameType": "architectural_committee"}'
-)
-ON CONFLICT (slug) DO NOTHING;
+-- Guarded: slug-based catalog only exists after 053; skip on fresh-DB legacy schema.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'achievements' AND column_name = 'slug'
+  ) THEN
+    INSERT INTO achievements (slug, name, description, category, rarity, trigger_type, is_progressive, criteria, reward, condition)
+    VALUES (
+      'architect_winner',
+      'Архитектор',
+      'Победа в Архитектурном комитете',
+      'special',
+      'epic',
+      'special',
+      false,
+      '{"target": 1}',
+      '{"commits": 100}',
+      '{"gameType": "architectural_committee"}'
+    )
+    ON CONFLICT (slug) DO NOTHING;
+  END IF;
+END $$;

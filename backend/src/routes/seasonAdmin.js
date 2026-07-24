@@ -3,10 +3,11 @@ import { pool } from '../index.js';
 import { createNextSeason } from '../utils/seasonCreation.js';
 import { processPremiumRefunds } from '../utils/passRefund.js';
 import { runSeasonRotation } from '../jobs/seasonRotationCron.js';
+import { adminRateLimiter } from '../middleware/apiRateLimit.js';
 
 const router = Router();
 
-router.get('/status', async (req, res) => {
+router.get('/status', adminRateLimiter, async (req, res) => {
   try {
     const activeResult = await pool.query(
       `SELECT id, season_number, season_name, start_date, end_date, theme, refund_processed
@@ -34,7 +35,7 @@ router.get('/status', async (req, res) => {
   }
 });
 
-router.post('/rotate', async (req, res) => {
+router.post('/rotate', adminRateLimiter, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
