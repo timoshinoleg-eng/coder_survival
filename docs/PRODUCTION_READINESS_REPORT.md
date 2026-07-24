@@ -15,24 +15,42 @@
 > The initial claim that "only owner actions remain" was wrong. Round 2 fixed
 > them all — see §4.6.
 >
-> **CI is now GREEN** on the branch head: `test` (both push + pull_request
-> triggers), `integration-test`, `CodeQL` (0 alerts) + `CodeQL Analysis`,
-> lint/build/audit/secret-scan all pass. The full backend suite is **378/378**,
-> verified stable across repeated runs under a CI-equivalent (UTC) Postgres. The
-> **only** non-green check is `deploy-preview`, which needs an owner-held
-> `VERCEL_TOKEN`; that job is `continue-on-error` (non-blocking) — see §4.6.
+> **Update log — round 3 (2026-07-24, final merge-gate):** an independent review
+> found three more items: (1) the post-053 achievement catalog was missing eight
+> achievements and the `condition` column → fixed by new migration
+> `058_reconcile_achievement_catalog.sql` + semantic regression tests; (2)
+> non-JSON 2xx responses were returned to callers as success → `api.js` now
+> throws a typed `ApiError` (status preserved, `invalidJson: true`) and only an
+> *empty* 2xx body resolves as `null`; (3) this report previously described the
+> three workflow changes as applied — they are **PENDING OWNER ACTION** (no
+> `workflow` scope) and are now labeled as such everywhere. See §4.7. Backend
+> suite after round 3: **383/383** on a fresh UTC Postgres (incl. 058).
+>
+> CI on the branch head: `test` (push + pull_request), `integration-test`,
+> `CodeQL` (0 alerts) + `CodeQL Analysis`, lint/build/audit/secret-scan pass.
+> The **only** non-green check is `deploy-preview` (needs owner `VERCEL_TOKEN`;
+> `continue-on-error`, non-blocking; a green run would NOT prove a preview was
+> created — see §4.6).
 
 ---
 
 ## 1. Verdict
 
-**CONDITIONAL GO** — contingent on a green CI re-run of the round-2 commits
-(backend `test` + `CodeQL`), then the owner actions below.
+**MERGE-READY, PRODUCTION STILL HUMAN-GATED.**
 
-The release blockers that were fixable from source have been fixed and verified.
-Remaining conditions are owner-only actions that cannot be performed from the
-repository (secret rotation, a real signed-Telegram smoke, and confirmation of
-the production VM/DNS). See §7 (Residual risks) and §8 (Owner actions).
+All code defects found across three review rounds are fixed and verified; every
+check the automation can run is green. What remains requires exclusively the
+owner's `workflow` scope, secrets, infrastructure access, or a real Telegram
+client:
+
+1. apply the three workflow diffs (`docs/pending-workflow-changes.md`) —
+   required before treating the repo as production-deploy-ready;
+2. rotate the secrets exposed in git history + set `ADMIN_API_SECRET`;
+3. confirm production VM/DNS;
+4. run a real signed-Telegram Stars smoke;
+5. then authorize merge & deploy (nothing auto-deploys).
+
+See §7 (Residual risks) and §8 (Owner actions).
 
 Do **not** deploy to production until §8 items 1–3 are done.
 
@@ -148,16 +166,27 @@ Renderer verdict: **SAFE** — `PhaserGame.js` pins `Phaser.CANVAS`; regression 
 
 ### 4.4 P1 — CI / DevOps safety
 
-- **`claude-agent.yml`**: disabled `schedule` (every 6h) and `workflow_run`
-  triggers; dropped default write permissions to read. It downloaded and ran an
-  unpinned external script with `contents:write`+`pull-requests:write` — a
-  supply-chain risk and the source of PRs #2–#6. Manual `workflow_dispatch`
-  remains.
-- **`deploy-backend.yml`**: removed `continue-on-error: true` from the test step
-  so a failing suite blocks the (manual) deploy.
-- **`backend/.dockerignore`**: added (was missing) so `.env*`, `node_modules`,
-  tests, and docs never enter the build context.
-- **`backend-tests.yml`**: added the migration bootstrap gate.
+> ⚠️ **The three workflow changes below are NOT yet applied.** The automation
+> used for this PR lacks the GitHub `workflow` scope and cannot commit anything
+> under `.github/workflows/`. They are **PENDING OWNER ACTION** — exact diffs in
+> `docs/pending-workflow-changes.md`. **The PR must not be treated as
+> production-deploy-ready until the owner applies them.**
+
+- **PENDING OWNER — `claude-agent.yml`**: disable `schedule` (every 6h) and
+  `workflow_run` triggers; drop default write permissions to read. It downloads
+  and runs an unpinned external script with `contents:write`+
+  `pull-requests:write` — a supply-chain risk and the source of PRs #2–#6.
+  Manual `workflow_dispatch` can remain.
+- **PENDING OWNER — `deploy-backend.yml`**: remove `continue-on-error: true`
+  from the test step so a failing suite blocks the (manual) deploy.
+- **PENDING OWNER — `backend-tests.yml`**: add the migration bootstrap gate
+  (fresh apply + idempotent re-run of `migrate.js`). Until applied, migration
+  reproducibility is only guarded indirectly (the Jest suite's
+  `ensureTestSchema()` applies the same files in the same order, plus the
+  semantic tests in `tests/migrationCatalog.test.js`).
+- **APPLIED — `backend/.dockerignore`**: added (was missing) so `.env*`,
+  `node_modules`, tests, and docs never enter the build context. (Not a
+  workflow file — pushed in this PR.)
 
 ### 4.6 Round-2 fixes — making CI actually green
 
@@ -182,15 +211,69 @@ and applied limiters to the flagged routes: `adminRateLimiter` on
 `NODE_ENV=test`). See `backend/src/middleware/apiRateLimit.js`.
 
 **`deploy-preview` check.** Fails because it needs an owner-held `VERCEL_TOKEN`
-secret (`vercel --token=...`). The job is declared `continue-on-error: true`, so
-it does **not** block merge. Owner action: add `VERCEL_TOKEN` (and confirm
-`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` in `preview.yml`), or guard the deploy step
-to skip when the secret is absent (see `docs/pending-workflow-changes.md`).
+secret (`vercel --token=...`). Precise semantics, to avoid over-reading its
+status either way:
+
+- The job is declared `continue-on-error: true`. That means a **green workflow
+  run does NOT prove a Vercel preview was actually created** — the deploy step
+  can fail and the run can still report success at the workflow level.
+- Conversely its current red check does **not block merge**; it is an optional
+  convenience job.
+- Without `VERCEL_TOKEN` the deploy step should either **skip cleanly** (guard
+  diff provided in `docs/pending-workflow-changes.md`) or stay explicitly
+  optional as it is now.
+- **Production deployment must not depend on this preview job in any way** —
+  the production path is the separate, manually-dispatched backend deploy plus
+  Vercel's own Git integration for the frontend.
+
+Owner action (optional, cosmetic): add `VERCEL_TOKEN` and confirm
+`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` in `preview.yml`, or apply the skip-guard.
+No secret is added to code by this PR.
 
 **Not regressions:** `loginReward.timezone` and `phase2.integration` fail only
 when the local Postgres runs in a non-UTC timezone (my sandbox was
 `Europe/Moscow`). Under a UTC Postgres (as in CI) the **entire suite passes,
 378/378**, verified across repeated runs.
+
+### 4.7 Round-3 fixes — final merge-gate review findings
+
+An independent merge-gate review found three unresolved items after round 2:
+
+**1. Incomplete achievement catalog after the 053 rebuild (real data defect).**
+The guarded seeds in 026/031/033 no-op on a fresh DB, and `053` then rebuilds
+the catalog with only its own 21 rows — losing eight achievements
+(`burnout_first`, `coffee_addict`, `meme_lord`, `bug_hunter`, `referral_god`,
+`prod_survivor`, `architect_winner`, `rubber_duck_unlock`) and the `condition`
+JSONB column that `architect_winner`/`rubber_duck_unlock` need. Fixed by a NEW
+migration `058_reconcile_achievement_catalog.sql` (already-applied production
+migrations were not rewritten): `ADD COLUMN IF NOT EXISTS condition JSONB`,
+idempotent `INSERT … ON CONFLICT (slug) DO UPDATE` of all eight, no DROPs, user
+progress untouched. **Empirically verified** on: fresh DB (58/58 applied →
+catalog **29 rows, 29 distinct slugs**), an existing DB at the previous head
+(21 → 29 rows after applying only 058), and an idempotent re-run (0 applied,
+catalog unchanged). New semantic regression tests:
+`backend/tests/migrationCatalog.test.js` (expected slugs incl. all eight,
+`condition` column + values, no duplicates, re-run no-op, earned
+`user_achievements` rows preserved).
+
+**2. Non-JSON 2xx responses were surfaced as success (frontend).**
+`api.js` used to convert an unparseable body into `{ error: <text> }` and — for
+HTTP 2xx — return it to callers as a successful payload. Now: an empty 2xx/204
+body resolves to `null` (legitimate success); a non-empty non-JSON body throws
+`ApiError` with the original HTTP status, `invalidJson: true`, and a short
+sanitized diagnostic snippet; it is *not* classified as a network error; HTML /
+plain text is never returned as a business response. New unit tests
+(`frontend/tests/api.test.mjs`, run via `npm test`): 200+valid JSON → success;
+204+empty → null; 200+HTML → ApiError(200, invalidJson); 502+HTML →
+ApiError(502); timeout → timeout ApiError; fetch rejection → network ApiError;
+409+JSON error → server message preserved. **7/7 pass.**
+
+**3. Documentation over-claimed workflow state.** §4.4 previously described the
+three workflow changes as applied; they are not (no `workflow` scope) and are
+now explicitly marked **PENDING OWNER ACTION** here, in `LAUNCH_CHECKLIST.md`,
+and in `docs/CURRENT_ARCHITECTURE.md`, with exact diffs preserved in
+`docs/pending-workflow-changes.md`. No workaround (e.g. alternative workflow
+outside `.github/workflows/`) was attempted — that restriction is respected.
 
 ---
 
@@ -198,15 +281,18 @@ when the local Postgres runs in a non-UTC timezone (my sandbox was
 
 | Check | How | Result |
 |-------|-----|--------|
-| **Full backend suite** | `jest --runInBand`, Postgres 15 **UTC** (CI-equivalent) | **378 passed / 378, 36 suites, 0 fail** |
-| Full suite — repeatability | flaky-suite subset run ×3 under UTC | 3/3 green |
-| Fresh-DB migrations | local PG15, runner ordering | **57/57 applied, 0 fail** |
-| Migration idempotency | `migrate.js` run twice | 2nd run **57 skipped** |
+| **Full backend suite (round 3)** | `jest --runInBand`, fresh Postgres 15 **UTC** (CI-equivalent), incl. migration 058 | **383 passed / 383, 37 suites, 0 fail** |
+| Migration catalog semantics | `tests/migrationCatalog.test.js` | 8 restored slugs + `condition` values + no dupes + re-run no-op + earned rows preserved |
+| Fresh-DB migrations | local PG15, runner ordering | **58/58 applied, 0 fail; catalog 29 rows / 29 distinct slugs** |
+| Upgrade path | existing DB at previous head → apply 058 | 21 → **29 rows**, `condition` added |
+| Migration idempotency | full re-run | 0 applied / all skipped, catalog unchanged |
+| Frontend API client tests | `node --test` (`frontend/tests/api.test.mjs`) | **7/7** (incl. 200+HTML → ApiError, 204 → null) |
+| Frontend build | `vite build` (local, real) | **PASS** |
+| Frontend smoke | `node scripts/frontend-smoke.mjs` | **PASS** |
+| Bot | `npm ci` + `node --check` all files | **PASS** |
+| npm audit (CI recipe) | `npm audit --omit=dev --audit-level=high` backend+frontend | **PASS (exit 0)** |
 | Event-claim atomic gate | SQL double-update | `UPDATE 1` then `UPDATE 0` |
-| Backend + bot JS syntax | `node --check` (all `src/**`, bot) | **PASS** |
-| Frontend smoke | `node scripts/frontend-smoke.mjs` | **PASS** (was FAIL on `main`) |
-| Lockfile sync | `npm ci` | OK (express-rate-limit resolved) |
-| Rate limiting | `express-rate-limit` on `/api/admin/season`, `/api/boosters` | CodeQL High addressed |
+| Rate limiting | `express-rate-limit` on admin/boosters/shop/event | CodeQL: **0 alerts** |
 
 `jest` (full suite + new tests) and `vite build` execute in CI
 (`backend-tests.yml` has a Postgres 15 service; registry available there).
@@ -242,18 +328,28 @@ when the local Postgres runs in a non-UTC timezone (my sandbox was
 
 ## 8. Owner actions (cannot be done from the repo)
 
-1. **Rotate every secret ever committed:** Telegram `BOT_TOKEN`, PostgreSQL
+1. **Apply the three workflow changes by hand** (the automation has no
+   `workflow` scope; exact diffs in `docs/pending-workflow-changes.md`).
+   **Required before production deploy** — files to edit:
+   - `.github/workflows/backend-tests.yml` — add the migration bootstrap gate;
+   - `.github/workflows/claude-agent.yml` — disable `schedule`/`workflow_run`
+     triggers, drop default write permissions;
+   - `.github/workflows/deploy-backend.yml` — remove `continue-on-error` from
+     the test step.
+2. **Rotate every secret ever committed:** Telegram `BOT_TOKEN`, PostgreSQL
    password, `BOT_BACKEND_SECRET`, `TELEGRAM_WEBHOOK_SECRET`, any Vercel/Yandex
    tokens, plus the third-party NVIDIA NGC credentials found in
    `07_Archives_Backups/`. Set the new `ADMIN_API_SECRET` for the season admin
    endpoint. (Values are in git history — treat as compromised.)
-2. **Confirm production topology:** which VM/IP, DNS record, and container
+3. **Confirm production topology:** which VM/IP, DNS record, and container
    registry are current (see `CURRENT_ARCHITECTURE.md` drift table).
-3. **Run a real signed-Telegram smoke** against staging after deploy (open the
+4. **Run a real signed-Telegram smoke** against staging after deploy (open the
    Mini App on iOS + Android, complete a Stars purchase end-to-end).
-4. Set `CORS_ALLOWED_ORIGINS` (or `FRONTEND_URL`) to the production origin and
+5. Set `CORS_ALLOWED_ORIGINS` (or `FRONTEND_URL`) to the production origin and
    leave `ALLOW_VERCEL_PREVIEW_ORIGINS` unset in prod.
-5. Approve the PR and authorise the production deploy (human checkpoint —
+6. Optional (cosmetic): add `VERCEL_TOKEN` or the skip-guard for the
+   `deploy-preview` job. Production must not depend on this job either way.
+7. Approve the PR and authorise the production deploy (human checkpoint —
    no auto-deploy is configured).
 
 See `LAUNCH_CHECKLIST.md` for the full go/no-go checklist and
