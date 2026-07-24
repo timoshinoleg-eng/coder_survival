@@ -94,4 +94,6 @@ redeploy previous image/commit). See `DEPLOY.md` for the operator runbook.
 migration bootstrap gate) and `security-scan.yml` (CodeQL + TruffleHog + npm
 audit). Archive `render-health.yml` / `render-setup.yml` (dead platform). Fix or
 retire `manual-release.yml` (references a non-existent `pwsh` action + the legacy
-VM IP). `claude-agent.yml` auto-triggers are disabled.
+VM IP). Disabling `claude-agent.yml` auto-triggers is **PENDING OWNER ACTION**
+(the automation lacks the GitHub `workflow` scope) — exact diff in
+`docs/pending-workflow-changes.md`.
