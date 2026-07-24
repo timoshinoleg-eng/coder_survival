@@ -11,11 +11,12 @@
 
 ## CI
 - [x] Backend tests are a real gate (`backend-tests.yml`, Postgres 15 service)
-- [x] Migration bootstrap gate added (fresh DB + idempotent re-run)
-- [x] `deploy-backend.yml` test step no longer `continue-on-error`
-- [x] `claude-agent.yml` auto-triggers disabled (supply-chain risk)
+- [ ] **PENDING OWNER (workflow scope):** migration bootstrap gate in `backend-tests.yml` — diff in `docs/pending-workflow-changes.md`
+- [ ] **PENDING OWNER (workflow scope):** remove `continue-on-error` from `deploy-backend.yml` test step — diff in `docs/pending-workflow-changes.md`
+- [ ] **PENDING OWNER (workflow scope):** disable `claude-agent.yml` auto-triggers (supply-chain risk) — diff in `docs/pending-workflow-changes.md`
 - [x] `security-scan.yml` (CodeQL + TruffleHog + npm audit) retained
 - [ ] Archive `render-*.yml`; fix/retire `manual-release.yml`
+- [ ] `deploy-preview`: green run ≠ preview created (`continue-on-error`); add `VERCEL_TOKEN` or skip-guard; production must not depend on it
 
 ## Security
 - [x] Admin season endpoint authenticated (fail-closed)
@@ -31,7 +32,8 @@
 - [ ] Shorten `INIT_DATA_MAX_AGE_SECONDS` + add replay cache (follow-up)
 
 ## Database
-- [x] Fresh-DB bootstrap reproducible (57/57), idempotent re-run
+- [x] Fresh-DB bootstrap reproducible (58/58), idempotent re-run
+- [x] Achievement catalog reconciled (migration 058): 8 lost achievements restored + `condition` column; verified fresh / upgrade / re-run; semantic regression tests added
 - [x] Runner is transactional and filename-keyed
 - [ ] Confirm production `schema_migrations` matches file set; take a backup before deploy
 - [ ] Rollback plan rehearsed (no destructive migration in this change set)
@@ -43,6 +45,7 @@
 - [x] Dev initData not sent from production builds
 - [x] Safe-area insets for iOS notch
 - [x] Purchase UX: no optimistic success before confirmation
+- [x] API client: non-JSON 2xx bodies throw typed `ApiError` (status + invalidJson + snippet); empty 204/2xx → null; unit-tested (7/7)
 - [ ] Add `viewport_changed` handling + initData-race 401 smoothing (follow-up)
 - [ ] Manual device pass: iOS + Android Telegram WebView, slow network
 
@@ -77,4 +80,8 @@
 
 ## Go/No-Go
 - [ ] All “Security” + “Database” + “Payments” owner items complete → **GO**
-- Current status: **CONDITIONAL GO** — code blockers fixed; pending secret rotation, topology confirmation, and a real Telegram smoke.
+- Current status: **MERGE-READY, PRODUCTION STILL HUMAN-GATED** — all code
+  defects fixed and verified; remaining items require exclusively owner
+  workflow scope (3 workflow diffs), secrets (rotation, `ADMIN_API_SECRET`,
+  optionally `VERCEL_TOKEN`), infrastructure access (VM/DNS confirmation), and
+  a real Telegram client (Stars smoke).
