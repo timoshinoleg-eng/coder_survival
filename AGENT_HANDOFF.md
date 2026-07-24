@@ -1,5 +1,8 @@
 # Agent Handoff — Coder Survival
 
+> ⚠️ **Устаревший статус-документ.** Каноничное текущее состояние:
+> `docs/PRODUCTION_READINESS_REPORT.md` и `docs/CURRENT_ARCHITECTURE.md`.
+
 Updated: 2026-06-17 21:45 +03
 
 ## Current Mode

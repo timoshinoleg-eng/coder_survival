@@ -2,8 +2,16 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { addEffect, getActiveEffects } from '../utils/activeEffects.js';
 import { checkAchievement } from '../utils/achievements.js';
+import { boosterRateLimiter } from '../middleware/apiRateLimit.js';
 
 const router = Router();
+
+// Must match the prestige eligibility gate in routes/prestige.js. The
+// `git_push_force` booster performs a full prestige reset (and grants a μ boost);
+// without this gate a player could buy prestige progression for a flat Stars
+// cost, bypassing the 1,000,000 lifetime-LOC requirement that normal prestige
+// enforces.
+const PRESTIGE_MIN_LOC = 1_000_000;
 
 function buildExpiresAt(durationSec) {
   if (!durationSec || durationSec <= 0) return null;
@@ -154,7 +162,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/purchase', async (req, res) => {
+router.post('/purchase', boosterRateLimiter, async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
   const { boosterSlug } = req.body || {};
@@ -168,7 +176,7 @@ router.post('/purchase', async (req, res) => {
     if (defResult.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Booster not found' }); }
     const def = defResult.rows[0];
     const progResult = await client.query(
-      `SELECT stars, active_effects, depression_level, energy, commits_current, tier, commits_total, lifetime_loc, prestige_count, prestige_level, mu_currency, generator_state, event_state, streak_days, inventory, skins
+      `SELECT stars, active_effects, depression_level, energy, commits_current, tier, commits_total, lifetime_loc, prestige_count, prestige_level, mu_currency, generator_state, event_state, streak_days, inventory
        FROM progression WHERE user_id = $1 FOR UPDATE`,
       [userId]
     );
@@ -176,6 +184,15 @@ router.post('/purchase', async (req, res) => {
     const prog = progResult.rows[0];
     const stars = Number(prog.stars || 0);
     if (stars < def.stars_cost) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Not enough stars', required: def.stars_cost, available: stars }); }
+    // Economy guard: git_push_force triggers a prestige reset — enforce the same
+    // lifetime-LOC gate as a normal prestige so it cannot be bought around.
+    if (def.slug === 'git_push_force') {
+      const lifetimeLoc = Number(prog.lifetime_loc ?? prog.commits_total ?? 0);
+      if (lifetimeLoc < PRESTIGE_MIN_LOC) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Not enough lifetime LOC for prestige', requiredLoc: PRESTIGE_MIN_LOC, lifetimeLoc });
+      }
+    }
     await client.query('UPDATE progression SET stars = stars - $2 WHERE user_id = $1', [userId, def.stars_cost]);
     if (def.permanent) {
       const existing = await client.query('SELECT 1 FROM user_boosters WHERE user_id = $1 AND booster_slug = $2', [userId, boosterSlug]);
@@ -212,7 +229,7 @@ router.post('/purchase', async (req, res) => {
   }
 });
 
-router.post('/activate', async (req, res) => {
+router.post('/activate', boosterRateLimiter, async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) return res.status(401).json({ error: 'Unauthorized' });
   const { boosterSlug } = req.body || {};

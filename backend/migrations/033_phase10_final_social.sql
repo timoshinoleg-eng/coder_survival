@@ -7,17 +7,26 @@ VALUES
 ON CONFLICT (skin_id) DO NOTHING;
 
 -- Secret achievement for Rubber Duck unlock
-INSERT INTO achievements (slug, name, description, category, rarity, trigger_type, is_progressive, criteria, reward, condition)
-VALUES (
-  'rubber_duck_unlock',
-  'Резиновая уточка',
-  'Провали мини-игру 3 раза за день',
-  'special',
-  'legendary',
-  'special',
-  true,
-  '{"target": 3}',
-  '{"skin": "rubber_duck"}',
-  '{"hidden": "true", "period": "day"}'
-)
-ON CONFLICT (slug) DO NOTHING;
+-- Guarded: slug-based catalog only exists after 053; skip on fresh-DB legacy schema.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'achievements' AND column_name = 'slug'
+  ) THEN
+    INSERT INTO achievements (slug, name, description, category, rarity, trigger_type, is_progressive, criteria, reward, condition)
+    VALUES (
+      'rubber_duck_unlock',
+      'Резиновая уточка',
+      'Провали мини-игру 3 раза за день',
+      'special',
+      'legendary',
+      'special',
+      true,
+      '{"target": 3}',
+      '{"skin": "rubber_duck"}',
+      '{"hidden": "true", "period": "day"}'
+    )
+    ON CONFLICT (slug) DO NOTHING;
+  END IF;
+END $$;

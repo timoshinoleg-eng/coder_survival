@@ -26,16 +26,25 @@ async function openInvoiceLink(itemType, payload, invoicePayload) {
   return new Promise((resolve) => {
     if (tg?.openInvoice) {
       tg.openInvoice(invoiceResult.url, (status) => {
-        resolve({
-          success: status === 'paid' || status === 'pending',
-          status,
-          purchase: payload?.purchase,
-          url: invoiceResult.url
-        });
+        if (status === 'paid') {
+          // Telegram confirmed payment. The reward is still credited server-side
+          // via the successful_payment webhook; the UI reloads state to reflect it.
+          resolve({ success: true, status: 'paid', purchase: payload?.purchase, url: invoiceResult.url });
+        } else if (status === 'pending') {
+          // Payment in progress but NOT confirmed. Treat as "opened/awaiting" so
+          // the UI does not show a completed purchase or grant an unconfirmed reward.
+          resolve({ success: true, status: 'opened', purchase: payload?.purchase, url: invoiceResult.url });
+        } else {
+          // cancelled / failed / unknown → not a success.
+          resolve({ success: false, status: status || 'failed', purchase: payload?.purchase, url: invoiceResult.url });
+        }
       });
       return;
     }
 
+    // No native invoice API (opened outside Telegram): we can open the link but
+    // cannot observe the payment outcome, so report "opened/awaiting" — never a
+    // completed purchase.
     window.open(invoiceResult.url, '_blank', 'noopener,noreferrer');
     resolve({
       success: true,

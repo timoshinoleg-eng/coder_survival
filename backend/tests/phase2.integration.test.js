@@ -1,3 +1,4 @@
+import { jest } from "@jest/globals";
 import { createInitData, ensureTestSchema, resetTestDatabase, testPool, TEST_DATABASE_URL } from "./helpers/testDb.js";
 import { startTestServer } from "./helpers/testServer.js";
 
@@ -153,19 +154,29 @@ describeIfDb("phase2 integration", () => {
       [userId],
     );
 
-    const burnoutTap = await server.request("/api/tap", {
-      method: "POST",
-      headers: { "X-Telegram-Init-Data": initData },
-      body: {},
-    });
-    expect(burnoutTap.status).toBe(200);
-    expect(burnoutTap.body?.isBurnout).toBe(true);
-    expect(burnoutTap.body?.commitsDelta).toBeGreaterThanOrEqual(1);
+    // Determinism: at exactly maxDepression a *crit* tap applies a −5 relief
+    // (after the cap), dropping the player just below the burnout threshold on
+    // ~20% of taps and flaking this assertion. Suppress RNG so no crit fires —
+    // this test covers the normal-tap "stays burned out" path, not crit relief.
+    // (The test server runs in-process, so this spy reaches the tap route.)
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.99);
+    try {
+      const burnoutTap = await server.request("/api/tap", {
+        method: "POST",
+        headers: { "X-Telegram-Init-Data": initData },
+        body: {},
+      });
+      expect(burnoutTap.status).toBe(200);
+      expect(burnoutTap.body?.isBurnout).toBe(true);
+      expect(burnoutTap.body?.commitsDelta).toBeGreaterThanOrEqual(1);
 
-    const stateAfterBurnoutTap = await server.request("/api/state", {
-      headers: { "X-Telegram-Init-Data": initData },
-    });
-    expect(stateAfterBurnoutTap.status).toBe(200);
-    expect(stateAfterBurnoutTap.body?.isBurnout).toBe(true);
+      const stateAfterBurnoutTap = await server.request("/api/state", {
+        headers: { "X-Telegram-Init-Data": initData },
+      });
+      expect(stateAfterBurnoutTap.status).toBe(200);
+      expect(stateAfterBurnoutTap.body?.isBurnout).toBe(true);
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 });
