@@ -3,6 +3,7 @@ import { pool } from '../index.js';
 import { applyItemEffect } from './buy.js';
 import { getProductById } from '../utils/shopCatalog.js';
 import { sendAlert } from '../utils/alertSender.js';
+import { arePaymentsEnabled, paymentsDisabledResponse } from '../config/payments.js';
 
 const router = Router();
 
@@ -20,10 +21,19 @@ function parseInvoicePayload(payload) {
   };
 }
 
+/**
+ * Invoice context feeds Telegram invoice creation, so it is a *new charge* path
+ * and is fully gated. Auth is still checked first so an unauthenticated caller
+ * cannot use the payment-state response as an oracle.
+ */
 router.post('/telegram/invoice-context', async (req, res, next) => {
   const headerSecret = req.get('X-Bot-Backend-Secret');
   if (!BOT_BACKEND_SECRET || headerSecret !== BOT_BACKEND_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!arePaymentsEnabled()) {
+    return res.status(403).json(paymentsDisabledResponse());
   }
 
   const { invoicePayload } = req.body || {};
@@ -85,11 +95,26 @@ router.post('/telegram/invoice-context', async (req, res, next) => {
   }
 });
 
+/**
+ * Fulfillment of an ALREADY-CHARGED payment.
+ *
+ * This endpoint is deliberately NOT gated by the payments kill switch. The
+ * switch exists to stop *new* charges; refusing here would strand a user who
+ * was already debited by Telegram — charge-without-delivery, which is strictly
+ * worse than the thing we are preventing. Without an automatic refund path, the
+ * only honest response to a real, secret-authenticated, amount-matched payment
+ * is to deliver what was paid for, idempotently.
+ *
+ * Arrival while disabled is still an anomaly (it means a charge slipped through
+ * the race between checkout and the flag flip), so we raise a redacted alert.
+ */
 router.post('/telegram/confirm', async (req, res, next) => {
   const headerSecret = req.get('X-Bot-Backend-Secret');
   if (!BOT_BACKEND_SECRET || headerSecret !== BOT_BACKEND_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+
+  const paymentsWereDisabled = !arePaymentsEnabled();
 
   const {
     telegramUserId,
@@ -124,7 +149,15 @@ router.post('/telegram/confirm', async (req, res, next) => {
 
       if (existingPayment.rows.length > 0) {
         await client.query('COMMIT');
-        return res.status(200).json({ success: true, idempotent: true, payment: existingPayment.rows[0] });
+        if (paymentsWereDisabled) {
+          alertPaymentWhileDisabled({ itemType: parsed.itemType, idempotent: true });
+        }
+        return res.status(200).json({
+          success: true,
+          idempotent: true,
+          payment: existingPayment.rows[0],
+          ...(paymentsWereDisabled ? { paymentsDisabled: true } : {})
+        });
       }
 
       const userResult = await client.query(
@@ -201,7 +234,15 @@ router.post('/telegram/confirm', async (req, res, next) => {
       );
 
       await client.query('COMMIT');
-      return res.status(200).json({ success: true, idempotent: false, payment: paymentInsert.rows[0] });
+      if (paymentsWereDisabled) {
+        alertPaymentWhileDisabled({ itemType: parsed.itemType, idempotent: false });
+      }
+      return res.status(200).json({
+        success: true,
+        idempotent: false,
+        payment: paymentInsert.rows[0],
+        ...(paymentsWereDisabled ? { paymentsDisabled: true } : {})
+      });
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -213,6 +254,29 @@ router.post('/telegram/confirm', async (req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * Redacted anomaly alert: a real payment landed while payments were disabled.
+ *
+ * Deliberately carries NO raw identifiers — no Telegram user id, no charge id,
+ * no invoice payload, no rawPayment. The item type is a catalog slug (already
+ * public, e.g. "energy_refill") and the idempotent flag distinguishes a replay
+ * from a first delivery; together they are enough to investigate without
+ * copying payment identifiers into an outbound Telegram message or the logs.
+ */
+function alertPaymentWhileDisabled({ itemType, idempotent }) {
+  const kind = idempotent ? 'replayed' : 'newly fulfilled';
+  console.warn(
+    `[payments] Payment ${kind} while PAYMENTS_ENABLED is not "true" ` +
+      `(item: ${itemType}). Already-charged payment was honoured to avoid ` +
+      'charge-without-delivery. Identifiers intentionally omitted.'
+  );
+  sendAlert(
+    `Payment arrived while payments are DISABLED (${kind}). Item: ${itemType}. ` +
+      'The charge was honoured to avoid charge-without-delivery. ' +
+      'Investigate why a checkout completed in non-commercial test mode.'
+  );
+}
 
 // --- Payment failure rate tracking ---
 const _paymentFailures = [];

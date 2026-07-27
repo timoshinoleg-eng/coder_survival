@@ -2,9 +2,9 @@ import { h } from 'preact';
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
 import { startTelegramPurchase, startDealPurchase } from '../utils/purchases.js';
+import { arePaymentsEnabled, PAYMENTS_DISABLED_MESSAGE, PAYMENTS_DISABLED_SHORT } from '../utils/payments.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { useColdGameState } from '../hooks/useGameState.js';
-import { useTonWallet } from '../hooks/useTonWallet.js';
 import { audioManager } from '../utils/AudioManager.js';
 import { Analytics } from '../utils/analytics.js';
 import PremiumPurchaseSuccess from './PremiumPurchaseSuccess.jsx';
@@ -31,7 +31,9 @@ const CATEGORY_ORDER = ['energy', 'stress', 'boost', 'pass'];
 export default function ShopPanel() {
   const { initData } = useTelegram();
   const { contextOffer, showToast, shopOpen, closeShop } = useColdGameState();
-  const { walletAddress, connect } = useTonWallet();
+  // Build-time constant: a build without VITE_PAYMENTS_ENABLED="true" cannot
+  // render any actionable payment control.
+  const paymentsEnabled = arePaymentsEnabled();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -253,6 +255,19 @@ export default function ShopPanel() {
       }, CATEGORY_LABELS[cat] || cat))
     ]),
 
+    // Non-actionable notice: explains why no purchase controls are rendered.
+    !paymentsEnabled && h('div', {
+      style: {
+        margin: '8px 12px 0',
+        padding: '8px 10px',
+        borderRadius: '6px',
+        background: '#1d2438',
+        border: '1px solid #30527e',
+        color: '#9eb6d2',
+        fontSize: '11px'
+      }
+    }, `${PAYMENTS_DISABLED_MESSAGE} Каталог доступен только для просмотра.`),
+
     loading
       ? h('div', { style: { padding: '14px', color: '#9eb6d2' } }, 'Загрузка...')
       : error
@@ -296,21 +311,25 @@ export default function ShopPanel() {
                 `⭐ ${activeSales.dailyDeal.original_stars}`
               )
             ]),
-            h('button', {
-              onClick: () => handleDealBuy('daily_deal'),
-              disabled: buying === 'deal:daily_deal',
-              style: {
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                background: buying === 'deal:daily_deal' ? '#274267' : '#4ade80',
-                color: buying === 'deal:daily_deal' ? '#8ba1bb' : '#0a1f12',
-                fontWeight: 'bold',
-                fontSize: '11px',
-                cursor: buying === 'deal:daily_deal' ? 'not-allowed' : 'pointer',
-                whiteSpace: 'nowrap'
-              }
-            }, buying === 'deal:daily_deal' ? '...' : 'Купить')
+            paymentsEnabled
+              ? h('button', {
+                onClick: () => handleDealBuy('daily_deal'),
+                disabled: buying === 'deal:daily_deal',
+                style: {
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: buying === 'deal:daily_deal' ? '#274267' : '#4ade80',
+                  color: buying === 'deal:daily_deal' ? '#8ba1bb' : '#0a1f12',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  cursor: buying === 'deal:daily_deal' ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap'
+                }
+              }, buying === 'deal:daily_deal' ? '...' : 'Купить')
+              : h('div', {
+                style: { fontSize: '10px', color: '#9eb6d2', maxWidth: '110px', textAlign: 'right' }
+              }, PAYMENTS_DISABLED_SHORT)
           ]),
 
           activeSales?.flashSale && h('div', {
@@ -331,21 +350,25 @@ export default function ShopPanel() {
                 `${activeSales.flashSale.product?.name || activeSales.flashSale.item_slug} — ${activeSales.flashSale.discount_percent}% off`
               )
             ]),
-            h('button', {
-              onClick: () => handleDealBuy('flash_sale'),
-              disabled: buying === 'deal:flash_sale',
-              style: {
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                background: buying === 'deal:flash_sale' ? '#274267' : '#facc15',
-                color: buying === 'deal:flash_sale' ? '#8ba1bb' : '#1a1a2e',
-                fontWeight: 'bold',
-                fontSize: '11px',
-                cursor: buying === 'deal:flash_sale' ? 'not-allowed' : 'pointer',
-                whiteSpace: 'nowrap'
-              }
-            }, buying === 'deal:flash_sale' ? '...' : 'Купить')
+            paymentsEnabled
+              ? h('button', {
+                onClick: () => handleDealBuy('flash_sale'),
+                disabled: buying === 'deal:flash_sale',
+                style: {
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: buying === 'deal:flash_sale' ? '#274267' : '#facc15',
+                  color: buying === 'deal:flash_sale' ? '#8ba1bb' : '#1a1a2e',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  cursor: buying === 'deal:flash_sale' ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap'
+                }
+              }, buying === 'deal:flash_sale' ? '...' : 'Купить')
+              : h('div', {
+                style: { fontSize: '10px', color: '#9eb6d2', maxWidth: '110px', textAlign: 'right' }
+              }, PAYMENTS_DISABLED_SHORT)
           ]),
 
           filteredProducts.map((product) => {
@@ -382,46 +405,33 @@ export default function ShopPanel() {
               ]),
               h('div', { style: { textAlign: 'right' } }, [
                 h('div', { style: { fontWeight: 'bold', color: '#facc15', fontSize: '13px' } }, `⭐ ${product.stars}`),
-                h('button', {
-                  onClick: () => handleBuy(product.id),
-                  disabled: buying === product.id,
-                  style: {
-                    marginTop: '4px',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: buying === product.id ? '#274267' : '#4ade80',
-                    color: buying === product.id ? '#8ba1bb' : '#0a1f12',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
-                    cursor: buying === product.id ? 'not-allowed' : 'pointer'
-                  }
-                }, buying === product.id ? '...' : 'Купить'),
-                h('button', {
-                  onClick: async () => {
-                    if (!walletAddress) {
-                      await connect();
-                      return;
+                // A TON payment control used to sit here. It was a placeholder:
+                // it invented a price (stars/100) and only showed a toast,
+                // never settling anything. It has been removed, not hidden.
+                paymentsEnabled
+                  ? h('button', {
+                    onClick: () => handleBuy(product.id),
+                    disabled: buying === product.id,
+                    style: {
+                      marginTop: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: buying === product.id ? '#274267' : '#4ade80',
+                      color: buying === product.id ? '#8ba1bb' : '#0a1f12',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: buying === product.id ? 'not-allowed' : 'pointer'
                     }
-                    // Placeholder TON payment flow
-                    const tonPrice = (product.stars / 100).toFixed(2);
-                    showToast(`TON Pay: ${product.name} — ${tonPrice} TON (placeholder)`, 'info', 3000);
-                    Analytics.track('purchase_intent', { product_id: product.id, price: tonPrice, currency: 'ton' });
-                  },
-                  style: {
-                    marginTop: '4px',
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    border: '1px solid #30527e',
-                    background: '#1a3a5c',
-                    color: '#dce9f9',
-                    fontWeight: 'bold',
-                    fontSize: '10px',
-                    cursor: 'pointer',
-                    display: 'block',
-                    width: '100%'
-                  }
-                }, walletAddress ? '💎 Pay with TON' : '💎 Connect TON')
+                  }, buying === product.id ? '...' : 'Купить')
+                  : h('div', {
+                    style: {
+                      marginTop: '4px',
+                      fontSize: '10px',
+                      color: '#8ba1bb',
+                      maxWidth: '110px'
+                    }
+                  }, PAYMENTS_DISABLED_SHORT)
               ])
             ]);
           }),

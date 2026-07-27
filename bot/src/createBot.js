@@ -1,4 +1,9 @@
 import { Bot, InlineKeyboard, InputFile } from 'grammy';
+import {
+  arePaymentsEnabled,
+  decidePreCheckout,
+  redactedDisabledPaymentNotice,
+} from './payments.js';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://frontend-ashy-alpha-77.vercel.app';
@@ -198,24 +203,40 @@ export function createBot() {
     }
   });
 
+  // Pre-checkout is the last point at which a charge can still be stopped
+  // cleanly, before Telegram debits the user. While payments are disabled we
+  // always answer false, so no charge is ever created.
   bot.on('pre_checkout_query', async (ctx) => {
-    const query = ctx.preCheckoutQuery;
-    if (query.currency !== 'XTR') {
-      await ctx.answerPreCheckoutQuery(false, { error_message: 'Поддерживаются только Telegram Stars.' });
+    const decision = decidePreCheckout(ctx.preCheckoutQuery);
+    if (!decision.ok) {
+      await ctx.answerPreCheckoutQuery(false, { error_message: decision.errorMessage });
       return;
     }
     await ctx.answerPreCheckoutQuery(true);
   });
 
+  // Fulfillment of an ALREADY-CHARGED payment.
+  //
+  // This is deliberately NOT blocked while payments are disabled: Telegram has
+  // already debited the user by the time this fires, so refusing would produce
+  // charge-without-delivery. Absent an automatic refund, the honest response is
+  // to fulfill idempotently and flag the anomaly.
   bot.on('message:successful_payment', async (ctx) => {
     const payment = ctx.message.successful_payment;
-    console.log('successful_payment', {
-      user_id: ctx.from?.id,
-      payload: payment.invoice_payload,
+    const paymentsWereDisabled = !arePaymentsEnabled();
+
+    // Redacted by default: amount and currency are safe operational signal,
+    // while user id, charge id and invoice payload are payment identifiers and
+    // are never written to logs.
+    console.log('successful_payment received', {
       amount: payment.total_amount,
       currency: payment.currency,
-      charge_id: payment.telegram_payment_charge_id
+      paymentsEnabled: !paymentsWereDisabled
     });
+
+    if (paymentsWereDisabled) {
+      console.warn(redactedDisabledPaymentNotice());
+    }
 
     if (!BOT_BACKEND_SECRET) {
       console.error('BOT_BACKEND_SECRET not set; payment fulfillment skipped');
@@ -248,7 +269,9 @@ export function createBot() {
     const payload = text ? JSON.parse(text) : null;
 
     if (!response.ok) {
-      console.error('Payment fulfillment failed', response.status, payload);
+      // Status only: the response body echoes payment record fields, which must
+      // not reach the logs.
+      console.error('Payment fulfillment failed', { status: response.status, code: payload?.code });
       await ctx.reply(
         `Покупка прошла: ${payment.invoice_payload}\n` +
           `Списано: ${payment.total_amount} Stars.\n\n` +
@@ -262,7 +285,11 @@ export function createBot() {
         `Списано: ${payment.total_amount} Stars.\n\n` +
         (payload?.idempotent
           ? 'Платеж уже был обработан ранее.'
-          : 'Предмет успешно начислен.')
+          : 'Предмет успешно начислен.') +
+        (paymentsWereDisabled
+          ? '\n\nВнимание: платежи сейчас отключены (тестовый режим). ' +
+            'Списание уже произошло, поэтому покупка выдана. Свяжитесь с поддержкой.'
+          : '')
     );
   });
 
