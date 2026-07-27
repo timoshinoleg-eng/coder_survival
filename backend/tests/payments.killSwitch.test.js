@@ -24,12 +24,8 @@ import {
 } from "../src/config/payments.js";
 
 describe("parsePaymentsEnabled — strict opt-in", () => {
-  test('only the exact string "true" enables payments', () => {
+  test('the literal lowercase string "true" is the only value that enables payments', () => {
     expect(parsePaymentsEnabled("true")).toBe(true);
-    // Case and surrounding whitespace are normalised.
-    expect(parsePaymentsEnabled("TRUE")).toBe(true);
-    expect(parsePaymentsEnabled("True")).toBe(true);
-    expect(parsePaymentsEnabled("  true  ")).toBe(true);
   });
 
   test("missing, empty, malformed and non-'true' values are disabled", () => {
@@ -45,6 +41,20 @@ describe("parsePaymentsEnabled — strict opt-in", () => {
     }
   });
 
+  test("case and whitespace near-misses are disabled — the match is literal", () => {
+    // Deliberately NOT normalised: an operator who writes PAYMENTS_ENABLED=TRUE
+    // gets the safe outcome (disabled) rather than having their near-miss
+    // guessed into live payments.
+    const nearMisses = [
+      "TRUE", "True", "tRuE", "TrUe",
+      "  true  ", " true", "true ", "\ttrue", "true\n", "\ntrue\t",
+    ];
+
+    for (const value of nearMisses) {
+      expect(parsePaymentsEnabled(value)).toBe(false);
+    }
+  });
+
   test("a boolean true (not the string) is still disabled — no type coercion", () => {
     // Guards against someone "fixing" the parser with a truthiness check.
     expect(parsePaymentsEnabled(true)).toBe(false);
@@ -53,6 +63,8 @@ describe("parsePaymentsEnabled — strict opt-in", () => {
   test("arePaymentsEnabled reads PAYMENTS_ENABLED from the given env", () => {
     expect(arePaymentsEnabled({})).toBe(false);
     expect(arePaymentsEnabled({ PAYMENTS_ENABLED: "1" })).toBe(false);
+    expect(arePaymentsEnabled({ PAYMENTS_ENABLED: "TRUE" })).toBe(false);
+    expect(arePaymentsEnabled({ PAYMENTS_ENABLED: " true " })).toBe(false);
     expect(arePaymentsEnabled({ PAYMENTS_ENABLED: "true" })).toBe(true);
   });
 
@@ -77,6 +89,8 @@ describe("payment routes fail closed before touching the database", () => {
   const originalFlag = process.env.PAYMENTS_ENABLED;
   const originalBotToken = process.env.BOT_TOKEN;
   const originalTelegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+  const originalInternalSecret = process.env.BOT_BACKEND_SECRET;
+  const INTERNAL_SECRET = "killswitch-internal-secret";
 
   beforeAll(async () => {
     // NODE_ENV must be "test" (not "production") for the no-BOT_TOKEN branch
@@ -87,6 +101,11 @@ describe("payment routes fail closed before touching the database", () => {
     // exercised without forging a real Telegram signature.
     delete process.env.BOT_TOKEN;
     delete process.env.TELEGRAM_BOT_TOKEN;
+    // MUST be set before importing the app: internalPayments.js captures
+    // BOT_BACKEND_SECRET at module load, so a value assigned later would never
+    // match and the internal endpoints would answer 401 instead of exercising
+    // the payments gate.
+    process.env.BOT_BACKEND_SECRET = INTERNAL_SECRET;
 
     const mod = await import("../src/index.js");
     app = mod.app;
@@ -112,6 +131,8 @@ describe("payment routes fail closed before touching the database", () => {
     else process.env.BOT_TOKEN = originalBotToken;
     if (originalTelegramBotToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
     else process.env.TELEGRAM_BOT_TOKEN = originalTelegramBotToken;
+    if (originalInternalSecret === undefined) delete process.env.BOT_BACKEND_SECRET;
+    else process.env.BOT_BACKEND_SECRET = originalInternalSecret;
     await pool.end();
   });
 
@@ -186,16 +207,31 @@ describe("payment routes fail closed before touching the database", () => {
   });
 
   test("internal invoice-context refuses to hand out invoice data while disabled", async () => {
-    process.env.BOT_BACKEND_SECRET = "test-internal-secret";
-    // The router captured BOT_BACKEND_SECRET at import time, so a fresh value
-    // here would not match; assert the endpoint refuses either way and, most
-    // importantly, never reaches the database.
+    // Authenticated with the secret the router captured at import time, so this
+    // request clears the 401 auth check and genuinely reaches the payments gate.
+    // Requiring exactly 403 + PAYMENTS_DISABLED (rather than accepting 401 too)
+    // is what makes this a real proof: if the gate were removed, the request
+    // would fall through to the DB and this test would fail.
     const res = await request("/api/internal/payments/telegram/invoice-context", {
       body: { invoicePayload: "purchase:1:energy_refill" },
-      headers: { "X-Bot-Backend-Secret": "test-internal-secret" },
+      headers: { "X-Bot-Backend-Secret": INTERNAL_SECRET },
     });
 
-    expect([401, 403]).toContain(res.status);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("PAYMENTS_DISABLED");
+    expect(connectSpy).not.toHaveBeenCalled();
+  });
+
+  test("internal invoice-context still rejects a wrong secret with 401, not a payment-state leak", async () => {
+    // Auth precedes the gate, so an unauthenticated caller must not be able to
+    // read the payment state off this endpoint.
+    const res = await request("/api/internal/payments/telegram/invoice-context", {
+      body: { invoicePayload: "purchase:1:energy_refill" },
+      headers: { "X-Bot-Backend-Secret": "wrong-secret" },
+    });
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).not.toBe("PAYMENTS_DISABLED");
     expect(connectSpy).not.toHaveBeenCalled();
   });
 
@@ -257,5 +293,23 @@ describe("payment routes fail closed before touching the database", () => {
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  test("with payments ENABLED, currency:'ton' is still refused with PAYMENT_METHOD_UNAVAILABLE and no DB access", async () => {
+    // The case the disabled-mode tests cannot reach. TON has no verified
+    // settlement path, and the previous implementation unlocked a premium pass
+    // for it while charging nothing. Refusing on its own merits — independently
+    // of the kill switch — is what stops that free-premium path from silently
+    // returning the day payments are switched on.
+    process.env.PAYMENTS_ENABLED = "true";
+
+    const res = await request("/api/pass/upgrade", { body: { currency: "ton" } });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("PAYMENT_METHOD_UNAVAILABLE");
+    // "ton" must not be advertised as payable.
+    expect(res.body.supportedCurrencies).not.toContain("ton");
+    // Refused before any DB work, so no premium unlock and no purchase row.
+    expect(connectSpy).not.toHaveBeenCalled();
   });
 });

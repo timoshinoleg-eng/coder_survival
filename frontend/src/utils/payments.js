@@ -21,16 +21,18 @@ export const PAYMENTS_DISABLED_MESSAGE =
 export const PAYMENTS_DISABLED_SHORT = 'Тестовый режим — покупки отключены';
 
 /**
- * Strict opt-in parser: only the exact string "true" (trimmed, lowercased).
+ * Strict opt-in parser: literal comparison against the exact string "true".
+ *
+ * No trimming and no case folding. "TRUE", "True" and "  true  " are all
+ * DISABLED, because a near-miss must fail safe rather than be guessed into an
+ * opt-in. Strict equality also makes this type-safe without a typeof guard: a
+ * number, boolean, object or null can never === a string.
  *
  * @param {unknown} rawValue
  * @returns {boolean}
  */
 export function parsePaymentsEnabled(rawValue) {
-  if (typeof rawValue !== 'string') {
-    return false;
-  }
-  return rawValue.trim().toLowerCase() === 'true';
+  return rawValue === 'true';
 }
 
 // Guarded access: Vite defines import.meta.env in dev and build, plain Node

@@ -2,8 +2,10 @@
  * Fail-closed payment gate (personal non-commercial test mode).
  *
  * Real money must never move unless someone has *explicitly* opted in by
- * setting PAYMENTS_ENABLED to exactly "true". Every other value — missing,
- * empty, "1", "yes", "TRUE!", null, a number, an object — means disabled.
+ * setting PAYMENTS_ENABLED to the literal string "true". Every other value —
+ * missing, empty, "1", "yes", "TRUE", "True", "  true  ", null, a number, an
+ * object — means disabled. The comparison is literal, so even a case or
+ * whitespace near-miss fails safe instead of being normalised into an opt-in.
  *
  * Fail-closed is the default rather than a fallback branch: a future code path
  * that forgets to check still cannot charge anyone, because the only way to get
@@ -23,17 +25,18 @@ export const PAYMENTS_DISABLED_MESSAGE =
   'Платежи отключены: приложение работает в личном некоммерческом тестовом режиме.';
 
 /**
- * Strict opt-in parser. Accepts only the exact string "true" after trimming and
- * lowercasing; anything else (including non-strings) is disabled.
+ * Strict opt-in parser: literal comparison against the exact string "true".
+ *
+ * No trimming and no case folding. "TRUE", "True" and "  true  " are all
+ * DISABLED, because a near-miss must fail safe rather than be guessed into an
+ * opt-in. Strict equality also makes this type-safe without a typeof guard: a
+ * number, boolean, object or null can never === a string.
  *
  * @param {unknown} rawValue Raw env value, typically process.env.PAYMENTS_ENABLED
  * @returns {boolean} true only for an explicit "true" opt-in
  */
 export function parsePaymentsEnabled(rawValue) {
-  if (typeof rawValue !== 'string') {
-    return false;
-  }
-  return rawValue.trim().toLowerCase() === 'true';
+  return rawValue === 'true';
 }
 
 /**
