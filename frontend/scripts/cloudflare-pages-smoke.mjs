@@ -15,13 +15,20 @@
 //     --frontend https://PROJECT.pages.dev \
 //     --api https://coder-survival-api.duckdns.org
 //
-// Exit code 0 = every check passed, 1 = at least one FAIL.
+// Exit code 0 = every DEPLOYMENT-scoped check passed (pre-existing repository
+// defects are reported separately and do not affect it), 1 = at least one
+// deployment-scoped FAIL.
 //
 // SAFETY: this script only performs reads and one CORS preflight. It never
 // calls an authenticated economy or payment endpoint, never sends initData,
 // never mutates state, and never prints response bodies (which could contain
 // tokens or user data) — only status codes, header values it must evaluate, and
 // byte counts.
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 const REQUIRED_ASSET_LIMIT = 12;
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -30,6 +37,26 @@ const DEFAULT_TIMEOUT_MS = 15000;
 // most importantly text/html — means the host answered with an SPA fallback page
 // instead of the file, which is a deployment failure that a bare 200 hides.
 const JS_CONTENT_TYPES = ['javascript', 'ecmascript'];
+
+/**
+ * Parses manifest JSON, tolerating a UTF-8 BOM.
+ *
+ * The committed frontend/public/tonconnect-manifest.json starts with EF BB BF.
+ * `JSON.parse` throws on it, and a host may or may not preserve it, so both
+ * sides are normalised before comparison — otherwise the structural match would
+ * fail for a reason that has nothing to do with the manifest's contents.
+ *
+ * @param {string} text
+ * @returns {unknown} Parsed value, or undefined when unparseable
+ */
+export function parseManifestJson(text) {
+  if (typeof text !== 'string') return undefined;
+  try {
+    return JSON.parse(text.replace(/^﻿/, ''));
+  } catch {
+    return undefined;
+  }
+}
 const CSS_CONTENT_TYPES = ['css'];
 
 // ── Pure helpers (unit-tested) ─────────────────────────────────────────────
@@ -240,6 +267,61 @@ export function evaluateManifest(manifest) {
 }
 
 /**
+ * Classifies a failing live manifest as a pre-existing repository defect or a
+ * deployment defect.
+ *
+ * Why this is not decided by the *kind* of failure: an earlier revision labelled
+ * every manifest failure `repo`, which meant a stale or misbuilt deployment
+ * serving a manifest with no `name`, or with a brand-new bad URL, still exited 0.
+ * That is precisely the regression a smoke test must catch.
+ *
+ * The rule is therefore evidentiary, not heuristic: a failure may only be
+ * excused as `repo` when the live response is **structurally identical** to the
+ * manifest committed at `frontend/public/tonconnect-manifest.json`. If it differs
+ * in any way — a missing field, an extra field, a changed value — then the
+ * deployment is serving something other than what the repository contains, and
+ * its failures are the deployment's own.
+ *
+ * Comparison uses `node:util.isDeepStrictEqual`, so it is structural and
+ * independent of JSON key order. No dependency is added.
+ *
+ * @param {unknown} liveManifest Parsed manifest served by the deployment
+ * @param {unknown} committedManifest Parsed manifest from frontend/public
+ * @param {{ ok: boolean, reasons: string[] }} verdict Result of evaluateManifest(liveManifest)
+ * @returns {{ scope: 'repo'|'deployment', reasons: string[], matchesCommitted: boolean }}
+ */
+export function classifyManifestFailure(liveManifest, committedManifest, verdict) {
+  const reasons = Array.isArray(verdict?.reasons) ? verdict.reasons : [];
+
+  // Nothing to classify.
+  if (verdict?.ok) {
+    return { scope: 'deployment', reasons: [], matchesCommitted: false };
+  }
+
+  const matchesCommitted =
+    committedManifest !== undefined &&
+    committedManifest !== null &&
+    isDeepStrictEqual(liveManifest, committedManifest);
+
+  if (matchesCommitted) {
+    // Byte-equivalent to what is committed: the same failure occurs on every
+    // host, including current production, so it is not evidence against this
+    // deployment.
+    return { scope: 'repo', reasons, matchesCommitted: true };
+  }
+
+  // The deployment serves something the repository does not contain. Say so
+  // explicitly, so the operator is not left comparing two manifests by eye.
+  const annotated = [
+    ...reasons,
+    'live manifest does not match the committed frontend/public/tonconnect-manifest.json ' +
+      '— treated as a DEPLOYMENT defect (stale or misbuilt deployment), not a pre-existing one',
+  ];
+
+  return { scope: 'deployment', reasons: annotated, matchesCommitted: false };
+}
+
+/**
  * Decides whether a CORS preflight response actually authorises the Pages
  * origin for the requests the app makes.
  *
@@ -366,6 +448,26 @@ function record(ok, name, detail = '', scope = 'deployment') {
   console.log(`  [${tag}] ${name}${detail ? ` — ${detail}` : ''}${suffix}`);
 }
 
+/**
+ * Reads and parses the manifest committed at frontend/public.
+ *
+ * Returns `undefined` when the file cannot be read or parsed. That deliberately
+ * fails safe: classifyManifestFailure treats an absent committed manifest as
+ * "no proof of a pre-existing defect", so failures are attributed to the
+ * deployment rather than silently excused.
+ *
+ * @returns {unknown}
+ */
+function readCommittedManifest() {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const path = join(here, '..', 'public', 'tonconnect-manifest.json');
+    return parseManifestJson(readFileSync(path, 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -456,10 +558,8 @@ async function checkTonConnectManifest(frontendUrl, timeoutMs) {
       return;
     }
     const text = await res.text();
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
+    const parsed = parseManifestJson(text);
+    if (parsed === undefined) {
       record(false, '/tonconnect-manifest.json is valid JSON', 'body did not parse as JSON');
       return;
     }
@@ -472,13 +572,22 @@ async function checkTonConnectManifest(frontendUrl, timeoutMs) {
 
     if (verdict.ok) {
       record(true, 'tonconnect manifest fields are valid', 'name + required HTTPS URLs');
-    } else {
-      // Scoped as a repo defect: the manifest is committed in frontend/public,
-      // so a placeholder value fails identically on every host. It is a genuine
-      // blocker for TON wallet connect, but it is not evidence against the
-      // deployment being smoke-tested.
-      for (const reason of verdict.reasons) {
+      return;
+    }
+
+    // A failure is only excused as pre-existing when the live response is
+    // structurally identical to the committed manifest. Anything else means the
+    // deployment is serving something the repository does not contain.
+    const committed = readCommittedManifest();
+    const classified = classifyManifestFailure(parsed, committed, verdict);
+
+    if (classified.scope === 'repo') {
+      for (const reason of classified.reasons) {
         record(false, 'tonconnect manifest field', reason, 'repo');
+      }
+    } else {
+      for (const reason of classified.reasons) {
+        record(false, 'tonconnect manifest field', reason, 'deployment');
       }
     }
   } catch {

@@ -336,10 +336,33 @@ change providers or domains.
 Do not paper over it by relaxing the smoke check: the check exists so this is
 visible rather than silently broken.
 
-**How the smoke script scopes this.** A manifest placeholder is a *repository*
-defect, not a deployment defect — it fails identically on Vercel and on Pages. The
-script therefore labels it `[pre-existing repo defect]`, reports it separately, and
-still **exits 0** when every deployment-level check passes. Two reasons:
+**How the smoke script scopes this — by evidence, not by error type.**
+
+A manifest failure is excused as a *repository* defect **only when the live
+response is structurally identical to the committed
+`frontend/public/tonconnect-manifest.json`**. That proof is what makes the excuse
+legitimate: an identical manifest fails the same way on Vercel and on Pages, so it
+says nothing about the deployment under test.
+
+If the live manifest differs **in any way** — a missing `name`, `url` or
+`iconUrl`, a different placeholder host, an `http://` or relative URL, an extra
+unexpected field, or any changed value — then the deployment is serving something
+the repository does not contain. Those failures are **deployment**-scoped and
+**exit 1**.
+
+Comparison is structural via Node's built-in `util.isDeepStrictEqual`, so JSON key
+order is irrelevant and no dependency is added. A UTF-8 BOM is stripped from both
+sides before comparing (the committed file has one), so the match cannot fail for
+a reason unrelated to the manifest's contents. If the committed manifest cannot be
+read at all, the classifier **fails safe**: with no proof of a pre-existing defect,
+nothing is excused.
+
+> **Why this matters.** An earlier revision labelled *every* manifest failure as
+> pre-existing. A stale or misbuilt Pages deployment serving a manifest with no
+> `name`, or with a brand-new bad URL, therefore still exited 0 — exactly the
+> regression a smoke test exists to catch. The rule is now evidentiary.
+
+The reason for excusing a *proven* pre-existing defect at all:
 
 - treating it as a deployment failure would make a healthy Pages deployment
   indistinguishable from a broken one for as long as the manifest stays unfixed,
@@ -347,10 +370,12 @@ still **exits 0** when every deployment-level check passes. Two reasons:
 - the pilot's whole purpose is comparing Pages against a Vercel control, and a
   defect present in both tells you nothing about either.
 
-A **deployment**-scoped failure (HTML, assets, `/health`, CORS) still exits 1.
+All other **deployment**-scoped failures (HTML, assets, `/health`, CORS) exit 1 as
+before.
 
-**So exit 0 is not "all green".** It means the deployment under test is sound. Read
-the printed check lines to see whether any repo defect is still outstanding.
+**So exit 0 is not "all green".** It means every deployment-scoped check passed.
+Read the printed check lines to see whether any proven repo defect is still
+outstanding.
 
 ### Manifest field contract enforced by the smoke script
 
@@ -366,6 +391,14 @@ Absent optional fields are a pass. Present-but-invalid ones are a failure: a dea
 or placeholder link surfaced inside a wallet is worse than no link at all. All
 failures are reported together, so one run shows every problem rather than only
 the first.
+
+Scope classification of any resulting failure:
+
+| Live manifest vs committed | Scope | Exit code |
+|---|---|---|
+| structurally identical (any key order) | `repo` — proven pre-existing | 0 |
+| differs in any field or value | `deployment` | **1** |
+| committed manifest unreadable | `deployment` (fails safe) | **1** |
 
 Measured baseline against current production on 2026-07-27:
 `5/5 deployment checks passed, exit 0`, with this manifest defect reported

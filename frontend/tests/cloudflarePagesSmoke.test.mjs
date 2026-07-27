@@ -15,6 +15,8 @@ import {
   evaluateAssetContentType,
   evaluateManifestUrl,
   evaluateManifest,
+  classifyManifestFailure,
+  parseManifestJson,
   evaluateCorsPreflight,
   parseArgs,
 } from '../scripts/cloudflare-pages-smoke.mjs';
@@ -338,6 +340,147 @@ test("the repository's current manifest FAILS on its example.com placeholders", 
   // name and url are fine; the three example.com URLs are not.
   assert.equal(verdict.reasons.length, 3);
   assert.match(verdict.reasons.join(' '), /placeholder host/i);
+});
+
+// ── classifyManifestFailure ────────────────────────────────────────────────
+//
+// The rule under test: a manifest failure may only be excused as a pre-existing
+// repository defect when the live response is structurally identical to the
+// committed manifest. Otherwise the deployment is serving something the repo
+// does not contain, and the failure is the deployment's own — which must exit 1.
+
+// Mirrors frontend/public/tonconnect-manifest.json as committed on main.
+const COMMITTED = {
+  url: 'https://t.me/CoderSurvivalBot',
+  name: 'Coder Survival',
+  iconUrl: 'https://coder-survival.example.com/icon.png',
+  termsOfUseUrl: 'https://coder-survival.example.com/terms',
+  privacyPolicyUrl: 'https://coder-survival.example.com/privacy',
+};
+
+function classifyLive(live, committed = COMMITTED) {
+  return classifyManifestFailure(live, committed, evaluateManifest(live));
+}
+
+test('live manifest identical to the committed one → repo scope', () => {
+  const result = classifyLive({ ...COMMITTED });
+  assert.equal(result.scope, 'repo');
+  assert.equal(result.matchesCommitted, true);
+  assert.equal(result.reasons.length, 3, 'the three example.com URLs');
+});
+
+test('key order does not affect the match — comparison is structural', () => {
+  // Same fields, deliberately reversed insertion order.
+  const reordered = {
+    privacyPolicyUrl: COMMITTED.privacyPolicyUrl,
+    termsOfUseUrl: COMMITTED.termsOfUseUrl,
+    iconUrl: COMMITTED.iconUrl,
+    name: COMMITTED.name,
+    url: COMMITTED.url,
+  };
+  const result = classifyLive(reordered);
+  assert.equal(result.scope, 'repo', 'JSON key order must not change the verdict');
+  assert.equal(result.matchesCommitted, true);
+});
+
+test('live manifest MISSING name → deployment failure (the reported bug)', () => {
+  // A stale or misbuilt deployment serving a manifest with no name previously
+  // got repo scope and exit 0. It must now be a deployment failure.
+  const { name, ...noName } = COMMITTED;
+  const result = classifyLive(noName);
+
+  assert.equal(result.scope, 'deployment');
+  assert.equal(result.matchesCommitted, false);
+  assert.match(result.reasons.join(' '), /name: missing or empty/i);
+  assert.match(result.reasons.join(' '), /does not match the committed/i);
+});
+
+test('live manifest MISSING url or iconUrl → deployment failure', () => {
+  for (const field of ['url', 'iconUrl']) {
+    const live = { ...COMMITTED };
+    delete live[field];
+    const result = classifyLive(live);
+
+    assert.equal(result.scope, 'deployment', `missing ${field} must be deployment-scoped`);
+    assert.match(result.reasons.join(' '), new RegExp(`${field}: missing`, 'i'));
+  }
+});
+
+test('a DIFFERENT placeholder host → deployment failure, not excused', () => {
+  const result = classifyLive({ ...COMMITTED, iconUrl: 'https://other.example.org/icon.png' });
+  assert.equal(result.scope, 'deployment');
+  assert.equal(result.matchesCommitted, false);
+});
+
+test('an http:// or relative URL introduced by the deployment → deployment failure', () => {
+  for (const iconUrl of ['http://codersurvival.ru/icon.png', '/icon.png', 'icon.png']) {
+    const result = classifyLive({ ...COMMITTED, iconUrl });
+    assert.equal(result.scope, 'deployment', `${iconUrl} must be deployment-scoped`);
+  }
+});
+
+test('an EXTRA unexpected field → deployment failure even if the defects look familiar', () => {
+  // Structurally different from committed, so it cannot be proven pre-existing.
+  const result = classifyLive({ ...COMMITTED, unexpectedField: 'injected' });
+  assert.equal(result.scope, 'deployment');
+  assert.equal(result.matchesCommitted, false);
+});
+
+test('a changed value in an otherwise-familiar field → deployment failure', () => {
+  const result = classifyLive({ ...COMMITTED, name: 'Something Else' });
+  // name is valid here, so the remaining failures are the 3 example.com URLs —
+  // but the object differs from committed, so they are not excused.
+  assert.equal(result.scope, 'deployment');
+});
+
+test('a FIXED live manifest that still fails validation → deployment failure', () => {
+  // Deployment fixed iconUrl but broke url: not the committed state.
+  const result = classifyLive({
+    ...COMMITTED,
+    iconUrl: 'https://codersurvival.ru/icon.png',
+    url: '',
+  });
+  assert.equal(result.scope, 'deployment');
+  assert.match(result.reasons.join(' '), /url: missing/i);
+});
+
+test('an unreadable committed manifest fails safe → deployment scope', () => {
+  // If the committed manifest cannot be read, there is no proof of a
+  // pre-existing defect, so nothing may be excused.
+  for (const committed of [undefined, null]) {
+    const result = classifyManifestFailure(
+      { ...COMMITTED },
+      committed,
+      evaluateManifest({ ...COMMITTED }),
+    );
+    assert.equal(result.scope, 'deployment');
+    assert.equal(result.matchesCommitted, false);
+  }
+});
+
+test('a passing verdict is never classified as a failure', () => {
+  const live = { url: 'https://t.me/Bot', name: 'X', iconUrl: 'https://codersurvival.ru/i.png' };
+  const result = classifyManifestFailure(live, COMMITTED, evaluateManifest(live));
+  assert.deepEqual(result.reasons, []);
+});
+
+// ── parseManifestJson ──────────────────────────────────────────────────────
+
+test('a UTF-8 BOM does not break parsing or the structural match', () => {
+  // The committed manifest starts with EF BB BF. JSON.parse throws on it, so
+  // both sides are normalised — otherwise the match would fail for a reason
+  // unrelated to the manifest's contents.
+  const withBom = '﻿' + JSON.stringify(COMMITTED);
+  const parsed = parseManifestJson(withBom);
+
+  assert.deepEqual(parsed, COMMITTED);
+  assert.equal(classifyLive(parsed).scope, 'repo', 'BOM must not force a deployment verdict');
+});
+
+test('parseManifestJson returns undefined for unparseable input', () => {
+  for (const value of ['', 'not json', '<html></html>', undefined, null, 42]) {
+    assert.equal(parseManifestJson(value), undefined, `${String(value)} must be undefined`);
+  }
 });
 
 // ── evaluateCorsPreflight ──────────────────────────────────────────────────
