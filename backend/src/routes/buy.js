@@ -8,7 +8,7 @@ import { SHOP_ITEM_EFFECTS } from '../config/balance.js';
 import { armStreakSaver } from '../utils/streak.js';
 import { validate } from '../middleware/validate.js';
 import { buySchema } from '../validation/schemas.js';
-import { requirePaymentsEnabled } from '../config/payments.js';
+import { requirePaymentsEnabled, requireTelegramUser } from '../config/payments.js';
 
 
 
@@ -21,15 +21,14 @@ const router = Router();
  * Body: { item_type: string }
  * item_type: 'energy_refill', 'depression_cure', 'tier_boost', 'streak_protect', 'streak_saver'
  *
- * requirePaymentsEnabled runs before validate() and before any DB work: while
- * payments are disabled no purchase intent row is created, so there is nothing
- * an invoice could later be attached to.
+ * Auth is checked first so an anonymous caller still gets 401 and cannot use
+ * the payment-state response as an oracle. requirePaymentsEnabled then runs
+ * before validate() and before any DB work: while payments are disabled no
+ * purchase intent row is created, so there is nothing an invoice could later
+ * be attached to.
  */
-router.post('/', requirePaymentsEnabled, validate(buySchema), async (req, res, next) => {
+router.post('/', requireTelegramUser, requirePaymentsEnabled, validate(buySchema), async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
-  if (!telegramUser) {
-    return res.status(401).json({ error: 'No user in initData' });
-  }
 
   const { productId } = req.body;
   const item_type = productId;

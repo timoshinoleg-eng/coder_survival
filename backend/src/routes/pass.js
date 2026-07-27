@@ -141,13 +141,23 @@ router.post(['/claim/:level', '/claim'], async (req, res) => {
 /**
  * POST /api/pass/upgrade — unlock the premium sprint pass.
  *
- * requirePaymentsEnabled gates the WHOLE route before pool.connect(), so while
- * payments are disabled there is no DB access and no premium unlock by any
- * currency. Even once payments are enabled, "ton" is refused below.
+ * Auth is checked first (preserving this route's existing 401 message) so the
+ * payment state is not disclosed to anonymous callers. requirePaymentsEnabled
+ * then gates the WHOLE route before pool.connect(), so while payments are
+ * disabled there is no DB access and no premium unlock by any currency. Even
+ * once payments are enabled, "ton" is refused below.
  */
-router.post('/upgrade', requirePaymentsEnabled, async (req, res) => {
+router.post(
+  '/upgrade',
+  (req, res, next) => {
+    if (!req.telegramUser?.user) {
+      return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
+    }
+    return next();
+  },
+  requirePaymentsEnabled,
+  async (req, res) => {
   const telegramUser = req.telegramUser?.user;
-  if (!telegramUser) return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
 
   const { currency = 'stars' } = req.body || {};
 
@@ -244,7 +254,8 @@ router.post('/upgrade', requirePaymentsEnabled, async (req, res) => {
   } finally {
     if (client) client.release();
   }
-});
+  },
+);
 
 router.get('/xp-sources', async (req, res) => {
   const telegramUser = req.telegramUser?.user;

@@ -199,6 +199,34 @@ describe("payment routes fail closed before touching the database", () => {
     expect(connectSpy).not.toHaveBeenCalled();
   });
 
+  test("anonymous callers still get 401 — the gate is not an unauthenticated oracle", async () => {
+    // Auth is checked before the payments gate, so the pre-existing 401
+    // contract holds and the payment state is never disclosed to anonymous
+    // callers. Sending no initData header at all.
+    const server = await new Promise((resolve) => {
+      const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+    });
+    try {
+      const { port } = server.address();
+      for (const path of ["/api/buy", "/api/shop/purchase-deal", "/api/pass/upgrade"]) {
+        const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const text = await response.text();
+        const parsed = text ? JSON.parse(text) : null;
+
+        expect(response.status).toBe(401);
+        expect(parsed?.code).not.toBe("PAYMENTS_DISABLED");
+      }
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+
+    expect(connectSpy).not.toHaveBeenCalled();
+  });
+
   test("non-payment gameplay routes are unaffected by the kill switch", async () => {
     // /api/shop/products is a plain catalog read: it must still answer, and it
     // must advertise the payment state so clients need not guess.
