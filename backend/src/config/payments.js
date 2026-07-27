@@ -73,3 +73,18 @@ export function requirePaymentsEnabled(req, res, next) {
   }
   return next();
 }
+
+/**
+ * Express guard: require an authenticated Telegram user.
+ *
+ * Mounted BEFORE requirePaymentsEnabled on payment routes so an anonymous
+ * caller still receives 401 rather than a payment-state disclosure — the
+ * kill switch must not become an unauthenticated oracle, and the pre-existing
+ * 401 contract for these endpoints is preserved.
+ */
+export function requireTelegramUser(req, res, next) {
+  if (!req.telegramUser?.user) {
+    return res.status(401).json({ error: 'No user in initData' });
+  }
+  return next();
+}
