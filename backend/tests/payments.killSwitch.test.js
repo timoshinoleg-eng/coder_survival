@@ -13,6 +13,8 @@
  * is strictly stronger than proving "DB access rolled back", and it lets these
  * run in the unit-test CI job that has no postgres service.
  */
+// This project runs Jest in ESM mode, where `jest` is not a bare global.
+import { jest } from "@jest/globals";
 import {
   parsePaymentsEnabled,
   arePaymentsEnabled,
@@ -73,12 +75,16 @@ describe("payment routes fail closed before touching the database", () => {
   let pool;
   let connectSpy;
   const originalFlag = process.env.PAYMENTS_ENABLED;
+  const originalBotToken = process.env.BOT_TOKEN;
+  const originalTelegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
 
   beforeAll(async () => {
+    // NODE_ENV must be "test" (not "production") for the no-BOT_TOKEN branch
+    // below to be the dev path rather than a 500.
     process.env.NODE_ENV = "test";
-    // No BOT_TOKEN in this suite: initDataMiddleware then runs in its
-    // dev-mode branch and parses initData without signature validation, so we
-    // can exercise authenticated routes without a real Telegram signature.
+    // With no BOT_TOKEN, initDataMiddleware runs its dev-mode branch and parses
+    // initData without signature validation, so authenticated routes can be
+    // exercised without forging a real Telegram signature.
     delete process.env.BOT_TOKEN;
     delete process.env.TELEGRAM_BOT_TOKEN;
 
@@ -102,6 +108,10 @@ describe("payment routes fail closed before touching the database", () => {
   afterAll(async () => {
     if (originalFlag === undefined) delete process.env.PAYMENTS_ENABLED;
     else process.env.PAYMENTS_ENABLED = originalFlag;
+    if (originalBotToken === undefined) delete process.env.BOT_TOKEN;
+    else process.env.BOT_TOKEN = originalBotToken;
+    if (originalTelegramBotToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = originalTelegramBotToken;
     await pool.end();
   });
 
@@ -201,13 +211,23 @@ describe("payment routes fail closed before touching the database", () => {
   });
 
   test("with PAYMENTS_ENABLED='true' the gate opens and the route proceeds to the DB", async () => {
-    // Proves the gate is a real switch, not a permanent 403 — the request now
-    // gets far enough to attempt a DB connection (which our spy rejects).
+    // Proves the gate is a real switch rather than a permanent 403: the request
+    // now gets past the guard and reaches the DB layer. Our spy throws there,
+    // so the route surfaces a server error — the *status* is incidental; the
+    // meaningful assertion is that pool.connect() was reached at all, and that
+    // the response is not the PAYMENTS_DISABLED refusal.
     process.env.PAYMENTS_ENABLED = "true";
+    // The error handler logs the injected failure; keep the test output clean.
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
-    const res = await request("/api/buy", { body: { productId: "energy_refill" } });
+    try {
+      const res = await request("/api/buy", { body: { productId: "energy_refill" } });
 
-    expect(res.status).not.toBe(403);
-    expect(connectSpy).toHaveBeenCalled();
+      expect(res.status).not.toBe(403);
+      expect(res.body?.code).not.toBe("PAYMENTS_DISABLED");
+      expect(connectSpy).toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
