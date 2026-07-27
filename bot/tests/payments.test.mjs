@@ -18,10 +18,8 @@ import {
 } from '../src/payments.js';
 import { handleInvoiceLinkRequest } from '../src/invoiceLinkHandler.js';
 
-test('parsePaymentsEnabled accepts only the exact string "true"', () => {
-  for (const value of ['true', 'TRUE', 'True', '  true  ']) {
-    assert.equal(parsePaymentsEnabled(value), true, `expected ${JSON.stringify(value)} to enable`);
-  }
+test('parsePaymentsEnabled accepts only the literal lowercase string "true"', () => {
+  assert.equal(parsePaymentsEnabled('true'), true);
 
   const disabled = [
     undefined, null, '', '   ', 'false', '0', '1', 'yes', 'on', 'enabled',
@@ -33,9 +31,23 @@ test('parsePaymentsEnabled accepts only the exact string "true"', () => {
   }
 });
 
+test('case and whitespace near-misses are disabled — the match is literal', () => {
+  // Not normalised on purpose: PAYMENTS_ENABLED=TRUE must fail safe rather than
+  // be guessed into live payments.
+  const nearMisses = [
+    'TRUE', 'True', 'tRuE', 'TrUe',
+    '  true  ', ' true', 'true ', '\ttrue', 'true\n', '\ntrue\t',
+  ];
+  for (const value of nearMisses) {
+    assert.equal(parsePaymentsEnabled(value), false, `expected ${JSON.stringify(value)} to be disabled`);
+  }
+});
+
 test('arePaymentsEnabled reads PAYMENTS_ENABLED from the provided env', () => {
   assert.equal(arePaymentsEnabled({}), false);
   assert.equal(arePaymentsEnabled({ PAYMENTS_ENABLED: 'yes' }), false);
+  assert.equal(arePaymentsEnabled({ PAYMENTS_ENABLED: 'TRUE' }), false);
+  assert.equal(arePaymentsEnabled({ PAYMENTS_ENABLED: ' true ' }), false);
   assert.equal(arePaymentsEnabled({ PAYMENTS_ENABLED: 'true' }), true);
 });
 

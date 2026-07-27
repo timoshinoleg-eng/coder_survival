@@ -55,10 +55,8 @@ function installSpies() {
   return { openInvoiceCalls, fetchCalls, windowOpenCalls };
 }
 
-test('parsePaymentsEnabled accepts only the exact string "true"', () => {
-  for (const value of ['true', 'TRUE', 'True', '  true  ']) {
-    assert.equal(parsePaymentsEnabled(value), true);
-  }
+test('parsePaymentsEnabled accepts only the literal lowercase string "true"', () => {
+  assert.equal(parsePaymentsEnabled('true'), true);
 
   const disabled = [
     undefined, null, '', '   ', 'false', '0', '1', 'yes', 'on', 'enabled',
@@ -66,6 +64,18 @@ test('parsePaymentsEnabled accepts only the exact string "true"', () => {
   ];
   for (const value of disabled) {
     assert.equal(parsePaymentsEnabled(value), false, `expected ${String(value)} to be disabled`);
+  }
+});
+
+test('case and whitespace near-misses are disabled — the match is literal', () => {
+  // A build configured with VITE_PAYMENTS_ENABLED=TRUE must render no payment
+  // controls rather than have the near-miss normalised into an opt-in.
+  const nearMisses = [
+    'TRUE', 'True', 'tRuE', 'TrUe',
+    '  true  ', ' true', 'true ', '\ttrue', 'true\n', '\ntrue\t',
+  ];
+  for (const value of nearMisses) {
+    assert.equal(parsePaymentsEnabled(value), false, `expected ${JSON.stringify(value)} to be disabled`);
   }
 });
 

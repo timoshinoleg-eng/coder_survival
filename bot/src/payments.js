@@ -22,18 +22,18 @@ export const PRE_CHECKOUT_REJECTION_MESSAGE =
   'Платежи временно отключены: некоммерческий тестовый режим. Списание не произошло.';
 
 /**
- * Strict opt-in parser. Only the exact string "true" (trimmed, lowercased)
- * enables payments; everything else — including undefined, "", "1", "yes" and
- * non-strings — is disabled.
+ * Strict opt-in parser: literal comparison against the exact string "true".
+ *
+ * No trimming and no case folding. "TRUE", "True" and "  true  " are all
+ * DISABLED, because a near-miss must fail safe rather than be guessed into an
+ * opt-in. Strict equality also makes this type-safe without a typeof guard: a
+ * number, boolean, object or null can never === a string.
  *
  * @param {unknown} rawValue
  * @returns {boolean}
  */
 export function parsePaymentsEnabled(rawValue) {
-  if (typeof rawValue !== 'string') {
-    return false;
-  }
-  return rawValue.trim().toLowerCase() === 'true';
+  return rawValue === 'true';
 }
 
 /**
