@@ -9,6 +9,7 @@ import { armStreakSaver } from '../utils/streak.js';
 import { validate } from '../middleware/validate.js';
 import { buySchema } from '../validation/schemas.js';
 import { requirePaymentsEnabled, requireTelegramUser } from '../config/payments.js';
+import { purchaseRateLimiter } from '../middleware/apiRateLimit.js';
 
 
 
@@ -27,7 +28,7 @@ const router = Router();
  * purchase intent row is created, so there is nothing an invoice could later
  * be attached to.
  */
-router.post('/', requireTelegramUser, requirePaymentsEnabled, validate(buySchema), async (req, res, next) => {
+router.post('/', purchaseRateLimiter, requireTelegramUser, requirePaymentsEnabled, validate(buySchema), async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
 
   const { productId } = req.body;

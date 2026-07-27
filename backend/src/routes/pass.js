@@ -6,6 +6,7 @@ import {
   PAYMENT_METHOD_UNAVAILABLE_CODE,
   requirePaymentsEnabled,
 } from '../config/payments.js';
+import { purchaseRateLimiter } from '../middleware/apiRateLimit.js';
 
 const router = Router();
 
@@ -149,6 +150,7 @@ router.post(['/claim/:level', '/claim'], async (req, res) => {
  */
 router.post(
   '/upgrade',
+  purchaseRateLimiter,
   (req, res, next) => {
     if (!req.telegramUser?.user) {
       return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });
