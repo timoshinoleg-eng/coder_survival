@@ -9,6 +9,7 @@
     "test": "npm run smoke && node --test tests/*.test.mjs",
     "preview": "vite preview",
     "smoke": "node scripts/frontend-smoke.mjs",
+    "smoke:cloudflare": "node scripts/cloudflare-pages-smoke.mjs",
     "analyze": "vite build --mode analyze"
   },
   "dependencies": {
