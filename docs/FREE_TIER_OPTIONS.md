@@ -78,7 +78,7 @@ updated 2026-07-16), verified 2026-07-27.
 | Vendor lock-in | **Very low.** Plain Vite static output. Migrating away means pointing another static host at the same `frontend/dist`. |
 | Free-quota failure mode | Exceeding 500 builds/month blocks further **builds**; the existing deployment keeps serving. Static asset serving has no published cap to exceed (see above), so traffic growth alone does not break the pilot. |
 | Migration effort | **Low.** Already prepared: `VITE_API_BASE_URL` is now honoured on every host, plus one backend CORS entry. No code rewrite. |
-| Rollback path | **Immediate.** Vercel stays live and untouched; revert the Mini App URL and drop the CORS entry. |
+| Rollback path | **Immediate for the pilot.** Vercel stays live and serving; revert the Mini App URL and drop the Pages CORS entry — no Vercel change needed. (Separately, the API-origin refactor alters Vercel's own routing on its next build; see `docs/CLOUDFLARE_PAGES_PILOT.md` §2/§3a.) |
 | **Verdict** | **ADOPT AS PILOT.** Fits the repository's actual shape: the frontend is genuinely static, so nothing about the backend, database, canvas rendering or cron has to change. |
 
 Repository fit check (measured on this commit): `frontend/public/` contains 8

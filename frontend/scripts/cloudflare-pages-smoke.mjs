@@ -199,6 +199,47 @@ export function evaluateManifestUrl(value, field = 'url') {
 }
 
 /**
+ * Validates a parsed tonconnect-manifest.json object.
+ *
+ * Field contract, per what TON Connect actually consumes:
+ * - `name`   — required, non-empty string (shown in the wallet UI).
+ * - `url`, `iconUrl` — required, and must pass the HTTPS/placeholder check.
+ * - `termsOfUseUrl`, `privacyPolicyUrl` — optional. Absent is fine; present
+ *   means they must pass the *same* validation, because a placeholder link
+ *   surfaced in a wallet is worse than no link at all.
+ *
+ * @param {unknown} manifest Parsed JSON
+ * @returns {{ ok: boolean, reasons: string[] }}
+ */
+export function evaluateManifest(manifest) {
+  const reasons = [];
+
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    return { ok: false, reasons: ['manifest is not a JSON object'] };
+  }
+
+  if (typeof manifest.name !== 'string' || manifest.name.trim() === '') {
+    reasons.push('name: missing or empty (required, shown in the wallet UI)');
+  }
+
+  for (const field of ['url', 'iconUrl']) {
+    const verdict = evaluateManifestUrl(manifest[field], field);
+    if (!verdict.ok) reasons.push(verdict.reason);
+  }
+
+  for (const field of ['termsOfUseUrl', 'privacyPolicyUrl']) {
+    // Optional: only validated when present. `undefined`/`null` are allowed;
+    // an empty string is treated as present-but-broken, since it would render
+    // as a dead link rather than be omitted.
+    if (manifest[field] === undefined || manifest[field] === null) continue;
+    const verdict = evaluateManifestUrl(manifest[field], field);
+    if (!verdict.ok) reasons.push(`${verdict.reason} (optional field, but invalid when present)`);
+  }
+
+  return { ok: reasons.length === 0, reasons };
+}
+
+/**
  * Decides whether a CORS preflight response actually authorises the Pages
  * origin for the requests the app makes.
  *
@@ -249,8 +290,13 @@ export function evaluateCorsPreflight(headers = {}, expected = {}) {
       'Access-Control-Allow-Origin is "*" — the exact Pages origin is not allowlisted, ' +
         'and a wildcard cannot be used with credentialed requests',
     );
-  } else if (allowOrigin.replace(/\/+$/, '') !== wantOrigin.replace(/\/+$/, '')) {
-    reasons.push(`Access-Control-Allow-Origin is "${allowOrigin}", expected "${wantOrigin}"`);
+  } else if (allowOrigin !== wantOrigin) {
+    // Byte-for-byte comparison, deliberately WITHOUT trailing-slash
+    // normalisation. A browser's Origin header never carries a trailing slash,
+    // so `https://host/` is not a value the browser will match against — the
+    // request is blocked. Normalising it away here would report a genuinely
+    // misconfigured backend as working CORS.
+    reasons.push(`Access-Control-Allow-Origin is "${allowOrigin}", expected exactly "${wantOrigin}"`);
   }
 
   // Methods: some servers omit the header on a preflight they nonetheless allow;
@@ -422,22 +468,18 @@ async function checkTonConnectManifest(frontendUrl, timeoutMs) {
     // The manifest is read by Telegram and TON wallets, so placeholder values
     // break wallet connect even though the file itself serves fine. Checked
     // separately from JSON validity so the failure names the real cause.
-    const urlChecks = [
-      ['url', parsed?.url],
-      ['iconUrl', parsed?.iconUrl],
-    ];
-    const bad = urlChecks
-      .map(([field, value]) => evaluateManifestUrl(value, field))
-      .filter((v) => !v.ok);
+    const verdict = evaluateManifest(parsed);
 
-    if (bad.length === 0) {
-      record(true, 'tonconnect manifest URLs are real absolute HTTPS URLs', '');
+    if (verdict.ok) {
+      record(true, 'tonconnect manifest fields are valid', 'name + required HTTPS URLs');
     } else {
       // Scoped as a repo defect: the manifest is committed in frontend/public,
-      // so a placeholder URL fails identically on every host. It is a genuine
+      // so a placeholder value fails identically on every host. It is a genuine
       // blocker for TON wallet connect, but it is not evidence against the
       // deployment being smoke-tested.
-      for (const v of bad) record(false, 'tonconnect manifest URL', v.reason, 'repo');
+      for (const reason of verdict.reasons) {
+        record(false, 'tonconnect manifest field', reason, 'repo');
+      }
     }
   } catch {
     record(false, '/tonconnect-manifest.json reachable', 'request failed');

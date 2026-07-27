@@ -14,6 +14,7 @@ import {
   extractSameOriginAssets,
   evaluateAssetContentType,
   evaluateManifestUrl,
+  evaluateManifest,
   evaluateCorsPreflight,
   parseArgs,
 } from '../scripts/cloudflare-pages-smoke.mjs';
@@ -243,6 +244,102 @@ test('a localhost manifest URL FAILS as a placeholder', () => {
   assert.match(verdict.reason, /placeholder host/i);
 });
 
+// ── evaluateManifest (whole-object contract) ───────────────────────────────
+
+const VALID_MANIFEST = {
+  url: 'https://t.me/CoderSurvivalBot',
+  name: 'Coder Survival',
+  iconUrl: 'https://codersurvival.ru/icon.png',
+};
+
+test('a manifest with name + required URLs passes', () => {
+  const verdict = evaluateManifest(VALID_MANIFEST);
+  assert.equal(verdict.ok, true, verdict.reasons.join('; '));
+});
+
+test('name is required and must be non-empty', () => {
+  for (const name of [undefined, null, '', '   ', 42, {}, []]) {
+    const verdict = evaluateManifest({ ...VALID_MANIFEST, name });
+    assert.equal(verdict.ok, false, `name=${JSON.stringify(name)} must FAIL`);
+    assert.match(verdict.reasons.join(' '), /name: missing or empty/i);
+  }
+});
+
+test('url and iconUrl remain required', () => {
+  for (const field of ['url', 'iconUrl']) {
+    const manifest = { ...VALID_MANIFEST };
+    delete manifest[field];
+    const verdict = evaluateManifest(manifest);
+    assert.equal(verdict.ok, false, `missing ${field} must FAIL`);
+    assert.match(verdict.reasons.join(' '), new RegExp(`${field}: missing`, 'i'));
+  }
+});
+
+test('termsOfUseUrl and privacyPolicyUrl are OPTIONAL when absent', () => {
+  // Absent (or explicitly null) is a pass — these are not required fields.
+  assert.equal(evaluateManifest(VALID_MANIFEST).ok, true);
+  assert.equal(
+    evaluateManifest({ ...VALID_MANIFEST, termsOfUseUrl: undefined, privacyPolicyUrl: null }).ok,
+    true,
+  );
+});
+
+test('optional URLs must pass the SAME validation when present', () => {
+  // A placeholder link surfaced in a wallet is worse than no link at all.
+  for (const field of ['termsOfUseUrl', 'privacyPolicyUrl']) {
+    for (const bad of [
+      'https://coder-survival.example.com/terms',  // placeholder host
+      'http://codersurvival.ru/terms',             // not https
+      '/terms',                                    // relative
+      '',                                          // present but empty
+    ]) {
+      const verdict = evaluateManifest({ ...VALID_MANIFEST, [field]: bad });
+      assert.equal(verdict.ok, false, `${field}=${JSON.stringify(bad)} must FAIL`);
+      assert.match(verdict.reasons.join(' '), /optional field, but invalid when present/i);
+    }
+  }
+});
+
+test('valid optional URLs pass', () => {
+  const verdict = evaluateManifest({
+    ...VALID_MANIFEST,
+    termsOfUseUrl: 'https://codersurvival.ru/terms',
+    privacyPolicyUrl: 'https://codersurvival.ru/privacy',
+  });
+  assert.equal(verdict.ok, true, verdict.reasons.join('; '));
+});
+
+test('all failures are reported together, not just the first', () => {
+  const verdict = evaluateManifest({ name: '', url: '/x', iconUrl: 'http://example.com/i.png' });
+  assert.equal(verdict.ok, false);
+  assert.ok(verdict.reasons.length >= 3, `expected >=3 reasons, got ${verdict.reasons.length}`);
+});
+
+test('a non-object manifest FAILS', () => {
+  for (const value of [null, undefined, 'string', 42, []]) {
+    const verdict = evaluateManifest(value);
+    assert.equal(verdict.ok, false, `${String(value)} must FAIL`);
+    assert.match(verdict.reasons.join(' '), /not a JSON object/i);
+  }
+});
+
+test("the repository's current manifest FAILS on its example.com placeholders", () => {
+  // Mirrors frontend/public/tonconnect-manifest.json as committed on main —
+  // a real, pre-existing blocker rather than a hypothetical.
+  const verdict = evaluateManifest({
+    url: 'https://t.me/CoderSurvivalBot',
+    name: 'Coder Survival',
+    iconUrl: 'https://coder-survival.example.com/icon.png',
+    termsOfUseUrl: 'https://coder-survival.example.com/terms',
+    privacyPolicyUrl: 'https://coder-survival.example.com/privacy',
+  });
+
+  assert.equal(verdict.ok, false);
+  // name and url are fine; the three example.com URLs are not.
+  assert.equal(verdict.reasons.length, 3);
+  assert.match(verdict.reasons.join(' '), /placeholder host/i);
+});
+
 // ── evaluateCorsPreflight ──────────────────────────────────────────────────
 
 const CORS_EXPECTED = {
@@ -325,9 +422,43 @@ test('fails when a different origin is allowed (e.g. only Vercel)', () => {
   assert.match(verdict.reasons.join(' '), /expected/i);
 });
 
-test('tolerates a trailing slash difference in the echoed origin', () => {
+test('a trailing slash in the echoed origin FAILS — the match is literal', () => {
+  // A browser's Origin header never carries a trailing slash, so an
+  // Access-Control-Allow-Origin of "https://host/" does not match and the
+  // request is blocked. Normalising it away would report a misconfigured
+  // backend as working CORS, so this must fail.
   const verdict = evaluateCorsPreflight({
     'access-control-allow-origin': `${PAGES}/`,
+    'access-control-allow-headers': 'content-type, x-telegram-init-data',
+  }, CORS_EXPECTED);
+
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reasons.join(' '), /expected exactly/i);
+});
+
+test('any byte-level difference in the echoed origin FAILS', () => {
+  for (const echoed of [
+    `${PAGES}/`,              // trailing slash
+    `${PAGES}//`,             // doubled trailing slash
+    ` ${PAGES}`,              // leading space
+    `${PAGES} `,              // trailing space
+    PAGES.replace('https', 'http'),          // scheme mismatch
+    PAGES.toUpperCase(),                     // case-changed host
+    `${PAGES}:443`,           // explicit default port
+    'https://coder-survival.pages.dev.evil.com', // suffix attack
+  ]) {
+    const verdict = evaluateCorsPreflight({
+      'access-control-allow-origin': echoed,
+      'access-control-allow-headers': 'content-type, x-telegram-init-data',
+    }, CORS_EXPECTED);
+
+    assert.equal(verdict.ok, false, `"${echoed}" must FAIL`);
+  }
+});
+
+test('the exact expected origin still passes', () => {
+  const verdict = evaluateCorsPreflight({
+    'access-control-allow-origin': PAGES,
     'access-control-allow-headers': 'content-type, x-telegram-init-data',
   }, CORS_EXPECTED);
 

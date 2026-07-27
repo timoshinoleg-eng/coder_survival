@@ -18,7 +18,7 @@ repository owner, who holds the accounts and credentials.
 
 ## 1. Topology: CURRENT LIVE vs CANDIDATE
 
-### CURRENT LIVE (unchanged by this PR)
+### CURRENT LIVE (infrastructure unchanged by this PR — but see §2 for a routing change)
 
 | Component | Where | Notes |
 |---|---|---|
@@ -41,6 +41,10 @@ repository owner, who holds the accounts and credentials.
 **Vercel remains production and the rollback path for the entire pilot.** The
 Pages deployment is additive: adding it does not remove or modify the Vercel
 deployment.
+
+That is true of the *pilot*. It is **not** true of this PR's API-origin refactor,
+which changes how the existing Vercel deployment routes API traffic on its next
+build — see §2 and the owner decision in §3a.
 
 ### What this pilot deliberately does NOT do
 
@@ -231,14 +235,26 @@ The Pages deployment then simply loses API access. It can be left in place
 
    It verifies: HTML 200 and the real app shell (mount point `#app`); every
    same-origin JS/CSS asset returns 200 **with a JS/CSS `Content-Type`**;
-   `/tonconnect-manifest.json` is valid JSON **with real absolute HTTPS URLs**;
-   API `/health` returns `ok`; and a browser-like CORS preflight (with
-   `content-type` and `x-telegram-init-data`) returns **HTTP 2xx** and authorises
-   the **exact** Pages origin. Exit code 0 means all checks passed. It never
-   calls an authenticated economy or payment endpoint.
+   `/tonconnect-manifest.json` is valid JSON with a non-empty `name` and **real
+   absolute HTTPS URLs**; API `/health` returns `ok`; and a browser-like CORS
+   preflight (with `content-type` and `x-telegram-init-data`) returns **HTTP 2xx**
+   and authorises the **exact** Pages origin. It never calls an authenticated
+   economy or payment endpoint.
 
-   Three deliberate strictness rules, each closing a false-pass:
+   **Exit code 0 means every *deployment-scoped* check passed — not that every
+   check passed.** Pre-existing repository defects (§5a) are reported separately,
+   labelled `[pre-existing repo defect]`, and do not affect the exit code. Always
+   read the printed lines, not only the exit status: a run can exit 0 while still
+   listing a repo defect that blocks TON wallet connect.
 
+   Four deliberate strictness rules, each closing a false-pass:
+
+   - The `Access-Control-Allow-Origin` value is compared **byte-for-byte** with
+     the expected origin. A trailing slash, a case change, an explicit `:443` or
+     any extra whitespace is a **FAIL** — a browser's `Origin` header carries
+     none of those, so such a value would not match and the real request would be
+     blocked. Normalising the difference away would report a misconfigured backend
+     as working CORS.
    - A wildcard `Access-Control-Allow-Origin: *` is **FAIL**, not a pass — the
      exact origin must be allowlisted, and a wildcard cannot be used with
      credentialed requests.
@@ -333,6 +349,24 @@ still **exits 0** when every deployment-level check passes. Two reasons:
 
 A **deployment**-scoped failure (HTML, assets, `/health`, CORS) still exits 1.
 
+**So exit 0 is not "all green".** It means the deployment under test is sound. Read
+the printed check lines to see whether any repo defect is still outstanding.
+
+### Manifest field contract enforced by the smoke script
+
+| Field | Required? | Validation when present |
+|---|---|---|
+| `name` | **required** | non-empty string (shown in the wallet UI) |
+| `url` | **required** | absolute HTTPS, non-placeholder host |
+| `iconUrl` | **required** | absolute HTTPS, non-placeholder host |
+| `termsOfUseUrl` | optional | same HTTPS/placeholder validation as above |
+| `privacyPolicyUrl` | optional | same HTTPS/placeholder validation as above |
+
+Absent optional fields are a pass. Present-but-invalid ones are a failure: a dead
+or placeholder link surfaced inside a wallet is worse than no link at all. All
+failures are reported together, so one run shows every problem rather than only
+the first.
+
 Measured baseline against current production on 2026-07-27:
 `5/5 deployment checks passed, exit 0`, with this manifest defect reported
 separately.
@@ -354,10 +388,24 @@ Abort the pilot and revert to Vercel if any of the following is observed:
 - any requirement to add a credit card, which would violate the owner's
   zero-cost rule.
 
-**Rollback procedure:** revert the Telegram Mini App URL to the Vercel URL (if it
-was changed), remove the Pages origin from `CORS_ALLOWED_ORIGINS` and restart the
-backend (§4), and optionally delete the Pages project. Because Vercel was never
-modified, no redeploy or rebuild of production is required.
+**Rollback procedure:**
+
+1. Revert the Telegram Mini App URL to the Vercel URL, if it was changed.
+2. Remove the Pages origin from `CORS_ALLOWED_ORIGINS` and restart the backend
+   (§4).
+3. Optionally delete the Pages project.
+4. **If §3a option B was taken** (i.e. `VITE_API_BASE_URL` was left set in Vercel
+   so production moved to direct cross-origin): clearing it and redeploying
+   Vercel is a *separate* rollback with its own step. Restoring the same-origin
+   rewrite behaviour requires a Vercel **rebuild**, because the value is inlined
+   at build time.
+
+**On "Vercel is untouched":** the Pages *pilot* does not modify Vercel — steps
+1–3 above need no Vercel change, so pilot rollback is immediate. But this PR's
+API-origin refactor **does** change Vercel's routing on its next build (§2), and
+§3a is an owner action inside the Vercel dashboard. So Vercel is untouched *by the
+pilot*, not untouched *by this PR*. Treat the §3a decision as its own change with
+its own rollback, and do not assume production needs no redeploy after merge.
 
 ---
 
