@@ -4,6 +4,7 @@ import { apiRequest } from '../utils/api.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { useColdGameState } from '../hooks/useGameState.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
+import { arePaymentsEnabled, PAYMENTS_DISABLED_SHORT } from '../utils/payments.js';
 import { formatRewardPayload } from '../utils/rewardFormatting.js';
 
 function premiumRewardHasPendingCosmetics(payload = {}) {
@@ -228,21 +229,25 @@ export default function SprintPassPanel({ open, onClose }) {
           h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track'),
           h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, `Откройте эксклюзивные награды${premiumPassPrice ? ` · плановая цена ⭐ ${premiumPassPrice}` : ''}`)
         ]),
-        h('button', {
-          onClick: handleUnlockPremium,
-          disabled: unlockingPremium,
-          style: {
-            padding: '6px 10px',
-            borderRadius: '6px',
-            border: 'none',
-            background: unlockingPremium ? '#274267' : '#facc15',
-            color: unlockingPremium ? '#8ba1bb' : '#1a1a2e',
-            fontWeight: 'bold',
-            fontSize: '11px',
-            cursor: unlockingPremium ? 'not-allowed' : 'pointer',
-            whiteSpace: 'nowrap'
-          }
-        }, unlockingPremium ? '...' : `⭐ ${premiumPassPrice || 499} Купить`)
+        arePaymentsEnabled()
+          ? h('button', {
+            onClick: handleUnlockPremium,
+            disabled: unlockingPremium,
+            style: {
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: 'none',
+              background: unlockingPremium ? '#274267' : '#facc15',
+              color: unlockingPremium ? '#8ba1bb' : '#1a1a2e',
+              fontWeight: 'bold',
+              fontSize: '11px',
+              cursor: unlockingPremium ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap'
+            }
+          }, unlockingPremium ? '...' : `⭐ ${premiumPassPrice || 499} Купить`)
+          : h('div', {
+            style: { fontSize: '10px', color: '#9eb6d2', maxWidth: '120px', textAlign: 'right' }
+          }, PAYMENTS_DISABLED_SHORT)
       ])
     ]),
 

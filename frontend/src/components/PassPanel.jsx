@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useColdGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
+import { arePaymentsEnabled, PAYMENTS_DISABLED_SHORT } from '../utils/payments.js';
 import { Analytics } from '../utils/analytics.js';
 import Confetti from './Confetti.jsx';
 
@@ -252,22 +253,26 @@ export default function PassPanel() {
         h('div', { style: { color: '#facc15', fontWeight: 'bold', fontSize: '12px' } }, 'Premium Track'),
         h('div', { style: { color: '#c7ddf5', fontSize: '11px' } }, 'Откройте эксклюзивные награды · ⭐ 499')
       ]),
-      h('button', {
-        type: 'button',
-        onClick: handleBuyPremium,
-        disabled: buyingPremium,
-        style: {
-          padding: '8px 10px',
-          borderRadius: '6px',
-          border: 'none',
-          background: buyingPremium ? '#274267' : '#facc15',
-          color: buyingPremium ? '#8ba1bb' : '#1a1a2e',
-          fontWeight: 'bold',
-          fontSize: '11px',
-          cursor: buyingPremium ? 'not-allowed' : 'pointer',
-          whiteSpace: 'nowrap'
-        }
-      }, buyingPremium ? '...' : '⭐ 499 Купить')
+      arePaymentsEnabled()
+        ? h('button', {
+          type: 'button',
+          onClick: handleBuyPremium,
+          disabled: buyingPremium,
+          style: {
+            padding: '8px 10px',
+            borderRadius: '6px',
+            border: 'none',
+            background: buyingPremium ? '#274267' : '#facc15',
+            color: buyingPremium ? '#8ba1bb' : '#1a1a2e',
+            fontWeight: 'bold',
+            fontSize: '11px',
+            cursor: buyingPremium ? 'not-allowed' : 'pointer',
+            whiteSpace: 'nowrap'
+          }
+        }, buyingPremium ? '...' : '⭐ 499 Купить')
+        : h('div', {
+          style: { fontSize: '10px', color: '#9eb6d2', maxWidth: '120px', textAlign: 'right' }
+        }, PAYMENTS_DISABLED_SHORT)
     ]),
 
     // Expanded 50-level track

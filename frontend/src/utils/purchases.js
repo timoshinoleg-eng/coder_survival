@@ -1,8 +1,18 @@
 import { apiRequest } from './api.js';
+import { PaymentsDisabledError, arePaymentsEnabled } from './payments.js';
 
 const BOT_INVOICE_LINK_URL = 'https://coder-survival-bot.vercel.app/api/invoice-link';
 
 async function openInvoiceLink(itemType, payload, invoicePayload) {
+  // Guard inside the invoice opener itself, not only at the exported entry
+  // points: this is the one function that can reach Telegram's openInvoice, so
+  // refusing here keeps it unreachable even if a future caller forgets to
+  // check. Thrown BEFORE the network request — no invoice is created and none
+  // can be opened.
+  if (!arePaymentsEnabled()) {
+    throw new PaymentsDisabledError();
+  }
+
   const invoiceResponse = await fetch(BOT_INVOICE_LINK_URL, {
     method: 'POST',
     headers: {
@@ -56,6 +66,11 @@ async function openInvoiceLink(itemType, payload, invoicePayload) {
 }
 
 export async function startTelegramPurchase(itemType, initData) {
+  // Refuse before the API call so no purchase intent is even requested.
+  if (!arePaymentsEnabled()) {
+    throw new PaymentsDisabledError();
+  }
+
   const payload = await apiRequest('/api/buy', {
     method: 'POST',
     initData,
@@ -66,6 +81,10 @@ export async function startTelegramPurchase(itemType, initData) {
 }
 
 export async function startDealPurchase(dealType, initData) {
+  if (!arePaymentsEnabled()) {
+    throw new PaymentsDisabledError();
+  }
+
   const payload = await apiRequest('/api/shop/purchase-deal', {
     method: 'POST',
     initData,
