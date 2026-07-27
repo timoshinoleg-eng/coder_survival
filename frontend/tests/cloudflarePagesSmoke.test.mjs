@@ -12,6 +12,8 @@ import assert from 'node:assert/strict';
 import {
   validateBaseUrl,
   extractSameOriginAssets,
+  evaluateAssetContentType,
+  evaluateManifestUrl,
   evaluateCorsPreflight,
   parseArgs,
 } from '../scripts/cloudflare-pages-smoke.mjs';
@@ -74,7 +76,7 @@ test('extracts hashed JS and CSS bundles from built HTML', () => {
   const html = `<!DOCTYPE html><html><head>
     <script type="module" crossorigin src="/assets/index-a1b2c3.js"></script>
     <link rel="stylesheet" href="/assets/index-d4e5f6.css">
-  </head><body><div id="root"></div></body></html>`;
+  </head><body><div id="app"></div></body></html>`;
 
   const assets = extractSameOriginAssets(html, PAGES);
   assert.deepEqual(assets.sort(), [
@@ -139,13 +141,149 @@ test('skips data: URIs and unparseable src values', () => {
   assert.deepEqual(extractSameOriginAssets(html, PAGES), [`${PAGES}/assets/real.js`]);
 });
 
+// ── evaluateAssetContentType ───────────────────────────────────────────────
+
+test('an HTML 200 in place of a missing JS bundle FAILS (SPA fallback)', () => {
+  // The core case: a single-page host rewrites unknown paths to index.html and
+  // answers a missing bundle with HTTP 200 + text/html. A status-only check would
+  // call that a pass and ship a broken deployment.
+  const verdict = evaluateAssetContentType(
+    `${PAGES}/assets/index-a1b2c3.js`,
+    'text/html; charset=utf-8',
+  );
+
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /SPA fallback/i);
+});
+
+test('an HTML 200 in place of a missing CSS file also FAILS', () => {
+  const verdict = evaluateAssetContentType(`${PAGES}/assets/index-d4e5f6.css`, 'text/html');
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /SPA fallback/i);
+});
+
+test('correct JavaScript content types pass', () => {
+  for (const ct of [
+    'application/javascript',
+    'application/javascript; charset=utf-8',
+    'text/javascript',
+    'application/ecmascript',
+    'APPLICATION/JAVASCRIPT',
+  ]) {
+    const verdict = evaluateAssetContentType(`${PAGES}/assets/app.js`, ct);
+    assert.equal(verdict.ok, true, `${ct} should pass: ${verdict.reason || ''}`);
+  }
+});
+
+test('.mjs is treated as JavaScript', () => {
+  assert.equal(evaluateAssetContentType(`${PAGES}/a.mjs`, 'text/javascript').ok, true);
+});
+
+test('correct CSS content types pass', () => {
+  for (const ct of ['text/css', 'text/css; charset=utf-8', 'TEXT/CSS']) {
+    const verdict = evaluateAssetContentType(`${PAGES}/assets/app.css`, ct);
+    assert.equal(verdict.ok, true, `${ct} should pass: ${verdict.reason || ''}`);
+  }
+});
+
+test('a CSS file served as JavaScript FAILS, and vice versa', () => {
+  assert.equal(evaluateAssetContentType(`${PAGES}/a.css`, 'application/javascript').ok, false);
+  assert.equal(evaluateAssetContentType(`${PAGES}/a.js`, 'text/css').ok, false);
+});
+
+test('other non-asset content types FAIL — json, plain text, octet-stream', () => {
+  for (const ct of ['application/json', 'text/plain', 'application/octet-stream', 'image/png']) {
+    const verdict = evaluateAssetContentType(`${PAGES}/assets/app.js`, ct);
+    assert.equal(verdict.ok, false, `${ct} must FAIL`);
+  }
+});
+
+test('a missing Content-Type header FAILS', () => {
+  const verdict = evaluateAssetContentType(`${PAGES}/assets/app.js`, null);
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /no Content-Type/i);
+});
+
+// ── evaluateManifestUrl ────────────────────────────────────────────────────
+
+test('example.com placeholder manifest URLs FAIL', () => {
+  // The manifest currently shipped in frontend/public uses example.com
+  // placeholders — a real, pre-existing pilot blocker this check surfaces.
+  for (const url of [
+    'https://coder-survival.example.com/icon.png',
+    'https://example.com/terms',
+    'https://sub.example.org/x',
+    'https://example.net/y',
+  ]) {
+    const verdict = evaluateManifestUrl(url, 'iconUrl');
+    assert.equal(verdict.ok, false, `${url} must FAIL`);
+    assert.match(verdict.reason, /placeholder host/i);
+  }
+});
+
+test('a real absolute HTTPS manifest URL passes', () => {
+  assert.equal(evaluateManifestUrl('https://t.me/CoderSurvivalBot', 'url').ok, true);
+  assert.equal(evaluateManifestUrl('https://codersurvival.ru/icon.png', 'iconUrl').ok, true);
+});
+
+test('non-HTTPS, relative, and missing manifest URLs FAIL', () => {
+  assert.match(evaluateManifestUrl('http://codersurvival.ru', 'url').reason, /must be https/i);
+  assert.match(evaluateManifestUrl('/icon.png', 'iconUrl').reason, /not an absolute URL/i);
+  assert.match(evaluateManifestUrl('', 'url').reason, /missing/i);
+  assert.match(evaluateManifestUrl(undefined, 'url').reason, /missing/i);
+  // "localhost:5173" parses as scheme "localhost:", so it is rejected by the
+  // https check rather than the parser — either way it cannot pass.
+  assert.match(evaluateManifestUrl('localhost:5173', 'url').reason, /must be https/i);
+  assert.equal(evaluateManifestUrl('not a url at all', 'url').ok, false);
+});
+
+test('a localhost manifest URL FAILS as a placeholder', () => {
+  const verdict = evaluateManifestUrl('https://localhost/icon.png', 'iconUrl');
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.reason, /placeholder host/i);
+});
+
 // ── evaluateCorsPreflight ──────────────────────────────────────────────────
 
 const CORS_EXPECTED = {
   origin: PAGES,
   method: 'POST',
   requestHeaders: ['content-type', 'x-telegram-init-data'],
+  status: 204,
 };
+
+const GOOD_CORS_HEADERS = {
+  'access-control-allow-origin': PAGES,
+  'access-control-allow-methods': 'GET,POST,OPTIONS',
+  'access-control-allow-headers': 'Content-Type, X-Telegram-Init-Data',
+};
+
+test('a non-2xx preflight FAILS even with perfectly correct CORS headers', () => {
+  // Browsers reject a non-2xx preflight regardless of the headers on it. If this
+  // returned ok, an auth wall, a missing route or a 500 would be reported as
+  // working CORS — exactly the false pass this check must prevent.
+  for (const status of [301, 302, 400, 401, 403, 404, 405, 500, 502, 503]) {
+    const verdict = evaluateCorsPreflight(GOOD_CORS_HEADERS, { ...CORS_EXPECTED, status });
+    assert.equal(verdict.ok, false, `HTTP ${status} must FAIL`);
+    assert.match(verdict.reasons.join(' '), new RegExp(`HTTP ${status}`));
+    assert.match(verdict.reasons.join(' '), /2xx/);
+  }
+});
+
+test('every 2xx status is accepted when the headers are correct', () => {
+  for (const status of [200, 204, 206, 299]) {
+    const verdict = evaluateCorsPreflight(GOOD_CORS_HEADERS, { ...CORS_EXPECTED, status });
+    assert.equal(verdict.ok, true, `HTTP ${status} should pass: ${verdict.reasons.join('; ')}`);
+  }
+});
+
+test('a missing or non-numeric preflight status FAILS rather than being assumed ok', () => {
+  for (const status of [undefined, null, 'ok', NaN, Infinity]) {
+    const verdict = evaluateCorsPreflight(GOOD_CORS_HEADERS, { ...CORS_EXPECTED, status });
+    assert.equal(verdict.ok, false, `status ${String(status)} must FAIL`);
+    assert.match(verdict.reasons.join(' '), /status unknown/i);
+  }
+});
 
 test('passes when the exact origin and both required headers are allowed', () => {
   const verdict = evaluateCorsPreflight({

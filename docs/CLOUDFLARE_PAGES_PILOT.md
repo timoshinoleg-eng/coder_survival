@@ -2,8 +2,14 @@
 
 **Status: PREPARED, NOT DEPLOYED.** This document and the accompanying code
 changes prepare the repository for a Cloudflare Pages pilot of the static
-frontend. No Cloudflare project exists, nothing has been deployed, and no
-provider, DNS, Telegram or backend setting has been changed by automation.
+frontend. **This PR did not create a Cloudflare project**, deployed nothing, and
+changed no provider, DNS, Telegram or backend setting. (Whether some Cloudflare
+project already exists in the owner's account is not something this repository can
+observe, so no claim is made about that.)
+
+> **Read §2 before merging.** The API-origin refactor changes how the **existing
+> Vercel production deployment** routes API traffic, because that deployment has
+> `VITE_API_BASE_URL` set. §3a describes the owner decision required.
 
 Everything below marked **OWNER STEP** must be performed manually by the
 repository owner, who holds the accounts and credentials.
@@ -17,7 +23,7 @@ repository owner, who holds the accounts and credentials.
 | Component | Where | Notes |
 |---|---|---|
 | Frontend | **Vercel** — `https://frontend-ashy-alpha-77.vercel.app` | project `prj_6HewqIVhYFQFgim5yQPJjvz6ucHa`, team `olegs-projects-bfc4e11a` |
-| Frontend → API routing | `frontend/vercel.json` rewrites | `/api/*` and `/health` → `https://coder-survival-api.duckdns.org` |
+| Frontend → API routing | `frontend/vercel.json` rewrites (**today**) | `/api/*` and `/health` → `https://coder-survival-api.duckdns.org`. `VITE_API_BASE_URL` **is set** in the project but is currently suppressed by the old hostname check — see §2/§3a |
 | Backend API | **Vultr** — `https://coder-survival-api.duckdns.org` | Express + PostgreSQL |
 | Bot | **Vercel** webhook | `https://coder-survival-bot.vercel.app/api/invoice-link` |
 | Payments | **Disabled** (fail-closed) | `PAYMENTS_ENABLED` / `VITE_PAYMENTS_ENABLED` absent |
@@ -62,8 +68,53 @@ Trailing slashes are stripped, so a configured origin can never produce `//api`.
 There is no Cloudflare-specific branch — there is no hostname input at all, which
 is what stops the two providers from drifting apart.
 
-**Vercel is unaffected:** with the variable empty (its current state), behaviour
-is byte-for-byte the same as before.
+### ⚠️ This refactor DOES change Vercel's API routing — action required
+
+**Vercel is not unaffected, and its `VITE_API_BASE_URL` is not empty.** The live
+production bundle at `https://frontend-ashy-alpha-77.vercel.app` was inspected
+(read-only) and contains the API origin baked in at build time:
+
+```js
+// live /assets/index-DyLBtWZN.js, minified:
+const nm = "https://coder-survival-api.duckdns.org",
+      rm = typeof window < "u" && window.location.hostname.endsWith(".vercel.app") ? "" : nm;
+```
+
+So today `VITE_API_BASE_URL` **is set** in the Vercel project, and the old
+hostname check is the only thing suppressing it — on a `*.vercel.app` host the
+origin collapses to `""` and the `vercel.json` rewrites do the routing.
+
+**Removing that hostname check means the variable will be honoured.** The next
+Vercel build after this PR merges will therefore send API requests **directly
+cross-origin** to `https://coder-survival-api.duckdns.org` instead of through the
+same-origin rewrites. That is a real behavioural change to production, not a
+no-op.
+
+Consequences to weigh:
+
+- The rewrites in `frontend/vercel.json` stop being used for `/api/*`.
+- Requests become cross-origin, so the Vercel origin **must** be present in the
+  backend CORS allowlist (see §4 — and note the `*.vercel.app` fallback side
+  effect there, which becomes load-bearing rather than incidental).
+- `Origin` headers and browser preflights now apply to production traffic that
+  previously had none.
+
+### OWNER STEP §3a — decide Vercel's `VITE_API_BASE_URL` before/with merge
+
+Pick one, deliberately:
+
+| Option | Action | Result |
+|---|---|---|
+| **A — preserve today's routing (lower risk)** | **Delete / clear `VITE_API_BASE_URL`** in the Vercel project (Production **and** Preview), then redeploy | Same-origin `/api/...` via `vercel.json` rewrites, exactly as production behaves today |
+| **B — accept direct cross-origin** | Leave the variable set | Vercel joins Pages in calling the API directly; requires the Vercel origin in `CORS_ALLOWED_ORIGINS` and a CORS/`initData` re-test of production |
+
+Option **A** is recommended for merging this PR, because it keeps the frontend
+refactor and any production routing change as two separate, independently
+reversible decisions.
+
+This is an **owner action in the Vercel dashboard**; it was not performed by
+automation, and no Vercel setting was read or written beyond fetching the public
+production bundle over HTTPS.
 
 ---
 
@@ -153,8 +204,23 @@ The Pages deployment then simply loses API access. It can be left in place
 
 1. **Build.** Confirm CI is green on `main`, or run `npm ci && npm run build` in
    `frontend/` locally. Output goes to `frontend/dist`.
-2. **OWNER STEP — create the Pages project** per §3. Wait for the first build.
-3. **Run the smoke script** (repeatable, dependency-free, read-only):
+2. **OWNER STEP — create the Pages project** per §3. Wait for the first build,
+   then note the stable `*.pages.dev` project URL.
+3. **OWNER STEP — configure and restart the backend CORS allowlist** per §4,
+   using the URL from step 2, **before** running the smoke script.
+
+   This ordering matters: the smoke script's CORS check requires the API to
+   authorise the exact Pages origin. Running it first would produce a guaranteed
+   CORS failure that says nothing about the deployment — and inviting the
+   operator to "expect one failure" is exactly how a real CORS regression gets
+   waved through later.
+
+4. **OWNER STEP — decide the Vercel `VITE_API_BASE_URL` question** per §3a, if it
+   has not been settled already. This is independent of the Pages pilot but is
+   triggered by the same refactor, so settle it before treating any smoke result
+   as a baseline.
+
+5. **Run the smoke script** (repeatable, dependency-free, read-only):
 
    ```
    cd frontend
@@ -163,17 +229,36 @@ The Pages deployment then simply loses API access. It can be left in place
      --api https://coder-survival-api.duckdns.org
    ```
 
-   It verifies: HTML 200 and the real app shell; every same-origin JS/CSS asset
-   loads; `/tonconnect-manifest.json` is valid JSON; API `/health` returns `ok`;
-   and a browser-like CORS preflight (with `content-type` and
-   `x-telegram-init-data`) authorises the **exact** Pages origin. Exit code 0
-   means all checks passed. It never calls an authenticated economy or payment
-   endpoint.
+   It verifies: HTML 200 and the real app shell (mount point `#app`); every
+   same-origin JS/CSS asset returns 200 **with a JS/CSS `Content-Type`**;
+   `/tonconnect-manifest.json` is valid JSON **with real absolute HTTPS URLs**;
+   API `/health` returns `ok`; and a browser-like CORS preflight (with
+   `content-type` and `x-telegram-init-data`) returns **HTTP 2xx** and authorises
+   the **exact** Pages origin. Exit code 0 means all checks passed. It never
+   calls an authenticated economy or payment endpoint.
 
-   A wildcard `Access-Control-Allow-Origin: *` is reported as **FAIL**, not a
-   pass — the exact origin is what must be allowlisted.
+   Three deliberate strictness rules, each closing a false-pass:
 
-4. **Manual network testing.** The smoke script runs from wherever you invoke it;
+   - A wildcard `Access-Control-Allow-Origin: *` is **FAIL**, not a pass — the
+     exact origin must be allowlisted, and a wildcard cannot be used with
+     credentialed requests.
+   - A **non-2xx preflight is FAIL even when its CORS headers look correct**.
+     Browsers reject a non-2xx preflight regardless of headers, so a 401/404/500
+     carrying permissive headers is a broken API, not working CORS.
+   - An asset answering **HTTP 200 with `text/html`** is **FAIL**. That is the
+     SPA-fallback signature: the host rewrote a missing bundle to `index.html`,
+     which a status-only check would report as success.
+
+   The same script can be pointed at the **current Vercel deployment** to
+   establish a control baseline before the pilot:
+
+   ```
+   npm run smoke:cloudflare -- \
+     --frontend https://frontend-ashy-alpha-77.vercel.app \
+     --api https://coder-survival-api.duckdns.org
+   ```
+
+6. **Manual network testing.** The smoke script runs from wherever you invoke it;
    it cannot tell you what a user on a given network sees. Test the Pages URL in
    a browser from at least:
    - one fixed Russian ISP;
@@ -182,7 +267,7 @@ The Pages deployment then simply loses API access. It can be left in place
    - Telegram **Android** client;
    - Telegram **Desktop** client.
 
-5. **Record for each network/client:**
+7. **Record for each network/client:**
    - initial HTML load (success/failure, and any interstitial or challenge page);
    - static asset failures (count and which);
    - API + CORS result;
@@ -194,12 +279,63 @@ The Pages deployment then simply loses API access. It can be left in place
    otherwise a general network problem is indistinguishable from a
    provider-specific one.
 
-6. **Only after static and browser acceptance passes** may the owner *temporarily*
+8. **Only after static and browser acceptance passes** may the owner *temporarily*
    point the Telegram Mini App URL at the Pages deployment. That is a separate,
    deliberate, owner-only action — not part of this PR.
 
-7. **Keep the Vercel URL live and reachable throughout**, so reverting the Mini
+9. **Keep the Vercel URL live and reachable throughout**, so reverting the Mini
    App URL is an immediate rollback with no rebuild.
+
+---
+
+## 5a. PRE-EXISTING BLOCKER — tonconnect-manifest.json placeholders
+
+`frontend/public/tonconnect-manifest.json` ships placeholder URLs on `main`
+today. This is **not** caused by this PR and is **not** fixed by it:
+
+```json
+{"url":"https://t.me/CoderSurvivalBot","name":"Coder Survival",
+ "iconUrl":"https://coder-survival.example.com/icon.png",
+ "termsOfUseUrl":"https://coder-survival.example.com/terms",
+ "privacyPolicyUrl":"https://coder-survival.example.com/privacy"}
+```
+
+`coder-survival.example.com` is an RFC 2606 reserved domain that resolves
+nowhere. TON Connect reads this manifest, so wallet connect cannot work correctly
+from **any** host — Vercel today included. The smoke script therefore reports it
+as **FAIL** on both the Pages pilot and the Vercel control baseline.
+
+**This is a genuine pilot blocker for anything involving TON wallet connect, and
+it is deliberately left unfixed here.** Inventing a production URL would be
+fabricating infrastructure the owner has not confirmed, and this PR must not
+change providers or domains.
+
+**OWNER DECISION required** (separate from this PR):
+- supply the real hosted URLs for `iconUrl`, `termsOfUseUrl`, `privacyPolicyUrl`
+  and update the manifest, **or**
+- accept that TON wallet connect is out of scope for the pilot and evaluate only
+  the non-wallet paths, treating this one smoke failure as a known, documented
+  exception rather than a Pages regression.
+
+Do not paper over it by relaxing the smoke check: the check exists so this is
+visible rather than silently broken.
+
+**How the smoke script scopes this.** A manifest placeholder is a *repository*
+defect, not a deployment defect — it fails identically on Vercel and on Pages. The
+script therefore labels it `[pre-existing repo defect]`, reports it separately, and
+still **exits 0** when every deployment-level check passes. Two reasons:
+
+- treating it as a deployment failure would make a healthy Pages deployment
+  indistinguishable from a broken one for as long as the manifest stays unfixed,
+  which trains the operator to ignore the exit code;
+- the pilot's whole purpose is comparing Pages against a Vercel control, and a
+  defect present in both tells you nothing about either.
+
+A **deployment**-scoped failure (HTML, assets, `/health`, CORS) still exits 1.
+
+Measured baseline against current production on 2026-07-27:
+`5/5 deployment checks passed, exit 0`, with this manifest defect reported
+separately.
 
 ---
 

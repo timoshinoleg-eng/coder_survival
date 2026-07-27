@@ -66,7 +66,7 @@ updated 2026-07-16), verified 2026-07-27.
 | Field | Finding |
 |---|---|
 | Free quota | **500 builds/month**; **1 concurrent build**; **100 custom domains/project**; **20,000 files/deployment**; **25 MiB max single file** |
-| Bandwidth | **UNKNOWN.** The limits page does not state a bandwidth cap, nor does it state that static asset bandwidth is unmetered. Widely repeated claims of "unlimited bandwidth" were **not** found on the official limits page and are therefore not asserted here. |
+| Static asset requests | **VERIFIED free and unlimited.** <https://developers.cloudflare.com/pages/functions/pricing/> (updated 2026-04-21): *"On both free and paid plans, requests to static assets are free and unlimited. A request is considered static when it does not invoke Functions."* This pilot serves **only** static assets (no Pages Functions), so it sits entirely inside that allowance. Requests that invoke Functions are **not** covered and would count against the Workers Free 100,000/day quota. |
 | Card requirement | **UNKNOWN** — neither the limits page nor the linked pricing page addresses whether signup requires a card. **OWNER TEST REQUIRED.** |
 | Access from Russia | **OWNER TEST REQUIRED** — the entire point of the pilot's manual network testing |
 | Long-running Node | No — and not needed; Pages serves static assets only |
@@ -76,7 +76,7 @@ updated 2026-07-16), verified 2026-07-27.
 | Connection pooling | Not applicable |
 | Data/export path | Source of truth is this Git repository; the build is reproducible anywhere |
 | Vendor lock-in | **Very low.** Plain Vite static output. Migrating away means pointing another static host at the same `frontend/dist`. |
-| Free-quota failure mode | Exceeding 500 builds/month blocks further **builds**; the existing deployment keeps serving. Behaviour on any bandwidth limit is **UNKNOWN** (see above). |
+| Free-quota failure mode | Exceeding 500 builds/month blocks further **builds**; the existing deployment keeps serving. Static asset serving has no published cap to exceed (see above), so traffic growth alone does not break the pilot. |
 | Migration effort | **Low.** Already prepared: `VITE_API_BASE_URL` is now honoured on every host, plus one backend CORS entry. No code rewrite. |
 | Rollback path | **Immediate.** Vercel stays live and untouched; revert the Mini App URL and drop the CORS entry. |
 | **Verdict** | **ADOPT AS PILOT.** Fits the repository's actual shape: the frontend is genuinely static, so nothing about the backend, database, canvas rendering or cron has to change. |
@@ -108,14 +108,14 @@ Verified 2026-07-27.
 | Long-running Node | **No.** Workers are V8 isolates, not Node processes. There is no persistent process between requests. |
 | Native `@napi-rs/canvas` | **No.** `nodejs_compat` provides a *subset of Node.js APIs* as built-ins/polyfills; the docs describe JS-level compatibility only and no `.node` binary execution. This rules out the meme/GIF renderers on Workers under **any** plan. |
 | Cron jobs | Yes — 5 cron triggers on Free |
-| PostgreSQL transactions | Possible in principle via `connect()` from `cloudflare:sockets` (the TCP docs use port 5432 as their example), but **not practical on Free**: sockets "cannot be created in global scope and shared across requests", so every invocation pays a fresh TCP+TLS handshake inside a 10 ms CPU budget. Cloudflare's own recommendation is Hyperdrive, which **requires the Workers Paid plan**. |
-| Connection pooling | Not on Free — Hyperdrive is paid |
+| PostgreSQL transactions | **Reachable on Free via Hyperdrive.** Raw `connect()` from `cloudflare:sockets` exists but sockets "cannot be created in global scope and shared across requests", so each invocation would pay a fresh TCP+TLS handshake inside the 10 ms Free CPU budget. Hyperdrive removes that problem and **is available on Free** — corrected from an earlier revision of this document, which wrongly said it was Paid-only. |
+| Connection pooling | **Included on Free via Hyperdrive.** <https://developers.cloudflare.com/hyperdrive/platform/pricing/> (updated 2026-06-18): *"Hyperdrive is included in both the Free and Paid Workers plans"*, and *"Hyperdrive's built-in cache and connection pooling are included within the stated plans above."* Free quota: **100,000 database queries/day** (resetting 00:00 UTC), up to **10** configured databases. |
 | Data/export path | Source stays in Git; no data stored in the Worker |
 | Vendor lock-in | **Medium.** Worker-specific request/response idioms and `wrangler` config, though a thin allowlisted proxy would stay small and portable. |
 | Free-quota failure mode | Requests beyond 100k/day are rejected until the UTC reset — a hard outage for whatever depends on it |
 | Migration effort | Low for a *bot webhook* (the bot is already a stateless HTTP handler). Medium for an API gateway. **Very high / infeasible** for the API itself, because of canvas and the persistent-connection model. |
 | Rollback path | Bot: re-point the Telegram webhook at the existing Vercel handler |
-| **Verdict** | **DEFER.** Plausible later for the bot webhook or a closed allowlisted gateway. **Rejected outright as a host for the Express API** — native canvas cannot run there, and Free lacks a usable PostgreSQL pooling story. Not part of this PR. |
+| **Verdict** | **DEFER.** Plausible later for the bot webhook or a closed allowlisted gateway — and more plausible than an earlier revision of this document suggested, since Hyperdrive brings real PostgreSQL pooling to Free. Still **rejected as a host for the Express API**, for a reason Hyperdrive does not address: native `@napi-rs/canvas` cannot run on Workers under any plan, and the meme/GIF renderers depend on it. Not part of this PR. |
 
 Explicitly **not** asserted: that a Worker proxy would reliably reach Telegram, or
 that cold starts are zero. Neither is stated officially and neither has been
@@ -162,9 +162,14 @@ Verified 2026-07-27.
   Cloudflare's managed, serverless database with SQLite's SQL semantics."*
 - **Verdict: REJECTED.** This repository has 58+ PostgreSQL migrations using
   PostgreSQL-specific features (`JSONB` with `jsonb_set`, `SERIAL`, `TIMESTAMPTZ`,
-  `FOR UPDATE`, `ON CONFLICT`, `INTERVAL` arithmetic). Adopting D1 means rewriting
+  `FOR UPDATE`, `INTERVAL` arithmetic). Adopting D1 means rewriting
   the schema and every query, not configuring a connection string. The claim that
   "D1 is PostgreSQL-compatible" is false and is not repeated here.
+- **Not** cited as a reason: `ON CONFLICT`. SQLite has supported UPSERT since
+  3.24.0 (2018-06-04), and its docs state the syntax *"follows the syntax
+  established by PostgreSQL, with generalizations"*
+  (<https://www.sqlite.org/lang_upsert.html>). It is portable, so an earlier
+  revision of this document was wrong to list it as PostgreSQL-specific.
 
 ### Cloudflare R2 — **DEFER, no current need**
 
@@ -233,5 +238,12 @@ canvas), or solves a problem this project does not currently have (R2, Upstash).
 - Not claimed: that R2 or Polish is automatically useful on Free.
 - Not claimed: that Cloudflare Web Analytics works without client JavaScript.
 - Not claimed: that a Worker proxy "always" reaches Telegram.
-- Not claimed: that Cloudflare Pages bandwidth is unlimited — the official limits
-  page does not say so.
+- **Corrected in this revision** (an earlier version of this document got these wrong):
+  Pages **static asset** requests *are* officially "free and unlimited" per the Pages
+  Functions pricing page — though that wording covers static requests specifically, not a
+  general bandwidth guarantee, and it stops applying the moment a Pages Function is
+  invoked. Hyperdrive **is** on Workers Free (100,000 queries/day, pooling included), not
+  Paid-only. And `ON CONFLICT` is **not** PostgreSQL-exclusive: SQLite has supported UPSERT
+  since 3.24.0 (2018-06-04, <https://www.sqlite.org/lang_upsert.html>), so it is no longer
+  cited as a reason D1 is unsuitable — the `JSONB`/`jsonb_set`, `SERIAL`, `TIMESTAMPTZ`,
+  `FOR UPDATE` and `INTERVAL` usages are.

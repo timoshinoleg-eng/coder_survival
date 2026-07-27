@@ -26,6 +26,12 @@
 const REQUIRED_ASSET_LIMIT = 12;
 const DEFAULT_TIMEOUT_MS = 15000;
 
+// Content types a JS/CSS asset may legitimately be served with. Anything else —
+// most importantly text/html — means the host answered with an SPA fallback page
+// instead of the file, which is a deployment failure that a bare 200 hides.
+const JS_CONTENT_TYPES = ['javascript', 'ecmascript'];
+const CSS_CONTENT_TYPES = ['css'];
+
 // ── Pure helpers (unit-tested) ─────────────────────────────────────────────
 
 /**
@@ -110,6 +116,89 @@ export function extractSameOriginAssets(html, baseUrl) {
 }
 
 /**
+ * Decides whether an asset response is actually the file, not an SPA fallback.
+ *
+ * A single-page host that rewrites unknown paths to index.html answers a missing
+ * bundle with HTTP 200 and `text/html`. Checking only the status code would call
+ * that a pass and let a broken deployment through, so the Content-Type must
+ * match the extension.
+ *
+ * @param {string} assetUrl Absolute asset URL (extension decides expectation)
+ * @param {string|null} contentType Raw Content-Type response header
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function evaluateAssetContentType(assetUrl, contentType) {
+  let pathname;
+  try {
+    pathname = new URL(assetUrl).pathname.toLowerCase();
+  } catch {
+    return { ok: false, reason: 'unparseable asset URL' };
+  }
+
+  const isCss = pathname.endsWith('.css');
+  const expected = isCss ? CSS_CONTENT_TYPES : JS_CONTENT_TYPES;
+  const label = isCss ? 'CSS' : 'JavaScript';
+
+  if (!contentType) {
+    return { ok: false, reason: `no Content-Type header (expected ${label})` };
+  }
+
+  const value = contentType.toLowerCase();
+
+  // Called out explicitly because it is the SPA-fallback signature and the
+  // failure this check exists to catch.
+  if (value.includes('text/html')) {
+    return {
+      ok: false,
+      reason: `served as text/html — SPA fallback page, not the ${label} file`,
+    };
+  }
+
+  if (!expected.some((needle) => value.includes(needle))) {
+    return { ok: false, reason: `Content-Type "${contentType}" is not ${label}` };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Validates a required URL field inside tonconnect-manifest.json.
+ *
+ * The manifest is what Telegram and TON wallets read, so a placeholder value
+ * silently breaks wallet connect. Requires an absolute HTTPS URL and rejects
+ * example-domain placeholders.
+ *
+ * @param {unknown} value
+ * @param {string} field Field name for the message
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function evaluateManifestUrl(value, field = 'url') {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return { ok: false, reason: `${field}: missing` };
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(value.trim());
+  } catch {
+    return { ok: false, reason: `${field}: not an absolute URL ("${value}")` };
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return { ok: false, reason: `${field}: must be https, got ${parsed.protocol}` };
+  }
+
+  // RFC 2606 reserved names plus the usual stand-ins: never real endpoints.
+  const placeholderHosts = ['example.com', 'example.org', 'example.net', 'localhost'];
+  const host = parsed.hostname.toLowerCase();
+  if (placeholderHosts.some((p) => host === p || host.endsWith(`.${p}`))) {
+    return { ok: false, reason: `${field}: placeholder host "${parsed.hostname}"` };
+  }
+
+  return { ok: true };
+}
+
+/**
  * Decides whether a CORS preflight response actually authorises the Pages
  * origin for the requests the app makes.
  *
@@ -124,6 +213,7 @@ export function extractSameOriginAssets(html, baseUrl) {
  * @param {string} expected.origin Exact Pages origin that was sent
  * @param {string} expected.method HTTP method that was requested
  * @param {string[]} expected.requestHeaders Headers the app needs to send
+ * @param {number} [expected.status] Preflight HTTP status; must be 2xx
  * @returns {{ ok: boolean, reasons: string[], allowedOrigin: string|null }}
  */
 export function evaluateCorsPreflight(headers = {}, expected = {}) {
@@ -132,6 +222,17 @@ export function evaluateCorsPreflight(headers = {}, expected = {}) {
     const value = headers[name] ?? headers[name.toLowerCase()] ?? null;
     return typeof value === 'string' ? value : null;
   };
+
+  // A preflight only authorises the real request when it itself succeeds.
+  // Browsers reject a non-2xx preflight regardless of the headers on it, so
+  // permissive Access-Control-* headers on a 401/404/500 must never read as a
+  // pass — otherwise a broken route or an auth wall looks like working CORS.
+  const status = expected.status;
+  if (typeof status !== 'number' || !Number.isFinite(status)) {
+    reasons.push('preflight status unknown — cannot confirm the preflight succeeded');
+  } else if (status < 200 || status > 299) {
+    reasons.push(`preflight returned HTTP ${status} — browsers require a 2xx preflight`);
+  }
 
   const allowOrigin = get('access-control-allow-origin');
   const allowMethods = get('access-control-allow-methods');
@@ -201,10 +302,22 @@ export function parseArgs(argv = []) {
 // ── Live checks (need a real deployment) ───────────────────────────────────
 
 const results = [];
-function record(ok, name, detail = '') {
-  results.push({ ok, name, detail });
+
+/**
+ * @param {boolean} ok
+ * @param {string} name
+ * @param {string} detail
+ * @param {'deployment'|'repo'} scope Whether a failure indicts the deployment
+ *   under test or a defect already committed in the repository. Keeping these
+ *   apart matters: a repo-level defect fails identically on Vercel and on Pages,
+ *   so counting it as a deployment failure would make a healthy Pages
+ *   deployment look broken and muddy the comparison the pilot exists to make.
+ */
+function record(ok, name, detail = '', scope = 'deployment') {
+  results.push({ ok, name, detail, scope });
   const tag = ok ? 'PASS' : 'FAIL';
-  console.log(`  [${tag}] ${name}${detail ? ` — ${detail}` : ''}`);
+  const suffix = !ok && scope === 'repo' ? ' [pre-existing repo defect]' : '';
+  console.log(`  [${tag}] ${name}${detail ? ` — ${detail}` : ''}${suffix}`);
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
@@ -234,9 +347,12 @@ async function checkFrontendHtml(frontendUrl, timeoutMs) {
   const html = await response.text();
 
   // Markers that distinguish the real app shell from a provider 404/parking page.
+  // The mount point is #app — index.html declares <div id="app"> and
+  // src/main.jsx calls getElementById("app"). Checking for #root would fail on a
+  // perfectly healthy deployment.
   const markers = [
     ['<title>Coder Survival</title>', 'app <title>'],
-    ['id="root"', 'mount point #root'],
+    ['id="app"', 'mount point #app'],
   ];
   const missing = markers.filter(([needle]) => !html.includes(needle)).map(([, label]) => label);
 
@@ -258,20 +374,30 @@ async function checkAssets(html, frontendUrl, timeoutMs) {
 
   let failures = 0;
   for (const assetUrl of assets) {
+    const pathname = new URL(assetUrl).pathname;
     try {
       const res = await fetchWithTimeout(assetUrl, {}, timeoutMs);
       if (res.status !== 200) {
         failures += 1;
-        record(false, 'asset loads', `HTTP ${res.status} for ${new URL(assetUrl).pathname}`);
+        record(false, 'asset loads', `HTTP ${res.status} for ${pathname}`);
+        continue;
+      }
+
+      // A 200 alone is not enough: an SPA fallback serves index.html with 200
+      // for a missing bundle. The Content-Type is what distinguishes them.
+      const verdict = evaluateAssetContentType(assetUrl, res.headers.get('content-type'));
+      if (!verdict.ok) {
+        failures += 1;
+        record(false, 'asset content type', `${pathname}: ${verdict.reason}`);
       }
     } catch {
       failures += 1;
-      record(false, 'asset loads', `request failed for ${new URL(assetUrl).pathname}`);
+      record(false, 'asset loads', `request failed for ${pathname}`);
     }
   }
 
   if (failures === 0) {
-    record(true, 'all same-origin assets load', `${assets.length} checked`);
+    record(true, 'all same-origin assets load with correct content types', `${assets.length} checked`);
   }
 }
 
@@ -284,12 +410,34 @@ async function checkTonConnectManifest(frontendUrl, timeoutMs) {
       return;
     }
     const text = await res.text();
+    let parsed;
     try {
-      const parsed = JSON.parse(text);
-      const hasUrl = typeof parsed?.url === 'string' && parsed.url !== '';
-      record(hasUrl, '/tonconnect-manifest.json is valid JSON', hasUrl ? 'has url field' : 'missing url field');
+      parsed = JSON.parse(text);
     } catch {
       record(false, '/tonconnect-manifest.json is valid JSON', 'body did not parse as JSON');
+      return;
+    }
+    record(true, '/tonconnect-manifest.json is valid JSON', 'parsed');
+
+    // The manifest is read by Telegram and TON wallets, so placeholder values
+    // break wallet connect even though the file itself serves fine. Checked
+    // separately from JSON validity so the failure names the real cause.
+    const urlChecks = [
+      ['url', parsed?.url],
+      ['iconUrl', parsed?.iconUrl],
+    ];
+    const bad = urlChecks
+      .map(([field, value]) => evaluateManifestUrl(value, field))
+      .filter((v) => !v.ok);
+
+    if (bad.length === 0) {
+      record(true, 'tonconnect manifest URLs are real absolute HTTPS URLs', '');
+    } else {
+      // Scoped as a repo defect: the manifest is committed in frontend/public,
+      // so a placeholder URL fails identically on every host. It is a genuine
+      // blocker for TON wallet connect, but it is not evidence against the
+      // deployment being smoke-tested.
+      for (const v of bad) record(false, 'tonconnect manifest URL', v.reason, 'repo');
     }
   } catch {
     record(false, '/tonconnect-manifest.json reachable', 'request failed');
@@ -338,9 +486,14 @@ async function checkCorsPreflight(apiUrl, frontendUrl, timeoutMs) {
     const headers = {};
     for (const [key, value] of res.headers.entries()) headers[key.toLowerCase()] = value;
 
-    const verdict = evaluateCorsPreflight(headers, { origin, method, requestHeaders });
+    const verdict = evaluateCorsPreflight(headers, {
+      origin,
+      method,
+      requestHeaders,
+      status: res.status,
+    });
     if (verdict.ok) {
-      record(true, 'API allows the exact Pages origin', `allow-origin: ${verdict.allowedOrigin}`);
+      record(true, 'API allows the exact Pages origin', `HTTP ${res.status}, allow-origin: ${verdict.allowedOrigin}`);
     } else {
       for (const reason of verdict.reasons) record(false, 'CORS preflight', reason);
     }
@@ -404,14 +557,39 @@ async function main() {
   await checkCorsPreflight(apiUrl, frontendUrl, timeoutMs);
 
   const failed = results.filter((r) => !r.ok);
+  const deploymentFailures = failed.filter((r) => r.scope !== 'repo');
+  const repoFailures = failed.filter((r) => r.scope === 'repo');
+
   console.log('');
   console.log(`${results.length - failed.length}/${results.length} checks passed`);
 
-  if (failed.length > 0) {
+  if (repoFailures.length > 0) {
     console.log('');
-    console.log('FAILED. Do not switch the Telegram Mini App URL. Keep Vercel as production.');
+    console.log(
+      `${repoFailures.length} pre-existing repository defect(s) — these fail on every host, ` +
+        'including the current production deployment, and are not caused by the deployment ' +
+        'under test. See docs/CLOUDFLARE_PAGES_PILOT.md §5a.',
+    );
+  }
+
+  if (deploymentFailures.length > 0) {
+    console.log('');
+    console.log('DEPLOYMENT FAILED. Do not switch the Telegram Mini App URL. Keep Vercel as production.');
     process.exit(1);
   }
+
+  if (repoFailures.length > 0) {
+    // Exit 0: the deployment itself is sound. A non-zero exit here would make a
+    // healthy Pages deployment indistinguishable from a broken one for as long
+    // as the manifest stays unfixed, which is how real regressions get ignored.
+    console.log('');
+    console.log(
+      'Deployment checks passed. Continue with manual network/Telegram acceptance, ' +
+        'but resolve the repository defect(s) above before relying on TON wallet connect.',
+    );
+    return;
+  }
+
   console.log('All checks passed. Continue with manual network/Telegram acceptance.');
 }
 
