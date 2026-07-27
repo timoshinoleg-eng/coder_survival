@@ -52,3 +52,14 @@ export const readApiRateLimiter = makeLimiter({
   max: 120,
   message: 'Too many requests',
 });
+
+// Purchase-intent routes (/api/buy, /api/pass/upgrade). These create purchase
+// rows and unlock premium content, so they are economy-mutating and a natural
+// abuse target. A real user taps "buy" a handful of times a minute at most, so
+// the ceiling is well clear of normal play while capping automated abuse. Also
+// satisfies CodeQL's rate-limiting requirement on these DB-touching handlers.
+export const purchaseRateLimiter = makeLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many purchase requests',
+});
