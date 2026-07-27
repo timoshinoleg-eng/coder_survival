@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { startTelegramPurchase } from '../utils/purchases.js';
+import { arePaymentsEnabled } from '../utils/payments.js';
 import { Analytics } from '../utils/analytics.js';
 import PurchaseSuccess from './PurchaseSuccess.jsx';
 
@@ -68,6 +69,10 @@ export default function ContextOfferBanner() {
   }, [contextOffer]);
 
   if (loading || !contextOffer) return null;
+
+  // This banner exists solely to sell a product, so while payments are disabled
+  // it is not rendered at all — there is no non-purchase content to keep.
+  if (!arePaymentsEnabled()) return null;
 
   return h('div', {
     style: {

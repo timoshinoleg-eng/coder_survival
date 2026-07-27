@@ -3,13 +3,17 @@ import { pool } from '../index.js';
 import { getProducts, getProductById } from '../utils/shopCatalog.js';
 import { validate } from '../middleware/validate.js';
 import { purchaseDealSchema } from '../validation/schemas.js';
+import { arePaymentsEnabled, requirePaymentsEnabled, requireTelegramUser } from '../config/payments.js';
 
 const router = Router();
 
 
 
+// Catalog stays readable while payments are disabled (it is a plain read and
+// the shop UI still needs product metadata), but the response advertises the
+// payment state so clients never have to guess whether checkout is live.
 router.get('/products', async (req, res) => {
-  res.json({ success: true, products: getProducts() });
+  res.json({ success: true, products: getProducts(), paymentsEnabled: arePaymentsEnabled() });
 });
 
 /**
@@ -85,12 +89,14 @@ router.get('/active-sales', async (req, res) => {
  * POST /api/shop/purchase-deal
  * Validates active deal timer, creates a discounted purchase intent,
  * and returns a Telegram payment payload.
+ *
+ * Auth is checked first so an anonymous caller still gets 401 and cannot use
+ * the payment-state response as an oracle. The payments gate then runs before
+ * validate() and before any DB work: while payments are disabled no discounted
+ * purchase intent is created and no deal counter is incremented.
  */
-router.post('/purchase-deal', validate(purchaseDealSchema), async (req, res, next) => {
+router.post('/purchase-deal', requireTelegramUser, requirePaymentsEnabled, validate(purchaseDealSchema), async (req, res, next) => {
   const telegramUser = req.telegramUser?.user;
-  if (!telegramUser) {
-    return res.status(401).json({ error: 'No user in initData' });
-  }
 
   const { dealType } = req.body;
   const now = new Date().toISOString();

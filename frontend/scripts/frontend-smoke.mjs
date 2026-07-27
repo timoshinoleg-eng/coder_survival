@@ -299,7 +299,54 @@ function assertInlineRuntimeObjectsAreMemoized() {
   }
 }
 
+/**
+ * Payment kill switch — structural guard.
+ *
+ * Supplements (does not replace) the behavioural tests in
+ * tests/payments.test.mjs. Those prove openInvoice is never called while
+ * disabled; this catches a future edit that reintroduces an ungated payment
+ * control or the TON placeholder, which a runtime test over today's components
+ * would not notice.
+ */
+function assertPaymentControlsAreGated() {
+  const purchases = read("src/utils/purchases.js");
+
+  // openInvoice must only be reachable past a payments check.
+  if (!purchases.includes("arePaymentsEnabled")) {
+    failures.push("src/utils/purchases.js: must consult arePaymentsEnabled before starting a purchase");
+  }
+  if (!purchases.includes("PaymentsDisabledError")) {
+    failures.push("src/utils/purchases.js: must throw PaymentsDisabledError while payments are disabled");
+  }
+
+  // Every component that can start a purchase must gate its control.
+  const purchaseEntryPoints = [
+    "src/components/ShopPanel.jsx",
+    "src/components/PassPanel.jsx",
+    "src/components/SprintPassPanel.jsx",
+    "src/components/ContextOfferBanner.jsx",
+  ];
+  for (const file of purchaseEntryPoints) {
+    const source = read(file);
+    const startsPurchase = /startTelegramPurchase|startDealPurchase/.test(source);
+    if (startsPurchase && !source.includes("arePaymentsEnabled")) {
+      failures.push(`${file}: starts a purchase but never checks arePaymentsEnabled`);
+    }
+  }
+
+  // The TON payment placeholder was removed; it must not come back. (TON
+  // *wallet connect* is unrelated and still allowed.)
+  const shop = read("src/components/ShopPanel.jsx");
+  if (/Pay with TON|TON Pay:/i.test(shop)) {
+    failures.push("src/components/ShopPanel.jsx: TON payment placeholder must stay removed");
+  }
+  if (/currency:\s*['"]ton['"]/i.test(shop)) {
+    failures.push("src/components/ShopPanel.jsx: must not emit TON purchase analytics");
+  }
+}
+
 assertAppComponentReferencesAreImported();
+assertPaymentControlsAreGated();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
 assertStatsBarRuntimeLabelsAreDeclaredBeforeRender();
