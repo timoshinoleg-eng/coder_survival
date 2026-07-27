@@ -13,6 +13,8 @@
  * and self-skip locally when no test database is configured — matching the
  * established pattern in this suite.
  */
+// This project runs Jest in ESM mode, where `jest` is not a bare global.
+import { jest } from "@jest/globals";
 import {
   ensureTestSchema,
   resetTestDatabase,
