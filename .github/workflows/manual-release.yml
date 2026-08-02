@@ -45,7 +45,7 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows, x64, cs-operator]
     permissions:
       contents: read
     env:
@@ -64,6 +64,7 @@ jobs:
 
       - name: Setup SSH
         if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
+        shell: bash
         run: |
           VM_TARGET="$CODER_SURVIVAL_VM_SSH_TARGET"
           if [ -z "$VM_TARGET" ] && [ -n "$CODER_SURVIVAL_VM_USER" ] && [ -n "$CODER_SURVIVAL_VM_HOST" ]; then
@@ -90,8 +91,7 @@ jobs:
           fi
 
       - name: Validate backend compose syntax
-        run: |
-          docker compose -f docker-compose.backend.yml config > /dev/null
+        run: docker compose -f docker-compose.backend.yml config --quiet
 
       - name: Release Preflight
         run: pwsh -File scripts/release-preflight.ps1
