@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$VmHost = "root@185.92.221.219",
+  [string]$VmHost = $env:CODER_SURVIVAL_VM_SSH_TARGET,
   [string]$RemoteAppDir = "/opt/coder_survival",
   [string]$FrontendDir = "frontend",
   [string]$BotDir = "bot",
@@ -21,7 +21,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $frontendPath = Join-Path $repoRoot $FrontendDir
 $botPath = Join-Path $repoRoot $BotDir
 $smokeScript = Join-Path $PSScriptRoot "smoke-core-prod.ps1"
-$backendImageRepo = "cr.yandex/crpduv7gci2puq300f38/coder-survival-backend"
+$backendImageRepo = "coder-survival-backend"
 $gitSha = (git -C $repoRoot rev-parse --short=12 HEAD).Trim()
 $backendImageTag = "git-$gitSha"
 $backendPayloadWhitelist = @(
@@ -38,6 +38,10 @@ $forbiddenSecretFiles = @(
   "backend/.env.production",
   "backend/.env.local"
 )
+
+if ([string]::IsNullOrWhiteSpace($VmHost) -or $VmHost -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
+  throw "VmHost is required in user@host form. Pass -VmHost or set CODER_SURVIVAL_VM_SSH_TARGET."
+}
 
 function Invoke-Checked {
   param(
@@ -200,7 +204,7 @@ if (-not $SkipBackend) {
     Compress-Archive -Path (Join-Path $stagingDir "*") -DestinationPath $zipPath -CompressionLevel Optimal -Force
 
     Invoke-Checked -Label "Upload backend payload to VM" -Action {
-      scp -o StrictHostKeyChecking=no $zipPath "${VmHost}:/tmp/coder-survival-release.zip"
+      scp -o StrictHostKeyChecking=accept-new $zipPath "${VmHost}:/tmp/coder-survival-release.zip"
     }.GetNewClosure()
 
     $remoteScript = @'

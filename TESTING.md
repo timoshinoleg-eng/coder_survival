@@ -1,63 +1,37 @@
-# Тестовая инфраструктура Coder Survival
+# Coder Survival Test Infrastructure
 
-## PostgreSQL для интеграционных тестов
+## Required database boundaries
 
-### Staging VM (Yandex Cloud)
+- GitHub `backend-tests.yml` creates a disposable PostgreSQL 15 service,
+  runs all migrations twice, then runs the complete backend suite.
+- GitHub `integration-tests-staging.yml` accepts only the `staging`
+  environment secret `STAGING_TEST_DATABASE_URL`. It must name an isolated
+  database; absent, malformed or unreachable configuration fails the job.
+- Production and staging credentials never belong in this repository or a
+  shell command history.
 
-| Параметр | Значение |
-|----------|----------|
-| **Host** | `89.169.140.219` |
-| **Port** | `5432` |
-| **Database** | `coder_survival_test` |
-| **User** | `test` |
-| **Password** | `testpass123` |
+## Local integration run
 
-### Подключение
+Start a disposable PostgreSQL instance, then supply its URL explicitly:
 
-```bash
-# psql
-psql postgresql://test:testpass123@89.169.140.219:5432/coder_survival_test
+```powershell
+docker run --rm -d --name coder-survival-test-db `
+  -e POSTGRES_DB=coder_survival_test `
+  -e POSTGRES_USER=test `
+  -e POSTGRES_PASSWORD=test `
+  -p 127.0.0.1:55432:5432 postgres:15-alpine
 
-# Node.js
-const pool = new Pool({
-  host: '89.169.140.219',
-  port: 5432,
-  database: 'coder_survival_test',
-  user: 'test',
-  password: 'testpass123',
-});
+$env:NODE_ENV = 'test'
+$env:TEST_DATABASE_URL = 'postgresql://test:test@127.0.0.1:55432/coder_survival_test'
+npm --prefix backend run migrate
+npm --prefix backend test
+docker rm -f coder-survival-test-db
 ```
 
-### Запуск тестов локально
+The database in this example is local and disposable. Do not repoint it to a
+shared staging or production instance.
 
-```bash
-cd backend
-export TEST_DATABASE_URL="postgresql://test:testpass123@89.169.140.219:5432/coder_survival_test"
-npm test -- --runInBand
-```
+## Release acceptance
 
-### Docker на staging VM
-
-```bash
-# Подключение к VM
-ssh -i ~/.ssh/openclaw_key yc-user@89.169.140.219
-
-# Управление контейнером
-sudo docker ps                    # список контейнеров
-sudo docker logs postgres-test    # логи PostgreSQL
-sudo docker restart postgres-test # перезапуск
-sudo docker stop postgres-test    # остановка
-```
-
-### Существующие контейнеры на staging
-
-| Контейнер | Образ | Порты | Назначение |
-|-----------|-------|-------|------------|
-| `cs-staging_backend_1` | `coder-survival-backend:staging` | 80→3000 | Staging backend |
-| `cs-staging_db_1` | `postgres:16-alpine` | 5432 (internal) | Staging БД |
-| `postgres-test` | `postgres:16-alpine` | 5432→5432 | **Тестовая БД** |
-
-## CI/CD
-
-GitHub Actions автоматически запускает тесты с PostgreSQL 15 service container.
-Локальные тесты можно запускать против staging VM.
+Follow `docs/TEST_LAUNCH_RUNBOOK.md`. Production smoke mutates synthetic game
+state, so it is executed only after a verified backup and CI success.

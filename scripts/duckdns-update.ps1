@@ -3,7 +3,8 @@ param(
   [string]$Subdomain = "coder-survival-api",
   [Parameter(Mandatory = $true)]
   [string]$Token,
-  [string]$IpAddress = "111.88.247.195"
+  [Parameter(Mandatory = $true)]
+  [string]$IpAddress
 )
 
 Set-StrictMode -Version Latest

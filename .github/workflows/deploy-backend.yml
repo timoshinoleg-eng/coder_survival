@@ -6,6 +6,26 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: coder_survival_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d coder_survival_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/coder_survival_test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,11 +36,11 @@ jobs:
           node-version: '20'
 
       - name: Run backend tests
-        working-directory: backend
         run: |
           npm ci
+          node src/migrate.js
+          node src/migrate.js
           npm test
-        continue-on-error: true
 
   deploy:
     needs: test

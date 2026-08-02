@@ -8,10 +8,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "migrate": "node src/migrate.js",
-    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --forceExit",
-    "docker:build": "docker build -t cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest .",
-    "docker:push": "docker push cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest",
-    "deploy": "npm run docker:build && npm run docker:push"
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
+    "docker:build": "docker build -t coder-survival-backend:local .",
+    "docker:run": "docker run --rm --env-file .env -p 3000:3000 coder-survival-backend:local"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",

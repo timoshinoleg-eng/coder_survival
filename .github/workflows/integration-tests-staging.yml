@@ -1,4 +1,4 @@
-name: Integration Tests (Staging DB)
+name: Integration Tests (Staging Database)
 
 on:
   push:
@@ -13,21 +13,19 @@ on:
       - ".github/workflows/integration-tests-staging.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   integration-test:
     runs-on: ubuntu-latest
+    environment: staging
     defaults:
       run:
         working-directory: backend
-
     env:
       NODE_ENV: test
-      TEST_DATABASE_URL: postgresql://test:***@89.169.140.219:5432/coder_survival_test
-      DB_HOST: 89.169.140.219
-      DB_PORT: 5432
-      DB_NAME: coder_survival_test
-      DB_USER: test
-      DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+      TEST_DATABASE_URL: ${{ secrets.STAGING_TEST_DATABASE_URL }}
 
     steps:
       - uses: actions/checkout@v4
@@ -38,34 +36,21 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
+      - name: Require isolated staging database
+        run: |
+          test -n "$TEST_DATABASE_URL"
+          case "$TEST_DATABASE_URL" in
+            postgresql://*|postgres://*) ;;
+            *) echo "STAGING_TEST_DATABASE_URL must be a PostgreSQL URL" >&2; exit 1 ;;
+          esac
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Wait for DB availability
-        id: db
+      - name: Migration bootstrap and idempotency gate
         run: |
-          for i in {1..30}; do
-            if pg_isready -h 89.169.140.219 -p 5432 -U test; then
-              echo "Database is ready"
-              echo "available=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            echo "Waiting for database... ($i/30)"
-            sleep 2
-          done
-          echo "Database not available; skipping staging integration tests"
-          echo "available=false" >> "$GITHUB_OUTPUT"
-
-      - name: Run migrations
-        if: steps.db.outputs.available == 'true'
-        run: |
-          export DATABASE_URL="postgresql://test:${{ secrets.TEST_DB_PASSWORD }}@89.169.140.219:5432/coder_survival_test"
+          node src/migrate.js
           node src/migrate.js
 
-      - name: Run integration tests
-        if: steps.db.outputs.available == 'true'
-        run: npm test -- --runInBand --testPathPattern=integration
-
-      - name: Run full test suite
-        if: github.ref == 'refs/heads/main' && steps.db.outputs.available == 'true'
+      - name: Run complete backend suite
         run: npm test -- --runInBand

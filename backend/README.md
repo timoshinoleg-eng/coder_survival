@@ -1,53 +1,49 @@
-# Coder Survival — Backend
+# Coder Survival Backend
 
-Telegram Mini App API для игры "Выживание программиста".
+Express API for the Telegram Mini App.
 
-## Быстрый старт
+## Local development
 
 ```bash
-# Локальная разработка
 cd backend
-docker-compose up
-
-# API будет доступен на http://localhost:3000
+cp .env.example .env
+docker compose up
 ```
 
-## API Endpoints
+The local compose stack starts PostgreSQL and the API. Keep `DB_SSL` empty for
+development; production enables verified TLS by default.
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| GET | `/health` | Health check |
-| GET | `/api/state` | Состояние игрока |
-| POST | `/api/tap` | Тап (клик) |
-| POST | `/api/buy` | Покупка предмета |
-| GET | `/api/leaderboard` | Топ игроков |
+## Environment
 
-## Заголовки
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` or `DB_*` | PostgreSQL connection |
+| `DB_SSL` | Production TLS override. Leave unset for verified TLS; use `false` only for a trusted local database. |
+| `DB_SSL_CA` | Certificate authority text when the managed database requires it. |
+| `BOT_TOKEN` | Telegram signature validation in production. |
+| `BOT_BACKEND_SECRET` | Bot-to-backend internal authentication. |
 
-Все защищенные эндпоинты требуют:
+## Verification
+
+Run the whole backend suite against an isolated PostgreSQL database:
+
+```powershell
+$env:NODE_ENV = 'test'
+$env:TEST_DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:5432/coder_survival_test'
+npm test
 ```
-X-Telegram-Init-Data: <initData из Telegram WebApp>
+
+`backend-tests.yml` executes the same migration/idempotency and test gate in
+GitHub Actions. See `../docs/TEST_LAUNCH_RUNBOOK.md` for release acceptance.
+
+## Deployment
+
+`backend/deploy.sh` is intentionally retired. The only supported release path
+is the guarded root script:
+
+```powershell
+$env:CODER_SURVIVAL_VM_SSH_TARGET = 'user@host'
+pwsh -File scripts/release-prod.ps1
 ```
 
-## Переменные окружения
-
-| Переменная | Описание | По умолчанию |
-|------------|----------|--------------|
-| `PORT` | Порт сервера | 3000 |
-| `DB_HOST` | Хост PostgreSQL | localhost |
-| `DB_PORT` | Порт PostgreSQL | 5432 |
-| `DB_NAME` | Имя базы | coder_survival |
-| `DB_USER` | Пользователь | postgres |
-| `DB_PASSWORD` | Пароль | задаётся локально |
-| `BOT_TOKEN` | Токен Telegram бота | — |
-
-## Деплой
-
-```bash
-# Сборка и пуш в Yandex Container Registry
-npm run deploy
-
-# На сервере:
-docker pull cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest
-docker run -d -p 3000:3000 --env-file .env cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest
-```
+Do not push images to an unconfigured registry or deploy directly to a VM.

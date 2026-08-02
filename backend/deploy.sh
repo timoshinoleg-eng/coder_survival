@@ -1,25 +1,7 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Build and push Coder Survival backend to Yandex Container Registry
-
-REGISTRY="cr.yandex/crpduv7gci2puq300f38"
-IMAGE="coder-survival-backend"
-TAG="latest"
-
-echo "=== Building Docker image ==="
-docker build -t ${REGISTRY}/${IMAGE}:${TAG} .
-
-echo "=== Authenticating with Yandex Container Registry ==="
-# Requires yc CLI configured with container-registry credentials
-# yc container registry configure-docker
-
-echo "=== Pushing to registry ==="
-docker push ${REGISTRY}/${IMAGE}:${TAG}
-
-echo "=== Done ==="
-echo "Image: ${REGISTRY}/${IMAGE}:${TAG}"
-echo ""
-echo "Deploy on server:"
-echo "  docker pull ${REGISTRY}/${IMAGE}:${TAG}"
-echo "  docker run -d -p 3000:3000 --env-file .env ${REGISTRY}/${IMAGE}:${TAG}"
+echo "backend/deploy.sh is retired and deliberately performs no deployment." >&2
+echo "Use the guarded repository release path: pwsh -File scripts/release-prod.ps1" >&2
+echo "It requires an explicit CODER_SURVIVAL_VM_SSH_TARGET and passed CI." >&2
+exit 64
