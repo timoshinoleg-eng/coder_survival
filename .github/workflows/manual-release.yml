@@ -116,12 +116,15 @@ jobs:
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}
+        shell: pwsh
         run: |
-          git_status=$(git status --porcelain)
-          if [ -n "$git_status" ]; then
-            echo "::error::Worktree is dirty. Commit or stash changes first."
-            exit 1
-          fi
+          $gitStatus = @(git status --porcelain)
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to read git status.'
+          }
+          if ($gitStatus.Count -gt 0) {
+            throw 'Worktree is dirty. Commit or stash changes first.'
+          }
 
       - name: Validate backend compose syntax
         run: docker compose -f docker-compose.backend.yml config --quiet
