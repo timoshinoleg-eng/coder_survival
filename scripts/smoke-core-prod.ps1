@@ -22,12 +22,12 @@ if ([string]::IsNullOrWhiteSpace($VmHost) -or $VmHost -notmatch '^[A-Za-z0-9][A-
   throw "VmHost is required in user@host form. Pass -VmHost or set CODER_SURVIVAL_VM_SSH_TARGET."
 }
 
-$sshOptions = @()
+$sshOptions = @('-o', 'BatchMode=yes', '-o', 'NumberOfPasswordPrompts=0', '-o', 'ConnectTimeout=20')
 if ($SshKeyPath) {
   if (-not (Test-Path -LiteralPath $SshKeyPath -PathType Leaf)) {
     throw "Configured SSH key does not exist: $SshKeyPath"
   }
-  $sshOptions += @('-i', $SshKeyPath)
+  $sshOptions += @('-i', $SshKeyPath, '-o', 'IdentitiesOnly=yes')
 }
 if ($SshKnownHostsPath) {
   if (-not (Test-Path -LiteralPath $SshKnownHostsPath -PathType Leaf)) {
