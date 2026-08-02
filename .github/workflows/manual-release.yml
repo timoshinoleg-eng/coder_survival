@@ -7,6 +7,7 @@
 # Prerequisites (must be configured as repository secrets):
 #   VM_SSH_KEY        — private key for the Vultr production VM
 #   VM_SSH_TARGET     — SSH target in user@host form for the Vultr production VM
+#   VM_USER + VM_HOST — supported legacy secret pair when VM_SSH_TARGET is absent
 #   VERCEL_TOKEN      — npx vercel --token value (if running Vercel deploy from CI)
 #   BOT_TOKEN         — optional, for smoke test init-data signing
 #
@@ -49,6 +50,8 @@ jobs:
       contents: read
     env:
       CODER_SURVIVAL_VM_SSH_TARGET: ${{ secrets.VM_SSH_TARGET }}
+      CODER_SURVIVAL_VM_USER: ${{ secrets.VM_USER }}
+      CODER_SURVIVAL_VM_HOST: ${{ secrets.VM_HOST }}
 
     steps:
       - name: Checkout
@@ -62,12 +65,16 @@ jobs:
       - name: Setup SSH
         if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
         run: |
-          test -n "$CODER_SURVIVAL_VM_SSH_TARGET"
-          if ! [[ "$CODER_SURVIVAL_VM_SSH_TARGET" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
-            echo "VM_SSH_TARGET must use a safe user@host form" >&2
+          VM_TARGET="$CODER_SURVIVAL_VM_SSH_TARGET"
+          if [ -z "$VM_TARGET" ] && [ -n "$CODER_SURVIVAL_VM_USER" ] && [ -n "$CODER_SURVIVAL_VM_HOST" ]; then
+            VM_TARGET="${CODER_SURVIVAL_VM_USER}@${CODER_SURVIVAL_VM_HOST}"
+          fi
+          if ! [[ "$VM_TARGET" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
+            echo "Configure VM_SSH_TARGET or the legacy VM_USER and VM_HOST pair" >&2
             exit 1
           fi
-          VM_HOST="${CODER_SURVIVAL_VM_SSH_TARGET#*@}"
+          echo "CODER_SURVIVAL_VM_SSH_TARGET=$VM_TARGET" >> "$GITHUB_ENV"
+          VM_HOST="${VM_TARGET#*@}"
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
