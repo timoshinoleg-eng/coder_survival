@@ -93,7 +93,7 @@ jobs:
           }
           "CODER_SURVIVAL_VM_SSH_TARGET=$vmTarget" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $vmHost = $vmTarget.Split('@', 2)[1]
-          $sshDir = Join-Path $env:RUNNER_TEMP 'coder-survival-ssh'
+          $sshDir = Join-Path $env:RUNNER_TEMP ("coder-survival-ssh-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT)")
           $keyPath = Join-Path $sshDir 'id_rsa'
           $knownHostsPath = Join-Path $sshDir 'known_hosts'
           New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
