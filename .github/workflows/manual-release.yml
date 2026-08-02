@@ -26,6 +26,11 @@ on:
         description: 'Release version tag (e.g., v0.1.1)'
         required: true
         type: string
+      vm_host_override:
+        description: 'Optional current VM host or IP; combines with the protected VM_USER secret'
+        required: false
+        default: ''
+        type: string
       skip_vercel:
         description: 'Skip Vercel frontend + bot deploy'
         type: boolean
@@ -52,6 +57,7 @@ jobs:
       CODER_SURVIVAL_VM_SSH_TARGET: ${{ secrets.VM_SSH_TARGET }}
       CODER_SURVIVAL_VM_USER: ${{ secrets.VM_USER }}
       CODER_SURVIVAL_VM_HOST: ${{ secrets.VM_HOST }}
+      CODER_SURVIVAL_VM_HOST_OVERRIDE: ${{ inputs.vm_host_override }}
 
     steps:
       - name: Checkout
@@ -67,8 +73,12 @@ jobs:
         shell: bash
         run: |
           VM_TARGET="$CODER_SURVIVAL_VM_SSH_TARGET"
-          if [ -z "$VM_TARGET" ] && [ -n "$CODER_SURVIVAL_VM_USER" ] && [ -n "$CODER_SURVIVAL_VM_HOST" ]; then
-            VM_TARGET="${CODER_SURVIVAL_VM_USER}@${CODER_SURVIVAL_VM_HOST}"
+          VM_HOST="$CODER_SURVIVAL_VM_HOST_OVERRIDE"
+          if [ -z "$VM_HOST" ]; then
+            VM_HOST="$CODER_SURVIVAL_VM_HOST"
+          fi
+          if [ -z "$VM_TARGET" ] && [ -n "$CODER_SURVIVAL_VM_USER" ] && [ -n "$VM_HOST" ]; then
+            VM_TARGET="${CODER_SURVIVAL_VM_USER}@${VM_HOST}"
           fi
           if ! [[ "$VM_TARGET" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
             echo "Configure VM_SSH_TARGET or the legacy VM_USER and VM_HOST pair" >&2
