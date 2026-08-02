@@ -106,9 +106,8 @@ jobs:
             }
             & ssh -o BatchMode=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o PubkeyAuthentication=no -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$knownHostsPath $vmTarget true 2>$null
           }
-          $hostKeyLine = (& ssh-keygen -lf $knownHostsPath | Select-Object -Last 1)
-          $actualFingerprint = ($hostKeyLine -split '\s+')[1]
-          if (-not $actualFingerprint -or $actualFingerprint -ne $env:CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT) {
+          $actualFingerprints = @(& ssh-keygen -lf $knownHostsPath | ForEach-Object { ($_ -split '\s+')[1] })
+          if ($actualFingerprints -notcontains $env:CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT) {
             throw 'VM SSH host key fingerprint is missing or does not match.'
           }
 
