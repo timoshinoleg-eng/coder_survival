@@ -64,6 +64,7 @@ jobs:
       CODER_SURVIVAL_VM_HOST: ${{ secrets.VM_HOST }}
       CODER_SURVIVAL_VM_HOST_OVERRIDE: ${{ inputs.vm_host_override }}
       CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT: ${{ inputs.vm_host_key_fingerprint }}
+      CODER_SURVIVAL_VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
 
     steps:
       - name: Checkout
@@ -76,41 +77,40 @@ jobs:
 
       - name: Setup SSH
         if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
-        shell: bash
+        shell: pwsh
         run: |
-          VM_TARGET="$CODER_SURVIVAL_VM_SSH_TARGET"
-          VM_HOST="$CODER_SURVIVAL_VM_HOST_OVERRIDE"
-          if [ -z "$VM_HOST" ]; then
-            VM_HOST="$CODER_SURVIVAL_VM_HOST"
-          fi
-          if [ -z "$VM_TARGET" ] && [ -n "$CODER_SURVIVAL_VM_USER" ] && [ -n "$VM_HOST" ]; then
-            VM_TARGET="${CODER_SURVIVAL_VM_USER}@${VM_HOST}"
-          fi
-          if ! [[ "$VM_TARGET" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
-            echo "Configure VM_SSH_TARGET or the legacy VM_USER and VM_HOST pair" >&2
-            exit 1
-          fi
-          echo "CODER_SURVIVAL_VM_SSH_TARGET=$VM_TARGET" >> "$GITHUB_ENV"
-          VM_HOST="${VM_TARGET#*@}"
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          if ! ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
-            test -n "$CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT"
-            ssh \
-              -o BatchMode=yes \
-              -o PasswordAuthentication=no \
-              -o KbdInteractiveAuthentication=no \
-              -o PubkeyAuthentication=no \
-              -o StrictHostKeyChecking=accept-new \
-              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-              "$VM_TARGET" true || true
-          fi
-          ACTUAL_HOST_KEY_FINGERPRINT="$(ssh-keygen -lf ~/.ssh/known_hosts | awk '{print $2}' | tail -n 1)"
-          if [ -z "$CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT" ] || [ "$ACTUAL_HOST_KEY_FINGERPRINT" != "$CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT" ]; then
-            echo "VM SSH host key fingerprint is missing or does not match" >&2
-            exit 1
-          fi
+          $vmHost = if ($env:CODER_SURVIVAL_VM_HOST_OVERRIDE) {
+            $env:CODER_SURVIVAL_VM_HOST_OVERRIDE
+          } else {
+            $env:CODER_SURVIVAL_VM_HOST
+          }
+          $vmTarget = $env:CODER_SURVIVAL_VM_SSH_TARGET
+          if (-not $vmTarget -and $env:CODER_SURVIVAL_VM_USER -and $vmHost) {
+            $vmTarget = "$($env:CODER_SURVIVAL_VM_USER)@$vmHost"
+          }
+          if ($vmTarget -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
+            throw 'Configure VM_SSH_TARGET or the legacy VM_USER and VM_HOST pair.'
+          }
+          "CODER_SURVIVAL_VM_SSH_TARGET=$vmTarget" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $vmHost = $vmTarget.Split('@', 2)[1]
+          $sshDir = Join-Path $env:USERPROFILE '.ssh'
+          $keyPath = Join-Path $sshDir 'id_rsa'
+          $knownHostsPath = Join-Path $sshDir 'known_hosts'
+          New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
+          [System.IO.File]::WriteAllText($keyPath, $env:CODER_SURVIVAL_VM_SSH_KEY, [System.Text.UTF8Encoding]::new($false))
+          icacls $keyPath /inheritance:r /grant:r "${env:USERNAME}:(R)" | Out-Null
+          & ssh-keyscan -H $vmHost 2>$null | Add-Content -Path $knownHostsPath
+          if ($LASTEXITCODE -ne 0) {
+            if (-not $env:CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT) {
+              throw 'A VM SSH host-key fingerprint is required when ssh-keyscan is unavailable.'
+            }
+            & ssh -o BatchMode=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o PubkeyAuthentication=no -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$knownHostsPath $vmTarget true 2>$null
+          }
+          $hostKeyLine = (& ssh-keygen -lf $knownHostsPath | Select-Object -Last 1)
+          $actualFingerprint = ($hostKeyLine -split '\s+')[1]
+          if (-not $actualFingerprint -or $actualFingerprint -ne $env:CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT) {
+            throw 'VM SSH host key fingerprint is missing or does not match.'
+          }
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}
