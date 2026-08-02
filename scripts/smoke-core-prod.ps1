@@ -3,6 +3,8 @@ param(
   [string]$VmHost = $env:CODER_SURVIVAL_VM_SSH_TARGET,
   [string]$RemoteAppDir = "/opt/coder_survival",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
+  [string]$SshKeyPath = $env:CODER_SURVIVAL_SSH_KEY_PATH,
+  [string]$SshKnownHostsPath = $env:CODER_SURVIVAL_SSH_KNOWN_HOSTS_PATH,
   [string]$BaseUrl = "https://frontend-ashy-alpha-77.vercel.app",
   [string]$DirectApiBaseUrl = "https://coder-survival-api.duckdns.org",
   [string]$BotToken = "",
@@ -18,6 +20,20 @@ $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($VmHost) -or $VmHost -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
   throw "VmHost is required in user@host form. Pass -VmHost or set CODER_SURVIVAL_VM_SSH_TARGET."
+}
+
+$sshOptions = @()
+if ($SshKeyPath) {
+  if (-not (Test-Path -LiteralPath $SshKeyPath -PathType Leaf)) {
+    throw "Configured SSH key does not exist: $SshKeyPath"
+  }
+  $sshOptions += @('-i', $SshKeyPath)
+}
+if ($SshKnownHostsPath) {
+  if (-not (Test-Path -LiteralPath $SshKnownHostsPath -PathType Leaf)) {
+    throw "Configured SSH known-hosts file does not exist: $SshKnownHostsPath"
+  }
+  $sshOptions += @('-o', "UserKnownHostsFile=$SshKnownHostsPath", '-o', 'StrictHostKeyChecking=yes')
 }
 
 # -----------------------------------------------------------------------------
@@ -45,7 +61,7 @@ function Get-BotToken {
   if ($env:BOT_TOKEN) { return $env:BOT_TOKEN.Trim() }
 
   Write-Host "==> Fetching BOT_TOKEN from backend runtime"
-  $token = ssh $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
+  $token = ssh @sshOptions $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
   if ($LASTEXITCODE -ne 0 -or -not $token) {
     throw "Failed to retrieve BOT_TOKEN from backend runtime on $VmHost"
   }

@@ -93,10 +93,11 @@ jobs:
           }
           "CODER_SURVIVAL_VM_SSH_TARGET=$vmTarget" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $vmHost = $vmTarget.Split('@', 2)[1]
-          $sshDir = Join-Path $env:USERPROFILE '.ssh'
+          $sshDir = Join-Path $env:RUNNER_TEMP 'coder-survival-ssh'
           $keyPath = Join-Path $sshDir 'id_rsa'
           $knownHostsPath = Join-Path $sshDir 'known_hosts'
           New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
+          Set-Content -Path $knownHostsPath -Value '' -NoNewline
           [System.IO.File]::WriteAllText($keyPath, $env:CODER_SURVIVAL_VM_SSH_KEY, [System.Text.UTF8Encoding]::new($false))
           icacls $keyPath /inheritance:r /grant:r "${env:USERNAME}:(R)" | Out-Null
           & ssh-keyscan -H $vmHost 2>$null | Add-Content -Path $knownHostsPath
@@ -110,6 +111,8 @@ jobs:
           if ($actualFingerprints -notcontains $env:CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT) {
             throw 'VM SSH host key fingerprint is missing or does not match.'
           }
+          "CODER_SURVIVAL_SSH_KEY_PATH=$keyPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CODER_SURVIVAL_SSH_KNOWN_HOSTS_PATH=$knownHostsPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}
