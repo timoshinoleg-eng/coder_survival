@@ -49,5 +49,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Migration bootstrap and idempotency gate
+        run: |
+          node src/migrate.js
+          node src/migrate.js
+
       - name: Run backend tests
         run: npm test -- --runInBand

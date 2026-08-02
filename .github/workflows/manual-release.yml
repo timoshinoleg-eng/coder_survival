@@ -5,14 +5,14 @@
 # requires SSH access to the VM and Vercel CLI auth that live outside this repo.
 #
 # Prerequisites (must be configured as repository secrets):
-#   VM_SSH_KEY        — private key for ubuntu@111.88.247.195
-#   VM_HOST           — optional override, default ubuntu@111.88.247.195
+#   VM_SSH_KEY        — private key for the Vultr production VM
+#   VM_SSH_TARGET     — SSH target in user@host form for the Vultr production VM
 #   VERCEL_TOKEN      — npx vercel --token value (if running Vercel deploy from CI)
 #   BOT_TOKEN         — optional, for smoke test init-data signing
 #
 # Current limitation:
 #   The hardened release path validates Docker health on the VM, so the runner
-#   must be able to reach 111.88.247.195:22. A self-hosted runner inside the
+#   must be able to reach the configured Vultr VM on port 22. A self-hosted runner inside the
 #   operator environment is the safest path; GitHub-hosted runners work only
 #   if the VM SSH port is exposed and key-based auth is configured.
 
@@ -45,16 +45,14 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # TODO: switch to self-hosted runner in the operator LAN for SSH reliability
-    # runs-on: [self-hosted, cs-operator]
+    permissions:
+      contents: read
+    env:
+      CODER_SURVIVAL_VM_SSH_TARGET: ${{ secrets.VM_SSH_TARGET }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup PowerShell
-        uses: pwsh-lang/pwsh@v1
-        # Fallback: Ubuntu images already have pwsh; this step is a no-op placeholder.
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -64,10 +62,16 @@ jobs:
       - name: Setup SSH
         if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
         run: |
+          test -n "$CODER_SURVIVAL_VM_SSH_TARGET"
+          if ! [[ "$CODER_SURVIVAL_VM_SSH_TARGET" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$ ]]; then
+            echo "VM_SSH_TARGET must use a safe user@host form" >&2
+            exit 1
+          fi
+          VM_HOST="${CODER_SURVIVAL_VM_SSH_TARGET#*@}"
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 111.88.247.195 >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}

@@ -117,10 +117,11 @@ Coder Survival — Telegram Mini App для программистов, где "
 | Nginx (legacy) | `nginx:alpine` | `nginx/Dockerfile` |
 ### 8.2 Compose Files
 - **`backend/docker-compose.yml`** — Local dev: PostgreSQL 16 + backend with volume-mounted `src/` for hot reload
-- **`docker-compose.backend.yml`** — Production compose (backend-only, pulls from YCR)
+- **`docker-compose.backend.yml`** — Production compose (backend-only, built locally on the VM by the guarded release path)
 - **`docker-compose.prod.yml`** — Legacy full-stack compose (frontend + backend + bot); not used in current prod path
-### 8.3 Container Registry
-- **Yandex Container Registry:** `cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest`
+### 8.3 Image Source
+- The release path builds `coder-survival-backend:git-<commit>` plus `latest`
+  directly on the VM. No external container registry is part of production.
 ## 9. CI/CD
 ### 9.1 GitHub Actions (`.github/workflows/`)
 | Workflow | File | Trigger | What it does |

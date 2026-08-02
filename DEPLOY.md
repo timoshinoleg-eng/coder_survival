@@ -1,13 +1,14 @@
 # Coder Survival — текущее состояние деплоя
 
 > ⚠️ **Каноничный источник топологии — `docs/CURRENT_ARCHITECTURE.md`.**
-> Этот файл — операторский runbook. VM-адрес `111.88.247.195` ниже —
-> **устаревший** (старая VM). Актуальный prod-VM/DNS — в drift-таблице
-> `docs/CURRENT_ARCHITECTURE.md`; подтверди у владельца перед деплоем.
+> На 2026-08-02 backend подтверждён на Vultr через
+> `coder-survival-api.duckdns.org`. Никогда не вшивай IP или SSH-пользователя в
+> команды: перед release задай `CODER_SURVIVAL_VM_SSH_TARGET=user@host`.
 
 ## Что сейчас реально работает
 
-- Backend и PostgreSQL работают на VM `111.88.247.195`.
+- Backend работает на Vultr VM; PostgreSQL — внешний сервис, доступный только
+  через VM environment.
 - Frontend Mini App вынесен на Vercel:
   - `https://frontend-ashy-alpha-77.vercel.app`
 - Клиентский и bot-facing API опубликован через frontend domain:
@@ -124,14 +125,14 @@
 ## Полезные команды на VM
 
 ```bash
-ssh ubuntu@111.88.247.195
+ssh $env:CODER_SURVIVAL_VM_SSH_TARGET
 cd /opt/coder-survival/app
 docker-compose -f docker-compose.backend.yml ps
 docker-compose -f docker-compose.backend.yml logs --tail=100 backend
 # legacy frontend/bot containers (if any) from docker-compose.prod.yml:
 # docker-compose -f docker-compose.prod.yml logs --tail=100 frontend
 # docker-compose -f docker-compose.prod.yml logs --tail=100 bot
-docker build --no-cache -t cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest ./backend
+docker build --no-cache -t coder-survival-backend:local ./backend
 docker-compose -f docker-compose.backend.yml run --rm backend node src/migrate.js
 docker-compose -f docker-compose.backend.yml up -d --force-recreate backend
 curl -I https://coder-survival-api.duckdns.org/health
@@ -152,7 +153,7 @@ pwsh -File scripts/release-preflight.ps1
 Что делает:
 - Vercel production deploy для `frontend` и `bot`
 - sync backend source на VM
-- `docker build --no-cache -t cr.yandex/.../coder-survival-backend:latest ./backend`
+- `docker build --no-cache -t coder-survival-backend:local ./backend`
 - `docker-compose ... run --rm backend node src/migrate.js`
 - `docker-compose ... up -d --force-recreate backend`
 - production smoke через публичные URL
@@ -223,13 +224,15 @@ node --check bot/index.js
 
 - `coder-survival-api.duckdns.org` сейчас является рабочим upstream HTTPS-адресом между Vercel и VM.
 - Vercel используется как текущий production frontend для Telegram Mini App и как runtime для webhook-бота.
-- Старую VM `111.88.254.2` считать legacy.
+- Старые VM/IP и Yandex registry не являются частью текущего release path.
 - Не хранить реальные секреты в репозитории.
 - Для backend-релиза здесь нужен именно direct `docker build ./backend` + `--force-recreate`; обычный `up -d backend` может оставить контейнер на старом `latest` image.
 - `docker-compose build --no-cache backend` тоже один раз дал stale-image mismatch на релизе `2026-05-07`, поэтому рабочий runbook переведен на прямой `docker build`.
 - Vercel auth в текущей среде подтверждён; `npx vercel whoami` возвращает рабочий аккаунт.
 - `scripts/deploy.sh` оставлен только как guard и больше не является рабочим release-script.
-- `.github/workflows/manual-release.yml` существует только как draft wrapper around `scripts/release-prod.ps1`; не считать его production truth, пока не будет отдельной валидации runner/SSH path.
+- `.github/workflows/manual-release.yml` передаёт SSH target только из
+  `VM_SSH_TARGET`; release блокируется, если target, key или DB-backed CI не
+  настроены. Это production path после отдельной валидации runner/SSH path.
 - `scripts/release-manual-checklist.md` is the operator-facing checklist that should stay aligned with `scripts/release-prod.ps1`.
 - domain cutover checklist lives in `DOMAIN_HARDENING_PLAN.md`.
 - DuckDNS-based API cutover checklist lives in `DUCKDNS_API_PLAN.md`.

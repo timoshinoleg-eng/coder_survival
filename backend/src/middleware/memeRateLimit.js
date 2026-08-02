@@ -24,8 +24,9 @@ export function memeRateLimit(req, res, next) {
   next();
 }
 
-// Simple cleanup every 5 minutes
-setInterval(() => {
+// Simple cleanup every 5 minutes. The HTTP server keeps this useful in
+// production; unref prevents a module import from keeping test processes alive.
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [key, bucket] of buckets.entries()) {
     if (now > bucket.resetAt) {
@@ -33,3 +34,4 @@ setInterval(() => {
     }
   }
 }, 300_000);
+cleanupTimer.unref();

@@ -2,8 +2,6 @@
 # This is the active production compose file. It runs only the backend container.
 # Frontend and bot production traffic are hosted on Vercel.
 # See HANDOFF.md and DEPLOY.md for topology details.
-version: "3.3"
-
 # Production backend compose. The canonical env file is /opt/coder_survival/backend/.env.
 # DB_* variables are interpolated from the operator's shell; the backend builds
 # its connection string from them. DATABASE_URL is intentionally omitted because
@@ -12,7 +10,7 @@ version: "3.3"
 
 services:
   backend:
-    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:${BACKEND_IMAGE_TAG:-latest}
+    image: coder-survival-backend:${BACKEND_IMAGE_TAG:-latest}
     build: ./backend
     environment:
       NODE_ENV: production
@@ -23,6 +21,10 @@ services:
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASSWORD}
       DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSL: ${DB_SSL:-}
+      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
+      DB_SSL_CA: ${DB_SSL_CA:-}
+      DB_SSL_CA_PATH: ${DB_SSL_CA_PATH:-}
       BOT_TOKEN: ${BOT_TOKEN}
       BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
     ports:
