@@ -1,0 +1,27 @@
+name: Vultr Backend Health
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify public Vultr backend health
+        env:
+          HEALTH_URL: https://coder-survival-api.duckdns.org/health
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --show-error --silent --retry 2 --retry-all-errors --max-time 20 "$HEALTH_URL")"
+          HEALTH_BODY="$body" node --input-type=module -e '
+            const health = JSON.parse(process.env.HEALTH_BODY);
+            if (health.status !== "ok" || health.db !== "connected") {
+              throw new Error("health payload is not production-ready");
+            }
+          '

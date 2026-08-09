@@ -49,7 +49,8 @@ What the script does:
 4. Prints the payload manifest.
 5. Deploys frontend + bot to Vercel production (unless skipped).
 6. Uploads and extracts backend payload on VM.
-7. Runs `docker build --no-cache -t cr.yandex/… ./backend`.
+7. Builds immutable `coder-survival-backend:git-<candidate-sha>` and the
+   `latest` alias locally on the VM.
 8. Runs migrations via `docker-compose.backend.yml`.
 9. Force-recreates the backend container.
 10. Waits for Docker healthcheck (up to 20 s).
@@ -63,7 +64,7 @@ What the script does:
 - [ ] `smoke-offers.ps1` passed
 - [ ] VM container healthy:
   ```bash
-  ssh root@185.92.221.219
+  ssh $env:CODER_SURVIVAL_VM_SSH_TARGET
   docker compose -f docker-compose.backend.yml ps
   docker compose -f docker-compose.backend.yml logs --tail=20 backend
   ```
@@ -92,11 +93,9 @@ What the script does:
 
 ## Rollback Plan (if smoke fails)
 
-1. Backend: re-run previous image tag on VM:
-   ```bash
-   docker pull cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:<previous-tag>
-   docker compose -f docker-compose.backend.yml up -d --force-recreate backend
-   ```
+1. Backend: check out the recorded accepted rollback commit and run the same
+   guarded `scripts/release-prod.ps1` path. Do not pull an image from an
+   obsolete registry or substitute an arbitrary VM target.
 2. Frontend / bot: Vercel rollback via dashboard or `npx vercel rollback`.
 3. Notify team in chat and mark release as failed in `project-status.json`.
 

@@ -5,14 +5,15 @@
 # requires SSH access to the VM and Vercel CLI auth that live outside this repo.
 #
 # Prerequisites (must be configured as repository secrets):
-#   VM_SSH_KEY        — private key for ubuntu@111.88.247.195
-#   VM_HOST           — optional override, default ubuntu@111.88.247.195
+#   VM_SSH_KEY        — private key for the Vultr production VM
+#   VM_SSH_TARGET     — SSH target in user@host form for the Vultr production VM
+#   VM_USER + VM_HOST — supported legacy secret pair when VM_SSH_TARGET is absent
 #   VERCEL_TOKEN      — npx vercel --token value (if running Vercel deploy from CI)
 #   BOT_TOKEN         — optional, for smoke test init-data signing
 #
 # Current limitation:
 #   The hardened release path validates Docker health on the VM, so the runner
-#   must be able to reach 111.88.247.195:22. A self-hosted runner inside the
+#   must be able to reach the configured Vultr VM on port 22. A self-hosted runner inside the
 #   operator environment is the safest path; GitHub-hosted runners work only
 #   if the VM SSH port is exposed and key-based auth is configured.
 
@@ -24,6 +25,16 @@ on:
       version_tag:
         description: 'Release version tag (e.g., v0.1.1)'
         required: true
+        type: string
+      vm_host_override:
+        description: 'Optional current VM host or IP; combines with the protected VM_USER secret'
+        required: false
+        default: ''
+        type: string
+      vm_host_key_fingerprint:
+        description: 'Required SHA256 SSH host-key fingerprint when overriding the VM host'
+        required: false
+        default: ''
         type: string
       skip_vercel:
         description: 'Skip Vercel frontend + bot deploy'
@@ -44,17 +55,20 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
-    # TODO: switch to self-hosted runner in the operator LAN for SSH reliability
-    # runs-on: [self-hosted, cs-operator]
+    runs-on: [self-hosted, windows, x64, cs-operator]
+    permissions:
+      contents: read
+    env:
+      CODER_SURVIVAL_VM_SSH_TARGET: ${{ secrets.VM_SSH_TARGET }}
+      CODER_SURVIVAL_VM_USER: ${{ secrets.VM_USER }}
+      CODER_SURVIVAL_VM_HOST: ${{ secrets.VM_HOST }}
+      CODER_SURVIVAL_VM_HOST_OVERRIDE: ${{ inputs.vm_host_override }}
+      CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT: ${{ inputs.vm_host_key_fingerprint }}
+      CODER_SURVIVAL_VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup PowerShell
-        uses: pwsh-lang/pwsh@v1
-        # Fallback: Ubuntu images already have pwsh; this step is a no-op placeholder.
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -63,24 +77,57 @@ jobs:
 
       - name: Setup SSH
         if: ${{ !inputs.skip_backend || !inputs.skip_smoke }}
+        shell: pwsh
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H 111.88.247.195 >> ~/.ssh/known_hosts 2>/dev/null || true
+          $vmHost = if ($env:CODER_SURVIVAL_VM_HOST_OVERRIDE) {
+            $env:CODER_SURVIVAL_VM_HOST_OVERRIDE
+          } else {
+            $env:CODER_SURVIVAL_VM_HOST
+          }
+          $vmTarget = $env:CODER_SURVIVAL_VM_SSH_TARGET
+          if (-not $vmTarget -and $env:CODER_SURVIVAL_VM_USER -and $vmHost) {
+            $vmTarget = "$($env:CODER_SURVIVAL_VM_USER)@$vmHost"
+          }
+          if ($vmTarget -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
+            throw 'Configure VM_SSH_TARGET or the legacy VM_USER and VM_HOST pair.'
+          }
+          "CODER_SURVIVAL_VM_SSH_TARGET=$vmTarget" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $vmHost = $vmTarget.Split('@', 2)[1]
+          $sshDir = Join-Path $env:RUNNER_TEMP ("coder-survival-ssh-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT)")
+          $keyPath = Join-Path $sshDir 'id_rsa'
+          $knownHostsPath = Join-Path $sshDir 'known_hosts'
+          New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
+          Set-Content -Path $knownHostsPath -Value '' -NoNewline
+          [System.IO.File]::WriteAllText($keyPath, $env:CODER_SURVIVAL_VM_SSH_KEY, [System.Text.UTF8Encoding]::new($false))
+          icacls $keyPath /inheritance:r /grant:r "${env:USERNAME}:(R)" | Out-Null
+          & ssh-keyscan -H $vmHost 2>$null | Add-Content -Path $knownHostsPath
+          if ($LASTEXITCODE -ne 0) {
+            if (-not $env:CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT) {
+              throw 'A VM SSH host-key fingerprint is required when ssh-keyscan is unavailable.'
+            }
+            & ssh -o BatchMode=yes -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o PubkeyAuthentication=no -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$knownHostsPath $vmTarget true 2>$null
+          }
+          $actualFingerprints = @(& ssh-keygen -lf $knownHostsPath | ForEach-Object { ($_ -split '\s+')[1] })
+          if ($actualFingerprints -notcontains $env:CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT) {
+            throw 'VM SSH host key fingerprint is missing or does not match.'
+          }
+          "CODER_SURVIVAL_SSH_KEY_PATH=$keyPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CODER_SURVIVAL_SSH_KNOWN_HOSTS_PATH=$knownHostsPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Preflight checks
         if: ${{ !inputs.allow_dirty }}
+        shell: pwsh
         run: |
-          git_status=$(git status --porcelain)
-          if [ -n "$git_status" ]; then
-            echo "::error::Worktree is dirty. Commit or stash changes first."
-            exit 1
-          fi
+          $gitStatus = @(git status --porcelain)
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to read git status.'
+          }
+          if ($gitStatus.Count -gt 0) {
+            throw 'Worktree is dirty. Commit or stash changes first.'
+          }
 
       - name: Validate backend compose syntax
-        run: |
-          docker compose -f docker-compose.backend.yml config > /dev/null
+        run: docker compose -f docker-compose.backend.yml config --quiet
 
       - name: Release Preflight
         run: pwsh -File scripts/release-preflight.ps1
@@ -89,10 +136,10 @@ jobs:
         shell: pwsh
         run: |
           $params = @{
-            SkipVercel   = ${{ inputs.skip_vercel }}
-            SkipBackend  = ${{ inputs.skip_backend }}
-            SkipSmoke    = ${{ inputs.skip_smoke }}
-            AllowDirty   = ${{ inputs.allow_dirty }}
+            SkipVercel   = [bool]::Parse("${{ inputs.skip_vercel }}")
+            SkipBackend  = [bool]::Parse("${{ inputs.skip_backend }}")
+            SkipSmoke    = [bool]::Parse("${{ inputs.skip_smoke }}")
+            AllowDirty   = [bool]::Parse("${{ inputs.allow_dirty }}")
           }
           scripts/release-prod.ps1 @params
 

@@ -1,10 +1,12 @@
 [CmdletBinding()]
 param(
-  [string]$VmHost = "root@185.92.221.219",
+  [string]$VmHost = $env:CODER_SURVIVAL_VM_SSH_TARGET,
   [string]$RemoteAppDir = "/opt/coder_survival",
   [string]$FrontendDir = "frontend",
   [string]$BotDir = "bot",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
+  [string]$SshKeyPath = $env:CODER_SURVIVAL_SSH_KEY_PATH,
+  [string]$SshKnownHostsPath = $env:CODER_SURVIVAL_SSH_KNOWN_HOSTS_PATH,
   [switch]$AllowDirty,
   [switch]$IncludeUntracked,
   [switch]$SkipVercel,
@@ -21,7 +23,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $frontendPath = Join-Path $repoRoot $FrontendDir
 $botPath = Join-Path $repoRoot $BotDir
 $smokeScript = Join-Path $PSScriptRoot "smoke-core-prod.ps1"
-$backendImageRepo = "cr.yandex/crpduv7gci2puq300f38/coder-survival-backend"
+$backendImageRepo = "coder-survival-backend"
 $gitSha = (git -C $repoRoot rev-parse --short=12 HEAD).Trim()
 $backendImageTag = "git-$gitSha"
 $backendPayloadWhitelist = @(
@@ -38,6 +40,24 @@ $forbiddenSecretFiles = @(
   "backend/.env.production",
   "backend/.env.local"
 )
+
+if ([string]::IsNullOrWhiteSpace($VmHost) -or $VmHost -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
+  throw "VmHost is required in user@host form. Pass -VmHost or set CODER_SURVIVAL_VM_SSH_TARGET."
+}
+
+$sshOptions = @('-o', 'BatchMode=yes', '-o', 'NumberOfPasswordPrompts=0', '-o', 'ConnectTimeout=20')
+if ($SshKeyPath) {
+  if (-not (Test-Path -LiteralPath $SshKeyPath -PathType Leaf)) {
+    throw "Configured SSH key does not exist: $SshKeyPath"
+  }
+  $sshOptions += @('-i', $SshKeyPath, '-o', 'IdentitiesOnly=yes')
+}
+if ($SshKnownHostsPath) {
+  if (-not (Test-Path -LiteralPath $SshKnownHostsPath -PathType Leaf)) {
+    throw "Configured SSH known-hosts file does not exist: $SshKnownHostsPath"
+  }
+  $sshOptions += @('-o', "UserKnownHostsFile=$SshKnownHostsPath", '-o', 'StrictHostKeyChecking=yes')
+}
 
 function Invoke-Checked {
   param(
@@ -60,11 +80,12 @@ function Invoke-SshScript {
     [Parameter(Mandatory = $true)]
     [string]$SshHost,
     [Parameter(Mandatory = $true)]
-    [string]$Script
+    [string]$Script,
+    [string[]]$SshOptions = @()
   )
 
   $normalizedScript = $Script -replace "`r`n", "`n"
-  $output = $normalizedScript | ssh $SshHost bash -s
+  $output = $normalizedScript | ssh @SshOptions $SshHost bash -s
   if ($LASTEXITCODE -ne 0) {
     throw "ssh script failed on $SshHost"
   }
@@ -200,7 +221,7 @@ if (-not $SkipBackend) {
     Compress-Archive -Path (Join-Path $stagingDir "*") -DestinationPath $zipPath -CompressionLevel Optimal -Force
 
     Invoke-Checked -Label "Upload backend payload to VM" -Action {
-      scp -o StrictHostKeyChecking=no $zipPath "${VmHost}:/tmp/coder-survival-release.zip"
+      scp @sshOptions $zipPath "${VmHost}:/tmp/coder-survival-release.zip"
     }.GetNewClosure()
 
     $remoteScript = @'
@@ -236,7 +257,7 @@ exit 1
 
     Write-Host ""
     Write-Host "==> Deploy backend on VM"
-    $remoteOutput = Invoke-SshScript -SshHost $VmHost -Script $remoteScript
+    $remoteOutput = Invoke-SshScript -SshHost $VmHost -Script $remoteScript -SshOptions $sshOptions
     $remoteOutput | Write-Output
   } finally {
     if (Test-Path $stagingDir) {

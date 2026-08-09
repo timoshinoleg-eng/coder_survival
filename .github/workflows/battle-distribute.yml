@@ -12,16 +12,16 @@ jobs:
     steps:
       - name: Validate required secrets
         env:
-          BATTLE_DISTRIBUTE_URL: ${{ secrets.BATTLE_DISTRIBUTE_URL }}
-          BATTLE_DISTRIBUTE_SECRET: ${{ secrets.BATTLE_DISTRIBUTE_SECRET }}
+          BATTLE_DISTRIBUTE_URL: ${{ secrets.BATTLE_DISTRIBUTE_URL || 'https://coder-survival-api.duckdns.org/api/battle/distribute' }}
+          BATTLE_DISTRIBUTE_SECRET: ${{ secrets.BATTLE_DISTRIBUTE_SECRET || secrets.BOT_BACKEND_SECRET }}
         run: |
           test -n "$BATTLE_DISTRIBUTE_URL"
           test -n "$BATTLE_DISTRIBUTE_SECRET"
 
       - name: Trigger battle reward distribution
         env:
-          BATTLE_DISTRIBUTE_URL: ${{ secrets.BATTLE_DISTRIBUTE_URL }}
-          BATTLE_DISTRIBUTE_SECRET: ${{ secrets.BATTLE_DISTRIBUTE_SECRET }}
+          BATTLE_DISTRIBUTE_URL: ${{ secrets.BATTLE_DISTRIBUTE_URL || 'https://coder-survival-api.duckdns.org/api/battle/distribute' }}
+          BATTLE_DISTRIBUTE_SECRET: ${{ secrets.BATTLE_DISTRIBUTE_SECRET || secrets.BOT_BACKEND_SECRET }}
         run: |
           curl --fail --show-error --silent \
             -X POST \

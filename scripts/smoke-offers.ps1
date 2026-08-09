@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$VmHost = "root@185.92.221.219",
+  [string]$VmHost = $env:CODER_SURVIVAL_VM_SSH_TARGET,
   [string]$RemoteAppDir = "/opt/coder_survival",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
   [string]$BaseUrl = "https://frontend-ashy-alpha-77.vercel.app",
@@ -14,6 +14,10 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($VmHost) -or $VmHost -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
+  throw "VmHost is required in user@host form. Pass -VmHost or set CODER_SURVIVAL_VM_SSH_TARGET."
+}
 
 if (-not $PSBoundParameters.ContainsKey('SmokeTelegramId')) {
   $SmokeTelegramId = 900000000 + (Get-Random -Minimum 1000 -Maximum 99999)

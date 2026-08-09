@@ -3,11 +3,9 @@
 # The frontend and bot services below remain only for full-stack local reference.
 # Vercel hosts production frontend and bot webhook runtime.
 
-version: "3.3"
-
 services:
   frontend:
-    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-frontend:latest
+    image: coder-survival-frontend:local
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -18,7 +16,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:latest
+    image: coder-survival-backend:local
     build: ./backend
     environment:
       NODE_ENV: production
@@ -29,6 +27,10 @@ services:
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASSWORD}
       DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSL: ${DB_SSL:-}
+      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
+      DB_SSL_CA: ${DB_SSL_CA:-}
+      DB_SSL_CA_PATH: ${DB_SSL_CA_PATH:-}
       BOT_TOKEN: ${BOT_TOKEN}
       BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
     expose:
@@ -41,7 +43,7 @@ services:
       retries: 3
 
   bot:
-    image: cr.yandex/crpduv7gci2puq300f38/coder-survival-bot:latest
+    image: coder-survival-bot:local
     build: ./bot
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
@@ -52,5 +54,5 @@ services:
       - backend
     restart: unless-stopped
 
-  # PostgreSQL — managed by Yandex Cloud, not in Docker
-  # Host: rc1a-rt2j8d332gf773ap.mdb.yandexcloud.net:6432
+  # PostgreSQL is external to this legacy local-reference stack. Configure
+  # DB_* and DB_SSL in its environment; no provider host is encoded here.

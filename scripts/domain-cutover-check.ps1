@@ -6,7 +6,7 @@ param(
   [string]$BotWebhookUrl,
   [Parameter(Mandatory = $true)]
   [string]$ExpectedApiHost,
-  [string]$VmHost = "ubuntu@111.88.247.195",
+  [string]$VmHost = $env:CODER_SURVIVAL_VM_SSH_TARGET,
   [string]$RemoteAppDir = "/opt/coder-survival/app",
   [int]$SmokeTelegramId = 900000001,
   [string]$SmokeFirstName = "Smoke",
@@ -16,6 +16,10 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($VmHost) -or $VmHost -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
+  throw "VmHost is required in user@host form. Pass -VmHost or set CODER_SURVIVAL_VM_SSH_TARGET."
+}
 
 function Add-Result {
   param(
