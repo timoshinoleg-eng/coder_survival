@@ -4,10 +4,11 @@
 `DEPLOY.md`, `HANDOFF.md`, `AGENT_HANDOFF.md`, `YANDEX_CLOUD_MIGRATION_PLAN.md`,
 `RENDER_SETUP.md`, `project-status.json`).
 
-> ⚠️ **Topology has documented drift** (three different VM IPs across the repo).
-> The diagram below is the *most-likely* current production shape inferred from
-> the newest sources; values marked **(CONFIRM)** must be verified by the owner
-> before any deploy.
+> **Live verification — 2026-08-02.** `coder-survival-api.duckdns.org` resolves
+> to `185.92.221.219`; reverse DNS identifies `vultrusercontent.com`; HTTPS
+> `/health` returns `200`. The backend is on Vultr. The SSH target is never
+> committed: releases receive it as `CODER_SURVIVAL_VM_SSH_TARGET` / the
+> `VM_SSH_TARGET` GitHub secret.
 
 ## Components
 
@@ -17,10 +18,10 @@
 - **Bot webhook** (Grammy, serverless): **Vercel** function
   (`bot/api/webhook.js`, `bot/api/invoice-link.js`). Verifies Telegram’s
   `X-Telegram-Bot-Api-Secret-Token` (now fail-closed).
-- **Backend API** (Node 20 + Express): **Docker container on a Yandex Cloud VM**,
+- **Backend API** (Node 20 + Express): **Docker container on a Vultr VM**,
   port 3000, behind a reverse proxy (Caddy/nginx) terminating TLS. Health at
   `/health`.
-- **Database:** PostgreSQL 15 (managed/YC). Migrations via `backend/src/migrate.js`
+- **Database:** externally managed PostgreSQL. Migrations via `backend/src/migrate.js`
   (`schema_migrations`, filename-keyed, transactional).
 - **Payments:** Telegram Stars (`XTR`). Invoice created via bot; confirmation via
   bot `successful_payment` → backend `internal/payments` (secured with
@@ -28,8 +29,8 @@
 - **Cron/jobs:** `node-cron` inside the backend process (season rotation, daily
   battle, hackathon, achievements, random events, flash sales, daily summary,
   health alert).
-- **Container registry:** `cr.yandex/crpduv7gci2puq300f38` **(CONFIRM — the
-  current `deploy-backend.yml` builds on-VM and does not push here).**
+- **Container image:** built on the Vultr VM from the reviewed backend payload;
+  no external container registry is part of the release path.
 
 ## Diagram
 
@@ -42,7 +43,7 @@ flowchart TD
   fe -->|"/api/* (initData in X-Telegram-Init-Data)"| proxy["Reverse proxy + TLS (Caddy/nginx on VM)"]
   botapi -->|webhook + secret token| botfn["Bot webhook (Vercel serverless)"]
 
-  proxy --> be["Backend API (Docker on Yandex Cloud VM)"]
+  proxy --> be["Backend API (Docker on Vultr VM)"]
   botfn -->|create invoice| botapi
   botfn -->|"successful_payment (X-Bot-Backend-Secret)"| be
 
@@ -74,26 +75,25 @@ flowchart TD
 
 | Value | Where it appears | Assessment |
 |-------|------------------|------------|
-| `111.88.243.88` (`yc-user@`) | `HANDOFF.md` (newest) | **Most likely current prod VM (CONFIRM).** |
-| `111.88.247.195` | `DEPLOY.md`, `project-status.json`, `manual-release.yml` (hardcoded in `ssh-keyscan`) | Old VM, decommissioned ~May 2026 — **legacy.** |
-| `185.92.221.219` (`root@`) | `scripts/*.ps1` default `$VmHost` | Stale default — **do not trust.** |
-| `89.169.140.219` | `integration-tests-staging.yml` (plaintext) | Staging DB/host — move to a secret. |
-| Render.com (`coder-survival.onrender.com`) | `render.yaml`, `render-*.yml`, `RENDER_SETUP.md` | **Abandoned platform** — archive; not production. |
-| `coder-survival-api.duckdns.org` | `frontend/vercel.json` | Current API hostname → VM (CONFIRM DNS target). |
-| `cr.yandex/crpduv7gci2puq300f38` | `backend/package.json` docker scripts | Registry not used by current deploy path — **CONFIRM.** |
+| `185.92.221.219` | Live DuckDNS resolution + reverse DNS | **Confirmed Vultr backend address on 2026-08-02.** |
+| `coder-survival-api.duckdns.org` | `frontend/vercel.json`, live HTTPS health | Current public API hostname. |
+| `VM_SSH_TARGET` / `CODER_SURVIVAL_VM_SSH_TARGET` | Manual release workflow and PowerShell release/smoke scripts | Canonical secret-only SSH target; prevents future hard-coded-address drift. |
+| `STAGING_TEST_DATABASE_URL` | `integration-tests-staging.yml` | Isolated PostgreSQL URL stored as an environment secret; absence is a failing gate. |
+| `DB_SSL` / `DB_SSL_CA` | VM `backend/.env` and backend container | Verified TLS is the production default; `DB_SSL=false` is allowed only for a trusted local VM database. |
+| Yandex and Render references | Archived planning/history material only | Not production topology and not release dependencies. |
 
 ## Deploy path (current, manual, human-gated)
 
-`deploy-backend.yml` (`workflow_dispatch` only): run tests → `rsync` backend to
-the VM → `docker build` on VM → restart container with secrets → `/health`
-retry → verify. There is **no auto-deploy on push** and no zero-downtime
-guarantee (single container restart = brief unavailability window; rollback =
-redeploy previous image/commit). See `DEPLOY.md` for the operator runbook.
+`deploy-backend.yml` (`workflow_dispatch` only): runs migrations twice and the
+complete backend suite against a disposable PostgreSQL service before it can
+deploy → syncs the backend to the VM → builds locally on Vultr → migrates →
+restarts → verifies health. There is **no auto-deploy on push** and no
+zero-downtime guarantee (single-container restart = brief outage; rollback =
+redeploy a previously accepted commit). See `docs/TEST_LAUNCH_RUNBOOK.md`.
 
-**Recommended CI set:** keep `backend-tests.yml` (real gate, now with a
-migration bootstrap gate) and `security-scan.yml` (CodeQL + TruffleHog + npm
-audit). Archive `render-health.yml` / `render-setup.yml` (dead platform). Fix or
-retire `manual-release.yml` (references a non-existent `pwsh` action + the legacy
-VM IP). Disabling `claude-agent.yml` auto-triggers is **PENDING OWNER ACTION**
-(the automation lacks the GitHub `workflow` scope) — exact diff in
-`docs/pending-workflow-changes.md`.
+**Required CI set:** `backend-tests.yml` and the deploy preflight both run the
+migration bootstrap/idempotency gate; `integration-tests-staging.yml` fails when
+its isolated DB is not configured or reachable; `security-scan.yml` remains the
+security gate; `vultr-health.yml` checks the real public API and database health.
+The remote-code AI workflow is manual-only and least-privilege. The old Render
+workflows are removed.

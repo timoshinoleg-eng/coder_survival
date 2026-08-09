@@ -1,152 +1,45 @@
 {
   "project": "Coder Survival",
-  "status": "working_mvp_with_vercel_webhook_bot_runtime",
-  "last_updated": "2026-06-01T18:15:00+03:00",
+  "status": "release_hardening_candidate_local_unpublished",
+  "last_updated": "2026-08-02T13:55:00+03:00",
   "components": {
     "frontend": {
-      "status": "live",
-      "location": "frontend/",
-      "tech": "Preact + Phaser 3.60",
-      "public_url": "https://frontend-ashy-alpha-77.vercel.app",
-      "api_base_url": "same-origin /api via Vercel rewrites",
-      "state": "Server-authority API calls",
-      "last_deploy": "2026-05-07T18:40:00+03:00"
+      "status": "public_baseline_healthy",
+      "hosting": "Vercel",
+      "public_url": "https://frontend-ashy-alpha-77.vercel.app"
     },
     "backend": {
-      "status": "live",
-      "location": "backend/",
-      "tech": "Express + PostgreSQL",
-      "entry": "src/index.js (ESM)",
-      "public_url": "https://frontend-ashy-alpha-77.vercel.app/api",
-      "health": "https://frontend-ashy-alpha-77.vercel.app/health",
-      "upstream_url": "https://coder-survival-api.duckdns.org",
-      "last_deploy": "2026-05-07T18:40:00+03:00",
-      "latest_applied_migration": "007_minimum_economy_instrumentation.sql"
+      "status": "public_baseline_healthy",
+      "hosting": "Docker on Vultr behind DuckDNS",
+      "health_url": "https://coder-survival-api.duckdns.org/health",
+      "release_source": "guarded scripts/release-prod.ps1"
     },
     "bot": {
-      "status": "live",
-      "location": "bot/",
-      "runtime": "Vercel webhook function",
-      "public_url": "https://coder-survival-bot.vercel.app/api/webhook",
-      "features": ["/start", "WebApp button", "leaderboard", "server-confirmed payment callbacks"],
-      "limitation": "VM runtime cannot reliably reach api.telegram.org",
-      "last_deploy": "2026-05-07T18:40:00+03:00"
-    },
-    "deploy": {
-      "status": "release_hardening_validated_with_live_energy_countdown_contract",
-      "target": "VM 111.88.247.195 (/opt/coder-survival/app)",
-      "frontend_hosting": "Vercel",
-      "backend_hosting": "VM with DuckDNS HTTPS",
-      "bot_hosting": "Vercel webhook runtime",
-      "operator_scripts": [
-        "scripts/release-prod.ps1",
-        "scripts/release-preflight.ps1",
-        "scripts/smoke-prod.ps1",
-        "scripts/smoke-offers.ps1",
-        "scripts/observe-economy.ps1",
-        "scripts/domain-cutover-check.ps1",
-        "scripts/duckdns-update.ps1",
-        "scripts/setup-api-host-on-vm.ps1",
-        "scripts/set-api-origin.ps1"
-      ],
-      "pending_commits": [
-        "ba60665 fix: normalize login reward dates — UTC boundary guard for daily login rewards",
-        "1dac8e8 fix: keep legacy random events active until refactor taps — preserves legacy random-event lifecycle",
-        "f9e86c4 refactor: centralize idle progression persistence — consolidates passive stress/energy decay",
-        "db69639 test: reset database without sleep — removes sleep from test teardown",
-        "e2393fa fix: render illustrated meme cards — restores illustrated meme scene rendering"
-      ],
-      "last_release_notes": [
-        "VM backend source synced from current repo workspace",
-        "Backend rebuilt with --no-cache and force-recreated to avoid stale image reuse",
-        "Migrations 003 through 007 applied on production PostgreSQL (latest: 007_minimum_economy_instrumentation.sql); migration 008_remove_progression_trigger.sql is prepared in repo and should be applied on next release",
-        "Production API smoke passed through public Vercel /api route",
-        "Frontend and bot were redeployed on Vercel and production aliases were refreshed",
-        "DuckDNS hostname coder-survival-api.duckdns.org now fronts the backend VM upstream",
-        "Host-level nginx and Let's Encrypt were provisioned for coder-survival-api.duckdns.org",
-        "Premium pass purchase flow now reuses the live Telegram Stars invoice + confirm path",
-        "Non-tap commits from reward-based sources now contribute to team.total_commits",
-        "Context offer cooldowns moved from localStorage to server-side state with /api/offers/dismiss",
-        "Targeted production offer smoke passed on direct API and via frontend /api proxy",
-        "Backend release path hardened to use direct docker build ./backend after stale-image compose build mismatch",
-        "Balance tuning released: context offers reprioritized and retuned, weekly hackathon target raised to 650, sprint pass now advances from tap XP with a 915-XP season curve, daily quest targets/rewards rebalanced",
-        "Payment/catalog pass released: backend shop catalog now serves the active bot invoice path, shop prices verified live as 10/40/75/200, and Telegram payment confirm was smoke-verified server-side",
-        "Minimum economy instrumentation migration 007 applied: offer_impressions table plus completed_at/claimed_at timestamps for daily quests",
-        "Backend Dockerfile now fixes ownership of /app for the node runtime, and release readiness now needs container health instead of VM localhost:3000",
-        "Frontend cleanup pass removed remaining client-side economy duplication by reading referral/pass/daily metadata from backend responses",
-        "Production smoke now asserts concrete economy values for daily quests, battle rewards, event payload, pass curve, pass price, and referral milestones",
-        "Protected internal economy observation route added at /api/internal/observation/economy with aggregate live metrics for offers, shop, quests, pass, event and retention",
-        "Observation route now exposes sqlSlices parity for the full observation pack (01..07 SQL): DAU/retention, quests, offers, weekly hackathon, sprint pass, shop purchases, economy health",
-        "Bot invoice-link now resolves invoice context from backend internal payments route, and invoice amount is sourced from the stored purchase record to eliminate catalog drift causing Amount mismatch",
-        "scripts/observe-economy.ps1 now fetches the backend secret from runtime and prints the observation snapshot without manual SQL access",
-        "smoke-prod.ps1 now validates the internal observation route through the direct backend upstream",
-        "smoke-prod.ps1 now also exercises /api/buy -> bot/api/invoice-link for a live invoice-link creation path check",
-        "Dead legacy payment mocks were removed from payments/*, unused frontend mockApi.js was removed, and polling bot runtime now requires ENABLE_POLLING_BOT=true",
-        "release-prod.ps1 now assembles backend payload from a filesystem whitelist, prints a manifest before upload, and blocks release when repo .env files are present",
-        "Hardened backend-only release path was production-validated end-to-end on 2026-05-07 without manual VM file sync; both smoke-prod and smoke-offers passed",
-        "Operator scripts now target docker-compose.backend.yml as the backend-only production compose; docker-compose.prod.yml is retained only as a legacy reference",
-        "State/tap payloads now expose progressionUpdatedAt and serverNow so the frontend can render a truthful idle energy countdown",
-        " progression.updated_at is now explicitly set by application code (tap, reward, recovery, buy, referral); migration 008_remove_progression_trigger.sql prepared in repo to remove the ambiguous trigger on next release",
-        " Bot API_URL fallback removed: createBot.js and invoice-link.js now throw on missing API_URL to prevent silent localhost fallback in production",
-        " Shop description drift fixed: depression_cure now reads '60 пунктов' instead of '60%' to match actual balance effect",
-        "Frontend HUD now shows a production-verified idle-only countdown to the next +1 energy while preserving existing smoke coverage",
-        "Support FAQ layer assembled: support/GAMEPLAY_FAQ.md covers triage for energy/stress/quests/pass/shop/team/referral; support/SUPPORT_TRIAGE_CHECKLIST.md provides step-by-step SQL/API checks for payment missing, quest not claimed, event reward missing, team join failed, and referral milestone issues"
-      ]
+      "status": "Vercel webhook runtime",
+      "public_url": "https://coder-survival-bot.vercel.app/api/webhook"
     }
   },
+  "release_candidate": {
+    "local_commit": "recorded on codex/x177-release-gates before publication",
+    "branch": "codex/x177-release-gates",
+    "github_state": "unpublished: owner Git Credential Manager authentication is invalid",
+    "local_acceptance": [
+      "PostgreSQL migrations apply once and are idempotent on repeat",
+      "backend Jest 408/408 against isolated PostgreSQL without forced process exit",
+      "backend production image builds and /health returns status=ok with db=connected",
+      "frontend tests/build and bot tests passed before source-gate changes"
+    ]
+  },
+  "required_before_release": [
+    "Publish the exact branch through timoshinoleg-eng Git Credential Manager authentication",
+    "Create Draft PR and obtain terminal exact-head CI",
+    "Configure STAGING_TEST_DATABASE_URL in the staging environment",
+    "Configure VM_SSH_TARGET, VM_SSH_KEY and Daily Battle secrets",
+    "Verify database backup, authenticated VM state and public smoke through the runbook"
+  ],
   "infrastructure": {
-    "yc": {
-      "vm": "111.88.247.195",
-      "postgres": "managed_postgresql",
-      "registry": "crpduv7gci2puq300f38"
-    },
-    "public_endpoints": {
-      "frontend": "https://frontend-ashy-alpha-77.vercel.app",
-      "backend": "https://frontend-ashy-alpha-77.vercel.app/api",
-      "health": "https://frontend-ashy-alpha-77.vercel.app/health",
-      "backend_upstream": "https://coder-survival-api.duckdns.org",
-      "bot_webhook": "https://coder-survival-bot.vercel.app/api/webhook"
-    }
-  },
-  "verified_flows": [
-    "/start responds",
-    "Mini App opens in Telegram",
-    "tap mutates state",
-    "energy/commits/depression update",
-    "leaderboard loads",
-    "payment fulfillment confirm is idempotent",
-    "Stage 3 context offers show/hide correctly",
-    "Stage 3 shop categories render",
-    "Stage 3 onboarding displays on first visit",
-    "Stage 3 toast feedback works",
-    "Stage 4 event banner renders",
-    "Stage 4 pass panel loads and shows levels",
-    "Stage 4 team create/join/leave works",
-    "Stage 4 shared reward helper applies rewards consistently",
-    "2026-05-06 production smoke passed for health/state/tap/quests/battle/event/pass/referral/shop/team",
-    "2026-05-06 Vercel production redeploy completed for frontend and bot",
-    "2026-05-07 DuckDNS API cutover completed with direct TLS on coder-survival-api.duckdns.org",
-    "2026-05-07 post-cutover production smoke passed for health/state/tap/quests/battle/event/pass/referral/shop/team",
-    "2026-05-07 premium_pass buy -> invoice-link -> internal confirm flow verified",
-    "2026-05-07 team.total_commits increases from non-tap reward commits (verified with tier_boost confirm)",
-    "2026-05-07 server-side context offer cooldowns verified: low_energy appears at 19 energy, dismiss persists server-side, frontend /api/offers/dismiss proxy returns 200",
-    "2026-05-07 balance tuning release verified: public smoke shows weekly hackathon target 650 and pass XP still advances after tap",
-    "2026-05-07 contextual offer smoke passed on a fresh user with direct dismiss persistence and frontend /api/offers/dismiss proxy returning 200",
-    "2026-05-07 energy_refill payment smoke verified on live backend: buy -> internal confirm -> energy restored from 88 to 100",
-    "2026-05-07 premium_pass internal confirm is idempotent on repeated telegram_payment_charge_id",
-    "2026-05-07 expanded production smoke verified daily quest targets/bonus, battle reward preview, event reward payload, sprint pass curve, and referral milestone values",
-    "2026-05-07 internal economy observation route and operator script were added in repo; smoke-prod now checks the route on direct upstream",
-    "2026-05-07 internal observation route expanded to cover all 7 SQL observation slices through sqlSlices parity payload",
-    "2026-05-07 hardened release-prod.ps1 backend-only path completed end-to-end without manual VM sync",
-    "2026-05-07 economy observation route validated: GET /api/internal/observation/economy returns 7 slices matching observation/01..07 SQL pack",
-    "2026-05-07 energy countdown release verified: expanded state/tap payloads did not break smoke-prod or smoke-offers, and HUD now has truthful idle countdown support"
-  ],
-  "next_steps": [
-    "1. Observe live completion and conversion metrics before the next economy pass (operator path: scripts/observe-economy.ps1; deep-dive path: observation/01..07 SQL)",
-    "2. Rotate sensitive secrets if they crossed the normal secret boundary",
-    "3. Watch real-player comprehension of the new energy countdown and rules copy before changing regen UX again"
-  ],
-  "blockers": [
-    "VM outbound connectivity to api.telegram.org must be fixed or bypassed permanently"
-  ]
+    "vm_ssh_target": "secret-backed user@host; not stored in repository",
+    "database": "external PostgreSQL configured by VM backend/.env",
+    "postgres_tls": "verified in production by default; DB_SSL=false only for trusted local VM PostgreSQL"
+  }
 }

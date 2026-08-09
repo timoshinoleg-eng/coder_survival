@@ -11,12 +11,12 @@
 
 ## CI
 - [x] Backend tests are a real gate (`backend-tests.yml`, Postgres 15 service)
-- [ ] **PENDING OWNER (workflow scope):** migration bootstrap gate in `backend-tests.yml` — diff in `docs/pending-workflow-changes.md`
-- [ ] **PENDING OWNER (workflow scope):** remove `continue-on-error` from `deploy-backend.yml` test step — diff in `docs/pending-workflow-changes.md`
-- [ ] **PENDING OWNER (workflow scope):** disable `claude-agent.yml` auto-triggers (supply-chain risk) — diff in `docs/pending-workflow-changes.md`
+- [x] Backend tests run migrations twice before the suite.
+- [x] Deployment tests use PostgreSQL, run migrations twice, and block deploy on failure.
+- [x] AI-agent automatic triggers are disabled; workflow dispatch is read-only by default.
 - [x] `security-scan.yml` (CodeQL + TruffleHog + npm audit) retained
-- [ ] Archive `render-*.yml`; fix/retire `manual-release.yml`
-- [ ] `deploy-preview`: green run ≠ preview created (`continue-on-error`); add `VERCEL_TOKEN` or skip-guard; production must not depend on it
+- [x] Render workflows removed; manual release accepts only secret-provided Vultr SSH target.
+- [x] `deploy-preview` deploys only with `VERCEL_TOKEN`; otherwise it records an explicit skip. Production does not depend on it.
 
 ## Security
 - [x] Admin season endpoint authenticated (fail-closed)
@@ -80,8 +80,7 @@
 
 ## Go/No-Go
 - [ ] All “Security” + “Database” + “Payments” owner items complete → **GO**
-- Current status: **MERGE-READY, PRODUCTION STILL HUMAN-GATED** — all code
-  defects fixed and verified; remaining items require exclusively owner
-  workflow scope (3 workflow diffs), secrets (rotation, `ADMIN_API_SECRET`,
-  optionally `VERCEL_TOKEN`), infrastructure access (VM/DNS confirmation), and
-  a real Telegram client (Stars smoke).
+- Current status: **PRODUCTION STILL GATED** — source release gates are fixed,
+  but `STAGING_TEST_DATABASE_URL`, `VM_SSH_TARGET`, VM key, database backup,
+  secret rotation, `ADMIN_API_SECRET`, Telegram device acceptance and live
+  rollout/rollback evidence remain required. Follow `docs/TEST_LAUNCH_RUNBOOK.md`.
