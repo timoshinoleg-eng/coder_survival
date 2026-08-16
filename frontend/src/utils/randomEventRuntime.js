@@ -86,6 +86,18 @@ export function applyRandomEventChoice(type, action, currentState = {}, gameStat
   } else if (type === 'slack_huddle' && action === 'ignore') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: -1, commitsDelta: -3 };
+  } else if (type === 'scope_creep' && action === 'solve') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 3, commitsDelta: 8 };
+  } else if (type === 'scope_creep' && action === 'ignore') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: -1, commitsDelta: -2 };
+  } else if (type === 'merge_conflict' && action === 'solve') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 3, commitsDelta: 5 };
+  } else if (type === 'merge_conflict' && action === 'ignore') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 5, commitsDelta: -12 };
   } else if (type === 'open_source_contribution' && action === 'solve') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 0, commitsDelta: 20 };

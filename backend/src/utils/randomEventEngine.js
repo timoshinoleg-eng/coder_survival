@@ -7,6 +7,8 @@ const CHOICE_TIMEOUT_SECONDS_BY_TYPE = {
   bug_production: 15,
   code_review: 15,
   slack_huddle: 15,
+  scope_creep: 15,
+  merge_conflict: 15,
   stack_overflow_down: 30,
   legacy_code: 20,
   coffee_stain: 15,
@@ -58,11 +60,23 @@ const EVENT_UI_META = {
     solveLabel: 'ЗАЙТИ',
     ignoreLabel: 'ТИХО ОТКЛОНИТЬ',
   },
+  scope_creep: {
+    title: 'SCOPE CREEP',
+    description: 'Менеджер просит «крошечную правку». В Figma уже 14 новых экранов. Берёшь в спринт или защищаешь фокус?',
+    solveLabel: 'ВЗЯТЬ В СПРИНТ',
+    ignoreLabel: 'ЗАЩИТИТЬ ФОКУС',
+  },
   coffee_stain: {
     title: 'COFFEE STAIN',
     description: 'Кофе разлилось на клавиатуру. Вытереть за 3 клика и получить энергию?',
     solveLabel: 'ВЫТЕРЕТЬ',
     ignoreLabel: 'ОСТАВИТЬ',
+  },
+  merge_conflict: {
+    title: 'MERGE CONFLICT',
+    description: 'Git говорит, что оба правы. Ты знаешь, что это дипломатическая формулировка для «удачи».',
+    solveLabel: 'РАЗРУЛИТЬ',
+    ignoreLabel: 'ПОТОМ',
   },
   stack_overflow_down: {
     title: 'STACK OVERFLOW DOWN',
@@ -214,6 +228,14 @@ export function calculateEventDeltas(type, action, gameState = {}) {
     case 'slack_huddle': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 2, commitsDelta: 12 };
       return { energyDelta: 0, depressionDelta: -1, commitsDelta: -3 };
+    }
+    case 'scope_creep': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 3, commitsDelta: 8 };
+      return { energyDelta: 0, depressionDelta: -1, commitsDelta: -2 };
+    }
+    case 'merge_conflict': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 3, commitsDelta: 5 };
+      return { energyDelta: 0, depressionDelta: 5, commitsDelta: -12 };
     }
     case 'coffee_stain': {
       if (action === 'solve') return { energyDelta: 8, depressionDelta: -4, commitsDelta: 0 };

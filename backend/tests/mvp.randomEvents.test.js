@@ -193,6 +193,29 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
     });
   });
 
+  test('calculateEventDeltas keeps Scope Creep and Merge Conflict trade-offs explicit', () => {
+    expect(calculateEventDeltas('scope_creep', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 3,
+      commitsDelta: 8,
+    });
+    expect(calculateEventDeltas('scope_creep', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: -1,
+      commitsDelta: -2,
+    });
+    expect(calculateEventDeltas('merge_conflict', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 3,
+      commitsDelta: 5,
+    });
+    expect(calculateEventDeltas('merge_conflict', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 5,
+      commitsDelta: -12,
+    });
+  });
+
   test('buildActiveEventPayload returns null for missing row', () => {
     expect(buildActiveEventPayload(null)).toBeNull();
   });
