@@ -39,13 +39,19 @@ export const RANDOM_EVENTS_CONFIG = {
       uiText: 'Bug in Production! Hotfix in 5 clicks'
     },
     code_review: {
-      weight: 18,
+      weight: 12,
       type: 'neutral',
       effect: { commits: 10, depression: 2 },
       uiText: 'Code Review waiting: accept or reject'
     },
+    slack_huddle: {
+      weight: 14,
+      type: 'neutral',
+      effect: { commits: 12, depression: 2 },
+      uiText: 'Slack Huddle: join for context or decline for focus'
+    },
     coffee_stain: {
-      weight: 20,
+      weight: 12,
       type: 'neutral',
       effect: { wipeClicksRequired: 3, energy: 8, depressionRelief: 4 },
       uiText: 'Coffee Stain! Wipe it clean'
