@@ -21,19 +21,19 @@ export const RANDOM_EVENTS_CONFIG = {
       uiText: 'Open Source PR accepted! Exclusive skin earned'
     },
     legacy_code: {
-      weight: 8,
+      weight: 7,
       type: 'negative',
       effect: { upgradeCostMultiplier: 2, refactorClicksRequired: 10 },
       uiText: 'Legacy Code detected! Upgrades 2x cost until refactored'
     },
     deploy_friday: {
-      weight: 8,
+      weight: 7,
       type: 'negative',
       effect: { cancelClicksRequired: 3, locLossRisk: 0.25 },
       uiText: 'Deploy Friday? Cancel in 3 clicks or risk LOC loss'
     },
     bug_production: {
-      weight: 7,
+      weight: 6,
       type: 'negative',
       effect: { hotfixClicksRequired: 5, energyDrainPercent: 0.08, durationSeconds: 180 },
       uiText: 'Bug in Production! Hotfix in 5 clicks'
@@ -75,22 +75,28 @@ export const RANDOM_EVENTS_CONFIG = {
       uiText: 'Merge Conflict: choose a side before both branches become archaeology'
     },
     canary_rollback: {
-      weight: 6,
+      weight: 5,
       type: 'negative',
       effect: { commits: -2, depression: 1 },
       uiText: 'Canary Rollback: the canary is singing in 500s'
     },
     production_500_spike: {
-      weight: 6,
+      weight: 5,
       type: 'negative',
       effect: { commits: 4, depression: 2 },
       uiText: 'HTTP 500 Spike: feature flag or refresh the dashboard?'
     },
     ci_pipeline_red: {
-      weight: 7,
+      weight: 6,
       type: 'negative',
       effect: { commits: -1, depression: 1 },
       uiText: 'CI Pipeline Red: tests failed in a file nobody changed'
+    },
+    friday_release_outage: {
+      weight: 6,
+      type: 'negative',
+      effect: { commits: -3, depression: 2 },
+      uiText: 'Friday Release Outage: production is down at 18:57 and SRE asks who deployed last'
     },
     stack_overflow_down: {
       weight: 2,

@@ -6,7 +6,39 @@ import {
   spawnRandomEvent,
   buildActiveEventPayload,
 } from '../src/utils/randomEventEngine.js';
+import { RANDOM_EVENTS_CONFIG } from '../src/config/events.js';
 import { ensureTestSchema, resetTestDatabase, testPool, TEST_DATABASE_URL } from './helpers/testDb.js';
+
+describe('Random event balance and Friday production contracts', () => {
+  test('keeps configured type weights and the complete event pool at their intended totals', () => {
+    const typeWeights = Object.values(RANDOM_EVENTS_CONFIG.events).reduce((totals, event) => {
+      totals[event.type] = (totals[event.type] || 0) + event.weight;
+      return totals;
+    }, {});
+    const totalWeight = Object.values(typeWeights).reduce((sum, weight) => sum + weight, 0);
+
+    expect(typeWeights).toEqual(RANDOM_EVENTS_CONFIG.targetWeightByType);
+    expect(totalWeight).toBe(100);
+    expect(RANDOM_EVENTS_CONFIG.events.friday_release_outage).toMatchObject({
+      type: 'negative',
+      weight: 6,
+      effect: { commits: -3, depression: 2 },
+    });
+  });
+
+  test("makes Friday Release Outage's responsible rollback strictly safer than denial", () => {
+    expect(calculateEventDeltas('friday_release_outage', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 2,
+      commitsDelta: -3,
+    });
+    expect(calculateEventDeltas('friday_release_outage', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 7,
+      commitsDelta: -10,
+    });
+  });
+});
 
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 

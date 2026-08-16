@@ -110,6 +110,12 @@ export function applyRandomEventChoice(type, action, currentState = {}, gameStat
   } else if (type === 'slack_thread_storm' && action === 'ignore') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 3, commitsDelta: -3 };
+  } else if (type === 'friday_release_outage' && action === 'solve') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 2, commitsDelta: -3 };
+  } else if (type === 'friday_release_outage' && action === 'ignore') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 7, commitsDelta: -10 };
   } else if (type === 'canary_rollback' && action === 'solve') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 1, commitsDelta: -2 };
