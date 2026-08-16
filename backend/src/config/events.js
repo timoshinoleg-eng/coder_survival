@@ -21,19 +21,19 @@ export const RANDOM_EVENTS_CONFIG = {
       uiText: 'Open Source PR accepted! Exclusive skin earned'
     },
     legacy_code: {
-      weight: 12,
+      weight: 10,
       type: 'negative',
       effect: { upgradeCostMultiplier: 2, refactorClicksRequired: 10 },
       uiText: 'Legacy Code detected! Upgrades 2x cost until refactored'
     },
     deploy_friday: {
-      weight: 10,
+      weight: 8,
       type: 'negative',
       effect: { cancelClicksRequired: 3, locLossRisk: 0.25 },
       uiText: 'Deploy Friday? Cancel in 3 clicks or risk LOC loss'
     },
     bug_production: {
-      weight: 12,
+      weight: 9,
       type: 'negative',
       effect: { hotfixClicksRequired: 5, energyDrainPercent: 0.08, durationSeconds: 180 },
       uiText: 'Bug in Production! Hotfix in 5 clicks'
@@ -63,13 +63,25 @@ export const RANDOM_EVENTS_CONFIG = {
       uiText: 'Coffee Stain! Wipe it clean'
     },
     merge_conflict: {
-      weight: 7,
+      weight: 4,
       type: 'negative',
       effect: { commits: 5, depression: 3 },
       uiText: 'Merge Conflict: choose a side before both branches become archaeology'
     },
-    stack_overflow_down: {
+    canary_rollback: {
       weight: 6,
+      type: 'negative',
+      effect: { commits: -2, depression: 1 },
+      uiText: 'Canary Rollback: the canary is singing in 500s'
+    },
+    production_500_spike: {
+      weight: 7,
+      type: 'negative',
+      effect: { commits: 4, depression: 2 },
+      uiText: 'HTTP 500 Spike: feature flag or refresh the dashboard?'
+    },
+    stack_overflow_down: {
+      weight: 3,
       type: 'negative',
       effect: { disableHelpSeconds: 30, depression: 3 },
       uiText: 'Stack Overflow is down for 30s'
