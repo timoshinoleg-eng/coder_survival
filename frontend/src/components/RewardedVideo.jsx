@@ -26,6 +26,11 @@ export default function RewardedVideo() {
     setWaiting(true);
     try {
       const payload = await spendCoffeeCoin();
+      trackEvent('coffee_coin_spent', {
+        purpose: 'emergency_energy',
+        restoredEnergy: payload?.restored || 0,
+        remainingCoins: payload?.coffeeCoins,
+      });
       showToast?.(`☕ Экстренный кофе: +${payload?.restored || 0} энергии`, 'success', 2000);
     } catch (err) {
       showToast?.(err?.message || 'Coffee Coin пока не сработал', 'error', 2000);
@@ -55,7 +60,8 @@ export default function RewardedVideo() {
       const reward = await completeRewardedVideo(session, proof);
       trackEvent('ad_reward_granted', {
         provider: session.provider,
-        rewardEnergy: reward?.rewardEnergy,
+        rewardEnergy: reward?.rewardEnergy || reward?.energy_granted,
+        rewardCoffeeCoins: reward?.rewardCoffeeCoins || reward?.coffee_coins_granted,
         remainingToday: reward?.remainingToday,
       });
       const coinText = reward?.rewardCoffeeCoins || reward?.reward?.coffeeCoins || reward?.coffee_coins_granted || 0;
