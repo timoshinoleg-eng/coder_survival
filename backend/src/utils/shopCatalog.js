@@ -18,6 +18,17 @@ export const PRODUCT_CATALOG = {
     icon: '☕',
     category: 'bundle'
   },
+  starter_pack: {
+    id: 'starter_pack',
+    name: 'Стартер-пак',
+    description: 'Полная энергия, −30 стресса, 2 кофе-коина и заморозка стрика на 24 ч. Только один раз',
+    stars: 25,
+    effect: 'starter_bundle',
+    oneTimePerUser: true,
+    position: 'between_10_and_40',
+    icon: '🎁',
+    category: 'bundle'
+  },
   depression_cure: {
     id: 'depression_cure',
     name: 'Терапия',
