@@ -108,6 +108,32 @@ function assertPhaserLoadedAssetsExist() {
   }
 }
 
+function assertGeneratedHeroSpritesRemainOptionalAndComplete() {
+  const boot = read("src/game/scenes/BootScene.js");
+  const gameScene = read("src/game/scenes/GameScene.js");
+  const requiredAssets = [
+    "hero_coder_focus.png",
+    "hero_coder_strained.png",
+    "hero_coder_collapsed.png",
+  ];
+
+  for (const asset of requiredAssets) {
+    if (!fs.existsSync(path.join(root, "src/assets/characters", asset))) {
+      failures.push(`src/assets/characters: missing generated hero sprite ${asset}`);
+    }
+  }
+
+  for (const key of ["hero_coder_focus", "hero_coder_strained", "hero_coder_collapsed"]) {
+    if (!boot.includes(`this.load.image('${key}'`) || !gameScene.includes(`'${key}'`)) {
+      failures.push(`Phaser hero art: ${key} must be preloaded and mapped to a stress pose`);
+    }
+  }
+
+  if (!gameScene.includes("this.hasGeneratedHeroArt") || !gameScene.includes("avatar_energetic")) {
+    failures.push("GameScene: generated hero art must remain optional with a procedural fallback");
+  }
+}
+
 function assertStatsBarRuntimeLabelsAreDeclaredBeforeRender() {
   const file = "src/components/StatsBar.jsx";
   const source = read(file);
@@ -418,6 +444,7 @@ assertPaymentControlsAreGated();
 assertCoffeeCosmeticProgressRemainsVisualOnly();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
+assertGeneratedHeroSpritesRemainOptionalAndComplete();
 assertStatsBarRuntimeLabelsAreDeclaredBeforeRender();
 assertSprintPassKeyboardStateIsDeclaredBeforeEffect();
 assertRewardedAdsUseSecureClaimFlow();

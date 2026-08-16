@@ -1,4 +1,7 @@
 import Phaser from 'phaser';
+import heroCoderFocusUrl from '../../assets/characters/hero_coder_focus.png';
+import heroCoderStrainedUrl from '../../assets/characters/hero_coder_strained.png';
+import heroCoderCollapsedUrl from '../../assets/characters/hero_coder_collapsed.png';
 
 export default class BootScene extends Phaser.Scene {
   constructor() {
@@ -6,8 +9,14 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Generate fallback textures first — game always starts with valid textures
+    // Generate fallback textures first — game always starts with valid textures.
     this.generateFallbackTextures();
+
+    // Compact generated art is optional presentation polish; the procedural
+    // textures above remain the safe fallback if this loader ever fails.
+    this.load.image('hero_coder_focus', heroCoderFocusUrl);
+    this.load.image('hero_coder_strained', heroCoderStrainedUrl);
+    this.load.image('hero_coder_collapsed', heroCoderCollapsedUrl);
   }
 
   create() {

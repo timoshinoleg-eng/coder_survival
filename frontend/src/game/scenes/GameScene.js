@@ -41,15 +41,16 @@ export default class GameScene extends Phaser.Scene {
     // Coffee cup
     this.cup = this.add.image(cx + 70, deskY - 10, 'cup').setScale(2.5);
 
-    // Programmer avatar — use spritesheet if available, else fallback
-    const hasSheet = this.textures.exists('avatar_sheet');
-    this.avatar = this.add.sprite(
-      cx,
-      deskY - 90,
-      hasSheet ? 'avatar_sheet' : 'avatar_energetic'
-    );
-    this.avatar.setScale(2);
-    this.avatar.setFrame(0);
+    // Programmer avatar — compact generated art adds character identity, while
+    // the procedural sprite/spritesheet stays available as a startup fallback.
+    this.heroPoseKeys = ['hero_coder_focus', 'hero_coder_strained', 'hero_coder_collapsed'];
+    this.hasGeneratedHeroArt = this.heroPoseKeys.every((key) => this.textures.exists(key));
+    this.hasAvatarSheet = this.textures.exists('avatar_sheet');
+    this.avatar = this.hasGeneratedHeroArt
+      ? this.add.image(cx, deskY - 76, this.heroPoseKeys[0])
+      : this.add.sprite(cx, deskY - 90, this.hasAvatarSheet ? 'avatar_sheet' : 'avatar_energetic');
+    this.avatar.setScale(this.hasGeneratedHeroArt ? 1.12 : 2);
+    if (this.hasAvatarSheet && !this.hasGeneratedHeroArt) this.avatar.setFrame(0);
 
     // Pose tracking
     this.prevPoseIndex = 0;
@@ -421,7 +422,13 @@ export default class GameScene extends Phaser.Scene {
     // Pose selection based on depression
     const poseIndex = depression < 60 ? 0 : depression < 140 ? 1 : 2;
     if (poseIndex !== this.prevPoseIndex) {
-      this.avatar.setFrame(poseIndex);
+      if (this.hasGeneratedHeroArt) {
+        this.avatar.setTexture(this.heroPoseKeys[poseIndex]);
+      } else if (this.hasAvatarSheet) {
+        this.avatar.setFrame(poseIndex);
+      } else {
+        this.avatar.setTexture(['avatar_energetic', 'avatar_tired', 'avatar_collapsed'][poseIndex]);
+      }
       this.prevPoseIndex = poseIndex;
     }
 
