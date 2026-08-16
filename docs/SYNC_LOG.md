@@ -27,3 +27,8 @@ BLOCKED: no | NEED: nothing
 DONE: synced clean main at 9c9da63 after PR #15; read ZCode/Luna checkpoints; isolated branch manus/fix-rewarded-video-stage2 created for clean reproduction.
 NEXT: run stage2.rewardedVideo baseline, inspect provider gate/nonce ownership/shared pool lifecycle, then prepare minimal reversible PR fix.
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 22:52 UTC] AGENT: ZCode | PACKAGE: A1 visual-integration
+DONE: scoped A1 to non-duplicated delta - keyart backgrounds for friday_outage/postmortem cards + e2e guard; PR #17. Detected avatar art-pack already on main (src/assets/characters) - my scene edits dropped, branch recreated from fresh main, duplicate PNGs removed. Luna checkpoint seen in log.
+NEXT: watch E2E on PR #17; then B2 tap-decomposition
+BLOCKED: no | NEED: nothing
