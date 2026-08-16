@@ -98,6 +98,18 @@ export function applyRandomEventChoice(type, action, currentState = {}, gameStat
   } else if (type === 'merge_conflict' && action === 'ignore') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 5, commitsDelta: -12 };
+  } else if (type === 'ci_pipeline_red' && action === 'solve') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 1, commitsDelta: -1 };
+  } else if (type === 'ci_pipeline_red' && action === 'ignore') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 5, commitsDelta: -6 };
+  } else if (type === 'slack_thread_storm' && action === 'solve') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 1, commitsDelta: 4 };
+  } else if (type === 'slack_thread_storm' && action === 'ignore') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 3, commitsDelta: -3 };
   } else if (type === 'canary_rollback' && action === 'solve') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 1, commitsDelta: -2 };

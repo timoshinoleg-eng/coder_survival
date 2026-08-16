@@ -11,6 +11,8 @@ const CHOICE_TIMEOUT_SECONDS_BY_TYPE = {
   merge_conflict: 15,
   canary_rollback: 15,
   production_500_spike: 15,
+  ci_pipeline_red: 15,
+  slack_thread_storm: 15,
   stack_overflow_down: 30,
   legacy_code: 20,
   coffee_stain: 15,
@@ -91,6 +93,18 @@ const EVENT_UI_META = {
     description: 'График ошибок пошёл вверх. Можно выключить фичу флагом или обновлять Grafana до просветления.',
     solveLabel: 'ВЫКЛЮЧИТЬ ФЛАГ',
     ignoreLabel: 'ОБНОВИТЬ GRAFANA',
+  },
+  ci_pipeline_red: {
+    title: 'CI PIPELINE RED',
+    description: 'Pipeline упал в тесте, который «точно не связан с твоим PR». Перезапустить с логами или нажать Re-run и смотреть в стену?',
+    solveLabel: 'ЧИТАТЬ ЛОГИ',
+    ignoreLabel: 'RE-RUN И НАДЕЯТЬСЯ',
+  },
+  slack_thread_storm: {
+    title: 'SLACK THREAD STORM',
+    description: 'В одном треде 47 сообщений и семь «есть апдейт?». Написать статус или тихо выключить нотификации?',
+    solveLabel: 'НАПИСАТЬ СТАТУС',
+    ignoreLabel: 'MUTE НА 5 МИНУТ',
   },
   stack_overflow_down: {
     title: 'STACK OVERFLOW DOWN',
@@ -250,6 +264,14 @@ export function calculateEventDeltas(type, action, gameState = {}) {
     case 'merge_conflict': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 3, commitsDelta: 5 };
       return { energyDelta: 0, depressionDelta: 5, commitsDelta: -12 };
+    }
+    case 'ci_pipeline_red': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 1, commitsDelta: -1 };
+      return { energyDelta: 0, depressionDelta: 5, commitsDelta: -6 };
+    }
+    case 'slack_thread_storm': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 1, commitsDelta: 4 };
+      return { energyDelta: 0, depressionDelta: 3, commitsDelta: -3 };
     }
     case 'canary_rollback': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 1, commitsDelta: -2 };

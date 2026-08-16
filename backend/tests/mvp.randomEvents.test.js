@@ -239,6 +239,29 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
     });
   });
 
+  test('calculateEventDeltas keeps CI Pipeline Red and Slack Thread Storm trade-offs explicit', () => {
+    expect(calculateEventDeltas('ci_pipeline_red', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 1,
+      commitsDelta: -1,
+    });
+    expect(calculateEventDeltas('ci_pipeline_red', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 5,
+      commitsDelta: -6,
+    });
+    expect(calculateEventDeltas('slack_thread_storm', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 1,
+      commitsDelta: 4,
+    });
+    expect(calculateEventDeltas('slack_thread_storm', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 3,
+      commitsDelta: -3,
+    });
+  });
+
   test('buildActiveEventPayload returns null for missing row', () => {
     expect(buildActiveEventPayload(null)).toBeNull();
   });
