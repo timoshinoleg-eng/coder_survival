@@ -3,6 +3,21 @@ import { useEffect, useState, useCallback } from "preact/hooks";
 
 const CLICK_EVENTS = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
 
+const EVENT_CHOICE_HINTS = {
+  golden_commit: { solve: '+40 коммитов · −4 стресс', ignore: '+2 стресс' },
+  open_source_contribution: { solve: '+20 коммитов · скин', ignore: 'без награды' },
+  legacy_code: { solve: 'запустит мини-игру', ignore: '−10 коммитов · +8 стресс' },
+  deploy_friday: { solve: 'запустит отмену deploy', ignore: '70% спокойно · 30% инцидент' },
+  bug_production: { solve: 'запустит хотфикс', ignore: '+6 стресс' },
+  code_review: { solve: '+10 коммитов · +2 стресс', ignore: '−5 коммитов · +4 стресс' },
+  slack_huddle: { solve: '+12 коммитов · +2 стресс', ignore: '−3 коммита · −1 стресс' },
+  coffee_stain: { solve: 'запустит мини-игру', ignore: 'без награды' },
+};
+
+function getChoiceHint(type, action) {
+  return EVENT_CHOICE_HINTS[type]?.[action] || '';
+}
+
 function getClickKey(type) {
   if (type === 'legacy_code') return 'legacyCodeClicksRemaining';
   if (type === 'bug_production') return 'bugProductionClicksRemaining';
@@ -83,6 +98,8 @@ export default function RandomEventToast({ event, onChoice, onTap, disabled = fa
   const color = getEventColor(event.type);
   const clickKey = getClickKey(event.type);
   const clicksLeft = clickKey ? (event.state?.[clickKey] || 0) : 0;
+  const solveHint = getChoiceHint(event.type, 'solve');
+  const ignoreHint = getChoiceHint(event.type, 'ignore');
 
   const baseStyle = {
     position: "fixed",
@@ -218,13 +235,23 @@ export default function RandomEventToast({ event, onChoice, onTap, disabled = fa
               disabled,
               onClick: handleSolve,
               style: { flex: 1, opacity: disabled ? 0.65 : 1 },
-            }, event.options.solve.label),
+            }, [
+              h('div', null, event.options.solve.label),
+              solveHint && h('div', {
+                style: { fontSize: '8px', opacity: 0.76, marginTop: '4px', lineHeight: 1.25 },
+              }, solveHint),
+            ]),
             event.options?.ignore && h("button", {
               className: "pixel-button pixel-button--danger",
               disabled,
               onClick: handleIgnore,
               style: { flex: 1, opacity: disabled ? 0.65 : 1 },
-            }, event.options.ignore.label),
+            }, [
+              h('div', null, event.options.ignore.label),
+              ignoreHint && h('div', {
+                style: { fontSize: '8px', opacity: 0.76, marginTop: '4px', lineHeight: 1.25 },
+              }, ignoreHint),
+            ]),
           ]),
     ]
   );
