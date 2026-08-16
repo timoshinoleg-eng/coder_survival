@@ -73,3 +73,16 @@ test('app boots without uncaught errors and reaches interactive UI', async ({ pa
 
   expect(pageErrors, `uncaught page errors: ${pageErrors.join(' | ')}`).toEqual([]);
 });
+
+test('event keyart files are served', async ({ request }) => {
+  // RandomEventToast uses these as card backgrounds; a missing file would
+  // silently fall back to the flat panel — fail loudly instead.
+  const files = [
+    'friday_release_outage_keyart_780.jpg',
+    'blameless_postmortem_keyart_780.jpg',
+  ];
+  for (const file of files) {
+    const response = await request.get(`/visual_assets/first_pack/${file}`);
+    expect(response.status(), `missing keyart: ${file}`).toBe(200);
+  }
+});
