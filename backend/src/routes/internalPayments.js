@@ -4,6 +4,7 @@ import { applyItemEffect } from './buy.js';
 import { getProductById } from '../utils/shopCatalog.js';
 import { sendAlert } from '../utils/alertSender.js';
 import { arePaymentsEnabled, paymentsDisabledResponse } from '../config/payments.js';
+import { secretsMatch } from '../utils/secretCompare.js';
 
 const router = Router();
 
@@ -28,7 +29,7 @@ function parseInvoicePayload(payload) {
  */
 router.post('/telegram/invoice-context', async (req, res, next) => {
   const headerSecret = req.get('X-Bot-Backend-Secret');
-  if (!BOT_BACKEND_SECRET || headerSecret !== BOT_BACKEND_SECRET) {
+  if (!secretsMatch(headerSecret, BOT_BACKEND_SECRET)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -110,7 +111,7 @@ router.post('/telegram/invoice-context', async (req, res, next) => {
  */
 router.post('/telegram/confirm', async (req, res, next) => {
   const headerSecret = req.get('X-Bot-Backend-Secret');
-  if (!BOT_BACKEND_SECRET || headerSecret !== BOT_BACKEND_SECRET) {
+  if (!secretsMatch(headerSecret, BOT_BACKEND_SECRET)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

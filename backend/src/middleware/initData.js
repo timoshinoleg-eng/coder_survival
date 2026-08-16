@@ -18,22 +18,19 @@ export function initDataMiddleware(req, res, next) {
   const path = req.path;
   const method = req.method;
 
-  console.log(`[auth] ${method} ${path} — initData present: ${!!initData}, length: ${initData?.length || 0}`);
-
   if (!initData) {
-    console.log(`[auth] ${method} ${path} — REJECTED: Missing initData`);
+    console.log(`[auth] ${method} ${path} — REJECTED: missing initData`);
     return res.status(401).json({ error: 'Missing initData' });
   }
 
   const botToken = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-  console.log(`[auth] ${method} ${path} — BOT_TOKEN present: ${!!botToken}, NODE_ENV: ${process.env.NODE_ENV}`);
 
   if (!botToken) {
     if (process.env.NODE_ENV === 'production') {
-      console.log(`[auth] ${method} ${path} — REJECTED: BOT_TOKEN not configured in production`);
+      console.error(`[auth] ${method} ${path} — REJECTED: BOT_TOKEN not configured in production`);
       return res.status(500).json({ error: 'BOT_TOKEN is not configured' });
     }
-    console.log(`[auth] ${method} ${path} — DEV mode, skipping signature validation`);
+    console.warn(`[auth] ${method} ${path} — DEV mode, skipping signature validation`);
     req.telegramUser = parseInitData(initData);
     return next();
   }
@@ -43,10 +40,11 @@ export function initDataMiddleware(req, res, next) {
   const hasSignature = /(^|&)signature=/.test(initData);
 
   let isValid = false;
+  let verifiedVia = null;
 
   if (hasHash) {
     isValid = verifyHash(initData, botToken);
-    console.log(`[auth] ${method} ${path} — hash validation result: ${isValid}`);
+    if (isValid) verifiedVia = 'hmac';
   }
 
   // Если hash нет или не прошёл, пробуем signature (Ed25519)
@@ -54,26 +52,27 @@ export function initDataMiddleware(req, res, next) {
     const botId = botToken.split(':')[0];
     const isTestEnv = process.env.TELEGRAM_TEST_ENV === 'true';
     isValid = verifySignature(initData, botId, isTestEnv);
-    console.log(`[auth] ${method} ${path} — signature validation result: ${isValid}`);
+    if (isValid) verifiedVia = 'ed25519';
   }
 
   if (!isValid) {
-    console.log(`[auth] ${method} ${path} — REJECTED: Invalid initData signature`);
+    console.log(`[auth] ${method} ${path} — REJECTED: invalid initData signature (hash: ${hasHash}, signature: ${hasSignature})`);
     return res.status(403).json({ error: 'Invalid initData signature' });
   }
 
   const parsed = parseInitData(initData);
-  const maxAgeSeconds = parseInt(process.env.INIT_DATA_MAX_AGE_SECONDS || '86400', 10);
+  // Replay window: 1 hour by default. Never widen to 24h — stolen initData
+  // stays valid for the whole window otherwise.
+  const maxAgeSeconds = parseInt(process.env.INIT_DATA_MAX_AGE_SECONDS || '3600', 10);
   const nowSeconds = Math.floor(Date.now() / 1000);
   const age = parsed.authDate ? nowSeconds - parsed.authDate : null;
-  console.log(`[auth] ${method} ${path} — authDate: ${parsed.authDate}, age: ${age}s, maxAge: ${maxAgeSeconds}s`);
 
   if (!parsed.authDate || nowSeconds - parsed.authDate > maxAgeSeconds) {
-    console.log(`[auth] ${method} ${path} — REJECTED: Expired initData (age: ${age}s)`);
+    console.log(`[auth] ${method} ${path} — REJECTED: expired initData (age: ${age}s, max: ${maxAgeSeconds}s)`);
     return res.status(403).json({ error: 'Expired initData' });
   }
 
-  console.log(`[auth] ${method} ${path} — ACCEPTED: user_id=${parsed.user?.id}`);
+  console.log(`[auth] ${method} ${path} — accepted user=${parsed.user?.id} via=${verifiedVia} age=${age}s`);
   req.telegramUser = parsed;
   next();
 }
@@ -146,9 +145,6 @@ function verifyHash(initData, botToken) {
   const pairs = getSortedPairs(initData, ['hash']);
   const dataCheckString = pairs.join('\n');
 
-  console.log('[verifyHash] sorted keys:', pairs.map(p => p.split('=')[0]).join(', '));
-  console.log('[verifyHash] dataCheckString length:', dataCheckString.length);
-
   // HMAC-SHA256("WebAppData", bot_token) → secretKey
   const secretKey = crypto
     .createHmac('sha256', 'WebAppData')
@@ -160,20 +156,15 @@ function verifyHash(initData, botToken) {
     .update(dataCheckString)
     .digest('hex');
 
-  console.log('[verifyHash] expected hash:', checkHash.substring(0, 20) + '...');
-  console.log('[verifyHash] actual hash:', hash.substring(0, 20) + '...');
-
   const expected = Buffer.from(checkHash, 'hex');
   const actual = Buffer.from(hash, 'hex');
 
   if (expected.length !== actual.length) {
-    console.log('[verifyHash] Hash length mismatch:', expected.length, 'vs', actual.length);
+    console.log('[verifyHash] hash length mismatch');
     return false;
   }
 
-  const equal = crypto.timingSafeEqual(expected, actual);
-  console.log('[verifyHash] timingSafeEqual result:', equal);
-  return equal;
+  return crypto.timingSafeEqual(expected, actual);
 }
 
 /**
@@ -208,10 +199,6 @@ function verifySignature(initData, botId, isTestEnv = false) {
 
   // Сообщение для Ed25519: "{botId}:WebAppData\n{sorted_pairs}"
   const message = `${botId}:WebAppData\n${dataCheckString}`;
-
-  console.log('[verifySignature] sorted keys:', pairs.map(p => p.split('=')[0]).join(', '));
-  console.log('[verifySignature] message prefix:', `${botId}:WebAppData`);
-  console.log('[verifySignature] message length:', message.length);
 
   // Публичный ключ Telegram
   const publicKeyHex = isTestEnv ? TELEGRAM_TEST_PUBLIC_KEY_HEX : TELEGRAM_PROD_PUBLIC_KEY_HEX;

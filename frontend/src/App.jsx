@@ -151,12 +151,17 @@ function AppInner() {
 
   useEffect(() => {
     if (user) {
-      Analytics.init(import.meta.env.VITE_AMPLITUDE_API_KEY);
-      Analytics.setUser({ telegram_id: user.id, username: user.username });
-      Analytics.track('init_data_validated', {
-        auth_method: 'telegram_init_data',
-        user_id_hash: String(user.id),
-      });
+      (async () => {
+        Analytics.init(import.meta.env.VITE_AMPLITUDE_API_KEY);
+        // PII: never send raw Telegram id/username to Amplitude.
+        const hashedId = await Analytics.hashedId(user.id);
+        Analytics.setUserId(hashedId);
+        Analytics.setUser({ is_premium: Boolean(user.is_premium) });
+        Analytics.track('init_data_validated', {
+          auth_method: 'telegram_init_data',
+          user_id_hash: hashedId,
+        });
+      })();
       if (!localStorage.getItem('cs_user_registered')) {
         const tg = window.Telegram?.WebApp;
         Analytics.track('user_registered', {

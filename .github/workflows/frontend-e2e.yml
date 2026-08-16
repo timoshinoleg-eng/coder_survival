@@ -1,0 +1,37 @@
+name: Frontend E2E boot gate
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  boot-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright (not saved to package.json)
+        run: npm install --no-save @playwright/test playwright
+
+      - name: Install Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Production build
+        run: npm run build
+
+      - name: Boot gate (stubbed Telegram + mocked API)
+        run: npx playwright test
