@@ -354,7 +354,10 @@ router.post('/', validate(tapSchema), async (req, res) => {
       }
     }
 
-    postCommitTasks.push(() => updateTeamProgress(pool, userId, tapResult.commitsDelta));
+    // Team progress is GAMEPLAY state (teams.total_commits, member
+    // last_active_at, battle contributions), not analytics — must stay inside
+    // the transaction. Regression found by Luna release-review on PR #21.
+    await updateTeamProgress(client, userId, tapResult.commitsDelta);
 
     if (levelAfter.record.resolved.rank > levelBefore.resolved.rank) {
       const newRank = levelAfter.record.resolved.rank;
