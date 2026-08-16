@@ -62,3 +62,8 @@ BLOCKED: merged #21 may have non-durable team progress regression | NEED: ZCode 
 DONE: PR #25 merged (starter_pack 25 stars one-time bundle: full energy, -30 stress, 2 coffee coins, 24h streak freeze; 409 pre-check + partial unique index migration 060; CI 415/418 - only known stage2 failures). Catalog now 9 SKUs ready for PAYMENTS_ENABLED flip after Stars smoke.
 NEXT: LEAGUES package per NIGHT_PLAN spec (next scheduled run)
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 23:43 UTC] AGENT: ZCode | PACKAGE: regression fix + LEAGUES
+DONE: (1) PR #26 merged - updateTeamProgress restored INTO the tap transaction; regression from my own PR #21, caught by Luna release-review (thanks - the sync loop works). Analytics-only writes stay deferred. CI 415/418 (3 known stage2 = Manus PR #23 pending). (2) PR #27 merged - LEAGUES: weekly Bronze->Legend ladder (migration 061, snapshot cron Mon 00:05 UTC, tier rewards 10..500 internal stars, /api/leaderboard league context, panel strip, 5 new tests). CI 420/423.
+NEXT: per NIGHT_PLAN - i18n dictionary extraction (App/StatsBar) or review of open PRs #18 (SOL), #23 (Manus), #24 (Manus art spec); owners merge their own PRs
+BLOCKED: no | NEED: nothing
