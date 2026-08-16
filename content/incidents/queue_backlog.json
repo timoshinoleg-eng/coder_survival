@@ -1,0 +1,33 @@
+{
+  "id": "queue_backlog",
+  "locale": "ru",
+  "archetype": "production",
+  "rarity": "rare",
+  "title": "Очередь растёт",
+  "body": "Очередь растёт быстрее, чем воркеры успевают делать вид, что всё нормально.",
+  "choices": [
+    {
+      "id": "drain_dead_letters",
+      "label": "Разобрать dead letters",
+      "risk": "Работа вручную: медленно, зато предсказуемо.",
+      "effects": { "commits": 4, "depression": 2, "coffeeCoins": -1 }
+    },
+    {
+      "id": "raise_timeout",
+      "label": "Поднять timeout",
+      "risk": "Очередь станет тише, но прогресс почти не изменится.",
+      "effects": { "commits": 1, "depression": 3, "coffeeCoins": 0 }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "drain_dead_letters",
+      "punchline": "Очередь разобрана. График снова похож на график, а не карьерный рост."
+    },
+    {
+      "id": "raise_timeout",
+      "punchline": "Timeout увеличен. Система теперь ошибается медленнее и увереннее."
+    }
+  ],
+  "shareTemplate": "Очередь растёт. Воркеры сохраняют профессиональное выражение лица."
+}
