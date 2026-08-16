@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "../index.js";
 import { PRODUCT_CATALOG } from "../utils/shopCatalog.js";
 import { resolveLevelState } from "../utils/vnext.js";
+import { secretsMatch } from "../utils/secretCompare.js";
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const DEFAULT_DAYS = 7;
 router.get("/economy", async (req, res, next) => {
   const headerSecret =
     req.get("X-Bot-Backend-Secret") || req.get("X-Observation-Secret");
-  if (!OBSERVATION_SECRET || headerSecret !== OBSERVATION_SECRET) {
+  if (!secretsMatch(headerSecret, OBSERVATION_SECRET)) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
