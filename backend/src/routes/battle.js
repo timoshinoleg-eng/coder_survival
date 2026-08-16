@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { BATTLE_REWARD_PREVIEW } from '../config/balance.js';
 import { distributeBattleRewards } from '../utils/battleDistribution.js';
+import { secretsMatch } from '../utils/secretCompare.js';
 import { STAGE3 } from '../config/balance.js';
 import {
   acceptBattle,
@@ -417,7 +418,7 @@ const BOT_BACKEND_SECRET = process.env.BOT_BACKEND_SECRET;
 
 router.post('/distribute', async (req, res, next) => {
   const headerSecret = req.get('X-Bot-Backend-Secret');
-  if (!BOT_BACKEND_SECRET || headerSecret !== BOT_BACKEND_SECRET) {
+  if (!secretsMatch(headerSecret, BOT_BACKEND_SECRET)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
