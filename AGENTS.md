@@ -15,6 +15,13 @@ Coder Survival — Telegram Mini App для программистов, где "
 - **Compatibility:** должен работать на мобильных устройствах (основная платформа Mini App).
 - **Performance:** бэкенд на Express + PostgreSQL без кэширующего слоя — нужно держать горячие пути лёгкими.
 - **Security:** нельзя допустить подделку игровых переменных — мемы и ачивки формируются на бэкенде.
+
+### Collaboration and delivery workflow
+
+- **Branches only:** любые изменения кода и интеграции выполняются в ветках `manus/*` и попадают в `main` только через Pull Request с зелёным CI и review.
+- **No direct main publishers:** scripts, которые создают или fast-forward-публикуют commit напрямую в `main`, являются legacy и не используются для новых изменений.
+- **Visual governance:** ZCode интегрирует только Asset IDs со статусом `APPROVED_RUNTIME` из `visual_assets/first_pack/APPROVED_ASSETS_REGISTER.md`; Luna готовит кандидаты и copy, а Manus принимает или отклоняет их по `VISUAL_SYSTEM_V2.md`.
+- **Drive safety:** перед Google Workspace sync использовать `scripts/drive_sync_safety_check.mjs`; не синхронизировать IP, SSH-материалы, cloud/resource IDs, endpoints, токены и credentials.
 <!-- GSD:project-end -->
 
 <!-- GSD:stack-start source:codebase/STACK.md -->
