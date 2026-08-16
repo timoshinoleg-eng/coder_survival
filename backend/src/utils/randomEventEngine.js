@@ -12,6 +12,7 @@ const CHOICE_TIMEOUT_SECONDS_BY_TYPE = {
   canary_rollback: 15,
   production_500_spike: 15,
   ci_pipeline_red: 15,
+  friday_release_outage: 15,
   slack_thread_storm: 15,
   stack_overflow_down: 30,
   legacy_code: 20,
@@ -105,6 +106,12 @@ const EVENT_UI_META = {
     description: 'В одном треде 47 сообщений и семь «есть апдейт?». Написать статус или тихо выключить нотификации?',
     solveLabel: 'НАПИСАТЬ СТАТУС',
     ignoreLabel: 'MUTE НА 5 МИНУТ',
+  },
+  friday_release_outage: {
+    title: 'FRIDAY RELEASE OUTAGE',
+    description: 'В 18:57 прод упал. SRE уже пишет «кто последний деплоил?». Откатить релиз или сообщить, что локально всё работает?',
+    solveLabel: 'ОТКАТИТЬ РЕЛИЗ',
+    ignoreLabel: 'ЛОКАЛЬНО РАБОТАЕТ',
   },
   stack_overflow_down: {
     title: 'STACK OVERFLOW DOWN',
@@ -272,6 +279,10 @@ export function calculateEventDeltas(type, action, gameState = {}) {
     case 'slack_thread_storm': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 1, commitsDelta: 4 };
       return { energyDelta: 0, depressionDelta: 3, commitsDelta: -3 };
+    }
+    case 'friday_release_outage': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 2, commitsDelta: -3 };
+      return { energyDelta: 0, depressionDelta: 7, commitsDelta: -10 };
     }
     case 'canary_rollback': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 1, commitsDelta: -2 };

@@ -17,6 +17,7 @@ const EVENT_CHOICE_HINTS = {
   production_500_spike: { solve: '+4 коммита · +2 стресс', ignore: '−5 коммитов · +6 стресс' },
   ci_pipeline_red: { solve: '−1 коммит · +1 стресс', ignore: '−6 коммитов · +5 стресс' },
   slack_thread_storm: { solve: '+4 коммита · +1 стресс', ignore: '−3 коммита · +3 стресс' },
+  friday_release_outage: { solve: '−3 коммита · +2 стресс', ignore: '−10 коммитов · +7 стресс' },
   coffee_stain: { solve: 'запустит мини-игру', ignore: 'без награды' },
 };
 
@@ -47,6 +48,7 @@ function getEventColor(type) {
     case 'production_500_spike': return '#ef4444';
     case 'ci_pipeline_red': return '#f97316';
     case 'slack_thread_storm': return '#a78bfa';
+    case 'friday_release_outage': return '#dc2626';
     case 'coffee_stain': return '#8B4513';
     case 'stack_overflow_down': return '#f43f5e';
     default: return '#fbbf24';
