@@ -56,6 +56,10 @@ router.post('/', validate(tapSchema), async (req, res) => {
   let contextOffer = null;
   let contextOfferInput = null;
   let offerUserId = null;
+  // Analytics/aggregate writes deferred until after COMMIT — they are safe to
+  // lose on a crash between commit and flush, and must never extend the
+  // response latency or hold the row lock. See runPostCommit().
+  const postCommitTasks = [];
   try {
     client = await pool.connect();
     await client.query('BEGIN');
@@ -330,7 +334,7 @@ router.post('/', validate(tapSchema), async (req, res) => {
       claimable: dailyQuestRows.filter((quest) => quest.completed && !quest.claimed).length,
       quests: dailyQuestRows,
     };
-    await logDailyFarm(client, userId, tapResult.commitsDelta);
+    postCommitTasks.push(() => logDailyFarm(pool, userId, tapResult.commitsDelta));
 
     const eventResult = await recordEventContribution(client, userId, tapResult.commitsDelta);
     const passXpAmount = applyPassXpSourceMultiplier(levelAfter.xpDelta ?? xpDelta, 'tap_xp', new Date());
@@ -340,13 +344,17 @@ router.post('/', validate(tapSchema), async (req, res) => {
 
     const activePass = await getActivePass(client);
     if (activePass && passResult?.playerPass) {
-      await logPassXp(client, userId, activePass.id, 'tap', finalPassXp, { commitsDelta: tapResult.commitsDelta });
+      const logPassId = activePass.id;
+      postCommitTasks.push(() => logPassXp(pool, userId, logPassId, 'tap', finalPassXp, { commitsDelta: tapResult.commitsDelta }));
       if (premiumResult.isPremium && premiumResult.baseAmount) {
-        await logPassXp(client, userId, premiumResult.passId, 'premium_boost', finalPassXp - premiumResult.baseAmount, { source: 'tap', baseXp: premiumResult.baseAmount });
+        const premiumPassId = premiumResult.passId;
+        const boostAmount = finalPassXp - premiumResult.baseAmount;
+        const baseAmount = premiumResult.baseAmount;
+        postCommitTasks.push(() => logPassXp(pool, userId, premiumPassId, 'premium_boost', boostAmount, { source: 'tap', baseXp: baseAmount }));
       }
     }
 
-    await updateTeamProgress(client, userId, tapResult.commitsDelta);
+    postCommitTasks.push(() => updateTeamProgress(pool, userId, tapResult.commitsDelta));
 
     if (levelAfter.record.resolved.rank > levelBefore.resolved.rank) {
       const newRank = levelAfter.record.resolved.rank;
@@ -464,17 +472,19 @@ router.post('/', validate(tapSchema), async (req, res) => {
       const teamId = teamResult.rows[0]?.team_id;
 
       if (teamId && tapResult.commitsDelta > 0) {
-        const activeResult = await client.query(
-          `SELECT COUNT(*)::int AS active_count
-           FROM team_members
-           WHERE team_id = $1
-             AND last_active_at >= NOW() - INTERVAL '7 days'`,
-          [teamId]
-        );
         const weekId = getWeekId(new Date(), timezoneOffset);
         let hackathonState = socialProgress.team_hackathon_state || {};
 
         if (hackathonState.weekId !== weekId) {
+          // Active-member COUNT is only needed when the hackathon week rolls
+          // over — skip this read on the hot path of every tap.
+          const activeResult = await client.query(
+            `SELECT COUNT(*)::int AS active_count
+             FROM team_members
+             WHERE team_id = $1
+               AND last_active_at >= NOW() - INTERVAL '7 days'`,
+            [teamId]
+          );
           hackathonState = {
             weekId,
             target: calculateHackathonTarget(Number(activeResult.rows[0]?.active_count || 0)),
@@ -515,12 +525,17 @@ router.post('/', validate(tapSchema), async (req, res) => {
     }
 
     if (session_id) {
-      await client.query(
-        `UPDATE sessions
-         SET taps_count = taps_count + $4,
-             commits_earned = commits_earned + $2
-         WHERE session_id = $1 AND user_id = $3`,
-        [session_id, tapResult.commitsDelta, userId, actualTapCount]
+      const sessionId = session_id;
+      const commitsDeltaForSession = tapResult.commitsDelta;
+      const tapsForSession = actualTapCount;
+      postCommitTasks.push(() =>
+        pool.query(
+          `UPDATE sessions
+           SET taps_count = taps_count + $4,
+               commits_earned = commits_earned + $2
+           WHERE session_id = $1 AND user_id = $3`,
+          [sessionId, commitsDeltaForSession, userId, tapsForSession]
+        )
       );
     }
 
@@ -528,7 +543,8 @@ router.post('/', validate(tapSchema), async (req, res) => {
       try {
         contextOffer = await getContextOffer(client, offerUserId, contextOfferInput);
         if (contextOffer?.type) {
-          await recordOfferImpression(client, offerUserId, contextOffer.type, 'tap');
+          const offerType = contextOffer.type;
+          postCommitTasks.push(() => recordOfferImpression(pool, offerUserId, offerType, 'tap'));
         }
       } catch (offerErr) {
         console.error('Context offer update failed:', offerErr);
@@ -557,6 +573,9 @@ router.post('/', validate(tapSchema), async (req, res) => {
     } catch (achErr) {
       console.error('[Tap] Achievement check failed:', achErr);
     }
+
+    // Send the response first — deferred analytics never block the player.
+    runPostCommit(postCommitTasks);
 
     return res.json({
       success: true,
@@ -646,6 +665,20 @@ router.post('/', validate(tapSchema), async (req, res) => {
 function getLocalDateString(timezoneOffset = 180, now = new Date()) {
   const local = new Date(now.getTime() + timezoneOffset * 60000);
   return local.toISOString().slice(0, 10);
+}
+
+/**
+ * Fire-and-forget flush of deferred analytics/aggregate writes.
+ * Each task grabs its own pooled connection; a failure is logged, never thrown,
+ * and never affects the already-sent response.
+ */
+function runPostCommit(tasks) {
+  if (!tasks.length) return;
+  for (const task of tasks) {
+    Promise.resolve()
+      .then(task)
+      .catch((err) => console.error('[Tap] deferred task failed:', err));
+  }
 }
 
 
