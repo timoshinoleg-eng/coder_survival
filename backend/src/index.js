@@ -70,6 +70,7 @@ import { startFlashSaleCron } from "./jobs/flashSaleCron.js";
 import { startHealthAlert } from "./jobs/healthAlert.js";
 import { startSeasonRotationCron } from "./jobs/seasonRotationCron.js";
 import { startRetentionCleanupCron } from "./jobs/retentionCleanupCron.js";
+import { startLeaguesCron } from "./jobs/leaguesCron.js";
 import seasonAdminRouter from "./routes/seasonAdmin.js";
 
 // Загружаем .env
@@ -316,4 +317,5 @@ if (isEntrypoint) {
   startHealthAlert();
   startSeasonRotationCron();
   startRetentionCleanupCron();
+  startLeaguesCron();
 }
