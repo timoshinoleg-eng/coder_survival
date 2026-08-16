@@ -69,6 +69,7 @@ import { startRandomEventCron } from "./jobs/randomEventCron.js";
 import { startFlashSaleCron } from "./jobs/flashSaleCron.js";
 import { startHealthAlert } from "./jobs/healthAlert.js";
 import { startSeasonRotationCron } from "./jobs/seasonRotationCron.js";
+import { startRetentionCleanupCron } from "./jobs/retentionCleanupCron.js";
 import seasonAdminRouter from "./routes/seasonAdmin.js";
 
 // Загружаем .env
@@ -262,18 +263,30 @@ app.use("/api/admin/season", adminAuthMiddleware, seasonAdminRouter);
 // Error handler
 app.use(errorHandler);
 
-// Graceful shutdown
-process.on("SIGTERM", async () => {
-  console.log("SIGTERM received, closing pool...");
-  await pool.end();
-  process.exit(0);
-});
+// Graceful shutdown: stop accepting new connections, drain in-flight
+// requests, then close the pool. Hard-exit fallback guards against
+// keep-alive sockets holding the process open.
+const SHUTDOWN_TIMEOUT_MS = Number(process.env.SHUTDOWN_TIMEOUT_MS || 10000);
 
-process.on("SIGINT", async () => {
-  console.log("SIGINT received, closing pool...");
+async function shutdown(signal) {
+  console.log(`${signal} received, shutting down...`);
+  const forceExit = setTimeout(() => {
+    console.error("Graceful shutdown timed out, forcing exit");
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+  forceExit.unref();
+
+  if (server) {
+    await new Promise((resolve) => server.close(resolve));
+    console.log("HTTP server closed");
+  }
   await pool.end();
+  console.log("DB pool closed");
   process.exit(0);
-});
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
@@ -286,8 +299,10 @@ process.on("uncaughtException", (err) => {
 
 const isEntrypoint = process.argv[1] === fileURLToPath(import.meta.url);
 
+let server = null;
+
 if (isEntrypoint) {
-  app.listen(PORT, () => {
+  server = app.listen(PORT, () => {
     console.log(`Coder Survival API running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   });
@@ -300,4 +315,5 @@ if (isEntrypoint) {
   startFlashSaleCron();
   startHealthAlert();
   startSeasonRotationCron();
+  startRetentionCleanupCron();
 }
