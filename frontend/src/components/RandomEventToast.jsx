@@ -19,6 +19,7 @@ function getEventColor(type) {
     case 'deploy_friday': return '#f97316';
     case 'legacy_code': return '#a78bfa';
     case 'code_review': return '#60a5fa';
+    case 'slack_huddle': return '#38bdf8';
     case 'coffee_stain': return '#8B4513';
     case 'stack_overflow_down': return '#f43f5e';
     default: return '#fbbf24';

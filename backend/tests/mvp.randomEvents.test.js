@@ -180,6 +180,19 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
     }
   });
 
+  test('calculateEventDeltas keeps Slack Huddle trade-offs explicit', () => {
+    expect(calculateEventDeltas('slack_huddle', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 2,
+      commitsDelta: 12,
+    });
+    expect(calculateEventDeltas('slack_huddle', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: -1,
+      commitsDelta: -3,
+    });
+  });
+
   test('buildActiveEventPayload returns null for missing row', () => {
     expect(buildActiveEventPayload(null)).toBeNull();
   });

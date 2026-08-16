@@ -6,6 +6,7 @@ import { getRandomEventState, applyRandomEventChoiceState, applyTapToRandomEvent
 const CHOICE_TIMEOUT_SECONDS_BY_TYPE = {
   bug_production: 15,
   code_review: 15,
+  slack_huddle: 15,
   stack_overflow_down: 30,
   legacy_code: 20,
   coffee_stain: 15,
@@ -50,6 +51,12 @@ const EVENT_UI_META = {
     description: 'Тебе пришёл PR на ревью. Принять с небольшим стрессом или отклонить?',
     solveLabel: 'ПРИНЯТЬ',
     ignoreLabel: 'ОТКЛОНИТЬ',
+  },
+  slack_huddle: {
+    title: 'SLACK HUDDLE',
+    description: 'Коллега зовёт на «быстрый созвон на две минуты». Войти за контекст или остаться в фокусе?',
+    solveLabel: 'ЗАЙТИ',
+    ignoreLabel: 'ТИХО ОТКЛОНИТЬ',
   },
   coffee_stain: {
     title: 'COFFEE STAIN',
@@ -203,6 +210,10 @@ export function calculateEventDeltas(type, action, gameState = {}) {
     case 'code_review': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 2, commitsDelta: 10 };
       return { energyDelta: 0, depressionDelta: 4, commitsDelta: -5 };
+    }
+    case 'slack_huddle': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 2, commitsDelta: 12 };
+      return { energyDelta: 0, depressionDelta: -1, commitsDelta: -3 };
     }
     case 'coffee_stain': {
       if (action === 'solve') return { energyDelta: 8, depressionDelta: -4, commitsDelta: 0 };

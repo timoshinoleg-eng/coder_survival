@@ -80,6 +80,12 @@ export function applyRandomEventChoice(type, action, currentState = {}, gameStat
   } else if (type === 'code_review' && action === 'ignore') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 4, commitsDelta: -5 };
+  } else if (type === 'slack_huddle' && action === 'solve') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 2, commitsDelta: 12 };
+  } else if (type === 'slack_huddle' && action === 'ignore') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: -1, commitsDelta: -3 };
   } else if (type === 'open_source_contribution' && action === 'solve') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 0, commitsDelta: 20 };
