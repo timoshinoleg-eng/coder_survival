@@ -100,6 +100,21 @@ describeIfDb("secure rewarded ads and Coffee Coins", () => {
     expect(Number(progressionResult.rows[0].inventory?.coffee_coins || 0)).toBe(1);
   });
 
+  test("secure claim rejects a nonce issued to another user", async () => {
+    const ownerInitData = await bootstrapRewardUser(server, 760006, "rewarded_nonce_owner");
+    const attackerInitData = await bootstrapRewardUser(server, 760007, "rewarded_nonce_attacker");
+    const session = await createMockSession(server, ownerInitData);
+
+    const claim = await server.request("/api/rewards/ad-claim", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": attackerInitData },
+      body: { nonce: session.nonce, provider: "mock", proof: {} },
+    });
+
+    expect(claim.status).toBe(403);
+    expect(claim.body?.error).toBe("Nonce does not belong to user");
+  });
+
   test("concurrent secure claims allow exactly one first reward during cooldown", async () => {
     const initData = await bootstrapRewardUser(server, 760004, "rewarded_concurrent_claim");
     const sessions = await Promise.all([
