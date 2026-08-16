@@ -18,6 +18,7 @@ const CHOICE_TIMEOUT_SECONDS_BY_TYPE = {
   legacy_code: 20,
   coffee_stain: 15,
   golden_commit: 13,
+  green_build: 15,
   deploy_friday: 30,
   open_source_contribution: 15,
 };
@@ -34,6 +35,12 @@ const EVENT_UI_META = {
     description: 'Кто-то принял твой PR! В награду — эксклюзивный скин и +20 коммитов.',
     solveLabel: 'ПРИНЯТЬ',
     ignoreLabel: 'ОТКЛОНИТЬ',
+  },
+  green_build: {
+    title: 'GREEN BUILD',
+    description: 'CI зелёный с первого запуска. Никто не понимает почему, поэтому лучше принять победу, пока она не исчезла.',
+    solveLabel: 'МЕРЖИТЬ',
+    ignoreLabel: 'СОХРАНИТЬ ЛОГ',
   },
   legacy_code: {
     title: 'LEGACY CODE',
@@ -232,6 +239,10 @@ export function calculateEventDeltas(type, action, gameState = {}) {
     case 'open_source_contribution': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 0, commitsDelta: 20 };
       return { energyDelta: 0, depressionDelta: 0, commitsDelta: 0 };
+    }
+    case 'green_build': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: -3, commitsDelta: 15 };
+      return { energyDelta: 0, depressionDelta: 0, commitsDelta: 4 };
     }
     case 'legacy_code': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 4, commitsDelta: 0 };

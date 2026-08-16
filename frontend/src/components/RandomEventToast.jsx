@@ -6,6 +6,7 @@ const CLICK_EVENTS = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_f
 const EVENT_CHOICE_HINTS = {
   golden_commit: { solve: '+40 коммитов · −4 стресс', ignore: '+2 стресс' },
   open_source_contribution: { solve: '+20 коммитов · скин', ignore: 'без награды' },
+  green_build: { solve: '+15 коммитов · −3 стресс', ignore: '+4 коммита' },
   legacy_code: { solve: 'запустит мини-игру', ignore: '−10 коммитов · +8 стресс' },
   deploy_friday: { solve: 'запустит отмену deploy', ignore: '70% спокойно · 30% инцидент' },
   bug_production: { solve: 'запустит хотфикс', ignore: '+6 стресс' },
@@ -37,6 +38,7 @@ function getEventColor(type) {
   switch (type) {
     case 'golden_commit': return '#fbbf24';
     case 'open_source_contribution': return '#34d399';
+    case 'green_build': return '#22c55e';
     case 'bug_production': return '#ef4444';
     case 'deploy_friday': return '#f97316';
     case 'legacy_code': return '#a78bfa';

@@ -15,10 +15,16 @@ export const RANDOM_EVENTS_CONFIG = {
       uiText: 'Golden Commit! x7 LOC/s for 77s'
     },
     open_source_contribution: {
-      weight: 5,
+      weight: 2,
       type: 'positive',
       effect: { skin: 'open_source_hero', commits: 20 },
       uiText: 'Open Source PR accepted! Exclusive skin earned'
+    },
+    green_build: {
+      weight: 3,
+      type: 'positive',
+      effect: { commits: 15, depressionRelief: 3 },
+      uiText: 'Green Build: CI is green on the first run and nobody knows why'
     },
     legacy_code: {
       weight: 7,

@@ -191,6 +191,35 @@ function assertRandomEventPollingIsNotAggressive() {
   }
 }
 
+function assertFridayReleaseOutageMobileTimerAndAnimation() {
+  const toastFile = "src/components/RandomEventToast.jsx";
+  const toast = read(toastFile);
+  const engine = read("../backend/src/utils/randomEventEngine.js");
+  const app = read("src/App.jsx");
+
+  if (!engine.includes("friday_release_outage: 15")) {
+    failures.push(`${toastFile}: Friday Release Outage must have an explicit 15s server timeout`);
+  }
+  if (!toast.includes("const timeoutSeconds = Math.max(1, Number(event.timeout || 15))")) {
+    failures.push(`${toastFile}: mobile countdown must derive from the server-provided event timeout`);
+  }
+  if (!toast.includes("setInterval(() =>") || !toast.includes("clearInterval(interval)")) {
+    failures.push(`${toastFile}: countdown interval must be cleaned up when event changes or closes`);
+  }
+  if (!toast.includes('animation: "pixel-fade-in 150ms step-end forwards"')) {
+    failures.push(`${toastFile}: event toast must retain the short mobile-safe entry animation`);
+  }
+  if (!toast.includes('width: "90vw"') || !toast.includes('maxWidth: "420px"')) {
+    failures.push(`${toastFile}: event toast must remain constrained for narrow mobile WebViews`);
+  }
+  if (!toast.includes('transition: "width 1s linear"')) {
+    failures.push(`${toastFile}: countdown progress bar must animate smoothly on mobile`);
+  }
+  if (!app.includes("friday_release_outage:")) {
+    failures.push("src/App.jsx: Friday Release Outage must have a post-resolution punchline");
+  }
+}
+
 function assertPhaserResizeDoesNotRestartScene() {
   const file = "src/game/scenes/GameScene.js";
   const source = read(file);
@@ -395,6 +424,7 @@ assertRewardedAdsUseSecureClaimFlow();
 assertTapPathDoesNotRefreshHeavyPanelsPerTap();
 assertStreakClaimDoesNotBlockOnFullStateReload();
 assertRandomEventPollingIsNotAggressive();
+assertFridayReleaseOutageMobileTimerAndAnimation();
 assertPhaserResizeDoesNotRestartScene();
 assertGameProviderValueIsMemoized();
 assertPhaserUsesCanvasRenderer();
