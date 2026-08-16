@@ -124,9 +124,33 @@ function assertSprintPassKeyboardStateIsDeclaredBeforeEffect() {
   const source = read(file);
   const rewardsDeclaration = source.indexOf("const rewards");
   const effectUsingRewards = source.indexOf("if (!open || !rewards)");
+  const playerPassDeclaration = source.indexOf("const playerPass =");
+  const playerPassFirstUse = source.indexOf("playerPass.");
+  const renderReturn = source.indexOf("return h(");
 
   if (rewardsDeclaration !== -1 && effectUsingRewards !== -1 && rewardsDeclaration > effectUsingRewards) {
     failures.push(`${file}: rewards is read in an effect before it is initialized`);
+  }
+  if (playerPassDeclaration === -1 || (playerPassFirstUse !== -1 && playerPassDeclaration > playerPassFirstUse)) {
+    failures.push(`${file}: playerPass must be declared before any property access`);
+  }
+  if (renderReturn !== -1 && playerPassDeclaration > renderReturn) {
+    failures.push(`${file}: playerPass must be initialized before component render`);
+  }
+}
+
+function assertRewardedAdsUseSecureClaimFlow() {
+  const ui = read("src/components/RewardedVideo.jsx");
+  const state = read("src/hooks/useGameState.js");
+  const legacy = "/api/rewarded-video/complete";
+  if (!ui.includes("createAdSession") || !ui.includes("showRewardedAd")) {
+    failures.push("src/components/RewardedVideo.jsx: rewarded UI must create a server ad session before showing an ad");
+  }
+  if (!state.includes("/api/rewards/ad-claim")) {
+    failures.push("src/hooks/useGameState.js: rewarded claim must use /api/rewards/ad-claim");
+  }
+  if (ui.includes(legacy) || state.includes(legacy)) {
+    failures.push("frontend: legacy trust-based rewarded-video claim must not be called");
   }
 }
 
@@ -351,6 +375,7 @@ assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
 assertStatsBarRuntimeLabelsAreDeclaredBeforeRender();
 assertSprintPassKeyboardStateIsDeclaredBeforeEffect();
+assertRewardedAdsUseSecureClaimFlow();
 assertTapPathDoesNotRefreshHeavyPanelsPerTap();
 assertStreakClaimDoesNotBlockOnFullStateReload();
 assertRandomEventPollingIsNotAggressive();

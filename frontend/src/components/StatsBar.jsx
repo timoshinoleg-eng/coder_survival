@@ -65,6 +65,7 @@ export default function StatsBar({ runtimeNow }) {
     passiveLocRecovery,
     dailyBattle,
     activeLanguage,
+    inventory,
   } = gameState;
 
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -262,6 +263,23 @@ export default function StatsBar({ runtimeNow }) {
                       streakDays,
                     ),
                   ],
+                ),
+              Number(inventory?.coffee_coins || 0) > 0 &&
+                h(
+                  "span",
+                  {
+                    style: {
+                      fontSize: "11px",
+                      color: "#fde68a",
+                      fontWeight: "bold",
+                      border: "1px solid #8a6a10",
+                      padding: "2px 6px",
+                      borderRadius: "6px",
+                      background: "#2d2a1a",
+                    },
+                    title: "Coffee Coins: earned from incidents, quests and rewarded ads",
+                  },
+                  `☕${Number(inventory.coffee_coins || 0)}`
                 ),
               gameState?.prestige?.muCurrency > 0 &&
                 h(

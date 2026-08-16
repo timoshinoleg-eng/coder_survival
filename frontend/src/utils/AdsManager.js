@@ -89,15 +89,21 @@ class AdsManager {
       if (!this.adsGramController) {
         throw new Error('AdsGram SDK not available');
       }
-      await this.adsGramController.show();
-      return true;
+      const result = await this.adsGramController.show();
+      if (result && result.done === false) {
+        throw new Error('AdsGram rewarded ad was not completed');
+      }
+      return result || { done: true };
     }
 
     if (this.provider === 'telegram_native') {
       const tg = window.Telegram?.WebApp;
       if (tg?.showRewardedVideo) {
-        await new Promise((resolve) => tg.showRewardedVideo(resolve));
-        return true;
+        const result = await new Promise((resolve) => tg.showRewardedVideo(resolve));
+        if (result && result.done === false) {
+          throw new Error('Telegram rewarded ad was not completed');
+        }
+        return result || { done: true };
       }
       throw new Error('Telegram native rewarded video not available');
     }

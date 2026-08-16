@@ -407,7 +407,7 @@ export function GameProvider({ children }) {
   }, [telegram?.initData]);
 
   const refreshRewardedVideo = useCallback(async () => {
-    const payload = await apiRequest(`/api/rewarded-video/status?${timezoneQuery()}`, {
+    const payload = await apiRequest(`/api/rewards/status?${timezoneQuery()}`, {
       initData: telegram?.initData,
     });
     setColdState((current) => ({ ...current, rewardedVideo: payload }));
@@ -972,15 +972,24 @@ export function GameProvider({ children }) {
     return payload;
   }, [telegram?.initData]);
 
-  const completeRewardedVideo = useCallback(async () => {
-    const payload = await apiRequest("/api/rewarded-video/complete", {
+  const completeRewardedVideo = useCallback(async (session, proof = null) => {
+    if (!session?.nonce || !session?.provider) {
+      throw new Error("Рекламная сессия не создана");
+    }
+    const payload = await apiRequest("/api/rewards/ad-claim", {
       method: "POST",
       initData: telegram?.initData,
-      body: withTimezoneBody(),
+      body: {
+        nonce: session.nonce,
+        provider: session.provider,
+        proof,
+      },
     });
+    const rewardEnergy = Number(payload?.reward?.energy ?? payload?.energy_granted ?? 0);
+    const rewardCoffeeCoins = Number(payload?.reward?.coffeeCoins ?? payload?.coffee_coins_granted ?? 0);
     setHotState((current) => ({
       ...current,
-      energy: Number(payload?.newEnergy ?? current.energy),
+      energy: Math.min(current.maxEnergy, current.energy + rewardEnergy),
     }));
     setColdState((current) => ({
       ...current,
@@ -988,8 +997,11 @@ export function GameProvider({ children }) {
         ...current.rewardedVideo,
         remainingToday: payload?.remainingToday ?? current.rewardedVideo?.remainingToday,
       },
+      inventory: rewardCoffeeCoins > 0
+        ? { ...current.inventory, coffee_coins: Number(current.inventory?.coffee_coins || 0) + rewardCoffeeCoins }
+        : current.inventory,
     }));
-    return payload;
+    return { ...payload, rewardEnergy, rewardCoffeeCoins };
   }, [telegram?.initData]);
 
   const buyGenerator = useCallback(async (tierId) => {
@@ -1045,6 +1057,25 @@ export function GameProvider({ children }) {
     loadState,
   ]);
 
+  const spendCoffeeCoin = useCallback(async () => {
+    const payload = await apiRequest('/api/coffee/coins', {
+      method: 'POST',
+      initData: telegram?.initData,
+    });
+    if (payload?.success) {
+      setHotState((current) => ({
+        ...current,
+        energy: Number(payload.energy ?? current.energy),
+        depression: Math.max(0, Number(current.depression || 0) - 3),
+      }));
+      setColdState((current) => ({
+        ...current,
+        inventory: { ...current.inventory, coffee_coins: Number(payload.coffeeCoins ?? 0) },
+      }));
+    }
+    return payload;
+  }, [telegram?.initData]);
+
   const coldValue = useMemo(() => ({
     ...coldState,
     showToast,
@@ -1072,6 +1103,7 @@ export function GameProvider({ children }) {
     refreshWeeklySprint,
     claimWeeklySprintTier,
     completeRewardedVideo,
+    spendCoffeeCoin,
     buyGenerator,
     reset: loadState,
     acceptBattle: async (battleId) => {
@@ -1219,6 +1251,7 @@ export function GameProvider({ children }) {
     refreshGenerators,
     claimWeeklySprintTier,
     completeRewardedVideo,
+    spendCoffeeCoin,
     buyGenerator,
     refreshDailyBattle,
     loadState,
