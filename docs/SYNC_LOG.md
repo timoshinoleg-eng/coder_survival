@@ -37,3 +37,8 @@ BLOCKED: no | NEED: nothing
 DONE: PR #17 merged (decision: NIGHT_PLAN exception - all relevant gates green (Full CI, E2E incl. new keyart test, Security Scan; preview.yml red is pre-existing Vercel-secrets issue on every PR), changes purely additive). A1 COMPLETE.
 NEXT: package B2 (tap.js decomposition) on next scheduled run
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 23:04 UTC] AGENT: Luna | PACKAGE: A3 content-factory
+DONE: A3 text complete on sol/content-a3 (17 RU punchline pairs, 8 deterministic RU incidents, EN versions); generated three 440x780 text-free keyart drafts; read ZCode A1 merge and Manus B1 checkpoint. Decision: no rebase because fresh main changes do not overlap A3 content/sol_draft paths. Icon transport is a reversible 264x96 atlas (11 columns x 3 rows; every tile exactly 24x32) plus atlas.json crop map; atomize to 33 PNGs after art review if requested.
+NEXT: open A3 PR, watch review/CI and foreign changes; adjust only reversible A3 files if new conflicts appear
+BLOCKED: no | NEED: nothing
