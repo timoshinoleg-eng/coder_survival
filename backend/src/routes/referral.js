@@ -4,6 +4,7 @@ import { STAGE3 } from '../config/balance.js';
 import { logDailyFarm } from '../utils/farmLog.js';
 import { ensurePlayerLevel, addPlayerXp } from '../utils/vnext.js';
 import { buildReferralClaimReward, getUnlockedReferralMilestones, parseReferralCode, trackReferral } from '../utils/referral.js';
+import { secretsMatch } from '../utils/secretCompare.js';
 import { checkAchievement } from '../utils/achievements.js';
 
 const router = Router();
@@ -572,7 +573,7 @@ router.post('/track', async (req, res, next) => {
 
 internalReferralRouter.post('/track-bot-entry', async (req, res, next) => {
   const secret = req.headers['x-bot-backend-secret'];
-  if (!process.env.BOT_BACKEND_SECRET || secret !== process.env.BOT_BACKEND_SECRET) {
+  if (!secretsMatch(secret, process.env.BOT_BACKEND_SECRET)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
