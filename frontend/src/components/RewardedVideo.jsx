@@ -64,8 +64,14 @@ export default function RewardedVideo() {
         rewardCoffeeCoins: reward?.rewardCoffeeCoins || reward?.coffee_coins_granted,
         remainingToday: reward?.remainingToday,
       });
-      const coinText = reward?.rewardCoffeeCoins || reward?.reward?.coffeeCoins || reward?.coffee_coins_granted || 0;
-      showToast?.(`Кофе-брейк: +${reward.rewardEnergy} энергии${coinText ? ` · +${coinText} Coffee Coin` : ''}`, 'success', 2200);
+      const coinText = Number(reward?.rewardCoffeeCoins || reward?.reward?.coffeeCoins || reward?.coffee_coins_granted || 0);
+      const nextCoffeeCoins = coffeeCoins + coinText;
+      const cosmeticProgress = coinText > 0
+        ? nextCoffeeCoins < 3
+          ? ` · ${nextCoffeeCoins}/3 до скина`
+          : ' · скин ждёт в «Скинах»'
+        : '';
+      showToast?.(`Кофе-брейк: +${reward.rewardEnergy || reward?.energy_granted || 0} энергии${coinText ? ` · +${coinText} Coffee Coin` : ''}${cosmeticProgress}`, 'success', 2600);
     } catch (err) {
       trackEvent('ad_error', {
         provider: session?.provider || provider,
@@ -143,6 +149,9 @@ export default function RewardedVideo() {
     ),
     h('div', { style: { fontSize: '10px', color: '#c7ddf5', marginTop: '2px' } },
       'Без покупок · награда после подтвержденного просмотра'
+    ),
+    h('div', { style: { fontSize: '10px', color: '#fde68a', marginTop: '2px' } },
+      '☕ +1 Coffee Coin к косметике за просмотр'
     ),
     antiCheat?.banScore >= 20 && h('div', { style: { fontSize: '10px', color: '#fca5a5', marginTop: '2px' } },
       `Anti-cheat tier ${antiCheat.sanctionTier}: награда сейчас снижена`
