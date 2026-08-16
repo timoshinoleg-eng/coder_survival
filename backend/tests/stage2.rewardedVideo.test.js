@@ -15,6 +15,12 @@ async function bootstrapRewardUser(server, telegramId, username) {
      WHERE user_id = (SELECT id FROM users WHERE telegram_id = $1)`,
     [telegramId],
   );
+  // rewards FTUE gates read users.created_at (not progression), so backdate
+  // it too — otherwise the first claim hits the no_ads_shown window and 403s.
+  await testPool.query(
+    `UPDATE users SET created_at = NOW() - INTERVAL '2 hours' WHERE telegram_id = $1`,
+    [telegramId],
+  );
   return initData;
 }
 
