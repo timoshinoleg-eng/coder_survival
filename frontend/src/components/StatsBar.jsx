@@ -86,6 +86,52 @@ export default function StatsBar({ runtimeNow }) {
   const [careerOpen, setCareerOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
+
+  // Telegram BackButton: closing the topmost modal instead of exiting the app.
+  // Last entry wins (reverse iteration). Shop/boosters use their closers.
+  const modalControllers = [
+    [leaderboardOpen, () => setLeaderboardOpen(false)],
+    [referralOpen, () => setReferralOpen(false)],
+    [questsOpen, () => setQuestsOpen(false)],
+    [battleOpen, () => setBattleOpen(false)],
+    [eventOpen, () => setEventOpen(false)],
+    [passOpen, () => setPassOpen(false)],
+    [teamOpen, () => setTeamOpen(false)],
+    [memeOpen, () => setMemeOpen(false)],
+    [skinOpen, () => setSkinOpen(false)],
+    [miniGameOpen, () => setMiniGameOpen(false)],
+    [teamBattleOpen, () => setTeamBattleOpen(false)],
+    [achievementsOpen, () => setAchievementsOpen(false)],
+    [dailySummaryOpen, () => setDailySummaryOpen(false)],
+    [generatorsOpen, () => setGeneratorsOpen(false)],
+    [appealOpen, () => setAppealOpen(false)],
+    [careerOpen, () => setCareerOpen(false)],
+    [languageOpen, () => setLanguageOpen(false)],
+    [shopOpen, () => (typeof closeShop === 'function' ? closeShop() : setShopOpen(false))],
+    [boostersOpen, () => (typeof closeBoosters === 'function' ? closeBoosters() : setBoostersOpen(false))],
+  ];
+  const anyModalOpen = modalControllers.some(([open]) => open);
+
+  useEffect(() => {
+    const backButton = window.Telegram?.WebApp?.BackButton;
+    if (!backButton?.onClick || !backButton?.offClick) return undefined;
+    const handleBack = () => {
+      for (let i = modalControllers.length - 1; i >= 0; i -= 1) {
+        if (modalControllers[i][0]) {
+          modalControllers[i][1]();
+          haptic?.('light');
+          return;
+        }
+      }
+    };
+    backButton.onClick(handleBack);
+    if (anyModalOpen) {
+      backButton.show?.();
+    } else {
+      backButton.hide?.();
+    }
+    return () => backButton.offClick(handleBack);
+  });
   const { initData, haptic } = useTelegram();
   const {
     achievements: newAchievements,
