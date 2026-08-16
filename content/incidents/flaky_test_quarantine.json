@@ -1,0 +1,33 @@
+{
+  "id": "flaky_test_quarantine",
+  "locale": "ru",
+  "archetype": "deploy",
+  "rarity": "common",
+  "title": "Flaky test",
+  "body": "Один тест краснеет каждую пятую сборку. Команда уже знает его по имени.",
+  "choices": [
+    {
+      "id": "quarantine_and_fix",
+      "label": "Изолировать и починить",
+      "risk": "Потратишь время сейчас, зато получишь стабильный CI.",
+      "effects": { "commits": 5, "depression": 2, "coffeeCoins": 0 }
+    },
+    {
+      "id": "rerun_until_green",
+      "label": "Re-run до зелёного",
+      "risk": "Быстро, но нервно и без настоящего исправления.",
+      "effects": { "commits": 1, "depression": 4, "coffeeCoins": 0 }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "quarantine_and_fix",
+      "punchline": "Flaky test починен. Pipeline впервые перестал заниматься лотереей."
+    },
+    {
+      "id": "rerun_until_green",
+      "punchline": "На четвёртом Re-run зелёный. Причина официально не установлена."
+    }
+  ],
+  "shareTemplate": "CI зелёный. Метод достижения результата не обсуждается."
+}
