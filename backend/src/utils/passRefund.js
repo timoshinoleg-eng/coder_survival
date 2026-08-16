@@ -1,4 +1,5 @@
 import { STAGE2 } from '../config/balance.js';
+import { PRODUCT_CATALOG } from './shopCatalog.js';
 
 const { PASS } = STAGE2;
 const REFUND = PASS.premiumTrackRefundPercent || 0.50;
@@ -31,7 +32,9 @@ export async function processPremiumRefunds(client, passId) {
     [passId]
   );
   const totalLevels = Number(levelsResult.rows[0]?.total_levels || 50);
-  const baseCostStars = 200;
+  // Refund base must track the live catalog price, not a stale constant
+  // (premium_pass was repriced 200 -> 499 stars; hardcoded 200 underpaid refunds 2.5x).
+  const baseCostStars = Number(PRODUCT_CATALOG.premium_pass?.stars || 499);
 
   let totalStars = 0;
   let totalTon = 0;
