@@ -332,6 +332,21 @@ function assertInlineRuntimeObjectsAreMemoized() {
  * control or the TON placeholder, which a runtime test over today's components
  * would not notice.
  */
+function assertCoffeeCosmeticProgressRemainsVisualOnly() {
+  const skinPanel = read("src/components/SkinPanel.jsx");
+  const gameState = read("src/hooks/useGameState.js");
+
+  if (!skinPanel.includes("coffeeGoalSkin") || !skinPanel.includes("coffee_cosmetic_detail_viewed")) {
+    failures.push("src/components/SkinPanel.jsx: Coffee Coin cosmetic progress and detail analytics must stay visible");
+  }
+  if (!skinPanel.includes("Косметика не влияет на тапы, рейтинг или энергию")) {
+    failures.push("src/components/SkinPanel.jsx: Coffee Coin cosmetic UX must explicitly remain non-pay-to-win");
+  }
+  if (!gameState.includes("/api/skins/unlock-coffee")) {
+    failures.push("src/hooks/useGameState.js: Coffee Coin cosmetic unlock must use the server-authoritative endpoint");
+  }
+}
+
 function assertPaymentControlsAreGated() {
   const purchases = read("src/utils/purchases.js");
 
@@ -371,6 +386,7 @@ function assertPaymentControlsAreGated() {
 
 assertAppComponentReferencesAreImported();
 assertPaymentControlsAreGated();
+assertCoffeeCosmeticProgressRemainsVisualOnly();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
 assertPhaserLoadedAssetsExist();
 assertStatsBarRuntimeLabelsAreDeclaredBeforeRender();
