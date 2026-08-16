@@ -116,6 +116,12 @@ export function applyRandomEventChoice(type, action, currentState = {}, gameStat
   } else if (type === 'friday_release_outage' && action === 'ignore') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 7, commitsDelta: -10 };
+  } else if (type === 'green_build' && action === 'solve') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: -3, commitsDelta: 15 };
+  } else if (type === 'green_build' && action === 'ignore') {
+    handled = true;
+    nextDeltas = { energyDelta: 0, depressionDelta: 0, commitsDelta: 4 };
   } else if (type === 'canary_rollback' && action === 'solve') {
     handled = true;
     nextDeltas = { energyDelta: 0, depressionDelta: 1, commitsDelta: -2 };

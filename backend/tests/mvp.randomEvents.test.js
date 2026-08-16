@@ -24,6 +24,11 @@ describe('Random event balance and Friday production contracts', () => {
       weight: 6,
       effect: { commits: -3, depression: 2 },
     });
+    expect(RANDOM_EVENTS_CONFIG.events.green_build).toMatchObject({
+      type: 'positive',
+      weight: 3,
+      effect: { commits: 15, depressionRelief: 3 },
+    });
   });
 
   test("makes Friday Release Outage's responsible rollback strictly safer than denial", () => {
@@ -36,6 +41,19 @@ describe('Random event balance and Friday production contracts', () => {
       energyDelta: 0,
       depressionDelta: 7,
       commitsDelta: -10,
+    });
+  });
+
+  test('makes Green Build a meaningful positive recovery without overpowering Golden Commit', () => {
+    expect(calculateEventDeltas('green_build', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: -3,
+      commitsDelta: 15,
+    });
+    expect(calculateEventDeltas('green_build', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 0,
+      commitsDelta: 4,
     });
   });
 });

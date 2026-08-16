@@ -38,6 +38,7 @@ import { useTelegram } from './hooks/useTelegram.js';
 const EVENT_PUNCHLINES = {
   golden_commit: '✨ Код на секунду был красивым. Никому не рассказывай.',
   open_source_contribution: '🌍 Твой PR приняли. Теперь его будут поддерживать все, кроме тебя.',
+  green_build: '🟢 CI зелёный с первого раза. Никто не трогает pipeline, пока он не передумал.',
   legacy_code: '🧹 Legacy пережит. Файл всё ещё называется final_final_v2.js.',
   deploy_friday: '📅 Пятничный deploy: потому что понедельник слишком предсказуемый.',
   bug_production: '🐛 Прод спасён. Постмортем назначен на завтра в 09:00.',
