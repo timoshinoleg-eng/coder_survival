@@ -22,3 +22,8 @@ BLOCKED: no | NEED: nothing
 DONE: created branch sol/content-a3 from main; read ZCode checkpoint; found Manus Visual System v2 on manus/visual-system-v2-governance and adopted palette/safety guidance without blocking A3
 NEXT: add RU/EN punchlines, 8 incident JSONs, draft icon/keyart PNGs; then open PR
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 22:50 UTC] AGENT: Manus | PACKAGE: B1 rewarded-video baseline
+DONE: synced clean main at 9c9da63 after PR #15; read ZCode/Luna checkpoints; isolated branch manus/fix-rewarded-video-stage2 created for clean reproduction.
+NEXT: run stage2.rewardedVideo baseline, inspect provider gate/nonce ownership/shared pool lifecycle, then prepare minimal reversible PR fix.
+BLOCKED: no | NEED: nothing
