@@ -279,6 +279,98 @@ function alertPaymentWhileDisabled({ itemType, idempotent }) {
   );
 }
 
+/**
+ * POST /api/internal/payments/telegram/refund
+ * Bot-side wrapper: the bot calls refundStarPayments() on the Bot API FIRST,
+ * and only after Telegram accepts the refund does it record it here.
+ * Idempotent: a charge that was already refunded returns 200 { alreadyRefunded: true }.
+ *
+ * Item effects are deliberately NOT reversed (consumables like energy cannot be
+ * un-consumed; cosmetics are kept per standard Telegram refund practice) — the
+ * ledger marks the money side only, plus an audit entry with the operator reason.
+ */
+router.post('/telegram/refund', async (req, res, next) => {
+  const headerSecret = req.get('X-Bot-Backend-Secret');
+  if (!secretsMatch(headerSecret, BOT_BACKEND_SECRET)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { telegramPaymentChargeId, telegramUserId, reason } = req.body || {};
+  if (!telegramPaymentChargeId || !telegramUserId) {
+    return res.status(400).json({ error: 'telegramPaymentChargeId and telegramUserId are required' });
+  }
+
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const paymentResult = await client.query(
+        `SELECT sp.id AS star_payment_id, sp.user_id, sp.purchase_id, sp.item_type, sp.stars_amount, sp.status,
+                u.telegram_id
+         FROM star_payments sp
+         JOIN users u ON u.id = sp.user_id
+         WHERE sp.telegram_payment_charge_id = $1
+         FOR UPDATE OF sp`,
+        [telegramPaymentChargeId]
+      );
+      if (paymentResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Charge not found' });
+      }
+      const payment = paymentResult.rows[0];
+
+      if (Number(payment.telegram_id) !== Number(telegramUserId)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Charge does not belong to this Telegram user' });
+      }
+
+      if (payment.status === 'refunded') {
+        await client.query('COMMIT'); // no-op transaction
+        return res.status(200).json({ success: true, alreadyRefunded: true });
+      }
+
+      await client.query(
+        `UPDATE star_payments SET status = 'refunded' WHERE id = $1`,
+        [payment.star_payment_id]
+      );
+      if (payment.purchase_id) {
+        await client.query(
+          `UPDATE purchases SET status = 'refunded' WHERE id = $1 AND status = 'completed'`,
+          [payment.purchase_id]
+        );
+      }
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, context)
+         VALUES ($1, 'payment_refund', $2::jsonb)`,
+        [
+          payment.user_id,
+          JSON.stringify({
+            itemType: payment.item_type,
+            stars: payment.stars_amount,
+            reason: String(reason || '').slice(0, 200) || null
+          })
+        ]
+      );
+
+      await client.query('COMMIT');
+      return res.status(200).json({
+        success: true,
+        refunded: true,
+        starsAmount: payment.stars_amount,
+        itemType: payment.item_type
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
 // --- Payment failure rate tracking ---
 const _paymentFailures = [];
 
