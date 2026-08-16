@@ -42,3 +42,8 @@ BLOCKED: no | NEED: nothing
 DONE: A3 text complete on sol/content-a3 (17 RU punchline pairs, 8 deterministic RU incidents, EN versions); generated three 440x780 text-free keyart drafts; read ZCode A1 merge and Manus B1 checkpoint. Decision: no rebase because fresh main changes do not overlap A3 content/sol_draft paths. Icon transport is a reversible 264x96 atlas (11 columns x 3 rows; every tile exactly 24x32) plus atlas.json crop map; atomize to 33 PNGs after art review if requested.
 NEXT: open A3 PR, watch review/CI and foreign changes; adjust only reversible A3 files if new conflicts appear
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 23:15 UTC] AGENT: Manus | PACKAGE: B1 rewarded-video fix
+DONE: reproduced main failure as bigint/string vs serial/number nonce-owner comparison; exposed first-claim ledger race after normalization; fixed both with representation-safe ownership comparison and seeded daily ledger lock. PR #23 opened; stage2 rewarded suite 6/6 and full backend suite 41/41, 419/419 pass on rebased current main.
+NEXT: watch PR #23 CI; in parallel prepare Art Spec v2 registry and review SOL A3 once its PR is available.
+BLOCKED: no | NEED: nothing
