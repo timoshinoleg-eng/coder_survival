@@ -14,9 +14,12 @@ export default function RewardedVideo() {
   const dailyLimit = rewardedVideo?.dailyLimit ?? 5;
   const adAvailability = rewardedVideo?.adAvailability || null;
   const provider = adsManager.provider;
+  const adsAvailable = adsManager.isAvailable();
   const coffeeCoins = Number(inventory?.coffee_coins || 0);
+  const showFtueNotice = adAvailability?.allowed === false;
+  const canShowAdCta = adsAvailable && remaining > 0 && !showFtueNotice;
 
-  if (energy > threshold || (remaining <= 0 && adAvailability?.allowed !== false && coffeeCoins <= 0)) return null;
+  if (energy > threshold || (!canShowAdCta && !showFtueNotice && coffeeCoins <= 0)) return null;
 
   async function handleCoinClick() {
     if (waiting || coffeeCoins <= 0) return;
@@ -97,7 +100,7 @@ export default function RewardedVideo() {
         boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
       },
     }, `☕ Использовать Coffee Coin · ${coffeeCoins}`),
-    adAvailability?.allowed === false ? h('div', {
+    showFtueNotice ? h('div', {
     style: {
       pointerEvents: 'auto',
       minHeight: '48px',
@@ -110,9 +113,9 @@ export default function RewardedVideo() {
       boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
       textAlign: 'center',
     },
-  }, adAvailability.reason === 'ftue_ads_blocked'
-    ? '☕ Реклама откроется после первых 30 минут FTUE'
-    : '☕ В FTUE доступен только 1 рекламный просмотр') : h('button', {
+    }, adAvailability.reason === 'ftue_ads_blocked'
+      ? '☕ Реклама откроется после первых 30 минут FTUE'
+      : '☕ В FTUE доступен только 1 рекламный просмотр') : canShowAdCta && h('button', {
     type: 'button',
     onClick: handleClick,
     disabled: waiting,
@@ -133,7 +136,7 @@ export default function RewardedVideo() {
       `Осталось: ${remaining}/${dailyLimit}`
     ),
     h('div', { style: { fontSize: '10px', color: '#c7ddf5', marginTop: '2px' } },
-      `Провайдер: ${provider}`
+      'Без покупок · награда после подтвержденного просмотра'
     ),
     antiCheat?.banScore >= 20 && h('div', { style: { fontSize: '10px', color: '#fca5a5', marginTop: '2px' } },
       `Anti-cheat tier ${antiCheat.sanctionTier}: награда сейчас снижена`

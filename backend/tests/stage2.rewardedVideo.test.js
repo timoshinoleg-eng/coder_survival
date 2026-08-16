@@ -3,11 +3,39 @@ import { startTestServer } from "./helpers/testServer.js";
 
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
-describeIfDb("stage2 rewarded video ceiling", () => {
+async function bootstrapRewardUser(server, telegramId, username) {
+  const initData = createInitData(telegramId, { username });
+  const state = await server.request("/api/state", {
+    headers: { "X-Telegram-Init-Data": initData },
+  });
+  expect(state.status).toBe(200);
+  await testPool.query(
+    `UPDATE progression
+     SET created_at = NOW() - INTERVAL '2 hours', energy = 1
+     WHERE user_id = (SELECT id FROM users WHERE telegram_id = $1)`,
+    [telegramId],
+  );
+  return initData;
+}
+
+async function createMockSession(server, initData) {
+  const response = await server.request("/api/rewards/ad-session", {
+    method: "POST",
+    headers: { "X-Telegram-Init-Data": initData },
+    body: { provider: "mock" },
+  });
+  expect(response.status).toBe(200);
+  expect(response.body?.nonce).toEqual(expect.any(String));
+  expect(response.body?.provider).toBe("mock");
+  return response.body;
+}
+
+describeIfDb("secure rewarded ads and Coffee Coins", () => {
   let server;
 
   beforeAll(async () => {
     process.env.NODE_ENV = "test";
+    process.env.ENABLE_MOCK_REWARDED_ADS = "true";
     await ensureTestSchema();
     server = await startTestServer();
   });
@@ -21,66 +49,82 @@ describeIfDb("stage2 rewarded video ceiling", () => {
     if (testPool) await testPool.end();
   });
 
-  test("concurrent complete requests leave countToday <= 5", async () => {
-    const initData = createInitData(760001, { username: "rewarded_ceiling" });
-    await server.request("/api/state", {
+  test("legacy client-complete endpoint is disabled outside QA", async () => {
+    const initData = await bootstrapRewardUser(server, 760001, "rewarded_legacy_disabled");
+    const response = await server.request("/api/rewarded-video/complete", {
+      method: "POST",
       headers: { "X-Telegram-Init-Data": initData },
+      body: { timezoneOffset: 180 },
     });
-    // Age user past FTUE 30-minute ad block so the ceiling logic is tested
-    await testPool.query(
-      `UPDATE progression SET created_at = NOW() - INTERVAL '2 hours'
-       WHERE user_id = (SELECT id FROM users WHERE telegram_id = $1)`,
-      [760001],
-    );
+    expect(response.status).toBe(410);
+    expect(response.body?.error).toMatch(/Legacy rewarded-video endpoint disabled/);
+  });
 
-    const responses = await Promise.all(
-      Array.from({ length: 6 }, () =>
-        server.request("/api/rewarded-video/complete", {
-          method: "POST",
-          headers: { "X-Telegram-Init-Data": initData },
-          body: { timezoneOffset: 180 },
-        }),
-      ),
-    );
+  test("validated claim grants energy and exactly one Coffee Coin, then is idempotently rejected", async () => {
+    const telegramId = 760002;
+    const initData = await bootstrapRewardUser(server, telegramId, "rewarded_secure_claim");
+    const session = await createMockSession(server, initData);
 
-    expect(responses.some((response) => response.status === 429)).toBe(true);
+    const claim = await server.request("/api/rewards/ad-claim", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+      body: { nonce: session.nonce, provider: "mock", proof: {} },
+    });
+    expect(claim.status).toBe(200);
+    expect(claim.body?.success).toBe(true);
+    expect(Number(claim.body?.reward?.energy)).toBeGreaterThan(0);
+    expect(claim.body?.reward?.coffeeCoins).toBe(1);
+
+    const replay = await server.request("/api/rewards/ad-claim", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+      body: { nonce: session.nonce, provider: "mock", proof: {} },
+    });
+    expect(replay.status).toBe(409);
 
     const userResult = await testPool.query(
       `SELECT id FROM users WHERE telegram_id = $1`,
-      [760001],
+      [telegramId],
     );
     const progressionResult = await testPool.query(
-      `SELECT rewarded_video_state
-       FROM progression
-       WHERE user_id = $1`,
+      `SELECT energy, inventory FROM progression WHERE user_id = $1`,
       [userResult.rows[0].id],
     );
-    expect(Number(progressionResult.rows[0].rewarded_video_state.countToday || 0)).toBeLessThanOrEqual(5);
+    expect(Number(progressionResult.rows[0].energy)).toBeGreaterThan(1);
+    expect(Number(progressionResult.rows[0].inventory?.coffee_coins || 0)).toBe(1);
   });
 
-  test("3 concurrent requests allow exactly 1 success during cooldown window", async () => {
-    const initData = createInitData(760002, { username: "rewarded_one_success" });
-    await server.request("/api/state", {
+  test("reward status reads the secure reward ledger and Coffee Coin spend is atomic", async () => {
+    const telegramId = 760003;
+    const initData = await bootstrapRewardUser(server, telegramId, "rewarded_status_coin_spend");
+    const session = await createMockSession(server, initData);
+    const claim = await server.request("/api/rewards/ad-claim", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+      body: { nonce: session.nonce, provider: "mock", proof: {} },
+    });
+    expect(claim.status).toBe(200);
+
+    const status = await server.request("/api/rewards/status", {
       headers: { "X-Telegram-Init-Data": initData },
     });
-    // Age user past FTUE ad block so cooldown logic is tested
-    await testPool.query(
-      `UPDATE progression SET created_at = NOW() - INTERVAL '2 hours'
-       WHERE user_id = (SELECT id FROM users WHERE telegram_id = $1)`,
-      [760002],
-    );
+    expect(status.status).toBe(200);
+    expect(status.body?.countToday).toBe(1);
+    expect(status.body?.remainingToday).toBeLessThan(status.body?.dailyLimit);
 
-    const responses = await Promise.all(
-      Array.from({ length: 3 }, () =>
-        server.request("/api/rewarded-video/complete", {
-          method: "POST",
-          headers: { "X-Telegram-Init-Data": initData },
-          body: { timezoneOffset: 180 },
-        }),
-      ),
-    );
+    const spend = await server.request("/api/coffee/coins", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+    });
+    expect(spend.status).toBe(200);
+    expect(spend.body?.success).toBe(true);
+    expect(spend.body?.coffeeCoins).toBe(0);
+    expect(Number(spend.body?.restored)).toBeGreaterThan(0);
 
-    expect(responses.filter((response) => response.status === 200)).toHaveLength(1);
-    expect(responses.filter((response) => response.status === 429)).toHaveLength(2);
+    const secondSpend = await server.request("/api/coffee/coins", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+    });
+    expect(secondSpend.status).toBe(409);
   });
 });
