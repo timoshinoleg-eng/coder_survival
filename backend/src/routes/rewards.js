@@ -113,6 +113,14 @@ async function claimValidatedAdSession(client, { userId, nonce, provider, proof 
     return { status: 403, payload: { error: "Invalid ad proof" } };
   }
 
+  // Create the daily ledger row before locking it. Without this seed, two first
+  // claims can both observe an absent row and bypass cooldown/limit checks.
+  await client.query(
+    `INSERT INTO ad_rewards (user_id, date, count, provider)
+     VALUES ($1, CURRENT_DATE, 0, $2)
+     ON CONFLICT (user_id, date) DO NOTHING`,
+    [userId, provider],
+  );
   const limitResult = await client.query(
     `SELECT count, last_rewarded_at
      FROM ad_rewards
@@ -158,13 +166,12 @@ async function claimValidatedAdSession(client, { userId, nonce, provider, proof 
   );
 
   await client.query(
-    `INSERT INTO ad_rewards (user_id, date, count, last_rewarded_at, provider, proof_id)
-     VALUES ($1, CURRENT_DATE, 1, NOW(), $2, $3)
-     ON CONFLICT (user_id, date) DO UPDATE SET
-       count = ad_rewards.count + 1,
-       last_rewarded_at = NOW(),
-       provider = EXCLUDED.provider,
-       proof_id = EXCLUDED.proof_id`,
+    `UPDATE ad_rewards
+     SET count = count + 1,
+         last_rewarded_at = NOW(),
+         provider = $2,
+         proof_id = $3
+     WHERE user_id = $1 AND date = CURRENT_DATE`,
     [userId, provider, nonce],
   );
 

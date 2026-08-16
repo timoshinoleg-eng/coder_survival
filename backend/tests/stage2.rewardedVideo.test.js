@@ -94,6 +94,23 @@ describeIfDb("secure rewarded ads and Coffee Coins", () => {
     expect(Number(progressionResult.rows[0].inventory?.coffee_coins || 0)).toBe(1);
   });
 
+  test("concurrent secure claims allow exactly one first reward during cooldown", async () => {
+    const initData = await bootstrapRewardUser(server, 760004, "rewarded_concurrent_claim");
+    const sessions = await Promise.all([
+      createMockSession(server, initData),
+      createMockSession(server, initData),
+      createMockSession(server, initData),
+    ]);
+    const claims = await Promise.all(sessions.map((session) => server.request("/api/rewards/ad-claim", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+      body: { nonce: session.nonce, provider: "mock", proof: {} },
+    })));
+
+    expect(claims.filter((response) => response.status === 200)).toHaveLength(1);
+    expect(claims.filter((response) => response.status === 429)).toHaveLength(2);
+  });
+
   test("reward status reads the secure reward ledger and Coffee Coin spend is atomic", async () => {
     const telegramId = 760003;
     const initData = await bootstrapRewardUser(server, telegramId, "rewarded_status_coin_spend");
