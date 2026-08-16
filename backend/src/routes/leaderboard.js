@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { getRankXpBounds } from '../utils/vnext.js';
+import { LEAGUES, getLeagueForCommits } from '../utils/leagues.js';
 
 const router = Router();
 
@@ -41,12 +42,21 @@ router.get('/', async (req, res, next) => {
         }
       }
 
+      // Weekly league context for the caller (always, not only aroundMe).
+      let league = null;
+      if (telegramUser) {
+        const weekLeague = await resolveLeagueContext(client, telegramUser.id);
+        if (weekLeague) league = weekLeague;
+      }
+
       res.json({
         period,
         limit,
         count: players.length,
         players,
-        myPosition
+        myPosition,
+        league,
+        leagueTiers: LEAGUES.map(({ id, min, rewardStars, title }) => ({ id, min, rewardStars, title }))
       });
 
     } finally {
@@ -57,8 +67,52 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-function buildRankWhereClause(rankFilter, params) {
-  if (!rankFilter) return '';
+/**
+ * Weekly league context for the caller: current tier, progress to the next
+ * tier and the caller's place within their tier this week (null if inactive).
+ */
+async function resolveLeagueContext(client, telegramId) {
+  const mine = await client.query(
+    `SELECT COALESCE(SUM(s.commits_earned), 0)::int AS weekly_commits
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE u.telegram_id = $1
+       AND s.started_at >= date_trunc('week', NOW())`,
+    [telegramId]
+  );
+  const weeklyCommits = Number(mine.rows[0]?.weekly_commits || 0);
+  const { league, next } = getLeagueForCommits(weeklyCommits);
+
+  let placementInLeague = null;
+  if (weeklyCommits > 0 && next) {
+    // Place within tier = players in the same tier band with more commits this week + 1.
+    const ahead = await client.query(
+      `SELECT COUNT(*)::int AS ahead
+       FROM (
+         SELECT s.user_id, SUM(s.commits_earned)::int AS commits
+         FROM sessions s
+         WHERE s.started_at >= date_trunc('week', NOW())
+         GROUP BY s.user_id
+         HAVING SUM(s.commits_earned) >= $1 AND SUM(s.commits_earned) < $2
+       ) band
+       WHERE band.commits > $3`,
+      [league.min, next.min, weeklyCommits]
+    );
+    placementInLeague = Number(ahead.rows[0]?.ahead || 0) + 1;
+  }
+
+  return {
+    tier: league.id,
+    title: league.title,
+    weeklyCommits,
+    nextTier: next ? { id: next.id, title: next.title, minCommits: next.min } : null,
+    nextTierCommitsLeft: next ? Math.max(0, next.min - weeklyCommits) : 0,
+    rewardStars: league.rewardStars,
+    placementInLeague
+  };
+}
+
+function buildRankWhereClause(rankFilter, params) {  if (!rankFilter) return '';
 
   const bounds = getRankXpBounds(rankFilter);
   if (!bounds) return '';
