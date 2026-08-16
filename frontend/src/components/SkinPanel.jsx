@@ -43,17 +43,26 @@ export default function SkinPanel({ open, onClose }) {
   const equippedId = skins?.equipped || null;
   const equippedSkin = catalog.find((skin) => skin.skinId === equippedId) || null;
 
-  const handleSelect = (skin) => {
-    haptic('light');
-    setSelectedSkin(skin);
-  };
-
   const isEquipped = (skinId) => skinId === equippedId;
   const isUnlocked = (skinId) => unlockedSet.has(skinId);
+  const coffeeCoins = Number(inventory?.coffee_coins || 0);
+  const coffeeGoalSkin = catalog.find((skin) => skin.unlockType === 'coffee_coin' && !isUnlocked(skin.skinId)) || null;
+  const coffeeGoalCost = Number(coffeeGoalSkin?.unlockPayload?.coffeeCoins || 0);
   const selectedIsUnlocked = selectedSkin ? isUnlocked(selectedSkin.skinId) : false;
   const selectedCoffeeCost = Number(selectedSkin?.unlockPayload?.coffeeCoins || 0);
   const selectedCanUnlockWithCoffee = Boolean(selectedSkin && !selectedIsUnlocked && selectedSkin.unlockType === 'coffee_coin' && selectedCoffeeCost > 0);
-  const coffeeCoins = Number(inventory?.coffee_coins || 0);
+
+  const handleSelect = (skin) => {
+    haptic('light');
+    if (skin.unlockType === 'coffee_coin' && !isUnlocked(skin.skinId)) {
+      trackEvent('coffee_cosmetic_detail_viewed', {
+        skinId: skin.skinId,
+        coffeeCoins,
+        cost: Number(skin.unlockPayload?.coffeeCoins || 0),
+      });
+    }
+    setSelectedSkin(skin);
+  };
 
   async function handleCoffeeUnlock() {
     if (!selectedCanUnlockWithCoffee || isEquipping) return;
@@ -153,6 +162,22 @@ export default function SkinPanel({ open, onClose }) {
       h('span', { style: { color: '#facc15', fontWeight: 'bold' } },
         equippedSkin?.name || equippedId
       )
+    ]),
+
+    coffeeGoalSkin && coffeeGoalCost > 0 && h('div', {
+      style: {
+        margin: '10px 14px 0',
+        padding: '9px 10px',
+        border: '1px solid #6b4308',
+        borderRadius: '7px',
+        background: 'rgba(107, 67, 8, 0.18)',
+        color: '#fde68a',
+        fontSize: '11px',
+        lineHeight: 1.35,
+      },
+    }, [
+      h('div', { style: { fontWeight: 'bold', marginBottom: '2px' } }, `☕ ${coffeeCoins}/${coffeeGoalCost} Coffee Coins до «${coffeeGoalSkin.name}»`),
+      h('div', { style: { color: '#c7ddf5' } }, 'Косметика не влияет на тапы, рейтинг или энергию.'),
     ]),
 
     // Grid
