@@ -9,6 +9,8 @@ const CHOICE_TIMEOUT_SECONDS_BY_TYPE = {
   slack_huddle: 15,
   scope_creep: 15,
   merge_conflict: 15,
+  canary_rollback: 15,
+  production_500_spike: 15,
   stack_overflow_down: 30,
   legacy_code: 20,
   coffee_stain: 15,
@@ -77,6 +79,18 @@ const EVENT_UI_META = {
     description: 'Git говорит, что оба правы. Ты знаешь, что это дипломатическая формулировка для «удачи».',
     solveLabel: 'РАЗРУЛИТЬ',
     ignoreLabel: 'ПОТОМ',
+  },
+  canary_rollback: {
+    title: 'CANARY ROLLBACK',
+    description: 'Канарейка запела HTTP 500. Откатить релиз сейчас или подождать, пока метрики «успокоятся сами»?',
+    solveLabel: 'ОТКАТИТЬ',
+    ignoreLabel: 'ЕЩЁ МИНУТКУ',
+  },
+  production_500_spike: {
+    title: 'HTTP 500 SPIKE',
+    description: 'График ошибок пошёл вверх. Можно выключить фичу флагом или обновлять Grafana до просветления.',
+    solveLabel: 'ВЫКЛЮЧИТЬ ФЛАГ',
+    ignoreLabel: 'ОБНОВИТЬ GRAFANA',
   },
   stack_overflow_down: {
     title: 'STACK OVERFLOW DOWN',
@@ -236,6 +250,14 @@ export function calculateEventDeltas(type, action, gameState = {}) {
     case 'merge_conflict': {
       if (action === 'solve') return { energyDelta: 0, depressionDelta: 3, commitsDelta: 5 };
       return { energyDelta: 0, depressionDelta: 5, commitsDelta: -12 };
+    }
+    case 'canary_rollback': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 1, commitsDelta: -2 };
+      return { energyDelta: 0, depressionDelta: 5, commitsDelta: -8 };
+    }
+    case 'production_500_spike': {
+      if (action === 'solve') return { energyDelta: 0, depressionDelta: 2, commitsDelta: 4 };
+      return { energyDelta: 0, depressionDelta: 6, commitsDelta: -5 };
     }
     case 'coffee_stain': {
       if (action === 'solve') return { energyDelta: 8, depressionDelta: -4, commitsDelta: 0 };

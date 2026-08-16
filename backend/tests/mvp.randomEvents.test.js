@@ -216,6 +216,29 @@ describeIfDb('MVP Random Events — server-authoritative state machine', () => {
     });
   });
 
+  test('calculateEventDeltas keeps Canary Rollback and HTTP 500 Spike trade-offs explicit', () => {
+    expect(calculateEventDeltas('canary_rollback', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 1,
+      commitsDelta: -2,
+    });
+    expect(calculateEventDeltas('canary_rollback', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 5,
+      commitsDelta: -8,
+    });
+    expect(calculateEventDeltas('production_500_spike', 'solve')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 2,
+      commitsDelta: 4,
+    });
+    expect(calculateEventDeltas('production_500_spike', 'ignore')).toEqual({
+      energyDelta: 0,
+      depressionDelta: 6,
+      commitsDelta: -5,
+    });
+  });
+
   test('buildActiveEventPayload returns null for missing row', () => {
     expect(buildActiveEventPayload(null)).toBeNull();
   });

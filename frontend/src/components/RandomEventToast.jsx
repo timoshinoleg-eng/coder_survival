@@ -13,6 +13,8 @@ const EVENT_CHOICE_HINTS = {
   slack_huddle: { solve: '+12 коммитов · +2 стресс', ignore: '−3 коммита · −1 стресс' },
   scope_creep: { solve: '+8 коммитов · +3 стресс', ignore: '−2 коммита · −1 стресс' },
   merge_conflict: { solve: '+5 коммитов · +3 стресс', ignore: '−12 коммитов · +5 стресс' },
+  canary_rollback: { solve: '−2 коммита · +1 стресс', ignore: '−8 коммитов · +5 стресс' },
+  production_500_spike: { solve: '+4 коммита · +2 стресс', ignore: '−5 коммитов · +6 стресс' },
   coffee_stain: { solve: 'запустит мини-игру', ignore: 'без награды' },
 };
 
@@ -39,6 +41,8 @@ function getEventColor(type) {
     case 'slack_huddle': return '#38bdf8';
     case 'scope_creep': return '#e879f9';
     case 'merge_conflict': return '#fb7185';
+    case 'canary_rollback': return '#facc15';
+    case 'production_500_spike': return '#ef4444';
     case 'coffee_stain': return '#8B4513';
     case 'stack_overflow_down': return '#f43f5e';
     default: return '#fbbf24';
