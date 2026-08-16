@@ -72,6 +72,21 @@ router.post('/', purchaseRateLimiter, requireTelegramUser, requirePaymentsEnable
         }
       }
 
+      // One-time SKUs (starter pack): refuse a second intent. A partial unique
+      // index (migration 060) also guards the concurrent-insert race.
+      if (item.oneTimePerUser) {
+        const prior = await client.query(
+          `SELECT 1 FROM purchases
+           WHERE user_id = $1 AND item_type = $2 AND status IN ('pending', 'completed')
+           LIMIT 1`,
+          [userId, item_type]
+        );
+        if (prior.rowCount > 0) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ error: 'Этот набор можно купить только один раз', code: 'ONE_TIME_ALREADY_OWNED' });
+        }
+      }
+
       const purchaseResult = await client.query(
         `INSERT INTO purchases (user_id, item_type, stars_amount, status)
          VALUES ($1, $2, $3, 'pending')
@@ -203,6 +218,33 @@ export async function applyItemEffect(client, userId, itemType) {
         [userId, JSON.stringify(nextState)]
       );
       return { streakSaverArmed: true, saverArmedForDate: nextState.saverArmedForDate };
+    }
+
+    case 'starter_pack': {
+      const level = await ensurePlayerLevel(client, userId);
+      await applyReward(client, userId, {
+        energy: level.resolved.maxEnergy,
+        depressionRelief: 30,
+        inventory: { coffee_coins: 2 }
+      });
+      await client.query(
+        `UPDATE progression
+           SET streak_state = jsonb_set(
+             COALESCE(streak_state, '{}'),
+             '{streakFrozenUntil}',
+             to_jsonb((NOW() + INTERVAL '24 hours')::text)
+           ),
+           updated_at = NOW()
+         WHERE user_id = $1`,
+        [userId]
+      );
+      return {
+        starterPack: true,
+        energy: level.resolved.maxEnergy,
+        depressionDelta: -30,
+        coffeeCoins: 2,
+        streakFrozenUntil: new Date(Date.now() + 86400000).toISOString()
+      };
     }
 
     case 'office_cat': {
