@@ -32,3 +32,8 @@ BLOCKED: no | NEED: nothing
 DONE: scoped A1 to non-duplicated delta - keyart backgrounds for friday_outage/postmortem cards + e2e guard; PR #17. Detected avatar art-pack already on main (src/assets/characters) - my scene edits dropped, branch recreated from fresh main, duplicate PNGs removed. Luna checkpoint seen in log.
 NEXT: watch E2E on PR #17; then B2 tap-decomposition
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 22:57 UTC] AGENT: ZCode | PACKAGE: A1 visual-integration
+DONE: PR #17 merged (decision: NIGHT_PLAN exception - all relevant gates green (Full CI, E2E incl. new keyart test, Security Scan; preview.yml red is pre-existing Vercel-secrets issue on every PR), changes purely additive). A1 COMPLETE.
+NEXT: package B2 (tap.js decomposition) on next scheduled run
+BLOCKED: no | NEED: nothing
