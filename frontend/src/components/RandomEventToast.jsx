@@ -34,6 +34,13 @@ function getClickKey(type) {
   return null;
 }
 
+// Events with dedicated key art (Visual Assets/first_pack). The dark gradient
+// overlay keeps the pixel font readable over the art.
+const EVENT_KEYART = {
+  friday_release_outage: 'url(/visual_assets/first_pack/friday_release_outage_keyart_780.jpg)',
+  blameless_postmortem: 'url(/visual_assets/first_pack/blameless_postmortem_keyart_780.jpg)',
+};
+
 function getEventColor(type) {
   switch (type) {
     case 'golden_commit': return '#fbbf24';
@@ -117,6 +124,7 @@ export default function RandomEventToast({ event, onChoice, onTap, disabled = fa
   const solveHint = getChoiceHint(event.type, 'solve');
   const ignoreHint = getChoiceHint(event.type, 'ignore');
 
+  const keyart = EVENT_KEYART[event.type] || null;
   const baseStyle = {
     position: "fixed",
     top: "16px",
@@ -126,10 +134,14 @@ export default function RandomEventToast({ event, onChoice, onTap, disabled = fa
     maxWidth: "420px",
     zIndex: 200,
     animation: "pixel-fade-in 150ms step-end forwards",
-    background: "rgba(16, 25, 45, 0.96)",
+    background: keyart
+      ? `linear-gradient(rgba(7, 13, 25, 0.78), rgba(7, 13, 25, 0.92)), ${keyart}`
+      : "rgba(16, 25, 45, 0.96)",
+    backgroundSize: keyart ? "cover" : undefined,
+    backgroundPosition: keyart ? "center" : undefined,
     border: `2px solid ${color}`,
     borderRadius: "4px",
-    padding: "12px",
+    padding: keyart ? "16px 12px" : "12px",
   };
 
   if (mode === 'minigame' && isClickEvent) {
