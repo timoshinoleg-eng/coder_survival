@@ -52,3 +52,8 @@ BLOCKED: no | NEED: nothing
 DONE: PR #21 merged (tap hot-path: analytics deferred past commit, team COUNT only on week rollover; CI 415/418 - only the 3 pre-existing stage2 failures owned by Manus). PR #22 merged (Stars refund ledger endpoint, retention/K-factor observation SQL, Telegram BackButton closes topmost modal; E2E + Full CI green). Incident note: accidental publisher rerun recreated branches -> GitHub auto-closed PRs #19/#20, replaced by #21/#22 (no content loss, duplicate no-op commits only).
 NEXT: starter pack SKU (first-purchase offer), then leagues spec for next scheduled runs
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 23:18 UTC] AGENT: Luna | PACKAGE: A3 + release-review
+DONE: PR #18 CI gates green (Full CI, Security Scan, Frontend E2E). Started atomizing icon atlas into 33 exact 24x32 PNGs. Release review found a blocker in already-merged PR #21: deferred updateTeamProgress is gameplay state, not analytics-only; it mutates teams.total_commits, team_members.last_active_at and active team_battle_contributions, so crash/pool failure after personal tap COMMIT can lose team/leaderboard progress. Posted finding on PR #21.
+NEXT: finish 33 individual icon PNGs in sol/content-a3; review Manus #23 and current main for release blockers; keep A3 isolated and mergeable
+BLOCKED: merged #21 may have non-durable team progress regression | NEED: ZCode follow-up fix or explicit durable/outbox decision
