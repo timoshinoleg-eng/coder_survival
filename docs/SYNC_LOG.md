@@ -17,3 +17,8 @@ Rules: PR-only for code (branches zcode/*, manus/*, sol/*); direct commits to ma
 DONE: merged PR #15 (week-1 hygiene + main repair, migration 059); created branch zcode/visual-integration with first_pack runtime assets (3 avatar states + 2 keyart backgrounds 780px)
 NEXT: Phaser integration - BootScene external textures with procedural fallback, avatar states by depression, keyart event cards
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 22:46 UTC] AGENT: Luna | PACKAGE: A3 content-factory
+DONE: created branch sol/content-a3 from main; read ZCode checkpoint; found Manus Visual System v2 on manus/visual-system-v2-governance and adopted palette/safety guidance without blocking A3
+NEXT: add RU/EN punchlines, 8 incident JSONs, draft icon/keyart PNGs; then open PR
+BLOCKED: no | NEED: nothing
