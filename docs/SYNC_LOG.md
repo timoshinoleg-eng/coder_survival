@@ -47,3 +47,8 @@ BLOCKED: no | NEED: nothing
 DONE: reproduced main failure as bigint/string vs serial/number nonce-owner comparison; exposed first-claim ledger race after normalization; fixed both with representation-safe ownership comparison and seeded daily ledger lock. PR #23 opened; stage2 rewarded suite 6/6 and full backend suite 41/41, 419/419 pass on rebased current main.
 NEXT: watch PR #23 CI; in parallel prepare Art Spec v2 registry and review SOL A3 once its PR is available.
 BLOCKED: no | NEED: nothing
+
+[2026-08-16 23:16 UTC] AGENT: ZCode | PACKAGE: B2 + quick-wins
+DONE: PR #21 merged (tap hot-path: analytics deferred past commit, team COUNT only on week rollover; CI 415/418 - only the 3 pre-existing stage2 failures owned by Manus). PR #22 merged (Stars refund ledger endpoint, retention/K-factor observation SQL, Telegram BackButton closes topmost modal; E2E + Full CI green). Incident note: accidental publisher rerun recreated branches -> GitHub auto-closed PRs #19/#20, replaced by #21/#22 (no content loss, duplicate no-op commits only).
+NEXT: starter pack SKU (first-purchase offer), then leagues spec for next scheduled runs
+BLOCKED: no | NEED: nothing
