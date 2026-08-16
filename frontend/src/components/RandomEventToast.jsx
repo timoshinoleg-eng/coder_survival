@@ -11,6 +11,8 @@ const EVENT_CHOICE_HINTS = {
   bug_production: { solve: 'запустит хотфикс', ignore: '+6 стресс' },
   code_review: { solve: '+10 коммитов · +2 стресс', ignore: '−5 коммитов · +4 стресс' },
   slack_huddle: { solve: '+12 коммитов · +2 стресс', ignore: '−3 коммита · −1 стресс' },
+  scope_creep: { solve: '+8 коммитов · +3 стресс', ignore: '−2 коммита · −1 стресс' },
+  merge_conflict: { solve: '+5 коммитов · +3 стресс', ignore: '−12 коммитов · +5 стресс' },
   coffee_stain: { solve: 'запустит мини-игру', ignore: 'без награды' },
 };
 
@@ -35,6 +37,8 @@ function getEventColor(type) {
     case 'legacy_code': return '#a78bfa';
     case 'code_review': return '#60a5fa';
     case 'slack_huddle': return '#38bdf8';
+    case 'scope_creep': return '#e879f9';
+    case 'merge_conflict': return '#fb7185';
     case 'coffee_stain': return '#8B4513';
     case 'stack_overflow_down': return '#f43f5e';
     default: return '#fbbf24';

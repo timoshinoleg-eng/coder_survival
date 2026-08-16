@@ -27,37 +27,49 @@ export const RANDOM_EVENTS_CONFIG = {
       uiText: 'Legacy Code detected! Upgrades 2x cost until refactored'
     },
     deploy_friday: {
-      weight: 12,
+      weight: 10,
       type: 'negative',
       effect: { cancelClicksRequired: 3, locLossRisk: 0.25 },
       uiText: 'Deploy Friday? Cancel in 3 clicks or risk LOC loss'
     },
     bug_production: {
-      weight: 15,
+      weight: 12,
       type: 'negative',
       effect: { hotfixClicksRequired: 5, energyDrainPercent: 0.08, durationSeconds: 180 },
       uiText: 'Bug in Production! Hotfix in 5 clicks'
     },
     code_review: {
-      weight: 12,
+      weight: 10,
       type: 'neutral',
       effect: { commits: 10, depression: 2 },
       uiText: 'Code Review waiting: accept or reject'
     },
     slack_huddle: {
-      weight: 14,
+      weight: 10,
       type: 'neutral',
       effect: { commits: 12, depression: 2 },
       uiText: 'Slack Huddle: join for context or decline for focus'
     },
+    scope_creep: {
+      weight: 8,
+      type: 'neutral',
+      effect: { commits: 8, depression: 3 },
+      uiText: 'Scope Creep: one tiny request has entered the sprint through the ceiling'
+    },
     coffee_stain: {
-      weight: 12,
+      weight: 10,
       type: 'neutral',
       effect: { wipeClicksRequired: 3, energy: 8, depressionRelief: 4 },
       uiText: 'Coffee Stain! Wipe it clean'
     },
+    merge_conflict: {
+      weight: 7,
+      type: 'negative',
+      effect: { commits: 5, depression: 3 },
+      uiText: 'Merge Conflict: choose a side before both branches become archaeology'
+    },
     stack_overflow_down: {
-      weight: 8,
+      weight: 6,
       type: 'negative',
       effect: { disableHelpSeconds: 30, depression: 3 },
       uiText: 'Stack Overflow is down for 30s'
