@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { audioManager } from '../utils/AudioManager.js';
+import { trackEvent } from '../utils/analytics.js';
 
 const RARITY_LABELS = {
   common: 'Обычный',
@@ -12,8 +13,8 @@ const RARITY_LABELS = {
 };
 
 export default function SkinPanel({ open, onClose }) {
-  const { skins, equipSkin } = useGameState();
-  const { haptic } = useTelegram();
+  const { skins, equipSkin, unlockCoffeeSkin, inventory } = useGameState();
+  const { haptic, shareUrl } = useTelegram();
   const [selectedSkin, setSelectedSkin] = useState(null);
   const [isEquipping, setIsEquipping] = useState(false);
   const equipInFlightRef = useRef(false);
@@ -49,6 +50,42 @@ export default function SkinPanel({ open, onClose }) {
 
   const isEquipped = (skinId) => skinId === equippedId;
   const isUnlocked = (skinId) => unlockedSet.has(skinId);
+  const selectedIsUnlocked = selectedSkin ? isUnlocked(selectedSkin.skinId) : false;
+  const selectedCoffeeCost = Number(selectedSkin?.unlockPayload?.coffeeCoins || 0);
+  const selectedCanUnlockWithCoffee = Boolean(selectedSkin && !selectedIsUnlocked && selectedSkin.unlockType === 'coffee_coin' && selectedCoffeeCost > 0);
+  const coffeeCoins = Number(inventory?.coffee_coins || 0);
+
+  async function handleCoffeeUnlock() {
+    if (!selectedCanUnlockWithCoffee || isEquipping) return;
+    setIsEquipping(true);
+    try {
+      const payload = await unlockCoffeeSkin(selectedSkin.skinId);
+      if (payload?.skins) {
+        setSelectedSkin(payload.skins.catalog?.find((skin) => skin.skinId === selectedSkin.skinId) || selectedSkin);
+      }
+      haptic('success');
+      audioManager.play('questDone');
+      trackEvent('coffee_cosmetic_unlocked', {
+        skinId: selectedSkin.skinId,
+        cost: payload?.cost,
+        remainingCoffeeCoins: payload?.coffeeCoins,
+      });
+    } catch (err) {
+      haptic('error');
+    } finally {
+      if (mountedRef.current) setIsEquipping(false);
+    }
+  }
+
+  function handleShareSkin() {
+    if (!selectedSkin || !selectedIsUnlocked) return;
+    haptic('light');
+    shareUrl(
+      'https://t.me/CoderSurvivalBot',
+      `☕ Я открыл скин «${selectedSkin.name}» в Coder Survival. Баги не стали проще, но кофе теперь выглядит увереннее. Сможешь открыть свой?`,
+    );
+    trackEvent('coffee_cosmetic_share_clicked', { skinId: selectedSkin.skinId });
+  }
 
   return h('div', {
     onClick: onClose,
@@ -138,7 +175,7 @@ export default function SkinPanel({ open, onClose }) {
           padding: '12px',
           border: equipped ? `2px solid ${skin.color}` : unlocked ? '1px solid #1f3552' : '1px solid #0f1b30',
           opacity: unlocked ? 1 : 0.5,
-          cursor: unlocked ? 'pointer' : 'default',
+          cursor: unlocked || skin.unlockType === 'coffee_coin' ? 'pointer' : 'default',
           transition: 'all 0.15s ease',
           textAlign: 'center'
         }
@@ -190,7 +227,7 @@ export default function SkinPanel({ open, onClose }) {
     })),
 
     // Selected skin detail
-    selectedSkin && isUnlocked(selectedSkin.skinId) && h('div', {
+    selectedSkin && h('div', {
       style: {
         padding: '0 14px 14px',
         borderTop: '1px solid #1f3552',
@@ -200,7 +237,41 @@ export default function SkinPanel({ open, onClose }) {
     }, [
       h('div', { style: { fontSize: '13px', fontWeight: 'bold', color: selectedSkin.color, marginBottom: '4px' } }, selectedSkin.name),
       h('div', { style: { fontSize: '11px', color: '#9eb6d2', marginBottom: '10px' } }, selectedSkin.description),
-      !isEquipped(selectedSkin.skinId) && h('button', {
+      selectedCanUnlockWithCoffee && h('button', {
+        disabled: isEquipping || coffeeCoins < selectedCoffeeCost,
+        onClick: handleCoffeeUnlock,
+        style: {
+          width: '100%',
+          padding: '8px 0',
+          borderRadius: '6px',
+          border: '1px solid #f59e0b',
+          background: isEquipping || coffeeCoins < selectedCoffeeCost ? '#3a2a17' : '#6b4308',
+          color: '#fde68a',
+          fontWeight: 'bold',
+          fontSize: '12px',
+          cursor: isEquipping || coffeeCoins < selectedCoffeeCost ? 'not-allowed' : 'pointer',
+          marginBottom: '8px',
+        },
+      }, isEquipping ? 'Открываем...' : `☕ Открыть за ${selectedCoffeeCost} Coffee Coins · есть ${coffeeCoins}`),
+      selectedCanUnlockWithCoffee && coffeeCoins < selectedCoffeeCost && h('div', {
+        style: { fontSize: '10px', color: '#9eb6d2', marginBottom: '8px', textAlign: 'center' },
+      }, 'Coffee Coins выдаются за подтвержденные рекламные кофе-брейки.'),
+      selectedIsUnlocked && h('button', {
+        onClick: handleShareSkin,
+        style: {
+          width: '100%',
+          padding: '8px 0',
+          borderRadius: '6px',
+          border: '1px solid #315f8f',
+          background: '#142b46',
+          color: '#cfe8ff',
+          fontWeight: 'bold',
+          fontSize: '12px',
+          cursor: 'pointer',
+          marginBottom: !isEquipped(selectedSkin.skinId) ? '8px' : 0,
+        },
+      }, 'Поделиться с коллегами'),
+      selectedIsUnlocked && !isEquipped(selectedSkin.skinId) && h('button', {
         disabled: isEquipping,
         onClick: async () => {
           if (equipInFlightRef.current) return;

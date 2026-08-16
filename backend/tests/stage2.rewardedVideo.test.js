@@ -111,6 +111,35 @@ describeIfDb("secure rewarded ads and Coffee Coins", () => {
     expect(claims.filter((response) => response.status === 429)).toHaveLength(2);
   });
 
+  test("Coffee Coins unlock a cosmetic skin without gameplay rewards or duplicate charges", async () => {
+    const telegramId = 760005;
+    const initData = await bootstrapRewardUser(server, telegramId, "coffee_cosmetic_unlock");
+    await testPool.query(
+      `UPDATE progression
+       SET inventory = jsonb_set(COALESCE(inventory, '{}'::jsonb), '{coffee_coins}', '3'::jsonb, TRUE)
+       WHERE user_id = (SELECT id FROM users WHERE telegram_id = $1)`,
+      [telegramId],
+    );
+
+    const unlock = await server.request("/api/skins/unlock-coffee", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+      body: { skinId: "coffee_debugger" },
+    });
+    expect(unlock.status).toBe(200);
+    expect(unlock.body?.success).toBe(true);
+    expect(unlock.body?.cost).toBe(3);
+    expect(unlock.body?.coffeeCoins).toBe(0);
+    expect(unlock.body?.skins?.unlocked).toContain("coffee_debugger");
+
+    const duplicate = await server.request("/api/skins/unlock-coffee", {
+      method: "POST",
+      headers: { "X-Telegram-Init-Data": initData },
+      body: { skinId: "coffee_debugger" },
+    });
+    expect(duplicate.status).toBe(409);
+  });
+
   test("reward status reads the secure reward ledger and Coffee Coin spend is atomic", async () => {
     const telegramId = 760003;
     const initData = await bootstrapRewardUser(server, telegramId, "rewarded_status_coin_spend");

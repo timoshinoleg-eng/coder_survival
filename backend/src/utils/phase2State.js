@@ -19,6 +19,11 @@ const SKIN_PRESENTATION = {
     bgGradient: ['#2d1a4a', '#1a0f2e'],
     emoji: '🌙',
   },
+  coffee_debugger: {
+    color: '#f59e0b',
+    bgGradient: ['#4a3012', '#1f160d'],
+    emoji: '☕',
+  },
 };
 
 function mapSkinCatalogRow(row) {

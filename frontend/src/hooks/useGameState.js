@@ -1204,6 +1204,20 @@ export function GameProvider({ children }) {
         equippingSkinRef.current = false;
       }
     },
+    unlockCoffeeSkin: async (skinId) => {
+      const payload = await apiRequest("/api/skins/unlock-coffee", {
+        method: "POST",
+        initData: telegram?.initData,
+        body: { skinId },
+      });
+      mergeSkinState(payload?.skins);
+      setColdState((current) => ({
+        ...current,
+        inventory: { ...current.inventory, coffee_coins: Number(payload?.coffeeCoins ?? current.inventory?.coffee_coins ?? 0) },
+      }));
+      showToast(`☕ Открыт скин за ${payload?.cost || 0} Coffee Coins`, "success", 2200);
+      return payload;
+    },
     setMemePrompt: (prompt) => setColdState((current) => ({ ...current, memePrompt: prompt })),
     clearMemePrompt: () => setColdState((current) => ({ ...current, memePrompt: null })),
     refreshLanguages: async () => {
