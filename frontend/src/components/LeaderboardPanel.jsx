@@ -38,12 +38,13 @@ export default function LeaderboardPanel({ open, onClose }) {
           loading: false,
           players: payload?.players || [],
           myPosition: payload?.myPosition || null,
+          league: payload?.league || null,
           error: null
         });
       })
       .catch(() => {
         if (cancelled) return;
-        setState({ loading: false, players: [], myPosition: null, error: 'Не удалось загрузить рейтинг' });
+        setState({ loading: false, players: [], myPosition: null, league: null, error: 'Не удалось загрузить рейтинг' });
       });
 
     return () => {
@@ -125,6 +126,40 @@ export default function LeaderboardPanel({ open, onClose }) {
         }, '×')
       ])
     ]),
+
+    // League strip: current weekly tier, progress to next, place in tier.
+    state.league ? h('div', {
+      style: {
+        margin: '10px 14px 0',
+        padding: '10px 12px',
+        border: '1px solid #2c4a70',
+        borderRadius: '8px',
+        background: 'linear-gradient(90deg, #16263f, #10192d)',
+        fontSize: '11px',
+        lineHeight: 1.6
+      }
+    }, [
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
+        h('strong', { style: { color: '#ffd166', fontSize: '12px' } }, `Лига: ${state.league.title}`),
+        h('span', { style: { color: '#8ba1bb', fontSize: '10px' } },
+          state.league.placementInLeague ? `#${state.league.placementInLeague} в лиге` : 'без активности')
+      ]),
+      h('div', { style: { color: '#c9d8ea', fontSize: '10px' } },
+        `${state.league.weeklyCommits} коммитов за неделю · награда ${state.league.rewardStars}⭐`),
+      state.league.nextTier ? h('div', {
+        style: {
+          marginTop: '6px', height: '4px', borderRadius: '2px',
+          background: '#1f3552', overflow: 'hidden'
+        }
+      }, h('div', {
+        style: {
+          width: `${Math.min(100, Math.round(100 * state.league.weeklyCommits / Math.max(1, state.league.nextTier.minCommits)))}%`,
+          height: '100%', background: 'linear-gradient(90deg,#4ade80,#38bdf8)'
+        }
+      })) : h('div', { style: { color: '#ffd166', fontSize: '10px', marginTop: '4px' } }, 'Максимальная лига — Легенда 🏆'),
+      state.league.nextTier ? h('div', { style: { color: '#8ba1bb', fontSize: '9px', marginTop: '3px' } },
+        `до «${state.league.nextTier.title}» осталось ${state.league.nextTierCommitsLeft}`) : null
+    ]) : null,
 
     // Period tabs
     h('div', {
