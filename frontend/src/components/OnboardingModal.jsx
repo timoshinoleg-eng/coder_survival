@@ -5,10 +5,10 @@ import { useClosingConfirmation } from '../hooks/useClosingConfirmation.js';
 import { Analytics } from '../utils/analytics.js';
 
 const STEPS = [
-  { key: 'tap', title: 'Напиши код' },
-  { key: 'energy', title: 'Следи за энергией' },
-  { key: 'depression', title: 'Депрессия — реальность' },
-  { key: 'quests', title: 'Задания дают бонусы' },
+  { key: 'tap', title: 'Коммит №1' },
+  { key: 'energy', title: 'Кофе уже заканчивается' },
+  { key: 'depression', title: 'Созвоны повышают стресс' },
+  { key: 'quests', title: 'План на выживание' },
 ];
 
 export default function OnboardingModal({ visible, onClose }) {
@@ -174,7 +174,7 @@ export default function OnboardingModal({ visible, onClose }) {
         className: 'onboarding-spotlight',
         style: { display: 'flex', flexDirection: 'column', gap: '12px' },
       }, [
-        h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } }, 'Тапай, чтобы кодить'),
+        h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } }, 'Сделай первый коммит. Да, без ревью и без «давай обсудим».'),
         h('button', {
           type: 'button',
           className: 'onboarding-primary',
@@ -183,7 +183,7 @@ export default function OnboardingModal({ visible, onClose }) {
           style: { opacity: tutorialTaps >= 1 || energy <= 0 ? 0.65 : 1 },
         }, '💻 КОДИТЬ'),
         h('div', { style: { textAlign: 'center', color: '#cbd5e1', fontWeight: 700 } },
-          `${tutorialTaps}/1`
+          tutorialTaps >= 1 ? '✓ Продакшн пока не упал' : 'Один клик — один очень уверенный коммит'
         ),
       ]),
 
@@ -192,7 +192,7 @@ export default function OnboardingModal({ visible, onClose }) {
         style: { display: 'flex', flexDirection: 'column', gap: '12px' },
       }, [
         h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } },
-          'Энергия тратится. Отдохни — восстановится'
+          'Энергия тратится на код, стендапы и фразу «маленькая правка».'
         ),
         h('div', {
           style: {
@@ -210,7 +210,7 @@ export default function OnboardingModal({ visible, onClose }) {
           },
         })),
         h('div', { style: { color: 'var(--text-muted)', fontSize: 'var(--text-md)' } },
-          'Полное восстановление через 4:32'
+          'Восстановится в паузе. Кофе — хороший план Б.'
         ),
         h('button', { type: 'button', className: 'onboarding-secondary', onClick: () => setStep(2) },
           'Понятно'
@@ -219,7 +219,7 @@ export default function OnboardingModal({ visible, onClose }) {
 
       step === 2 && h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } }, [
         h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } },
-          'Код без отдыха = стресс. Следи за шкалой'
+          'Код без пауз повышает стресс. Шкала — твой ранний мониторинг инцидента.'
         ),
         h('div', {
           style: {
@@ -250,7 +250,7 @@ export default function OnboardingModal({ visible, onClose }) {
             color: '#dbeafe',
             fontSize: 'var(--text-md)',
           },
-        }, 'Отдыхай, энергия восстановится, стресс упадёт'),
+        }, 'Сделай паузу, потрать Coffee Coin в критический момент или переживи маленький рабочий апокалипсис.'),
         h('button', { type: 'button', className: 'onboarding-primary', onClick: () => setStep(3) },
           'Дальше'
         ),
@@ -258,7 +258,7 @@ export default function OnboardingModal({ visible, onClose }) {
 
       step === 3 && h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } }, [
         h('div', { style: { fontSize: '15px', color: 'var(--text-primary)' } },
-          'Выполняй 3 квеста в день — получай кофе и опыт'
+          'Три квеста в день дают опыт, кофе и законное право сказать: «я сегодня был продуктивен».'
         ),
         h('div', {
           className: 'onboarding-spotlight',
@@ -282,7 +282,7 @@ export default function OnboardingModal({ visible, onClose }) {
           onClick: handleComplete,
           disabled: completing,
           style: { opacity: completing ? 0.7 : 1 },
-        }, completing ? 'Сохраняем...' : 'Начать выживание'),
+        }, completing ? 'Сохраняем...' : 'Пережить первый рабочий день'),
       ]),
     ]),
   ]);

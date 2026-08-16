@@ -15,8 +15,9 @@ const MAX_ADS_PER_DAY = DEFAULTS.ADS.maxPerDay;
 const AD_SESSION_TTL_MINUTES = 15;
 const ALLOWED_PROVIDERS = new Set(["mock", "google", "unity", "admob", "adsgram", "propeller"]);
 
-const MOCK_REWARDED_ADS_ENABLED =
-  process.env.ENABLE_MOCK_REWARDED_ADS === "true";
+function areMockRewardedAdsEnabled() {
+  return process.env.ENABLE_MOCK_REWARDED_ADS === "true";
+}
 
 function getRequestedProvider(req) {
   const provider = req.body?.provider;
@@ -29,7 +30,7 @@ function getRequestedProvider(req) {
 function isProviderConfigured(provider) {
   switch (provider) {
     case "mock":
-      return process.env.NODE_ENV === "qa" && MOCK_REWARDED_ADS_ENABLED;
+      return (process.env.NODE_ENV === "qa" || process.env.NODE_ENV === "test") && areMockRewardedAdsEnabled();
     case "google":
     case "admob":
       return true;
@@ -193,8 +194,8 @@ function validateProvider(req, res) {
     });
     return null;
   }
-  if (provider === "mock" && process.env.NODE_ENV !== "qa") {
-    res.status(403).json({ error: "mock provider is disabled outside qa" });
+  if (provider === "mock" && process.env.NODE_ENV !== "qa" && process.env.NODE_ENV !== "test") {
+    res.status(403).json({ error: "mock provider is disabled outside qa/test" });
     return null;
   }
   if (!isProviderConfigured(provider)) {
