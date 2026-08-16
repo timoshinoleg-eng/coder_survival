@@ -1,0 +1,33 @@
+{
+  "id": "feature_flag_ghost",
+  "locale": "ru",
+  "archetype": "legacy",
+  "rarity": "common",
+  "title": "Призрачный фича-флаг",
+  "body": "Фича выключена три месяца. Семь процентов трафика всё ещё уверены в обратном.",
+  "choices": [
+    {
+      "id": "remove_flag",
+      "label": "Удалить флаг",
+      "risk": "Нужно разобрать старые ветки поведения.",
+      "effects": { "commits": 5, "depression": 2, "coffeeCoins": 0 }
+    },
+    {
+      "id": "freeze_flag",
+      "label": "Зафиксировать OFF",
+      "risk": "Быстро и безопасно, но почти без прогресса.",
+      "effects": { "commits": 1, "depression": 0, "coffeeCoins": 0 }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "remove_flag",
+      "punchline": "Флаг удалён. Никто не знал, зачем он был нужен — хороший знак."
+    },
+    {
+      "id": "freeze_flag",
+      "punchline": "Флаг выключен окончательно. Код всё равно продолжает его проверять."
+    }
+  ],
+  "shareTemplate": "Фича выключена. Код ещё не получил уведомление."
+}
