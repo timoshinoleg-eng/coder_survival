@@ -108,6 +108,11 @@ router.get('/status', async (req, res) => {
 });
 
 router.post('/complete', async (req, res) => {
+  if (process.env.NODE_ENV !== 'qa') {
+    return res.status(410).json({
+      error: 'Legacy rewarded-video endpoint disabled; use /api/rewards/ad-session and /api/rewards/ad-claim',
+    });
+  }
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) {
     return res.status(401).json({ error: 'Сессия устарела. Перезапустите приложение.' });

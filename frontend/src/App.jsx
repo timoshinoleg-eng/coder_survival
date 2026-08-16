@@ -35,6 +35,17 @@ import { apiRequest } from './utils/api.js';
 import { Analytics } from './utils/analytics.js';
 import { useTelegram } from './hooks/useTelegram.js';
 
+const EVENT_PUNCHLINES = {
+  golden_commit: '✨ Код на секунду был красивым. Никому не рассказывай.',
+  open_source_contribution: '🌍 Твой PR приняли. Теперь его будут поддерживать все, кроме тебя.',
+  legacy_code: '🧹 Legacy пережит. Файл всё ещё называется final_final_v2.js.',
+  deploy_friday: '📅 Пятничный deploy: потому что понедельник слишком предсказуемый.',
+  bug_production: '🐛 Прод спасён. Постмортем назначен на завтра в 09:00.',
+  code_review: '👀 Ревью завершено. Комментарий «небольшое замечание» оказался на 47 пунктов.',
+  coffee_stain: '☕ Кофе убран. Клавиатура официально снова production-ready.',
+  stack_overflow_down: '📚 Stack Overflow вернулся. Самостоятельность продлилась 30 секунд.',
+};
+
 function normalizeRuntimeEventState(state = {}) {
   const source = state || {};
   return {
@@ -707,7 +718,10 @@ function AppInner() {
             if (nextDeltas.commitsDelta) parts.push(`${sign(nextDeltas.commitsDelta)} коммитов`);
             if (nextDeltas.energyDelta) parts.push(`${sign(nextDeltas.energyDelta)} энергии`);
             if (nextDeltas.depressionDelta) parts.push(`${sign(nextDeltas.depressionDelta)} стресса`);
-            if (parts.length > 0) {
+            const punchline = EVENT_PUNCHLINES[type];
+            if (punchline) {
+              showToast(punchline, action === 'solve' ? 'success' : 'info', 2300);
+            } else if (parts.length > 0) {
               showToast(
                 action === 'solve' ? `Решено: ${parts.join(', ')}` : `Игнорировано: ${parts.join(', ')}`,
                 action === 'solve' ? 'success' : 'info',

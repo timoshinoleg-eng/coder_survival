@@ -15,6 +15,7 @@ import { DEPRESSION_SCALE } from '../config/balance.js';
  *   - muCurrency: adds μ-currency to progression.mu_currency
  *   - stars: adds stars (tracked in player inventory/purchases context)
  *   - title: grants a title badge
+ *   - inventory.coffee_coins: adds earned Coffee Coins
  *
  * This is the single place to apply non-shop rewards so that
  * event / pass / team / quest rewards stay consistent.
@@ -37,6 +38,23 @@ export async function applyReward(client, userId, rewardPayload) {
       [userId, rewardPayload.energy, maxEnergy]
     );
     updates.push({ type: 'energy', value: rewardPayload.energy });
+  }
+
+  const coffeeCoins = Number(rewardPayload.inventory?.coffee_coins || 0);
+  if (Number.isInteger(coffeeCoins) && coffeeCoins > 0) {
+    await client.query(
+      `UPDATE progression
+       SET inventory = jsonb_set(
+         COALESCE(inventory, '{}'::jsonb),
+         '{coffee_coins}',
+         to_jsonb(COALESCE((inventory->>'coffee_coins')::int, 0) + $2),
+         TRUE
+       ),
+       updated_at = NOW()
+       WHERE user_id = $1`,
+      [userId, coffeeCoins]
+    );
+    updates.push({ type: 'inventory', key: 'coffee_coins', value: coffeeCoins });
   }
 
   if (typeof rewardPayload.commitsCurrent === 'number') {

@@ -37,20 +37,24 @@ export default function SprintPassPanel({ open, onClose }) {
   const [unlockingPremium, setUnlockingPremium] = useState(false);
   const [xpSources, setXpSources] = useState(null);
   const rewards = pass?.rewards || [];
-  const hasPremium = Boolean(pass?.playerPass?.isPremium);
+  const playerPass = pass?.playerPass || { currentLevel: 0, currentXp: 0, isPremium: false };
+  const hasPremium = Boolean(playerPass.isPremium);
+  const currentLevel = Number(playerPass.currentLevel || 0);
 
-  // Premium proximity nudge — find next premium reward within 2 levels
+  // Premium proximity nudge — find next premium reward within 2 levels.
   const nextPremiumLevel = !hasPremium
     ? rewards
-        .filter(r => r.level > playerPass?.currentLevel && r.level <= playerPass?.currentLevel + 2 && r.premiumReward)
+        .filter((r) => r.level > currentLevel && r.level <= currentLevel + 2 && r.premiumReward)
         .find(() => true)
     : null;
 
-  // Find next unclaimed free reward above current level
-  const nextFreeReward = rewards.find(r => r.level > (playerPass?.currentLevel || 0) && !r.freeClaimed);
+  // Find next unclaimed free reward above current level.
+  const nextFreeReward = rewards.find((r) => r.level > currentLevel && !r.freeClaimed);
 
-  // Completion percentage
-  const completionPct = Math.round(((playerPass?.currentLevel || 0) / rewards.length) * 100);
+  // Completion percentage. Keep the empty-pass state safe for first load and migrations.
+  const completionPct = rewards.length > 0
+    ? Math.min(100, Math.round((currentLevel / rewards.length) * 100))
+    : 0;
 
   useEffect(() => {
     if (!open) return;
@@ -117,7 +121,7 @@ export default function SprintPassPanel({ open, onClose }) {
     ]));
   }
 
-  const { pass: passMeta, playerPass, premiumPassProduct } = pass;
+  const { pass: passMeta, premiumPassProduct } = pass;
   const premiumPassPrice = premiumPassProduct?.stars ?? null;
   const currentReward = rewards.find((reward) => reward.level === playerPass.currentLevel) || null;
   const currentLevelRequiredXp = currentReward?.requiredXp || 0;

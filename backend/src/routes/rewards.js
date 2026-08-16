@@ -142,7 +142,11 @@ async function claimValidatedAdSession(client, { userId, nonce, provider, proof 
   );
   const antiCheatState = normalizeAntiCheatState(antiCheatResult.rows[0]?.anti_cheat_state || {});
   const rewardEnergy = applyLocPenalty(Math.floor(maxEnergy * 0.5), antiCheatState.banScore);
-  await applyReward(client, userId, { energy: rewardEnergy });
+  const rewardCoffeeCoins = applyLocPenalty(1, antiCheatState.banScore);
+  await applyReward(client, userId, {
+    energy: rewardEnergy,
+    inventory: { coffee_coins: rewardCoffeeCoins },
+  });
   await updateDailyQuestStateForEvent(client, userId, 'watch_ad', 1).catch(() => null);
 
   await client.query(
@@ -168,8 +172,9 @@ async function claimValidatedAdSession(client, { userId, nonce, provider, proof 
     status: 200,
     payload: {
       success: true,
-      reward: { energy: rewardEnergy },
+      reward: { energy: rewardEnergy, coffeeCoins: rewardCoffeeCoins },
       energy_granted: rewardEnergy,
+      coffee_coins_granted: rewardCoffeeCoins,
       ads_remaining_today: MAX_ADS_PER_DAY - (currentCount + 1),
       remainingToday: MAX_ADS_PER_DAY - (currentCount + 1),
     },
@@ -205,6 +210,50 @@ function getVerifierProvider(provider) {
   }
   return provider;
 }
+
+/**
+ * GET /api/rewards/status
+ * Returns the same availability data used by the secure ad session/claim flow.
+ */
+router.get("/status", async (req, res, next) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) return res.status(401).json({ error: "No user in initData" });
+
+  try {
+    const client = await pool.connect();
+    try {
+      const user = await ensureRewardUser(client, telegramUser);
+      if (!user?.id) return res.status(404).json({ error: "User not found" });
+      const rewardCount = await client.query(
+        `SELECT count, last_rewarded_at
+         FROM ad_rewards
+         WHERE user_id = $1 AND date = CURRENT_DATE`,
+        [user.id],
+      );
+      const row = rewardCount.rows[0] || {};
+      const countToday = Number(row.count || 0);
+      const ftue = evaluateFtueAdAvailability({
+        createdAt: user.created_at,
+        adsClaimedToday: countToday,
+        now: new Date(),
+      });
+      const cooldownSeconds = row.last_rewarded_at
+        ? Math.max(0, Math.ceil((AD_REWARD_COOLDOWN_MS - (Date.now() - new Date(row.last_rewarded_at).getTime())) / 1000))
+        : 0;
+      return res.json({
+        countToday,
+        remainingToday: Math.max(0, MAX_ADS_PER_DAY - countToday),
+        dailyLimit: MAX_ADS_PER_DAY,
+        cooldownSeconds,
+        adAvailability: ftue,
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * POST /api/rewards/ad-session
@@ -369,9 +418,10 @@ router.post("/ad-claim", async (req, res, next) => {
       const level = await ensurePlayerLevel(client, userId);
       const maxEnergy = level.resolved.maxEnergy;
       const rewardEnergy = Math.floor(maxEnergy * 0.5);
+      const rewardCoffeeCoins = 1;
 
       // 5. Apply reward
-      const reward = { energy: rewardEnergy };
+      const reward = { energy: rewardEnergy, inventory: { coffee_coins: rewardCoffeeCoins } };
       await applyReward(client, userId, reward);
 
       // 6. Mark nonce used
@@ -398,7 +448,7 @@ router.post("/ad-claim", async (req, res, next) => {
 
       res.json({
         success: true,
-        reward,
+        reward: { energy: rewardEnergy, coffeeCoins: rewardCoffeeCoins },
         remainingToday: MAX_ADS_PER_DAY - (currentCount + 1),
       });
     } catch (err) {

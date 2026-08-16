@@ -7,6 +7,59 @@ import { checkAchievement } from '../utils/achievements.js';
 const router = Router();
 const COFFEE_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
 const COFFEE_ENERGY = 30;
+const COIN_COFFEE_ENERGY = 15;
+
+/**
+ * POST /api/coffee/coins — spend one earned Coffee Coin for a small emergency recovery.
+ * This is intentionally convenience, not a leaderboard advantage.
+ */
+router.post('/coins', async (req, res, next) => {
+  const telegramUser = req.telegramUser?.user;
+  if (!telegramUser) return res.status(401).json({ error: 'No user in initData' });
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const userResult = await client.query('SELECT id FROM users WHERE telegram_id = $1', [telegramUser.id]);
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const userId = userResult.rows[0].id;
+    const level = await ensurePlayerLevel(client, userId);
+    const maxEnergy = level.resolved.maxEnergy;
+    const progressResult = await client.query(
+      `SELECT energy, inventory FROM progression WHERE user_id = $1 FOR UPDATE`,
+      [userId],
+    );
+    const progression = progressResult.rows[0];
+    const coins = Number(progression?.inventory?.coffee_coins || 0);
+    if (coins < 1) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Недостаточно Coffee Coins' });
+    }
+    const restored = Math.min(COIN_COFFEE_ENERGY, maxEnergy - Number(progression.energy || 0));
+    if (restored <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Энергия уже полная' });
+    }
+    await client.query(
+      `UPDATE progression
+       SET inventory = jsonb_set(COALESCE(inventory, '{}'::jsonb), '{coffee_coins}', to_jsonb($2::int), TRUE)
+       WHERE user_id = $1`,
+      [userId, coins - 1],
+    );
+    await applyReward(client, userId, { energy: restored, depressionRelief: 3 });
+    await client.query('COMMIT');
+    return res.json({ success: true, restored, energy: Number(progression.energy || 0) + restored, coffeeCoins: coins - 1 });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    if (client) client.release();
+  }
+});
 
 /**
  * POST /api/coffee — drink coffee to restore energy
