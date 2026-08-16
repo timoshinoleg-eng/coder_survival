@@ -1,0 +1,33 @@
+{
+  "id": "expired_certificate",
+  "locale": "ru",
+  "archetype": "production",
+  "rarity": "rare",
+  "title": "Сертификат истекает",
+  "body": "До истечения сертификата 11 минут. Мониторинг вспомнил раньше календаря.",
+  "choices": [
+    {
+      "id": "renew_now",
+      "label": "Обновить сейчас",
+      "risk": "Теряешь темп, зато закрываешь инцидент сразу.",
+      "effects": { "commits": -2, "depression": 2, "coffeeCoins": 0 }
+    },
+    {
+      "id": "defer_to_morning",
+      "label": "До утра",
+      "risk": "Экономишь время сейчас, но принимаешь ощутимый штраф.",
+      "effects": { "commits": -7, "depression": 6, "coffeeCoins": 0 }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "renew_now",
+      "punchline": "Сертификат обновлён. Интернет снова доверяет вам ещё 90 дней."
+    },
+    {
+      "id": "defer_to_morning",
+      "punchline": "Сертификат истёк. Браузер первым сообщил клиентам о релизе."
+    }
+  ],
+  "shareTemplate": "Сертификат: 11 минут до продакшн-обучения по календарям."
+}
