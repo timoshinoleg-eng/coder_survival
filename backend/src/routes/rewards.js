@@ -7,7 +7,7 @@ import { applyLocPenalty, normalizeAntiCheatState } from '../utils/anticheat.js'
 import { updateDailyQuestStateForEvent } from '../utils/dailyQuests.js';
 import { applyReward } from "../utils/rewards.js";
 import { ensurePlayerLevel } from "../utils/vnext.js";
-import { verifyAdProof, verifyAdsgramCallbackSignature, verifyPropellerCallbackHash } from "../utils/adProof.js";
+import { verifyAdProof, verifyAdsgramCallbackSignature, verifyPropellerCallbackHash } from "../utils/adProof.js";`nimport { rewardedAdRateLimiter } from "../middleware/apiRateLimit.js";
 
 const router = Router();
 const AD_REWARD_COOLDOWN_MS = DEFAULTS.ADS.adCooldownMinutes * 60 * 1000;
@@ -275,7 +275,7 @@ router.get("/status", async (req, res, next) => {
  * Creates a server-verified nonce for a rewarded ad session.
  * Frontend must use this nonce when claiming the reward.
  */
-router.post("/ad-session", async (req, res, next) => {
+router.post("/ad-session", rewardedAdRateLimiter, async (req, res, next) => {
   const provider = validateProvider(req, res);
   if (!provider) return;
   const telegramUser = req.telegramUser?.user;
@@ -335,7 +335,7 @@ router.post("/ad-session", async (req, res, next) => {
  * Claims the reward after ad completion.
  * Requires a valid nonce and enforces daily limits + cooldowns.
  */
-router.post("/ad-claim", async (req, res, next) => {
+router.post("/ad-claim", rewardedAdRateLimiter, async (req, res, next) => {
   const claimProvider = validateProvider(req, res);
   if (!claimProvider) return;
   const telegramUser = req.telegramUser?.user;
