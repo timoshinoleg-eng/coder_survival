@@ -1,7 +1,7 @@
 # Coder Survival — Approved Assets Register
 
 **Registry owner:** Manus (art direction & verification)
-**Last updated:** 2026-08-16
+**Last updated:** 2026-08-17
 **Authority:** only entries marked `APPROVED` may be requested by ZCode for product integration.
 
 ## Status vocabulary
@@ -32,9 +32,10 @@
 |---|---|---|---|
 | Hero expansion | `hero_coder_coffee`, `hero_coder_incident`, `hero_coder_recovery` | `CANDIDATE` | master + 128px alpha export + 390px overlay preview |
 | Career scenes | Junior / Senior / CTO stage scene set | `CANDIDATE` | landscape + vertical crop + safe-zone proof |
-| UI icons | 12 IDs from Visual System v2 §4.3 | `CANDIDATE` | 96px master + 48px runtime sheet |
-| Event key art | CI, Slack, 500, Canary plus Friday WebP runtime | `CANDIDATE` | vertical master + compressed WebP + toast preview |
+| UI icons | 12 IDs from Visual System v2 §4.3 | `CHANGES_REQUESTED` | Exact v2 mapping, atomized 96px masters + 48px runtime exports; current SOL atlas is an 11×3 transport draft. |
+| Event key art | CI, Slack, 500, Canary plus Friday WebP runtime | `CHANGES_REQUESTED` | 1080×1920 PNG master + ≤280KB WebP + 390px safe-zone proof; current drafts are 440×780 indexed PNGs with insufficient mobile contrast. |
 | Share templates | incident receipt, recovery, team huddle | `CANDIDATE` | background master + JSON safe-zone map |
+| Content enrichment | 8 incident JSON + 17 RU punchline pairs | `CHANGES_REQUESTED` | Copy is accepted as backlog; normalize RU/EN schema, add runtime adapter/type/weights and run balance evidence before integration. |
 
 ## Approval log
 
@@ -42,5 +43,6 @@
 |---|---|---|---|---|
 | 2026-08-16 | Visual System v1 hero trio | `APPROVED_RUNTIME` | Manus | Integrated, alpha verified, frontend smoke and production build passed. |
 | 2026-08-16 | Friday / Blameless key art | `APPROVED_MASTER` | Manus | Mobile prototype composition accepted; runtime exports not yet delivered. |
+| 2026-08-17 | SOL A3 content, icon atlas and key-art drafts | `CHANGES_REQUESTED` | Manus | Copy is useful backlog; raw art fails v2 dimensions/contrast and atlas is not the exact 12-icon runtime package. No `APPROVED_RUNTIME` granted. |
 
 Luna must append a candidate row before review. Manus records `APPROVED`, `CHANGES_REQUESTED` or `REJECTED` in a dated report and updates this registry. ZCode must reference approved Asset IDs in PR descriptions.
