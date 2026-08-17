@@ -15,4 +15,12 @@
 - [x] Добавить production config preflight без вывода values и soft-launch observability thresholds для 24h/72h review.
 - [x] Синхронизировать GitHub approval register с Luna P1 v01 approvals для 3 hero states и 12 atomized UI runtime icons.
 - [x] Подготовить dated P0 GO/NO-GO decision record с evidence, owner gates и явным запретом автономного production deploy.
-- [ ] Повторно проверить P0 review branch, опубликовать `manus/p0-release-engineering` и открыть/проверить GitHub PR в `main` без прямой записи в `main`.
+- [x] Повторно проверить P0 review branch, опубликовать `manus/p0-release-engineering` и открыть/проверить GitHub PR в `main` без прямой записи в `main`.
+- [x] Исправить production preflight compatibility с активным `docker-compose.backend.yml`: required secrets, explicit CORS/runtime env, payments kill switch и rewarded provider config.
+- [x] Сделать preflight CORS validation семантически совместимой с literal runtime Origin comparison: только HTTPS origins без path, query, fragment или wildcard.
+- [x] Исправить signed smoke verdict, чтобы owner-gated `SKIP` не считался `PASS`, и покрыть это regression test.
+- [x] Зафиксировать migration runbook на проверенном release image/digest вместо mutable `latest` и расширить production post-check migration 059 до rehearsal invariants.
+- [x] Разделить в GO/NO-GO документе критерии `MERGE GO` и `PRODUCTION GO`.
+- [x] Заменить локальные/non-GitHub commit IDs в source manifest на review-branch/PR identity и воспроизводимый remote evidence.
+- [x] Добавить immutable asset identity для Luna P1 approved runtime exports: SHA-256 + byte size или проверяемую ссылку на manifest/inventory с этими значениями.
+- [ ] Обновить PR #32 исправлениями, дождаться зелёного CI и передать на повторный независимый review без merge.

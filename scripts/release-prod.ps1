@@ -237,9 +237,12 @@ rm -f /tmp/coder-survival-release.zip
 BACKEND_IMAGE_REPO='__BACKEND_IMAGE_REPO__'
 BACKEND_IMAGE_TAG='__BACKEND_IMAGE_TAG__'
 export BACKEND_IMAGE_TAG
-docker build --no-cache -t "${BACKEND_IMAGE_REPO}:${BACKEND_IMAGE_TAG}" -t "${BACKEND_IMAGE_REPO}:latest" ./backend
+	docker build --no-cache -t "${BACKEND_IMAGE_REPO}:${BACKEND_IMAGE_TAG}" -t "${BACKEND_IMAGE_REPO}:latest" ./backend
+	# Validate the exact compose-injected runtime contract before any schema change
+	# or restart. The preflight emits named checks only and never prints values.
+	docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ run --rm --no-deps backend node -e "import('./src/config/productionPreflight.js').then(({assertProductionConfig}) => assertProductionConfig())"
 docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ run --rm backend node src/migrate.js
-docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ up -d --force-recreate backend
+docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ up -d --force-recreate --no-build backend
 backend_container_id="$(docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ ps -q backend)"
 for i in 1 2 3 4 5 6 7 8 9 10; do
   if [ -n "$backend_container_id" ] && [ "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$backend_container_id")" = "healthy" ]; then

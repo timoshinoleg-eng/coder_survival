@@ -4,11 +4,11 @@
 **Ревьюер:** Manus — release engineering, art direction & verification
 **Scope:** migration tail `059`–`061`, signed rewarded-ads smoke, production configuration guard, soft-launch observability и Luna P1 art-governance sync.
 
-## Решение
+## Решение: два независимых gate
 
-> **Production deploy: NO-GO в автономном режиме.** P0 implementation и local verification готовы к review, но production launch требует owner-controlled release gates: защищённый secret-store preflight, проверенный backup, staging smoke с реальной Telegram/provider подписью, CI/PR review и явное подтверждение single-instance topology.
+> **MERGE GO: PENDING.** Merge возможен только после зелёного CI reviewed head, отсутствия unresolved blocking comments и независимого approval. Merge не разрешает deploy.
 
-> **Review candidate: CONDITIONAL GO.** Ветка `manus/p0-release-engineering` содержит обратимые и проверенные изменения. Она может быть передана в GitHub review; merge разрешается только после зелёных CI и закрытия таблицы owner gates ниже.
+> **PRODUCTION GO: NO-GO в автономном режиме.** Даже после merge production launch требует отдельного owner-controlled решения: exact release image, secret-store preflight внутри compose contract, проверенный backup, staged signed smoke с реальной Telegram/provider подписью и явное подтверждение single-instance topology.
 
 ## Выполненные и проверенные элементы
 
@@ -23,11 +23,18 @@
 | Art governance | [`APPROVED_ASSETS_REGISTER.md`](../visual_assets/first_pack/APPROVED_ASSETS_REGISTER.md) | 3 Luna hero states and 12 atomized icons recorded as `APPROVED_RUNTIME`; binaries deliberately excluded from this governance PR. |
 | Regression | Full backend suite against local test DB. | PASS: **45 suites, 435 tests**. |
 
-## Release gates
+## MERGE GO gates
 
 | Gate | Owner / role | State | Required evidence to move to GO |
 |---|---|---|---|
-| Review branch and CI | Manus / repository reviewer | Pending GitHub publication and CI | Open PR from `manus/p0-release-engineering`, CI green, no unresolved review comments. |
+| PR review and CI | Manus / independent repository reviewer | Pending | PR reviewed head has all required CI checks green; no unresolved blocking comment; independent approval recorded. |
+| Scope integrity | Manus / reviewer | Pending | Only P0 release-engineering and governance files are changed; no payments activation or production action introduced. |
+
+## PRODUCTION GO gates
+
+Merge GO above is necessary but insufficient. Every row below remains owner-controlled and is evaluated only for the exact reviewed release image.
+
+| Gate | Owner / role | State | Required evidence to move to GO |
 | Production config preflight | Release owner | Not run against production secrets | `node scripts/release_config_preflight.mjs` returns zero errors from secret-store environment; output retained only as sanitized status codes. |
 | Database readiness | Release owner / DBA | Not executed | Fresh backup and known restore owner; one migration runner; post-check SQL from migration runbook passes. |
 | CORS closure | Release owner | Not verified | Explicit HTTPS `FRONTEND_URL`/`CORS_ALLOWED_ORIGINS`; no wildcard and no implicit Vercel preview fallback. |
@@ -41,9 +48,9 @@
 
 No production deployment, database migration against production, secret rotation, provider secret disclosure, payment enablement or direct commit to `main` occurred in this workstream. The report contains no DB URL, IP, SSH/cloud identifier, raw initData, nonce, token or provider secret.
 
-## Immediate release sequence after approvals
+## Immediate release sequence after both approvals
 
-The release owner first merges only after PR/CI review. Then, with the target secret store attached, they execute config preflight, create/confirm the backup, run a **single** migration runner, execute SQL post-checks, start one backend instance, confirm `/health`, and perform signed staging smoke. Cohort expansion follows the 24h/72h thresholds; a security or duplicate-reward Red condition halts rollout rather than relaxing validation.
+After MERGE GO, the release owner separately decides whether to seek PRODUCTION GO. With the target secret store attached, they execute config preflight inside the compose contract, create/confirm the backup, set the exact reviewed `BACKEND_IMAGE_TAG`, run a **single** migration runner, execute SQL post-checks, start one backend instance, confirm `/health`, and perform fully completed signed staging smoke. Cohort expansion follows the 24h/72h thresholds; a security or duplicate-reward Red condition halts rollout rather than relaxing validation.
 
 ## References
 

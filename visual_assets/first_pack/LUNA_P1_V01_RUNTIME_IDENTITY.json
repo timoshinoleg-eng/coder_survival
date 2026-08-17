@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "batch": "luna_p1_v01",
+  "purpose": "Immutable identity contract for APPROVED_RUNTIME exports; ZCode must verify byte length and SHA-256 before any integration PR copy.",
+  "evidence": {
+    "sourceInventory": "RAW_FILE_INVENTORY_v01.json",
+    "sourceInventoryFileCount": 38,
+    "verificationMethod": "raw archive inventory matched extracted file SHA-256 and byte size during Manus raw-file review"
+  },
+  "runtimeAssets": [
+    { "assetId": "hero_coder_coffee", "path": "heroes/runtime/hero_coder_coffee_runtime_128_v01.png", "bytes": 10066, "dimensions": [128, 128], "mode": "RGBA", "sha256": "d3bd1b7142345b0fe2bb392eb4475f84d462cf26c4eda6b01140a62357be9c8c" },
+    { "assetId": "hero_coder_incident", "path": "heroes/runtime/hero_coder_incident_runtime_128_v01.png", "bytes": 13506, "dimensions": [128, 128], "mode": "RGBA", "sha256": "4d57fe117f1161e8c0797e68d42ee0a04d35e36a146878840cc66f942833fce4" },
+    { "assetId": "hero_coder_recovery", "path": "heroes/runtime/hero_coder_recovery_runtime_128_v01.png", "bytes": 15561, "dimensions": [128, 128], "mode": "RGBA", "sha256": "ee958b6764e424b9213b010856a867051f715938ebddd266496a4460b95ad344" },
+    { "assetId": "ui_icon_check", "path": "icons/runtime/ui_icon_check_runtime_48_v01.png", "bytes": 392, "dimensions": [48, 48], "mode": "RGBA", "sha256": "d46cdead18d368824fddd9120dcf3c50f96dc9f59c68db56a0b55653a4958302" },
+    { "assetId": "ui_icon_ci_pipeline", "path": "icons/runtime/ui_icon_ci_pipeline_runtime_48_v01.png", "bytes": 234, "dimensions": [48, 48], "mode": "RGBA", "sha256": "298a036c1eef501bd8cc959db1d99015d97a23aa47fc3bb3a567a421f8d2991d" },
+    { "assetId": "ui_icon_coffee_coin", "path": "icons/runtime/ui_icon_coffee_coin_runtime_48_v01.png", "bytes": 396, "dimensions": [48, 48], "mode": "RGBA", "sha256": "38373045e115206b9b0f78bc3eaefc25dc18394da9d984f2df936afe8dc88b4e" },
+    { "assetId": "ui_icon_commit", "path": "icons/runtime/ui_icon_commit_runtime_48_v01.png", "bytes": 298, "dimensions": [48, 48], "mode": "RGBA", "sha256": "c2671ca584e356b47938a9e1a34c1773f095f5d6cc1542b495726ce437a7a4e7" },
+    { "assetId": "ui_icon_deploy", "path": "icons/runtime/ui_icon_deploy_runtime_48_v01.png", "bytes": 260, "dimensions": [48, 48], "mode": "RGBA", "sha256": "4eecdc81167c108860b7f2a01705aac8d40f852ef8fa570c26529d538c8811ed" },
+    { "assetId": "ui_icon_energy", "path": "icons/runtime/ui_icon_energy_runtime_48_v01.png", "bytes": 223, "dimensions": [48, 48], "mode": "RGBA", "sha256": "1cddcbd004a5246047ea9c93a8a8d203b30db5d73aeecfb1c5af4d2619642d5d" },
+    { "assetId": "ui_icon_incident_alert", "path": "icons/runtime/ui_icon_incident_alert_runtime_48_v01.png", "bytes": 292, "dimensions": [48, 48], "mode": "RGBA", "sha256": "35bb18050a7f0d33a5915b37bdf5e40eb5301df76f89648f82847f2c1d5cbc25" },
+    { "assetId": "ui_icon_prod_500", "path": "icons/runtime/ui_icon_prod_500_runtime_48_v01.png", "bytes": 316, "dimensions": [48, 48], "mode": "RGBA", "sha256": "fc49706acbdf6e60d0d36e65dc94f3ee67bbd1775853e5cfdeb93053128b9b46" },
+    { "assetId": "ui_icon_rollback", "path": "icons/runtime/ui_icon_rollback_runtime_48_v01.png", "bytes": 341, "dimensions": [48, 48], "mode": "RGBA", "sha256": "8054d4f75a9a8aabd261eec57378881159046d8e2beaccface3e09befae0ea43" },
+    { "assetId": "ui_icon_slack_storm", "path": "icons/runtime/ui_icon_slack_storm_runtime_48_v01.png", "bytes": 289, "dimensions": [48, 48], "mode": "RGBA", "sha256": "ae45383bde32ce4fff7e2c8f5446883f63eeb5c3e58d3e8eaaa7cd5f442334f9" },
+    { "assetId": "ui_icon_stress", "path": "icons/runtime/ui_icon_stress_runtime_48_v01.png", "bytes": 429, "dimensions": [48, 48], "mode": "RGBA", "sha256": "677260b8e4fb03fed1dffa9f60be9351c561ce0ecacf78fb7e04d26e9f8b67fd" },
+    { "assetId": "ui_icon_timer", "path": "icons/runtime/ui_icon_timer_runtime_48_v01.png", "bytes": 363, "dimensions": [48, 48], "mode": "RGBA", "sha256": "fe1409dc30e0758f8c5659e5858770e735a5b6618a545c84b3e7372dfc43e5de" }
+  ]
+}
