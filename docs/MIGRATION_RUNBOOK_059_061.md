@@ -54,8 +54,9 @@ docker compose --env-file backend/.env -f docker-compose.backend.yml \
   run --rm backend node src/migrate.js
 
 # Только после двух exit code 0 запускайте ровно один backend instance.
+# --wait ждёт compose healthcheck и предотвращает race с последующим curl.
 docker compose --env-file backend/.env -f docker-compose.backend.yml \
-  up -d --force-recreate --no-build backend
+  up -d --wait --wait-timeout 90 --force-recreate --no-build backend
 curl -f https://<backend-domain>/health
 ```
 

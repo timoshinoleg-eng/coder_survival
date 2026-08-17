@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$BackendComposeFile = "docker-compose.backend.yml",
+  [string]$BackendImageTag = $env:BACKEND_IMAGE_TAG,
   [switch]$AllowDirty,
   [switch]$SkipBuildCheck
 )
@@ -13,38 +14,58 @@ $frontendPath = Join-Path $repoRoot "frontend"
 $botPath = Join-Path $repoRoot "bot"
 $backendPath = Join-Path $repoRoot "backend"
 $composePath = Join-Path $repoRoot $BackendComposeFile
+$releaseImageTagHelper = Join-Path $PSScriptRoot "release-image-tag.ps1"
+. $releaseImageTagHelper
+$backendImageTag = Assert-ReviewedBackendImageTag -BackendImageTag $BackendImageTag
+$checkedOutCommit = (git -C $repoRoot rev-parse HEAD).Trim().ToLowerInvariant()
+if ($backendImageTag -ne "git-$checkedOutCommit") {
+  throw "BACKEND_IMAGE_TAG must identify the checked-out reviewed commit ($checkedOutCommit)."
+}
 
 $failed = 0
 
 function Invoke-DockerComposeConfig {
-  param([Parameter(Mandatory = $true)][string]$ComposePath)
+  param(
+    [Parameter(Mandatory = $true)][string]$ComposePath,
+    [Parameter(Mandatory = $true)][string]$BackendImageTag
+  )
 
-  $docker = Get-Command docker -ErrorAction SilentlyContinue
-  if ($docker) {
-    docker compose -f $ComposePath config > $null
-    if ($LASTEXITCODE -ne 0) {
-      throw "docker compose config failed"
+  $previousBackendImageTag = $env:BACKEND_IMAGE_TAG
+  try {
+    $env:BACKEND_IMAGE_TAG = $BackendImageTag
+    $docker = Get-Command docker -ErrorAction SilentlyContinue
+    if ($docker) {
+      docker compose -f $ComposePath config > $null
+      if ($LASTEXITCODE -ne 0) {
+        throw "docker compose config failed"
+      }
+      return
     }
-    return
-  }
 
-  $wsl = Get-Command wsl.exe -ErrorAction SilentlyContinue
-  if (-not $wsl) {
-    throw "docker CLI not found and wsl.exe is unavailable"
-  }
+    $wsl = Get-Command wsl.exe -ErrorAction SilentlyContinue
+    if (-not $wsl) {
+      throw "docker CLI not found and wsl.exe is unavailable"
+    }
 
-  $wslComposePath = $ComposePath
-  if ($ComposePath -match '^([A-Za-z]):\\(.*)$') {
-    $drive = $Matches[1].ToLowerInvariant()
-    $rest = $Matches[2] -replace '\\', '/'
-    $wslComposePath = "/mnt/$drive/$rest"
-  } else {
-    $wslComposePath = (wsl.exe wslpath -a $ComposePath).Trim()
-  }
+    $wslComposePath = $ComposePath
+    if ($ComposePath -match '^([A-Za-z]):\\(.*)$') {
+      $drive = $Matches[1].ToLowerInvariant()
+      $rest = $Matches[2] -replace '\\', '/'
+      $wslComposePath = "/mnt/$drive/$rest"
+    } else {
+      $wslComposePath = (wsl.exe wslpath -a $ComposePath).Trim()
+    }
 
-  wsl.exe docker compose -f $wslComposePath config > $null
-  if ($LASTEXITCODE -ne 0) {
-    throw "wsl docker compose config failed"
+    wsl.exe env "BACKEND_IMAGE_TAG=$BackendImageTag" docker compose -f $wslComposePath config > $null
+    if ($LASTEXITCODE -ne 0) {
+      throw "wsl docker compose config failed"
+    }
+  } finally {
+    if ($null -eq $previousBackendImageTag) {
+      Remove-Item Env:BACKEND_IMAGE_TAG -ErrorAction SilentlyContinue
+    } else {
+      $env:BACKEND_IMAGE_TAG = $previousBackendImageTag
+    }
   }
 }
 
@@ -95,7 +116,7 @@ Test-Step -Label "Forbidden secret file scan" -Action {
 
 # 3. Compose syntax
 Test-Step -Label "Docker Compose syntax" -Action {
-  Invoke-DockerComposeConfig -ComposePath $composePath
+  Invoke-DockerComposeConfig -ComposePath $composePath -BackendImageTag $backendImageTag
 }
 
 # 4. Backend package.json integrity

@@ -1,61 +1,71 @@
 # P0 Release Engineering — GO/NO-GO
 
-**Дата:** 2026-08-17
-**Ревьюер:** Manus — release engineering, art direction & verification
-**Scope:** migration tail `059`–`061`, signed rewarded-ads smoke, production configuration guard, soft-launch observability и Luna P1 art-governance sync.
+**Снимок состояния:** 2026-08-17 21:25 UTC.
+**Scope:** migration tail `059`–`061`, signed rewarded-ads smoke, production configuration guard, immutable backend image identity, soft-launch observability, Luna P1 governance и documentation-only durable anti-cheat design.
 
-## Решение: два независимых gate
+## Two independent decisions
 
-> **MERGE GO: PENDING.** Merge возможен только после зелёного CI reviewed head, отсутствия unresolved blocking comments и независимого approval. Merge не разрешает deploy.
+> **MERGE GO: NO-GO / PENDING.** Remote PR #32 is still at reviewed head `9b96a9cdb9442eb90926a7cca3f356523875083d`. The remediation recorded in this worktree has not yet been published, therefore it has no CI result or fresh independent review. The known P1 blocker is only *locally addressed*, not closed.
 
-> **PRODUCTION GO: NO-GO в автономном режиме.** Даже после merge production launch требует отдельного owner-controlled решения: exact release image, secret-store preflight внутри compose contract, проверенный backup, staged signed smoke с реальной Telegram/provider подписью и явное подтверждение single-instance topology.
+> **PRODUCTION GO: NO-GO.** This decision is independent of merge. No production deploy, production migration, secret operation, payment enablement or topology change occurred. Production remains owner-gated even after a future MERGE GO.
 
-## Выполненные и проверенные элементы
+## Current review state
 
-| Workstream | Evidence | Результат |
-|---|---|---|
-| Migration rehearsal | Полный repository set из 62 migration применён штатным runner на disposable local PostgreSQL DB; runner повторён; `059`–`061` replayed транзакционно. | PASS: 9 event definitions, partial starter-pack index, `league_placements` table и 2 indexes; invariants не изменились при replay. |
-| Migration operator procedure | [`MIGRATION_RUNBOOK_059_061.md`](../docs/MIGRATION_RUNBOOK_059_061.md) | Готовы pre-flight, sequential apply, post-check SQL, non-destructive rollback boundary и single-runner constraint. |
-| Signed rewarded ads | Local self-hosted HMAC harness: valid/invalid/expired initData, ownership, owner reward, sequential replay, concurrent duplicate, cooldown, daily cap. | PASS: **9/9** checks. Staging mutation/provider segment остаётся owner-gated. |
-| Coffee Coin regression | Existing secure rewarded video suite plus new harness. | PASS: expected one-coin reward, non-owner protection, concurrent claim protection, cosmetic spend atomicity. |
-| Production configuration | Fail-closed preflight checks named secret presence, HTTPS CORS allowlist, DB configuration, Telegram freshness policy, provider declaration and disabled payments; values never printed. | PASS: 5 dedicated tests; CLI success output verified without secret values. |
-| Observability | [`SOFT_LAUNCH_OBSERVABILITY.md`](../docs/SOFT_LAUNCH_OBSERVABILITY.md) | 5m / 15m / 1h / 24h / 72h thresholds distinguish product guards from platform failure. |
-| Art governance | [`APPROVED_ASSETS_REGISTER.md`](../visual_assets/first_pack/APPROVED_ASSETS_REGISTER.md) | 3 Luna hero states and 12 atomized icons recorded as `APPROVED_RUNTIME`; binaries deliberately excluded from this governance PR. |
-| Regression | Full backend suite against local test DB. | PASS: **45 suites, 435 tests**. |
-
-## MERGE GO gates
-
-| Gate | Owner / role | State | Required evidence to move to GO |
+| Workstream | Current reachable identity | State | Required next action |
 |---|---|---|---|
-| PR review and CI | Manus / independent repository reviewer | Pending | PR reviewed head has all required CI checks green; no unresolved blocking comment; independent approval recorded. |
-| Scope integrity | Manus / reviewer | Pending | Only P0 release-engineering and governance files are changed; no payments activation or production action introduced. |
+| PR #31 — leagues release fix | `c257153339ad83c146ef5133299a3cfc5c9f1a7f` | Open, mergeable/clean; 13 completed-success checks and one skipped Macroscope correctness check at the snapshot. | Owner/reviewer decides merge; Manus must not merge it. |
+| PR #32 — release engineering | Remote reviewed head `9b96a9cdb9442eb90926a7cca3f356523875083d` | Open, mergeable/clean; 12/12 successful checks on the old head. Independent Codex P1 still blocks merge because this old head lacks complete tag propagation. | Publish the local remediation, wait for CI, then request a new independent review. |
+| Local PR #32 remediation candidate | Branch-local, not remotely reviewable at this snapshot | Adds exact tag propagation, regression coverage and requested cleanup. | Publish without force-push; record resulting GitHub head and CI. |
 
-## PRODUCTION GO gates
+The previous CI success of the old PR #32 head is **not evidence** for the new candidate. Likewise, a future MERGE GO does not authorize a production release.
 
-Merge GO above is necessary but insufficient. Every row below remains owner-controlled and is evaluated only for the exact reviewed release image.
+## Local validation evidence
 
-| Gate | Owner / role | State | Required evidence to move to GO |
-| Production config preflight | Release owner | Not run against production secrets | `node scripts/release_config_preflight.mjs` returns zero errors from secret-store environment; output retained only as sanitized status codes. |
-| Database readiness | Release owner / DBA | Not executed | Fresh backup and known restore owner; one migration runner; post-check SQL from migration runbook passes. |
-| CORS closure | Release owner | Not verified | Explicit HTTPS `FRONTEND_URL`/`CORS_ALLOWED_ORIGINS`; no wildcard and no implicit Vercel preview fallback. |
-| Telegram signed smoke | Release owner | Not executed on staging | Fresh valid initData accepted; tampered and expired fixtures rejected on HTTPS staging. Raw fixtures remain outside Git/Drive. |
-| Ads provider callback | Release owner / provider operator | Not executed on staging | Disposable staging account, signed S2S callback and one claim; ownership/replay/cooldown/daily-cap evidence retained only in sanitized form. |
-| Runtime topology | Release owner | Not verified | Exactly one long-lived backend instance and no overlapping migration/cron runner. |
-| Payments kill switch | Release owner | Required at release | `PAYMENTS_ENABLED=false` confirmed. This P0 does not introduce card/Stars activation. |
-| Durable anti-cheat state | ZCode P1 / owner | Deferred by accepted scope | Does not block controlled soft launch only if single-instance constraint is maintained; blocks horizontal scale. |
+| Check | Result | Interpretation |
+|---|---|---|
+| Immutable release-path regression + production preflight unit suite | PASS: 2 suites, 15 tests | Validates the static contract: one `git-<40-hex-sha>` identity flows from workflow to preflight, remote build/restart, core smoke and reachable offer smoke; active files contain no mutable `latest` fallback. |
+| Full backend suite in this sandbox | PASS with environmental skips: 33 passed / 14 skipped suites; 348 passed / 99 skipped tests; 47 suites and 447 tests total | The new static release-path suite passed. Skips are database-dependent tests not runnable without an isolated PostgreSQL service; this is not a substitute for CI. |
+| Frontend smoke and node tests | PASS: smoke checks plus 14/14 node tests | Local frontend behavioral evidence. |
+| Frontend production build | PASS | Vite completed with 258 transformed modules. |
+| Compose interpolation execution | Not run | Docker CLI is unavailable in this sandbox. No container was created. CI/operator environment must execute the guarded Compose config check. |
+| PowerShell parse/execution | Not run | `pwsh` is unavailable in this sandbox. CI/Windows runner must parse and execute the scripts with a synthetic exact tag before release approval. |
+
+## Merge gate status
+
+| Gate | State | Evidence needed for GO |
+|---|---|---|
+| Exact immutable tag reaches all active release-path Compose calls | Pending remote verification | Published PR #32 diff, green CI and independent review confirm the single reviewed `git-<40-hex-sha>` value across validation, build/restart and smoke. |
+| No mutable `latest` release fallback | Locally covered | Published diff and CI regression result. |
+| `backend/.env.example` mirrors compose/preflight contract | Locally complete | Published diff review verifies all preflight-controlled variables and release-tag guidance. |
+| Migration runbook startup wait | Locally complete | Published diff review verifies `docker compose up --wait` precedes health curl. |
+| Traceability and governance records | Locally complete | Published source manifest, Luna raw-review record, anti-cheat design preservation and ledger are reviewed. |
+| Independent Code review | Pending | A new independent Codex review after publication; no unresolved merge-blocking finding. |
+| Fresh main after PR #31 | Waiting | PR #31 must actually merge first; then PR #32 must take fresh `main` without force-push and rerun full CI. |
+
+## Production gate status
+
+| Gate | State | Required evidence before a separate PRODUCTION GO |
+|---|---|---|
+| Exact release image | Not run | Owner records the reviewed PR commit and matching immutable image tag; no `latest`. |
+| Compose preflight against protected production environment | Not run | Sanitized pass/fail codes only; no secret values in Git, logs or reports. |
+| Backup and restore readiness | Not run | Fresh backup and named restore owner recorded in a protected release ticket. |
+| Single migration runner and post-check SQL | Not run | One runner, all runbook checks pass, no parallel replica. |
+| Backend health/startup | Not run | Compose `--wait` succeeds before external health curl. |
+| Signed Telegram/provider staging smoke | Not run | Completed PASS evidence; SKIP/INCOMPLETE is not PASS. |
+| Runtime topology | Not verified | Exactly one long-lived backend instance until a separately reviewed durable anti-cheat implementation exists. |
+| Payments kill switch | Required at release | `PAYMENTS_ENABLED=false`; this workstream does not authorize payment activation. |
 
 ## Explicit non-actions
 
-No production deployment, database migration against production, secret rotation, provider secret disclosure, payment enablement or direct commit to `main` occurred in this workstream. The report contains no DB URL, IP, SSH/cloud identifier, raw initData, nonce, token or provider secret.
-
-## Immediate release sequence after both approvals
-
-After MERGE GO, the release owner separately decides whether to seek PRODUCTION GO. With the target secret store attached, they execute config preflight inside the compose contract, create/confirm the backup, set the exact reviewed `BACKEND_IMAGE_TAG`, run a **single** migration runner, execute SQL post-checks, start one backend instance, confirm `/health`, and perform fully completed signed staging smoke. Cohort expansion follows the 24h/72h thresholds; a security or duplicate-reward Red condition halts rollout rather than relaxing validation.
+No production deployment, production database migration, secret rotation/change, payments enablement, force-push or direct merge occurred in this workstream. The reports and manifests intentionally contain no DB URL, IP address, SSH/cloud identifier, raw Telegram initData, nonce, token, provider secret or raw binary asset.
 
 ## References
 
-1. [`docs/MIGRATION_RUNBOOK_059_061.md`](../docs/MIGRATION_RUNBOOK_059_061.md)
-2. [`docs/REWARDED_ADS_SIGNED_SMOKE.md`](../docs/REWARDED_ADS_SIGNED_SMOKE.md)
-3. [`docs/SOFT_LAUNCH_OBSERVABILITY.md`](../docs/SOFT_LAUNCH_OBSERVABILITY.md)
-4. [`docs/INFRA.md`](../docs/INFRA.md)
-5. [`reports/2026-08-17_LUNA_P1_V01_RAW_FILE_REVIEW_RU.md`](2026-08-17_LUNA_P1_V01_RAW_FILE_REVIEW_RU.md) — source review exists in the main workspace/Drive package; it is intentionally not duplicated in this P0 worktree.
+[1]: ../.github/workflows/manual-release.yml "Manual release workflow"
+[2]: ../scripts/release-preflight.ps1 "Release preflight"
+[3]: ../scripts/release-prod.ps1 "Guarded production release"
+[4]: ../scripts/smoke-core-prod.ps1 "Core production smoke"
+[5]: ../docs/MIGRATION_RUNBOOK_059_061.md "Migration runbook"
+[6]: 2026-08-17_P0_RELEASE_ENGINEERING_SOURCE_MANIFEST.md "P0 source manifest"
+[7]: 2026-08-17_LUNA_P1_V01_RAW_FILE_REVIEW_RU.md "Luna P1 raw-file review"
+[8]: ../docs/DURABLE_ANTI_CHEAT_DESIGN_RU.md "Durable anti-cheat design preservation"
