@@ -63,3 +63,12 @@ export const purchaseRateLimiter = makeLimiter({
   max: 30,
   message: 'Too many purchase requests',
 });
+
+// Rewarded-ad session and claim endpoints both touch the reward ledger and
+// must be bounded independently from purchases. Tests are exempt via the
+// shared test skip so integration fixtures remain deterministic.
+export const rewardedAdRateLimiter = makeLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many rewarded-ad requests',
+});
