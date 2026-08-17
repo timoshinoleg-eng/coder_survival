@@ -26,9 +26,7 @@ export default function LeaderboardPanel({ open, onClose }) {
     const params = new URLSearchParams();
     params.set('limit', '10');
     params.set('period', period);
-    if (filterRank) {
-      params.set('rank', String(filterRank));
-    }
+    if (filterRank) params.set('rank', String(filterRank));
     params.set('aroundMe', '1');
 
     apiRequest(`/api/leaderboard?${params.toString()}`, { initData })
@@ -47,9 +45,7 @@ export default function LeaderboardPanel({ open, onClose }) {
         setState({ loading: false, players: [], myPosition: null, league: null, error: 'Не удалось загрузить рейтинг' });
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [initData, open, period, filterRank]);
 
   if (!open) return null;
@@ -60,35 +56,22 @@ export default function LeaderboardPanel({ open, onClose }) {
   return h('div', {
     onClick: onClose,
     style: {
-      position: 'absolute',
-      inset: 0,
-      zIndex: 40,
-      background: 'rgba(7, 12, 24, 0.78)',
-      display: 'flex',
-      alignItems: 'flex-start',
-      justifyContent: 'center',
-      padding: '16px 12px'
+      position: 'absolute', inset: 0, zIndex: 40,
+      background: 'rgba(7, 12, 24, 0.78)', display: 'flex',
+      alignItems: 'flex-start', justifyContent: 'center', padding: '16px 12px'
     }
   }, h('div', {
     onClick: (event) => event.stopPropagation(),
     style: {
-      width: 'min(420px, 100%)',
-      maxHeight: '70vh',
-      overflowY: 'auto',
-      background: '#10192d',
-      border: '1px solid #274267',
-      borderRadius: '8px',
-      color: '#e6edf7',
-      boxShadow: '0 18px 48px rgba(0, 0, 0, 0.35)'
+      width: 'min(420px, 100%)', maxHeight: '70vh', overflowY: 'auto',
+      background: '#10192d', border: '1px solid #274267', borderRadius: '8px',
+      color: '#e6edf7', boxShadow: '0 18px 48px rgba(0, 0, 0, 0.35)'
     }
   }, [
     h('div', {
       style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 14px',
-        borderBottom: '1px solid #1f3552'
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '12px 14px', borderBottom: '1px solid #1f3552'
       }
     }, [
       h('strong', null, 'Топ программистов'),
@@ -102,41 +85,22 @@ export default function LeaderboardPanel({ open, onClose }) {
             shareText(text);
           },
           style: {
-            border: 'none',
-            background: '#1a3a5c',
-            color: '#dce9f9',
-            fontSize: '11px',
-            cursor: 'pointer',
-            padding: '4px 8px',
-            borderRadius: '6px',
-            fontWeight: 600
+            border: 'none', background: '#1a3a5c', color: '#dce9f9', fontSize: '11px',
+            cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', fontWeight: 600
           }
         }, 'Поделиться'),
         h('button', {
           onClick: onClose,
-          style: {
-            border: 'none',
-            background: 'transparent',
-            color: '#9eb6d2',
-            fontSize: '18px',
-            cursor: 'pointer',
-            padding: 0,
-            lineHeight: 1
-          }
+          style: { border: 'none', background: 'transparent', color: '#9eb6d2', fontSize: '18px', cursor: 'pointer', padding: 0, lineHeight: 1 }
         }, '×')
       ])
     ]),
 
-    // League strip: current weekly tier, progress to next, place in tier.
     state.league ? h('div', {
       style: {
-        margin: '10px 14px 0',
-        padding: '10px 12px',
-        border: '1px solid #2c4a70',
-        borderRadius: '8px',
-        background: 'linear-gradient(90deg, #16263f, #10192d)',
-        fontSize: '11px',
-        lineHeight: 1.6
+        margin: '10px 14px 0', padding: '10px 12px', border: '1px solid #2c4a70',
+        borderRadius: '8px', background: 'linear-gradient(90deg, #16263f, #10192d)',
+        fontSize: '11px', lineHeight: 1.6
       }
     }, [
       h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
@@ -147,13 +111,10 @@ export default function LeaderboardPanel({ open, onClose }) {
       h('div', { style: { color: '#c9d8ea', fontSize: '10px' } },
         `${state.league.weeklyCommits} коммитов за неделю · награда ${state.league.rewardStars}⭐`),
       state.league.nextTier ? h('div', {
-        style: {
-          marginTop: '6px', height: '4px', borderRadius: '2px',
-          background: '#1f3552', overflow: 'hidden'
-        }
+        style: { marginTop: '6px', height: '4px', borderRadius: '2px', background: '#1f3552', overflow: 'hidden' }
       }, h('div', {
         style: {
-          width: `${Math.min(100, Math.round(100 * state.league.weeklyCommits / Math.max(1, state.league.nextTier.minCommits)))}%`,
+          width: `${Math.max(0, Math.min(100, Number(state.league.progressPercent) || 0))}%`,
           height: '100%', background: 'linear-gradient(90deg,#4ade80,#38bdf8)'
         }
       })) : h('div', { style: { color: '#ffd166', fontSize: '10px', marginTop: '4px' } }, 'Максимальная лига — Легенда 🏆'),
@@ -161,61 +122,34 @@ export default function LeaderboardPanel({ open, onClose }) {
         `до «${state.league.nextTier.title}» осталось ${state.league.nextTierCommitsLeft}`) : null
     ]) : null,
 
-    // Period tabs
     h('div', {
-      style: {
-        display: 'flex',
-        gap: '4px',
-        padding: '10px 14px 0',
-        borderBottom: '1px solid #1f3552'
-      }
+      style: { display: 'flex', gap: '4px', padding: '10px 14px 0', borderBottom: '1px solid #1f3552' }
     }, PERIODS.map(p => h('button', {
       key: p.key,
       onClick: () => setPeriod(p.key),
       style: {
-        flex: 1,
-        padding: '6px 0',
-        borderRadius: '6px 6px 0 0',
-        border: 'none',
+        flex: 1, padding: '6px 0', borderRadius: '6px 6px 0 0', border: 'none',
         background: period === p.key ? '#1a3a5c' : 'transparent',
         color: period === p.key ? '#dce9f9' : '#8ba1bb',
-        fontWeight: period === p.key ? 700 : 400,
-        fontSize: '12px',
-        cursor: 'pointer'
+        fontWeight: period === p.key ? 700 : 400, fontSize: '12px', cursor: 'pointer'
       }
     }, p.label))),
 
-    // Rank filter
-    h('div', {
-      style: {
-        display: 'flex',
-        gap: '4px',
-        padding: '8px 14px',
-        alignItems: 'center'
-      }
-    }, [
+    h('div', { style: { display: 'flex', gap: '4px', padding: '8px 14px', alignItems: 'center' } }, [
       h('button', {
         onClick: () => setFilterRank(null),
         style: {
-          padding: '4px 10px',
-          borderRadius: '12px',
-          border: '1px solid #30527e',
+          padding: '4px 10px', borderRadius: '12px', border: '1px solid #30527e',
           background: filterRank === null ? '#1a3a5c' : '#131d33',
-          color: filterRank === null ? '#dce9f9' : '#8ba1bb',
-          fontSize: '11px',
-          cursor: 'pointer'
+          color: filterRank === null ? '#dce9f9' : '#8ba1bb', fontSize: '11px', cursor: 'pointer'
         }
       }, 'Все'),
       h('button', {
         onClick: () => setFilterRank(rank || 1),
         style: {
-          padding: '4px 10px',
-          borderRadius: '12px',
-          border: '1px solid #30527e',
+          padding: '4px 10px', borderRadius: '12px', border: '1px solid #30527e',
           background: filterRank !== null ? '#1a3a5c' : '#131d33',
-          color: filterRank !== null ? '#dce9f9' : '#8ba1bb',
-          fontSize: '11px',
-          cursor: 'pointer'
+          color: filterRank !== null ? '#dce9f9' : '#8ba1bb', fontSize: '11px', cursor: 'pointer'
         }
       }, `Мой ранг (${['Junior','Middle','Senior','Lead','CTO'][(rank || 1) - 1]})`)
     ]),
@@ -225,27 +159,16 @@ export default function LeaderboardPanel({ open, onClose }) {
       : state.error
         ? h('div', { style: { padding: '14px', color: '#fda4af' } }, state.error)
         : h('div', null, [
-          // My position
           hasMyPosition && h('div', {
-            style: {
-              margin: '0 14px 8px',
-              padding: '10px',
-              background: '#131d33',
-              borderRadius: '8px',
-              border: '1px solid #30527e'
-            }
+            style: { margin: '0 14px 8px', padding: '10px', background: '#131d33', borderRadius: '8px', border: '1px solid #30527e' }
           }, [
             h('div', { style: { fontSize: '11px', color: '#8ba1bb', marginBottom: '6px' } }, `Твоя позиция: #${state.myPosition.rank}`),
             h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
               state.myPosition.players.map((player) => h('div', {
                 key: player.userId || player.telegramId || player.rank,
                 style: {
-                  display: 'grid',
-                  gridTemplateColumns: '32px 1fr auto',
-                  gap: '8px',
-                  alignItems: 'center',
-                  padding: '6px 8px',
-                  borderRadius: '6px',
+                  display: 'grid', gridTemplateColumns: '32px 1fr auto', gap: '8px', alignItems: 'center',
+                  padding: '6px 8px', borderRadius: '6px',
                   background: player.rank === state.myPosition.rank ? '#1a3a5c' : 'transparent'
                 }
               }, [
@@ -259,23 +182,12 @@ export default function LeaderboardPanel({ open, onClose }) {
             )
           ]),
 
-          // Top list
-          h('div', {
-            style: {
-              display: 'flex',
-              flexDirection: 'column',
-              padding: '8px 0'
-            }
-          }, activePlayers.length
+          h('div', { style: { display: 'flex', flexDirection: 'column', padding: '8px 0' } }, activePlayers.length
             ? activePlayers.map((player) => h('div', {
               key: player.userId || player.telegramId || player.rank,
               style: {
-                display: 'grid',
-                gridTemplateColumns: '40px 1fr auto',
-                gap: '10px',
-                alignItems: 'center',
-                padding: '10px 14px',
-                borderBottom: '1px solid rgba(39, 66, 103, 0.45)'
+                display: 'grid', gridTemplateColumns: '40px 1fr auto', gap: '10px', alignItems: 'center',
+                padding: '10px 14px', borderBottom: '1px solid rgba(39, 66, 103, 0.45)'
               }
             }, [
               h('span', { style: { color: '#8fb4ff' } }, `#${player.rank}`),
