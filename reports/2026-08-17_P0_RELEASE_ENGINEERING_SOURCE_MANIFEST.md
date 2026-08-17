@@ -1,23 +1,41 @@
 # P0 Release Engineering — Source Snapshot Manifest
 
-**Дата:** 2026-08-17
-**Remote review identity:** GitHub PR #32, branch `manus/p0-release-engineering`
-**Назначение:** безопасный указатель на проверенный source scope для Google Workspace. Binary artifacts, credential-bearing environment files и runtime logs не включены.
+**Снимок:** 2026-08-17 21:25 UTC.
+**Remote review scope:** GitHub PR #32, branch `manus/p0-release-engineering`.
+**Remote reviewed head at snapshot:** `9b96a9cdb9442eb90926a7cca3f356523875083d`.
+**Local remediation state:** not yet published; therefore the authoritative remote review identity remains the PR URL until the next fast-forward update creates a new reachable head.
 
-| Remote review scope | Source / documentation paths |
+This manifest is a sanitized, repository-held map of source and evidence. It deliberately excludes credential-bearing environment files, raw Telegram data, private runtime logs and binary artifacts. It must be read together with the current PR file list; local commit IDs alone are never authoritative.
+
+## Source and evidence map
+
+| Workstream | Implementation / documentation paths | Evidence / review rule |
 |---|---|---|
-| Migration rehearsal 059–061 | `scripts/rehearse_migrations_059_061.mjs`; `backend/tests/rehearseMigrations059061.test.js`; `docs/MIGRATION_RUNBOOK_059_061.md` |
-| Signed rewarded-ads smoke | `scripts/smoke_rewarded_ads_harness.mjs`; `backend/tests/smokeRewardedAdsHarness.test.js`; `docs/REWARDED_ADS_SIGNED_SMOKE.md` |
-| Production preflight / observability | `backend/src/config/productionPreflight.js`; `backend/src/index.js`; `backend/tests/productionPreflight.test.js`; `scripts/release_config_preflight.mjs`; `docs/SOFT_LAUNCH_OBSERVABILITY.md` |
-| Luna P1 governance sync | `visual_assets/first_pack/APPROVED_ASSETS_REGISTER.md`; `visual_assets/first_pack/LUNA_P1_V01_RUNTIME_IDENTITY.json` |
+| Immutable release image identity | `.github/workflows/manual-release.yml`; `scripts/release-image-tag.ps1`; `scripts/release-preflight.ps1`; `scripts/release-prod.ps1`; `docker-compose.backend.yml` | Workflow derives `git-${{ github.sha }}` once; every release-path consumer validates `git-<40-hex-sha>` and refuses `latest`. |
+| Post-deploy smoke identity | `scripts/smoke-core-prod.ps1`; `scripts/smoke-offers.ps1`; `backend/tests/releasePathImmutableTag.test.js` | Separate SSH/Compose lookup uses the same exact tag; reachable child offer smoke receives it too. |
+| Production preflight / environment contract | `backend/src/config/productionPreflight.js`; `backend/tests/productionPreflight.test.js`; `backend/.env.example`; `docker-compose.backend.yml` | Template contains the compose/preflight variables but no populated secret. |
+| Migration rehearsal / operator procedure | `scripts/rehearse_migrations_059_061.mjs`; `backend/tests/rehearseMigrations059061.test.js`; `docs/MIGRATION_RUNBOOK_059_061.md` | Runbook pins reviewed tag and uses `docker compose up --wait` before external health curl. |
+| Signed rewarded-ads smoke | `scripts/smoke_rewarded_ads_harness.mjs`; `backend/tests/smokeRewardedAdsHarness.test.js`; `docs/REWARDED_ADS_SIGNED_SMOKE.md` | Owner-gated skips are INCOMPLETE, not PASS. |
+| Luna P1 raw review / immutable runtime identity | `reports/2026-08-17_LUNA_P1_V01_RAW_FILE_REVIEW_RU.md`; `visual_assets/first_pack/LUNA_P1_V01_RUNTIME_IDENTITY.json`; `visual_assets/first_pack/APPROVED_ASSETS_REGISTER.md`; `backend/tests/lunaP1RuntimeIdentity.test.js` | Asset identity is path + bytes + dimensions + mode + SHA-256; raw archive itself is intentionally excluded. |
+| Durable anti-cheat design preservation | `docs/DURABLE_ANTI_CHEAT_DESIGN_RU.md`; `backend/src/middleware/antiCheat.js`; `backend/migrations/038_anticheat_state.sql` | Documentation-only; no runtime implementation or migration is authorized by PR #32. |
+| Workstream status | `docs/SYNC_LOG.md`; `reports/2026-08-17_P0_RELEASE_ENGINEERING_GO_NO_GO_RU.md`; `reports/2026-08-17_P0_RELEASE_ENGINEERING_WORKSTREAM_RELEASE_LEDGER.md` | MERGE GO and PRODUCTION GO remain separate. |
 
-## Verified local evidence
+## Validation snapshot
 
-| Check | Result |
-|---|---|
-| Full backend regression suite | 45 suites, 435 tests passed on disposable local test database. |
-| Migration rehearsal | 62 migrations applied; 059–061 replay stable; 9 event definitions, partial starter-pack index, leagues table and 2 indexes verified. |
-| Signed rewarded-ads local smoke | 9/9 checks passed. |
-| Secret-safe config preflight | Dedicated unit suite passed; CLI reports named checks only. |
+| Check | Result | Limitation |
+|---|---|---|
+| New immutable-path regression with production-preflight suite | PASS: 2 suites, 15 tests | Static contract coverage; no remote deployment. |
+| Full backend suite | 33 passed / 14 skipped suites; 348 passed / 99 skipped tests; 47 suites and 447 tests total | DB-dependent tests skipped because this sandbox has no isolated PostgreSQL service. |
+| Frontend smoke + node tests | PASS: smoke plus 14/14 tests | Local only. |
+| Frontend production build | PASS: 258 modules transformed | Local only. |
+| Compose config and PowerShell parse | Not run | Docker and `pwsh` are unavailable in the sandbox. CI/Windows operator evidence remains required. |
 
-The authoritative source is GitHub PR #32 and its current reviewed head, not local working-tree commit IDs. Reviewers must use the GitHub compare/PR file list and the manual-release workflow’s remote revision evidence to identify the exact release candidate. This manifest deliberately omits raw database URLs, local network literals, provider credentials, raw Telegram initData, nonce values and logs. It supports traceability while respecting Drive sync safety rules.
+## Publication rule
+
+The next branch update must be fast-forward only and must not merge PR #32. After it is published, replace the remote-head field in this manifest and the ledger with the GitHub-reachable commit, wait for full CI, then request a new independent review. After PR #31 has truly merged, refresh `main` into PR #32 without force-push and repeat CI/review.
+
+## References
+
+[1]: https://github.com/timoshinoleg-eng/coder_survival/pull/32 "GitHub PR #32"
+[2]: ../docs/SYNC_LOG.md "Shared synchronization log"
+[3]: 2026-08-17_P0_RELEASE_ENGINEERING_GO_NO_GO_RU.md "GO/NO-GO report"

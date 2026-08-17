@@ -65,6 +65,8 @@ jobs:
       CODER_SURVIVAL_VM_HOST_OVERRIDE: ${{ inputs.vm_host_override }}
       CODER_SURVIVAL_VM_HOST_KEY_FINGERPRINT: ${{ inputs.vm_host_key_fingerprint }}
       CODER_SURVIVAL_VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+      # One immutable review identity is used by validation, release and smoke.
+      BACKEND_IMAGE_TAG: git-${{ github.sha }}
 
     steps:
       - name: Checkout
@@ -130,16 +132,18 @@ jobs:
         run: docker compose -f docker-compose.backend.yml config --quiet
 
       - name: Release Preflight
-        run: pwsh -File scripts/release-preflight.ps1
+        shell: pwsh
+        run: scripts/release-preflight.ps1 -BackendImageTag $env:BACKEND_IMAGE_TAG
 
       - name: Run release-prod.ps1
         shell: pwsh
         run: |
           $params = @{
-            SkipVercel   = [bool]::Parse("${{ inputs.skip_vercel }}")
-            SkipBackend  = [bool]::Parse("${{ inputs.skip_backend }}")
-            SkipSmoke    = [bool]::Parse("${{ inputs.skip_smoke }}")
-            AllowDirty   = [bool]::Parse("${{ inputs.allow_dirty }}")
+            SkipVercel      = [bool]::Parse("${{ inputs.skip_vercel }}")
+            SkipBackend     = [bool]::Parse("${{ inputs.skip_backend }}")
+            SkipSmoke       = [bool]::Parse("${{ inputs.skip_smoke }}")
+            AllowDirty      = [bool]::Parse("${{ inputs.allow_dirty }}")
+            BackendImageTag = $env:BACKEND_IMAGE_TAG
           }
           scripts/release-prod.ps1 @params
 
@@ -155,6 +159,7 @@ jobs:
           echo '| Vercel skip | ${{ inputs.skip_vercel }} |' >> $GITHUB_STEP_SUMMARY
           echo '| Smoke skip | ${{ inputs.skip_smoke }} |' >> $GITHUB_STEP_SUMMARY
           echo '| Commit | `${{ github.sha }}` |' >> $GITHUB_STEP_SUMMARY
+          echo '| Backend image tag | `${{ env.BACKEND_IMAGE_TAG }}` |' >> $GITHUB_STEP_SUMMARY
 
       - name: Create release manifest
         if: success()
@@ -163,6 +168,7 @@ jobs:
           $manifest = @{
             version    = "${{ inputs.version_tag }}"
             sha        = "${{ github.sha }}"
+            backend_image_tag = "${{ env.BACKEND_IMAGE_TAG }}"
             timestamp  = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
             workflow   = "manual-release"
             triggered_by = "${{ github.actor }}"
