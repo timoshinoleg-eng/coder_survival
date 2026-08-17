@@ -8,6 +8,7 @@ import { updateDailyQuestStateForEvent } from '../utils/dailyQuests.js';
 import { applyReward } from "../utils/rewards.js";
 import { ensurePlayerLevel } from "../utils/vnext.js";
 import { verifyAdProof, verifyAdsgramCallbackSignature, verifyPropellerCallbackHash } from "../utils/adProof.js";
+import { rewardedAdRateLimiter } from "../middleware/apiRateLimit.js";
 
 const router = Router();
 const AD_REWARD_COOLDOWN_MS = DEFAULTS.ADS.adCooldownMinutes * 60 * 1000;
@@ -25,6 +26,13 @@ function getRequestedProvider(req) {
     return provider.trim().toLowerCase();
   }
   return null;
+}
+
+function areSameUserId(left, right) {
+  // PostgreSQL bigint columns are returned as strings by node-postgres, while
+  // serial user IDs are numbers. Preserve strict ownership semantics without
+  // rejecting the same database ID solely because of driver representation.
+  return String(left) === String(right);
 }
 
 function isProviderConfigured(provider) {
@@ -81,7 +89,7 @@ async function claimValidatedAdSession(client, { userId, nonce, provider, proof 
   }
 
   const session = sessionResult.rows[0];
-  if (session.user_id !== userId) {
+  if (!areSameUserId(session.user_id, userId)) {
     await client.query("ROLLBACK");
     return { status: 403, payload: { error: "Ad event does not belong to user" } };
   }
@@ -268,7 +276,7 @@ router.get("/status", async (req, res, next) => {
  * Creates a server-verified nonce for a rewarded ad session.
  * Frontend must use this nonce when claiming the reward.
  */
-router.post("/ad-session", async (req, res, next) => {
+router.post("/ad-session", rewardedAdRateLimiter, async (req, res, next) => {
   const provider = validateProvider(req, res);
   if (!provider) return;
   const telegramUser = req.telegramUser?.user;
@@ -328,7 +336,7 @@ router.post("/ad-session", async (req, res, next) => {
  * Claims the reward after ad completion.
  * Requires a valid nonce and enforces daily limits + cooldowns.
  */
-router.post("/ad-claim", async (req, res, next) => {
+router.post("/ad-claim", rewardedAdRateLimiter, async (req, res, next) => {
   const claimProvider = validateProvider(req, res);
   if (!claimProvider) return;
   const telegramUser = req.telegramUser?.user;
@@ -366,7 +374,7 @@ router.post("/ad-claim", async (req, res, next) => {
         return res.status(404).json({ error: "Invalid nonce" });
       }
       const session = sessionResult.rows[0];
-      if (session.user_id !== userId) {
+      if (!areSameUserId(session.user_id, userId)) {
         await client.query("ROLLBACK");
         return res.status(403).json({ error: "Nonce does not belong to user" });
       }
@@ -398,7 +406,14 @@ router.post("/ad-claim", async (req, res, next) => {
         return res.status(403).json({ error: "Invalid ad proof" });
       }
 
-      // 2. Check daily limit
+      // 2. Seed and lock the daily ledger. A missing row cannot be locked, so
+      // concurrent first claims would otherwise all bypass cooldown checks.
+      await client.query(
+        `INSERT INTO ad_rewards (user_id, date, count, provider)
+         VALUES ($1, CURRENT_DATE, 0, $2)
+         ON CONFLICT (user_id, date) DO NOTHING`,
+        [userId, claimProvider],
+      );
       const limitResult = await client.query(
         `SELECT count, last_rewarded_at
          FROM ad_rewards
