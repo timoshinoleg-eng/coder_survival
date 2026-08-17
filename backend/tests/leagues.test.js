@@ -25,13 +25,23 @@ describe("league tier thresholds (pure)", () => {
     expect(ctx.next.min - ctx.commits).toBe(1300);
   });
 
-  test("progress is measured inside the current tier band", () => {
+  test("progress is measured inside the current tier band without pre-promotion 100%", () => {
     expect(getLeagueProgress(0).progressPercent).toBe(0);
     expect(getLeagueProgress(250).progressPercent).toBe(50);
     expect(getLeagueProgress(500).progressPercent).toBe(0);
     expect(getLeagueProgress(1250).progressPercent).toBe(50);
-    expect(getLeagueProgress(1999).progressPercent).toBe(100);
+    expect(getLeagueProgress(1999).progressPercent).toBe(99);
     expect(getLeagueProgress(2000).progressPercent).toBe(0);
+
+    for (let i = 0; i < LEAGUES.length - 1; i += 1) {
+      const current = LEAGUES[i];
+      const next = LEAGUES[i + 1];
+      const beforePromotion = getLeagueProgress(next.min - 1);
+      expect(beforePromotion.currentTierMin).toBe(current.min);
+      expect(beforePromotion.nextTierMin).toBe(next.min);
+      expect(beforePromotion.progressPercent).toBeLessThan(100);
+      expect(beforePromotion.progressPercent).toBe(99);
+    }
   });
 
   test("legend is terminal and reports complete progress", () => {
@@ -92,6 +102,21 @@ describeIfDb("weekly league snapshot (db)", () => {
     expect(response.body?.league?.placementInLeague).toBe(2);
     expect(response.body?.league?.progressPercent).toBe(100);
     expect(response.body?.league?.nextTier).toBeNull();
+  });
+
+  test("pre-promotion Gold boundary reports 99% until Gold is actually reached", async () => {
+    await seedUserWithWeekCommits(910013, 1999);
+
+    const response = await server.request("/api/leaderboard?limit=10&period=week&aroundMe=1", {
+      headers: { "X-Telegram-Init-Data": createInitData(910013) }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body?.league?.tier).toBe("silver");
+    expect(response.body?.league?.weeklyCommits).toBe(1999);
+    expect(response.body?.league?.progressPercent).toBe(99);
+    expect(response.body?.league?.nextTier?.id).toBe("gold");
+    expect(response.body?.league?.nextTierCommitsLeft).toBe(1);
   });
 
   test("snapshot places players, grants tier stars, idempotent on rerun", async () => {
