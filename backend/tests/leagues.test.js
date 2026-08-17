@@ -1,6 +1,6 @@
 import { createInitData, ensureTestSchema, resetTestDatabase, testPool, TEST_DATABASE_URL } from "./helpers/testDb.js";
 import { startTestServer } from "./helpers/testServer.js";
-import { getLeagueForCommits, getWeekMonday, snapshotLeagueWeek, LEAGUES } from "../src/utils/leagues.js";
+import { getLeagueForCommits, getLeagueProgress, getWeekMonday, snapshotLeagueWeek, LEAGUES } from "../src/utils/leagues.js";
 
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -23,6 +23,22 @@ describe("league tier thresholds (pure)", () => {
     const ctx = getLeagueForCommits(700);
     expect(ctx.next.id).toBe("gold");
     expect(ctx.next.min - ctx.commits).toBe(1300);
+  });
+
+  test("progress is measured inside the current tier band", () => {
+    expect(getLeagueProgress(0).progressPercent).toBe(0);
+    expect(getLeagueProgress(250).progressPercent).toBe(50);
+    expect(getLeagueProgress(500).progressPercent).toBe(0);
+    expect(getLeagueProgress(1250).progressPercent).toBe(50);
+    expect(getLeagueProgress(1999).progressPercent).toBe(100);
+    expect(getLeagueProgress(2000).progressPercent).toBe(0);
+  });
+
+  test("legend is terminal and reports complete progress", () => {
+    const progress = getLeagueProgress(40000);
+    expect(progress.currentTierMin).toBe(40000);
+    expect(progress.nextTierMin).toBeNull();
+    expect(progress.progressPercent).toBe(100);
   });
 
   test("monday of week is a Monday", () => {
@@ -70,7 +86,6 @@ describeIfDb("weekly league snapshot (db)", () => {
     const legendUser = await seedUserWithWeekCommits(910003, 45000);
 
     const weekMonday = getWeekMonday(new Date());
-    // sessions were seeded NOW()-2d => inside the CURRENT week; snapshot the current week
     const client = await testPool.connect();
     let result;
     try {
