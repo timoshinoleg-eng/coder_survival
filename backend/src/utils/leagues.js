@@ -36,7 +36,8 @@ export function getLeagueProgress(weeklyCommits) {
   return {
     currentTierMin: league.min,
     nextTierMin: next.min,
-    progressPercent: Math.max(0, Math.min(100, Math.round((earnedInsideTier / span) * 100))),
+    // Never display a completed band before the user actually crosses into the next tier.
+    progressPercent: Math.max(0, Math.min(99, Math.floor((earnedInsideTier / span) * 100))),
   };
 }
 
