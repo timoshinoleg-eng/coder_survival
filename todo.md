@@ -23,4 +23,4 @@
 - [x] Разделить в GO/NO-GO документе критерии `MERGE GO` и `PRODUCTION GO`.
 - [x] Заменить локальные/non-GitHub commit IDs в source manifest на review-branch/PR identity и воспроизводимый remote evidence.
 - [x] Добавить immutable asset identity для Luna P1 approved runtime exports: SHA-256 + byte size или проверяемую ссылку на manifest/inventory с этими значениями.
-- [ ] Обновить PR #32 исправлениями, дождаться зелёного CI и передать на повторный независимый review без merge.
+- [x] Обновить PR #32 исправлениями, дождаться зелёного CI и передать на повторный независимый review без merge.
