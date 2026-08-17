@@ -1,11 +1,11 @@
 # P0 Release Engineering — GO/NO-GO
 
-**Снимок состояния:** 2026-08-17 21:36 UTC.
+**Снимок состояния:** 2026-08-17 21:41 UTC.
 **Scope:** migration tail `059`–`061`, signed rewarded-ads smoke, production configuration guard, immutable backend image identity, soft-launch observability, Luna P1 governance и documentation-only durable anti-cheat design.
 
 ## Two independent decisions
 
-> **MERGE GO: NO-GO / PENDING.** PR #32 remediation is published at `bdf935195860bfeadb85bd8b7eb3984fd68358f0`; CI has started, but there is no green CI set or fresh independent review yet. A current-main resolution is prepared locally after `main` advanced to `983a52461b8c01ce6d686fa6bed6a05703686361` and must itself be published and verified. The P1 blocker is not closed until those gates complete.
+> **MERGE GO: NO-GO / PENDING.** The current PR #32 head is merge commit `30f85f00f3094014cf51cf0dd1b23f171356c8a3`, with parents `836f65a56d33cd69e8aa6a887b62a7056d7d19d9` and `main` `983a52461b8c01ce6d686fa6bed6a05703686361`. The current-main conflict is resolved without force-push and the full CI matrix has started, but no required check is green and no fresh independent review exists. The P1 blocker is not closed until those gates complete.
 
 > **PRODUCTION GO: NO-GO.** This decision is independent of merge. No production deploy, production migration, secret operation, payment enablement or topology change occurred. Production remains owner-gated even after a future MERGE GO.
 
@@ -14,8 +14,8 @@
 | Workstream | Current reachable identity | State | Required next action |
 |---|---|---|---|
 | PR #31 — leagues release fix | `c257153339ad83c146ef5133299a3cfc5c9f1a7f` | Open, mergeable/clean; 13 completed-success checks and one skipped Macroscope correctness check at the snapshot. | Owner/reviewer decides merge; Manus must not merge it. |
-| PR #32 — immutable-tag remediation | Published head `bdf935195860bfeadb85bd8b7eb3984fd68358f0` | Open; two CI checks are in progress at this snapshot. | Wait for CI, but first publish the no-force current-main resolution now prepared locally. |
-| Current-main resolution for PR #32 | Local merge includes `main` `983a52461b8c01ce6d686fa6bed6a05703686361`; not yet remote-reachable | Retains the Sol/Manus synchronization records and resolves the temporary GitHub dirty state. | Publish fast-forward only, record the new head, then use that head for CI/review. |
+| PR #32 — immutable-tag remediation | Published ancestor `836f65a56d33cd69e8aa6a887b62a7056d7d19d9` | Exact tag propagation and cleanup are reachable in the active PR history. | Reviewed through the current merge head. |
+| PR #32 — current review head | `30f85f00f3094014cf51cf0dd1b23f171356c8a3` | Open, mergeable; full CI matrix is in progress. Its second parent is current `main` `983a52461b8c01ce6d686fa6bed6a05703686361`. | Wait for all checks; then request new independent Codex review. |
 
 The old-head CI success is **not evidence** for either the immutable-tag remediation or the current-main resolution. Likewise, a future MERGE GO does not authorize a production release.
 
@@ -34,13 +34,13 @@ The old-head CI success is **not evidence** for either the immutable-tag remedia
 
 | Gate | State | Evidence needed for GO |
 |---|---|---|
-| Exact immutable tag reaches all active release-path Compose calls | Published, CI/review pending | The final published PR #32 head has green CI and independent review confirms the single reviewed `git-<40-hex-sha>` value across validation, build/restart and smoke. |
+| Exact immutable tag reaches all active release-path Compose calls | Published, CI/review pending | Current head `30f85f0` needs a green CI set and independent review confirming the single reviewed `git-<40-hex-sha>` value across validation, build/restart and smoke. |
 | No mutable `latest` release fallback | Locally covered | Published diff and CI regression result. |
 | `backend/.env.example` mirrors compose/preflight contract | Locally complete | Published diff review verifies all preflight-controlled variables and release-tag guidance. |
 | Migration runbook startup wait | Locally complete | Published diff review verifies `docker compose up --wait` precedes health curl. |
 | Traceability and governance records | Locally complete | Published source manifest, Luna raw-review record, anti-cheat design preservation and ledger are reviewed. |
 | Independent Code review | Pending | A new independent Codex review after publication; no unresolved merge-blocking finding. |
-| Fresh main after PR #31 | Waiting | Current `main` has already been integrated locally to remove the present conflict. PR #31 itself remains open; if it later merges, PR #32 must take fresh `main` again without force-push and rerun full CI. |
+| Fresh main after PR #31 | Current main integrated; PR #31 still waiting | Current `main` is a parent of `30f85f0`, removing the present conflict. PR #31 itself remains open; if it later merges, PR #32 must take fresh `main` again without force-push and rerun full CI. |
 
 ## Production gate status
 
