@@ -2,6 +2,7 @@ import { h } from "preact";
 import { useEffect, useMemo, useState, useCallback } from "preact/hooks";
 import { useGameState } from "../hooks/useGameState.js";
 import { useTelegram } from "../hooks/useTelegram.js";
+import { ru } from "../locales/ru.js";
 import { adsManager } from "../utils/AdsManager.js";
 import LeaderboardPanel from "./LeaderboardPanel.jsx";
 import ShopPanel from "./ShopPanel.jsx";
@@ -220,8 +221,8 @@ export default function StatsBar({ runtimeNow }) {
   const runtimeModeLabel = useMemo(() => {
     const hotStreakActive = randomEventState?.hotStreakUntil && new Date(randomEventState.hotStreakUntil).getTime() > countdownNowMs;
     const productionAlertActive = randomEventState?.productionAlertUntil && new Date(randomEventState.productionAlertUntil).getTime() > countdownNowMs;
-    if (hotStreakActive) return { text: '🔥 Hot Streak active: повышенный темп', color: 'var(--accent-green)' };
-    if (productionAlertActive) return { text: '🚨 Production Alert active: энергия убывает', color: 'var(--danger-light)' };
+    if (hotStreakActive) return { text: ru.effects.hotStreakActive, color: 'var(--accent-green)' };
+    if (productionAlertActive) return { text: ru.effects.productionAlertActive, color: 'var(--danger-light)' };
     return null;
   }, [countdownNowMs, randomEventState?.hotStreakUntil, randomEventState?.productionAlertUntil]);
 
