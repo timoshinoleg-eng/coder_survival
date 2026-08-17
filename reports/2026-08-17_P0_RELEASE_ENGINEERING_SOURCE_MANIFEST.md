@@ -1,9 +1,9 @@
 # P0 Release Engineering — Source Snapshot Manifest
 
-**Снимок:** 2026-08-17 21:36 UTC.
+**Снимок:** 2026-08-17 21:41 UTC.
 **Remote review scope:** GitHub PR #32, branch `manus/p0-release-engineering`.
-**Published remediation head:** `bdf935195860bfeadb85bd8b7eb3984fd68358f0`.
-**Current-main resolution state:** local no-force merge includes `main` `983a52461b8c01ce6d686fa6bed6a05703686361`; it must be published before the final review identity is set.
+**Current review head:** `30f85f00f3094014cf51cf0dd1b23f171356c8a3`.
+**Ancestry:** the merge commit preserves immutable-tag remediation `836f65a56d33cd69e8aa6a887b62a7056d7d19d9` and fresh `main` `983a52461b8c01ce6d686fa6bed6a05703686361` as parents; it was published with `force=false`.
 
 This manifest is a sanitized, repository-held map of source and evidence. It deliberately excludes credential-bearing environment files, raw Telegram data, private runtime logs and binary artifacts. It must be read together with the current PR file list; local commit IDs alone are never authoritative.
 
@@ -32,7 +32,7 @@ This manifest is a sanitized, repository-held map of source and evidence. It del
 
 ## Publication rule
 
-The next branch update must be fast-forward only and must not merge PR #32. It publishes the current-main resolution and becomes the review identity for CI and the next independent review. PR #31 is still open; if it later truly merges, refresh `main` into PR #32 without force-push and repeat CI/review.
+The current review identity is the GitHub-reachable merge head above. Wait for its CI and independent review; do not merge PR #32. PR #31 is still open; if it later truly merges, refresh `main` into PR #32 without force-push and repeat CI/review.
 
 ## References
 
