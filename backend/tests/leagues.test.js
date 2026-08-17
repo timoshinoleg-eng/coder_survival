@@ -42,7 +42,7 @@ describe("league tier thresholds (pure)", () => {
   });
 
   test("monday of week is a Monday", () => {
-    const monday = getWeekMonday(new Date("2026-08-16T12:00:00Z")); // Sunday
+    const monday = getWeekMonday(new Date("2026-08-16T12:00:00Z"));
     expect(monday.getUTCDay()).toBe(1);
     expect(monday.toISOString().slice(0, 10)).toBe("2026-08-10");
   });
@@ -71,7 +71,6 @@ describeIfDb("weekly league snapshot (db)", () => {
     const state = await server.request("/api/state", { headers: { "X-Telegram-Init-Data": initData } });
     expect(state.status).toBe(200);
     const userId = state.body?.user?.id;
-    // Anchor inside the CURRENT ISO week regardless of the weekday the suite runs on.
     await testPool.query(
       `INSERT INTO sessions (session_id, user_id, started_at, taps_count, commits_earned)
        VALUES (gen_random_uuid(), $1, date_trunc('week', NOW()) + INTERVAL '1 hour', 10, $2)`,
@@ -79,6 +78,21 @@ describeIfDb("weekly league snapshot (db)", () => {
     );
     return userId;
   }
+
+  test("active Legend players receive a place inside Legend", async () => {
+    await seedUserWithWeekCommits(910011, 45000);
+    await seedUserWithWeekCommits(910012, 42000);
+
+    const response = await server.request("/api/leaderboard?limit=10&period=week&aroundMe=1", {
+      headers: { "X-Telegram-Init-Data": createInitData(910012) }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body?.league?.tier).toBe("legend");
+    expect(response.body?.league?.placementInLeague).toBe(2);
+    expect(response.body?.league?.progressPercent).toBe(100);
+    expect(response.body?.league?.nextTier).toBeNull();
+  });
 
   test("snapshot places players, grants tier stars, idempotent on rerun", async () => {
     const bronzeUser = await seedUserWithWeekCommits(910001, 100);
@@ -115,7 +129,6 @@ describeIfDb("weekly league snapshot (db)", () => {
       LEAGUES.find((l) => l.id === "gold").rewardStars
     );
 
-    // idempotency: rerun must not double-place or double-grant
     const client2 = await testPool.connect();
     let rerun;
     try {
