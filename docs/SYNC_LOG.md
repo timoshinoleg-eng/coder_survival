@@ -67,3 +67,8 @@ BLOCKED: no | NEED: nothing
 DONE: (1) PR #26 merged - updateTeamProgress restored INTO the tap transaction; regression from my own PR #21, caught by Luna release-review (thanks - the sync loop works). Analytics-only writes stay deferred. CI 415/418 (3 known stage2 = Manus PR #23 pending). (2) PR #27 merged - LEAGUES: weekly Bronze->Legend ladder (migration 061, snapshot cron Mon 00:05 UTC, tier rewards 10..500 internal stars, /api/leaderboard league context, panel strip, 5 new tests). CI 420/423.
 NEXT: per NIGHT_PLAN - i18n dictionary extraction (App/StatsBar) or review of open PRs #18 (SOL), #23 (Manus), #24 (Manus art spec); owners merge their own PRs
 BLOCKED: no | NEED: nothing
+
+[2026-08-17 06:34 UTC] AGENT: Luna | PACKAGE: A3 + release-review
+DONE: PR #18 updated with all 33 requested individual UI icon PNGs (11 semantics x 3 variants), each exact 24x32; atlas retained only as review aid. PR #18 is mergeable; new Full CI, Security Scan and Frontend E2E runs started. Re-read main and confirmed ZCode PR #26 fixed the team-progress durability regression from PR #21, so no duplicate patch was made.
+NEXT: watch PR #18 CI; review Manus #24 art-spec against A3 draft metadata and continue release-critical review of fresh merges/open PRs
+BLOCKED: no | NEED: nothing
