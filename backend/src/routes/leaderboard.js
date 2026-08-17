@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
 import { getRankXpBounds } from '../utils/vnext.js';
-import { LEAGUES, getLeagueForCommits } from '../utils/leagues.js';
+import { LEAGUES, getLeagueForCommits, getLeagueProgress } from '../utils/leagues.js';
 
 const router = Router();
 
@@ -82,10 +82,12 @@ async function resolveLeagueContext(client, telegramId) {
   );
   const weeklyCommits = Number(mine.rows[0]?.weekly_commits || 0);
   const { league, next } = getLeagueForCommits(weeklyCommits);
+  const progress = getLeagueProgress(weeklyCommits);
 
   let placementInLeague = null;
-  if (weeklyCommits > 0 && next) {
+  if (weeklyCommits > 0) {
     // Place within tier = players in the same tier band with more commits this week + 1.
+    // For Legend there is no upper bound, so $2 is NULL and the upper-band predicate is skipped.
     const ahead = await client.query(
       `SELECT COUNT(*)::int AS ahead
        FROM (
@@ -93,10 +95,11 @@ async function resolveLeagueContext(client, telegramId) {
          FROM sessions s
          WHERE s.started_at >= date_trunc('week', NOW())
          GROUP BY s.user_id
-         HAVING SUM(s.commits_earned) >= $1 AND SUM(s.commits_earned) < $2
+         HAVING SUM(s.commits_earned) >= $1
+            AND ($2::bigint IS NULL OR SUM(s.commits_earned) < $2)
        ) band
        WHERE band.commits > $3`,
-      [league.min, next.min, weeklyCommits]
+      [league.min, next?.min ?? null, weeklyCommits]
     );
     placementInLeague = Number(ahead.rows[0]?.ahead || 0) + 1;
   }
@@ -105,6 +108,8 @@ async function resolveLeagueContext(client, telegramId) {
     tier: league.id,
     title: league.title,
     weeklyCommits,
+    currentTierMin: progress.currentTierMin,
+    progressPercent: progress.progressPercent,
     nextTier: next ? { id: next.id, title: next.title, minCommits: next.min } : null,
     nextTierCommitsLeft: next ? Math.max(0, next.min - weeklyCommits) : 0,
     rewardStars: league.rewardStars,
