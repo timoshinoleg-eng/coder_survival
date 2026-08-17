@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { buildSignedInitData, corruptInitDataSignature } from '../../scripts/smoke_rewarded_ads_harness.mjs';
+import { buildSignedInitData, corruptInitDataSignature, summarizeResults } from '../../scripts/smoke_rewarded_ads_harness.mjs';
 
 function verifyHmacInitData(initData, botToken) {
   const params = new URLSearchParams(initData);
@@ -38,5 +38,20 @@ describe('signed rewarded-ads smoke fixtures', () => {
     expect(verifyHmacInitData(corrupted, botToken)).toBe(false);
     expect(new URLSearchParams(corrupted).get('user')).toBe(new URLSearchParams(signed).get('user'));
     expect(new URLSearchParams(corrupted).get('auth_date')).toBe('1700000000');
+  });
+
+  test('treats owner-gated SKIP as incomplete rather than a passing smoke verdict', () => {
+    const summary = summarizeResults([
+      { name: 'signed authentication', status: 'PASS' },
+      { name: 'provider mutation', status: 'SKIP' },
+    ]);
+
+    expect(summary).toEqual({
+      total: 2,
+      passed: 1,
+      failed: 0,
+      skipped: 1,
+      verdict: 'INCOMPLETE',
+    });
   });
 });

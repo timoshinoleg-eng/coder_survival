@@ -63,14 +63,31 @@ async function runCheck(results, name, operation) {
   }
 }
 
-function printResults(results) {
+export function summarizeResults(results) {
+  const failures = results.filter((result) => result.status === 'FAIL');
+  const skipped = results.filter((result) => result.status === 'SKIP');
+  const passed = results.filter((result) => result.status === 'PASS');
+  return {
+    total: results.length,
+    passed: passed.length,
+    failed: failures.length,
+    skipped: skipped.length,
+    verdict: failures.length > 0 ? 'FAILED' : skipped.length > 0 ? 'INCOMPLETE' : 'PASSED',
+  };
+}
+
+export function printResults(results) {
   for (const result of results) {
     const suffix = result.detail ? ` — ${result.detail}` : '';
     console.log(`${result.status}: ${result.name}${suffix}`);
   }
-  const failures = results.filter((result) => result.status === 'FAIL');
-  console.log(`SUMMARY: ${results.length - failures.length}/${results.length} checks passed`);
-  if (failures.length) process.exitCode = 1;
+  const summary = summarizeResults(results);
+  console.log(`SUMMARY: ${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.skipped} owner-pending — ${summary.verdict}`);
+  // A staging run with owner-gated checks is evidence of partial coverage, not
+  // a passing release gate. Keep the non-zero exit explicit so CI/release
+  // automation cannot accidentally treat SKIP as PASS.
+  if (summary.verdict !== 'PASSED') process.exitCode = 1;
+  return summary;
 }
 
 async function runLocalHarness() {

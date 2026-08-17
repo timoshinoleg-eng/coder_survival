@@ -7,13 +7,24 @@ function isNonEmpty(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function isHttpsOrigin(value) {
+function isHttpsUrl(value) {
   if (!isNonEmpty(value) || value.includes('*')) return false;
   try {
     return new URL(value).protocol === 'https:';
   } catch {
     return false;
   }
+}
+
+// Express cors compares string allowlist entries to the browser Origin header
+// literally. An Origin never includes a path, query, fragment or trailing slash,
+// so accepting those forms here would make a passing preflight unusable at
+// runtime. Keep WEBAPP_URL more permissive because it is a navigation URL, not
+// an Origin allowlist entry.
+function isCanonicalHttpsOrigin(value) {
+  if (!isHttpsUrl(value)) return false;
+  const url = new URL(value);
+  return url.origin === value;
 }
 
 function databaseConfigured(env) {
@@ -47,12 +58,12 @@ export function inspectProductionConfig(env = process.env) {
     if (!isNonEmpty(env[key])) errors.push(`MISSING_${key}`);
   }
   if (!databaseConfigured(env)) errors.push('MISSING_DATABASE_CONFIGURATION');
-  if (!isHttpsOrigin(env.WEBAPP_URL)) errors.push('INVALID_WEBAPP_URL');
+  if (!isHttpsUrl(env.WEBAPP_URL)) errors.push('INVALID_WEBAPP_URL');
 
   const origins = configuredOrigins(env);
   if (origins.length === 0) {
     errors.push('MISSING_CORS_ALLOWLIST');
-  } else if (!origins.every(isHttpsOrigin)) {
+  } else if (!origins.every(isCanonicalHttpsOrigin)) {
     errors.push('INVALID_CORS_ALLOWLIST');
   }
 

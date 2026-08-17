@@ -39,7 +39,7 @@
 
 ## Luna P1 v01 approved runtime assets
 
-The binary source package is intentionally not duplicated in this governance-only PR. Canonical exports remain in the verified Luna P1 v01 raw archive. ZCode must re-verify the approved file identity when copying it into a separate integration PR; this registry entry is an approval decision, not a replacement for source-asset provenance or runtime evidence.
+The binary source package is intentionally not duplicated in this governance-only PR. Canonical exports remain in the verified Luna P1 v01 raw archive. Every approved Asset ID is bound to path, byte length, dimensions and SHA-256 in [`LUNA_P1_V01_RUNTIME_IDENTITY.json`](./LUNA_P1_V01_RUNTIME_IDENTITY.json). ZCode must re-verify those values before copying an export into a separate integration PR; this registry entry is an approval decision, not a replacement for source-asset provenance or runtime evidence.
 
 | Asset ID | Canonical runtime file / source role | Version | Dimensions | Status | Verification note |
 |---|---|---:|---:|---|---|
@@ -66,6 +66,6 @@ The binary source package is intentionally not duplicated in this governance-onl
 | 2026-08-16 | Visual System v1 hero trio | `APPROVED_RUNTIME` | Manus | Integrated, alpha verified, frontend smoke and production build passed. |
 | 2026-08-16 | Friday / Blameless key art | `APPROVED_MASTER` | Manus | Mobile prototype composition accepted; runtime exports not yet delivered. |
 | 2026-08-17 | SOL A3 content, icon atlas and key-art drafts | `CHANGES_REQUESTED` | Manus | Copy is useful backlog; raw art fails v2 dimensions/contrast and atlas is not the exact 12-icon runtime package. No `APPROVED_RUNTIME` granted. |
-| 2026-08-17 | Luna P1 v01: 3 hero states + 12 atomized UI icons | `APPROVED_RUNTIME` | Manus | Raw archive, SHA/bytes inventory, master/runtime dimensions, alpha/chroma and 390px overlays verified. Separate ZCode integration PR remains required. |
+| 2026-08-17 | Luna P1 v01: 3 hero states + 12 atomized UI icons | `APPROVED_RUNTIME` | Manus | Immutable runtime identity is recorded in `LUNA_P1_V01_RUNTIME_IDENTITY.json`; raw archive, SHA/bytes, dimensions, alpha/chroma and 390px overlays verified. Separate ZCode integration PR remains required. |
 
 Luna must append a candidate row before review. Manus records `APPROVED`, `CHANGES_REQUESTED` or `REJECTED` in a dated report and updates this registry. ZCode must reference approved Asset IDs in PR descriptions.

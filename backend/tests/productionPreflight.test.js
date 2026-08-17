@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { readFileSync } from 'fs';
 import { assertProductionConfig, inspectProductionConfig } from '../src/config/productionPreflight.js';
 
 function validProductionEnv(overrides = {}) {
@@ -56,6 +57,17 @@ describe('production configuration preflight', () => {
     ]));
   });
 
+  test.each([
+    'https://app.example.test/',
+    'https://app.example.test/play',
+    'https://app.example.test?preview=1',
+    'https://app.example.test#fragment',
+  ])('rejects a CORS URL that cannot literally equal a browser Origin: %s', (origin) => {
+    const findings = inspectProductionConfig(validProductionEnv({ FRONTEND_URL: origin }));
+
+    expect(findings.errors).toContain('INVALID_CORS_ALLOWLIST');
+  });
+
   test('requires the matching rewarded provider secret when an operator declares a provider', () => {
     const findings = inspectProductionConfig(validProductionEnv({
       REWARDED_AD_PROVIDER: 'propeller',
@@ -76,5 +88,24 @@ describe('production configuration preflight', () => {
       .not.toThrow(secret);
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  test('active production compose forwards every preflight-controlled runtime variable', () => {
+    const compose = readFileSync(new URL('../../docker-compose.backend.yml', import.meta.url), 'utf8');
+
+    expect(compose).toContain('image: coder-survival-backend:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}');
+
+    for (const variable of [
+      'ADMIN_API_SECRET',
+      'WEBAPP_URL',
+      'FRONTEND_URL',
+      'CORS_ALLOWED_ORIGINS',
+      'PAYMENTS_ENABLED',
+      'REWARDED_AD_PROVIDER',
+      'ADSGRAM_SECRET',
+      'PROPELLER_SECRET',
+    ]) {
+      expect(compose).toContain(`${variable}: \${${variable}`);
+    }
   });
 });

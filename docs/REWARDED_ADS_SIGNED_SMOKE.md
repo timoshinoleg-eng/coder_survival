@@ -35,7 +35,7 @@ SMOKE_LOCAL_DATABASE_URL='postgresql://<local-user>:<local-password>@localhost:5
 
 Для local mode не требуется real Telegram credential: harness генерирует synthetic test HMAC token только внутри процесса. При необходимости явного тестового значения можно задать `SMOKE_LOCAL_BOT_TOKEN`; это не production `BOT_TOKEN` и не должно совпадать с ним. Mock rewarded provider активируется только при `NODE_ENV=test`.
 
-Успешный итог содержит `9/9 checks passed`. Любой `FAIL` выставляет non-zero exit code. `SKIP` допустим только в staging mode для явно owner-gated checks.
+Успешный **local** итог содержит `9/9` и verdict `PASSED`. Любой `FAIL` выставляет non-zero exit code. Staging `SKIP` для owner-gated checks выводит verdict `INCOMPLETE` и также non-zero exit code: это ожидаемое состояние частичного покрытия, но **не** pass для merge или production gate.
 
 ## Staging: owner-gated read-only execution
 
@@ -48,7 +48,7 @@ SMOKE_STAGING_EXPIRED_INIT_DATA='<optional separately-generated expired signed f
   node scripts/smoke_rewarded_ads_harness.mjs --mode=staging
 ```
 
-`SMOKE_STAGING_EXPIRED_INIT_DATA` не обязателен для запуска, но без него freshness check будет показан как `SKIP — OWNER ACTION`. Значения initData являются bearer-like authentication material для короткого replay window: не передавайте их через чат, PR, shell history, GitHub Actions logs или Drive.
+`SMOKE_STAGING_EXPIRED_INIT_DATA` не обязателен для запуска, но без него freshness check будет показан как `SKIP — OWNER ACTION`, а весь run — `INCOMPLETE`. Значения initData являются bearer-like authentication material для короткого replay window: не передавайте их через чат, PR, shell history, GitHub Actions logs или Drive.
 
 ### Owner procedure для mutation/provider portion
 

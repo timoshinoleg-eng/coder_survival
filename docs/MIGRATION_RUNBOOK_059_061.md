@@ -20,7 +20,7 @@
 
 | Проверка | Действие | Успешный результат |
 |---|---|---|
-| Release revision | Проверить, что image/revision включает именно утверждённые SQL `059`–`061`. | SHA release-кандидата записан в release ticket. |
+| Release revision | Проверить exact GitHub review SHA и соответствующий immutable image tag. `BACKEND_IMAGE_TAG` обязателен; `latest` запрещён для migrate/restart. | SHA release-кандидата и image tag записаны в release ticket; compose не разрешает старт без `BACKEND_IMAGE_TAG`. |
 | Резервная копия | Выполнить штатный backup managed PostgreSQL и подтвердить, что restore procedure известна оператору. | Временная метка и идентификатор backup сохранены в защищённом release ticket, не в Git/Drive. |
 | Connection | Проверить, что `.env`/secret store содержит рабочий `DATABASE_URL` или полный набор `DB_*`, SSL-настройки соответствуют target DB. | `npm run migrate` может аутентифицироваться; сами значения не печатаются. |
 | Миграционный singleton | Остановить второй CI/deploy job и исключить параллельный запуск `npm run migrate`. | Запущен ровно один runner. |
@@ -45,12 +45,17 @@ Harness удаляет и пересоздаёт schema `public`, применя
 Миграции применяются до запуска новой версии backend. Выберите **один** из существующих deployment mechanisms, не запускайте команды параллельно.
 
 ```bash
-# Пример для уже собранного immutable backend image.
-# .env остаётся вне Git; не печатайте его содержимое.
-docker run --rm --env-file .env coder-survival-backend:<release-sha> npm run migrate
+# Активный release path использует compose и exact reviewed image tag.
+# Не используйте `latest`; .env остаётся вне Git и не печатается.
+export BACKEND_IMAGE_TAG='git-<reviewed-github-sha>'
+docker compose --env-file backend/.env -f docker-compose.backend.yml \
+  run --rm --no-deps backend node -e "import('./src/config/productionPreflight.js').then(({assertProductionConfig}) => assertProductionConfig())"
+docker compose --env-file backend/.env -f docker-compose.backend.yml \
+  run --rm backend node src/migrate.js
 
-# Только после exit code 0 запускайте/перезапускайте один backend instance.
-docker compose -f ../docker-compose.backend.yml up -d backend
+# Только после двух exit code 0 запускайте ровно один backend instance.
+docker compose --env-file backend/.env -f docker-compose.backend.yml \
+  up -d --force-recreate --no-build backend
 curl -f https://<backend-domain>/health
 ```
 
@@ -61,15 +66,39 @@ curl -f https://<backend-domain>/health
 Запускайте запросы подключением с read-only допустимыми правами после `npm run migrate`. Ожидаемые значения приведены для утверждённого release tail.
 
 ```sql
--- 059: девять events должны быть доступны для FK user_active_events.
-SELECT count(*) AS seeded_events
-FROM event_definitions
-WHERE slug IN (
-  'green_build', 'slack_huddle', 'scope_creep', 'slack_thread_storm',
-  'merge_conflict', 'canary_rollback', 'production_500_spike',
-  'ci_pipeline_red', 'friday_release_outage'
-);
--- expected: 9
+-- 059: all nine definitions must exactly match the server-authoritative
+-- rehearsal contract, not merely exist for the FK.
+WITH expected(slug, name, type, weight, duration_sec, reward_json, penalty_json) AS (
+  VALUES
+    ('green_build', 'Green Build', 'positive', 3, 30, '{"commits":15,"depressionRelief":3}'::jsonb, NULL::jsonb),
+    ('slack_huddle', 'Slack Huddle', 'neutral', 8, 30, '{"commits":12,"depression":2}'::jsonb, '{"commits":-4,"depression":2}'::jsonb),
+    ('scope_creep', 'Scope Creep', 'neutral', 7, 30, '{"commits":8,"depression":3}'::jsonb, '{"commits":-6,"depression":3}'::jsonb),
+    ('slack_thread_storm', 'Slack Thread Storm', 'neutral', 7, 30, '{"commits":4,"depression":1}'::jsonb, '{"commits":-3,"depression":2}'::jsonb),
+    ('merge_conflict', 'Merge Conflict', 'negative', 3, 30, '{"commits":5,"depression":3}'::jsonb, '{"commits":-8,"depression":4}'::jsonb),
+    ('canary_rollback', 'Canary Rollback', 'negative', 5, 30, NULL::jsonb, '{"commits":-2,"depression":1}'::jsonb),
+    ('production_500_spike', 'HTTP 500 Spike', 'negative', 5, 30, '{"commits":4,"depression":2}'::jsonb, '{"commits":-5,"depression":3}'::jsonb),
+    ('ci_pipeline_red', 'CI Pipeline Red', 'negative', 6, 30, NULL::jsonb, '{"commits":-1,"depression":1}'::jsonb),
+    ('friday_release_outage', 'Friday Release Outage', 'negative', 6, 30, NULL::jsonb, '{"commits":-3,"depression":2}'::jsonb)
+)
+SELECT
+  count(actual.slug) AS present_rows,
+  count(*) FILTER (WHERE actual.slug IS NOT NULL
+    AND actual.name = expected.name
+    AND actual.type = expected.type
+    AND actual.weight = expected.weight
+    AND actual.duration_sec = expected.duration_sec
+    AND actual.reward_json IS NOT DISTINCT FROM expected.reward_json
+    AND actual.penalty_json IS NOT DISTINCT FROM expected.penalty_json) AS exact_rows,
+  array_agg(expected.slug ORDER BY expected.slug) FILTER (WHERE actual.slug IS NULL
+    OR actual.name <> expected.name
+    OR actual.type <> expected.type
+    OR actual.weight <> expected.weight
+    OR actual.duration_sec <> expected.duration_sec
+    OR actual.reward_json IS DISTINCT FROM expected.reward_json
+    OR actual.penalty_json IS DISTINCT FROM expected.penalty_json) AS mismatched_slugs
+FROM expected
+LEFT JOIN event_definitions AS actual USING (slug);
+-- expected: present_rows = 9, exact_rows = 9, mismatched_slugs is NULL.
 
 -- 060: именно один partial unique index.
 SELECT indexname, indexdef
