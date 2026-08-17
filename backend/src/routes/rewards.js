@@ -7,7 +7,8 @@ import { applyLocPenalty, normalizeAntiCheatState } from '../utils/anticheat.js'
 import { updateDailyQuestStateForEvent } from '../utils/dailyQuests.js';
 import { applyReward } from "../utils/rewards.js";
 import { ensurePlayerLevel } from "../utils/vnext.js";
-import { verifyAdProof, verifyAdsgramCallbackSignature, verifyPropellerCallbackHash } from "../utils/adProof.js";`nimport { rewardedAdRateLimiter } from "../middleware/apiRateLimit.js";
+import { verifyAdProof, verifyAdsgramCallbackSignature, verifyPropellerCallbackHash } from "../utils/adProof.js";
+import { rewardedAdRateLimiter } from "../middleware/apiRateLimit.js";
 
 const router = Router();
 const AD_REWARD_COOLDOWN_MS = DEFAULTS.ADS.adCooldownMinutes * 60 * 1000;
