@@ -87,46 +87,53 @@ export default function OnboardingModal({ visible, onClose }) {
       .onboarding-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.85);
+        background: rgba(5, 8, 18, 0.88);
         z-index: 1000;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: var(--space-4);
-        backdrop-filter: blur(4px);
+        backdrop-filter: none;
       }
       .onboarding-card {
-        width: min(375px, 100%);
-        border: 1px solid rgba(255,255,255,0.14);
-        border-radius: 12px;
-        background: #111827;
-        color: #f8fafc;
-        box-shadow: 0 24px 70px rgba(0,0,0,0.45);
+        width: min(390px, 100%);
+        border: 2px solid var(--electric-cyan);
+        border-radius: 0;
+        background: var(--panel-ink);
+        color: var(--soft-paper);
+        box-shadow: 6px 6px 0 var(--ink-base);
         padding: 18px;
         display: flex;
         flex-direction: column;
         gap: 14px;
       }
+      .onboarding-title {
+        color: var(--electric-cyan);
+        font-family: var(--font-pixel);
+        line-height: 1.35;
+      }
       .onboarding-spotlight {
-        border-radius: 12px;
-        box-shadow: 0 0 0 9999px rgba(0,0,0,0.85);
+        border-radius: 0;
+        box-shadow: none;
       }
       .onboarding-primary {
-        min-height: 44px;
-        border: 0;
-        border-radius: 10px;
-        background: var(--accent-green);
-        color: #052e16;
+        min-height: 48px;
+        border: 1px solid var(--signal-green);
+        border-radius: 0;
+        background: var(--ink-base);
+        color: var(--signal-green);
+        font-family: var(--font-ui);
         font-weight: 800;
-        font-size: 15px;
+        font-size: var(--text-base);
         cursor: pointer;
       }
       .onboarding-secondary {
-        min-height: 44px;
-        border: 1px solid var(--border-panel);
-        border-radius: 10px;
-        background: #172033;
-        color: #dbeafe;
+        min-height: 48px;
+        border: 1px solid var(--electric-cyan);
+        border-radius: 0;
+        background: var(--ink-base);
+        color: var(--electric-cyan);
+        font-family: var(--font-ui);
         font-weight: 700;
         cursor: pointer;
       }
@@ -144,7 +151,7 @@ export default function OnboardingModal({ visible, onClose }) {
       }
       @keyframes onboardingEnergyFlash {
         0%, 100% { box-shadow: none; }
-        50% { box-shadow: 0 0 18px rgba(239,68,68,0.9); }
+        50% { box-shadow: 0 0 12px rgba(244,166,42,0.65); }
       }
     `),
     h('div', { className: 'onboarding-card' }, [
@@ -157,7 +164,7 @@ export default function OnboardingModal({ visible, onClose }) {
         },
       }, [
         h('div', null, [
-          h('div', { style: { fontSize: 'var(--text-2xl)', fontWeight: 800 } }, current.title),
+          h('div', { className: 'onboarding-title', style: { fontSize: 'var(--text-xl)', fontWeight: 800 } }, current.title),
           h('div', { style: { fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginTop: '3px' } },
             `${step + 1}/${STEPS.length}`
           ),
@@ -181,7 +188,7 @@ export default function OnboardingModal({ visible, onClose }) {
           onClick: handleTutorialTap,
           disabled: tutorialTaps >= 1 || energy <= 0,
           style: { opacity: tutorialTaps >= 1 || energy <= 0 ? 0.65 : 1 },
-        }, '💻 КОДИТЬ'),
+        }, 'СДЕЛАТЬ КОММИТ'),
         h('div', { style: { textAlign: 'center', color: '#cbd5e1', fontWeight: 700 } },
           tutorialTaps >= 1 ? '✓ Продакшн пока не упал' : 'Один клик — один очень уверенный коммит'
         ),
@@ -205,7 +212,7 @@ export default function OnboardingModal({ visible, onClose }) {
           style: {
             width: `${Math.max(0, Math.min(100, Math.round(energy)))}%`,
             height: '100%',
-            background: 'var(--danger)',
+            background: 'var(--coffee-amber)',
             transition: 'width 300ms ease',
           },
         })),
@@ -268,9 +275,9 @@ export default function OnboardingModal({ visible, onClose }) {
             gap: '8px',
             alignItems: 'center',
             padding: '12px',
-            borderRadius: '10px',
-            background: '#172033',
-            border: '1px solid var(--border-panel)',
+            borderRadius: '0',
+            background: 'var(--ink-base)',
+            border: '1px solid var(--border-technical)',
           },
         }, [
           h('span', { style: { color: '#dbeafe', fontWeight: 700 } }, 'Дневные квесты'),

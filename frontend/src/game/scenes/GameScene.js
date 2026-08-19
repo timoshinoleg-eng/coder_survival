@@ -20,7 +20,8 @@ export default class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
-    this.lowPowerEffects = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '') || (navigator.hardwareConcurrency || 8) < 4;
+    this.reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
+    this.lowPowerEffects = this.reducedMotion || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '') || (navigator.hardwareConcurrency || 8) < 4;
     this.particleSystems = [];
     this.resizeTimer = null;
     this.lastResizeSize = { width, height };
@@ -49,7 +50,8 @@ export default class GameScene extends Phaser.Scene {
     this.avatar = this.hasGeneratedHeroArt
       ? this.add.image(cx, deskY - 76, this.heroPoseKeys[0])
       : this.add.sprite(cx, deskY - 90, this.hasAvatarSheet ? 'avatar_sheet' : 'avatar_energetic');
-    this.avatar.setScale(this.hasGeneratedHeroArt ? 1.12 : 2);
+    this.avatarBaseScale = this.hasGeneratedHeroArt ? 1.12 : 2;
+    this.avatar.setScale(this.avatarBaseScale);
     if (this.hasAvatarSheet && !this.hasGeneratedHeroArt) this.avatar.setFrame(0);
 
     // Pose tracking
@@ -57,15 +59,17 @@ export default class GameScene extends Phaser.Scene {
     this.crashTriggered = false;
     this.lastHighStressShake = 0;
 
-    // Idle animation
-    this.tweens.add({
-      targets: this.avatar,
-      y: deskY - 85,
-      duration: 2000,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
+    // Idle motion is decorative; preserve a stable readable silhouette when reduced motion is requested.
+    if (!this.reducedMotion) {
+      this.tweens.add({
+        targets: this.avatar,
+        y: deskY - 85,
+        duration: 2000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
 
     // Steam particles from cup
     this.steamParticles = this.add.particles(0, 0, 'orb', {
@@ -203,7 +207,7 @@ export default class GameScene extends Phaser.Scene {
 
   createGrid(w, h) {
     const grid = this.add.graphics();
-    grid.lineStyle(1, 0x0f3460, 0.3);
+    grid.lineStyle(1, 0x35d7ff, 0.14);
     const step = 32;
     for (let x = 0; x < w; x += step) {
       grid.moveTo(x, 0);
@@ -243,7 +247,7 @@ export default class GameScene extends Phaser.Scene {
       {
         fontFamily: 'monospace',
         fontSize: '10px',
-        color: '#4ade80',
+        color: '#62F07B',
         alpha: 0.9
       }
     ).setOrigin(0.5);
@@ -259,16 +263,16 @@ export default class GameScene extends Phaser.Scene {
 
     // Pose-aware avatar reaction
     const pose = this.prevPoseIndex || 0;
-    const squish = pose === 0
-      ? { sx: 2.2, sy: 1.8 }
+    const responseScale = pose === 0
+      ? { sx: 1.07, sy: 0.94 }
       : pose === 1
-        ? { sx: 2.15, sy: 1.85 }
-        : { sx: 2.05, sy: 1.95 };
+        ? { sx: 1.05, sy: 0.95 }
+        : { sx: 1.03, sy: 0.97 };
 
     this.tweens.add({
       targets: this.avatar,
-      scaleX: squish.sx,
-      scaleY: squish.sy,
+      scaleX: this.avatarBaseScale * responseScale.sx,
+      scaleY: this.avatarBaseScale * responseScale.sy,
       duration: 80,
       yoyo: true,
       ease: 'Quad.easeOut'
@@ -287,9 +291,11 @@ export default class GameScene extends Phaser.Scene {
     this.monitor.setTint(0xaaffaa);
     this.time.delayedCall(80, () => this.monitor.clearTint());
 
-    // Screen flash with intensity based on strength
-    const flashIntensity = Math.min(0.25, 0.12 + strength * 0.02);
-    this.cameras.main.flash(100, 74, 222, 128, flashIntensity);
+    // Screen flash is nonessential motion and is omitted when reduced motion is requested.
+    if (!this.reducedMotion) {
+      const flashIntensity = Math.min(0.2, 0.1 + strength * 0.018);
+      this.cameras.main.flash(100, 53, 215, 255, flashIntensity);
+    }
 
     // Ordinary taps should feel stable on mobile; reserve shake for big hits only.
     if (!this.lowPowerEffects && strength >= 5) {
@@ -337,21 +343,18 @@ export default class GameScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = height / 2;
 
-    // White screen flash
-    const flash = this.add.rectangle(cx, cy, width, height, 0xffffff, 1);
-    flash.setDepth(200);
-    this.tweens.add({
-      targets: flash,
-      alpha: 0,
-      duration: 500,
-      onComplete: () => flash.destroy()
-    });
-
-    // Debris explosion (~90 particles)
-    this.crashDebris.emitParticleAt(cx, cy, this.lowPowerEffects ? 25 : 90);
-
-    // Camera shake
-    this.cameras.main.shake(500, 0.01);
+    if (!this.reducedMotion) {
+      const flash = this.add.rectangle(cx, cy, width, height, 0xffffff, 1);
+      flash.setDepth(200);
+      this.tweens.add({
+        targets: flash,
+        alpha: 0,
+        duration: 220,
+        onComplete: () => flash.destroy()
+      });
+      this.crashDebris.emitParticleAt(cx, cy, this.lowPowerEffects ? 25 : 70);
+      this.cameras.main.shake(300, 0.007);
+    }
   }
 
   onResize(gameSize) {
@@ -380,7 +383,7 @@ export default class GameScene extends Phaser.Scene {
     const r = Math.floor(26 + intensity * 80);
     const g = Math.floor(26 + intensity * 10);
     const b = Math.floor(46 - intensity * 20);
-    this.glow.fillStyle((r << 16) | (g << 8) | b, 0.15);
+    this.glow.fillStyle((r << 16) | (g << 8) | b, this.reducedMotion ? 0.1 : 0.15);
     this.glow.fillRect(0, 0, width, height);
   }
 
@@ -389,19 +392,19 @@ export default class GameScene extends Phaser.Scene {
     this.depressionOverlay.clear();
     if (depression > 100) {
       const alpha = Math.min(1, (depression - 100) / 100);
-      this.depressionOverlay.fillStyle(0x8b0000, alpha * 0.35);
+      this.depressionOverlay.fillStyle(0xff5e66, alpha * 0.28);
       this.depressionOverlay.fillRect(0, 0, width, height);
       this.depressionOverlay.lineStyle(Math.max(width, height) * 0.08, 0x2a0000, alpha * 0.5);
       this.depressionOverlay.strokeCircle(width / 2, height / 2, Math.max(width, height) * 0.52);
     }
     // High stress heartbeat pulse (100–200 range)
-    if (depression >= 160) {
+    if (!this.reducedMotion && depression >= 160) {
       const pulseAlpha = 0.05 + Math.sin(this.time.now / 200) * 0.03;
       this.depressionOverlay.fillStyle(0x550000, pulseAlpha);
       this.depressionOverlay.fillRect(0, 0, width, height);
     }
     // Heart-attack range screen shake (180–200)
-    if (depression >= 180) {
+    if (!this.reducedMotion && depression >= 180) {
       const now = this.time.now;
       if (now - this.lastHighStressShake > 900) {
         const shakeIntensity = 0.005 + ((depression - 180) / 20) * 0.01;
@@ -447,11 +450,11 @@ export default class GameScene extends Phaser.Scene {
 
     // Code sparks — high energy
     this.codeSparks.setPosition(avatarX, avatarY - 20);
-    this.codeSparks.emitting = energyPercent >= 70;
+    this.codeSparks.emitting = !this.reducedMotion && energyPercent >= 70;
 
     // Tremor — low energy
     this.tremorParticles.setPosition(avatarX, avatarY);
-    this.tremorParticles.emitting = energyPercent <= 20;
+    this.tremorParticles.emitting = !this.reducedMotion && energyPercent <= 20;
 
     if (energyPercent > 20 && this.tremorShakeTimer) {
       clearInterval(this.tremorShakeTimer);
@@ -459,7 +462,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Bug-report rain — high depression
-    this.bugRain.emitting = depression >= 150;
+    this.bugRain.emitting = !this.reducedMotion && depression >= 150;
 
     // Update depression overlay
     this.updateDepression(depression);

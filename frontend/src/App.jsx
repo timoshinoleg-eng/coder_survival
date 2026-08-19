@@ -25,6 +25,7 @@ import TeamPanel from "./components/TeamPanel.jsx";
 import BattleCard from "./components/BattleCard.jsx";
 import ShareButton from "./components/ShareButton.jsx";
 import AudioToggle from "./components/AudioToggle.jsx";
+import VisualFixture from "./components/VisualFixture.jsx";
 import CareerModal from "./components/CareerModal.jsx";
 import MemeGenerator from "./components/MemeGenerator.jsx";
 import PrestigeModal from "./components/PrestigeModal.jsx";
@@ -797,5 +798,8 @@ function AppInner() {
 }
 
 export default function App() {
+  const visualFixtureEnabled = import.meta.env.DEV
+    && new URLSearchParams(window.location.search).has('visual-fixture');
+  if (visualFixtureEnabled) return h(VisualFixture);
   return h(TelegramProvider, null, h(GameProvider, null, h(TonWalletProvider, null, h(AppInner))));
 }
