@@ -117,6 +117,9 @@ export default function RandomEventToast({ event, onChoice, onTap, disabled = fa
     transform: "translateX(-50%)",
     width: "90vw",
     maxWidth: "420px",
+    // Above the HUD (z-index 10) and the tap area (z-index 20). The card is
+    // time-limited, so being painted underneath either makes it unreadable.
+    zIndex: 400,
     animation: "pixel-fade-in 150ms step-end forwards",
   };
 

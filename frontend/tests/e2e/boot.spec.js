@@ -46,10 +46,20 @@ const TELEGRAM_STUB = `
   })();
 `;
 
-test('app boots without uncaught errors and reaches interactive UI', async ({ page }) => {
-  const pageErrors = [];
-  page.on('pageerror', (err) => pageErrors.push(String(err)));
+/**
+ * The two target Telegram Mini App viewports. Everything visual must hold at
+ * the narrower one — 360px is where the HUD action row used to push МЕНЮ
+ * off-screen, taking every bottom-sheet destination with it.
+ */
+const VIEWPORTS = [
+  { label: '390x844', width: 390, height: 844 },
+  { label: '360x800', width: 360, height: 800 },
+];
 
+/** Every destination that used to live in the legacy toolbar. */
+const EXPECTED_MIN_DESTINATIONS = 15;
+
+async function bootApp(page) {
   await page.route('https://telegram.org/js/telegram-web-app.js', (route) =>
     route.fulfill({ contentType: 'application/javascript', body: TELEGRAM_STUB })
   );
@@ -70,9 +80,114 @@ test('app boots without uncaught errors and reaches interactive UI', async ({ pa
       { timeout: 20_000 }
     )
     .toBe(true);
+}
+
+test('app boots without uncaught errors and reaches interactive UI', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  await bootApp(page);
 
   expect(pageErrors, `uncaught page errors: ${pageErrors.join(' | ')}`).toEqual([]);
 });
+
+for (const viewport of VIEWPORTS) {
+  test(`responsive layout ${viewport.label} — single root, flex chain, bounded game area`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await bootApp(page);
+
+    // Exactly one #app. App.jsx used to set id="app" on its own root, producing
+    // a second one nested inside the mount container from index.html.
+    await expect(page.locator('#app')).toHaveCount(1);
+
+    // Flex chain #app -> .app-shell -> #game-container. Without a flex parent
+    // the game area's `flex: 1` was inert and the layout collapsed.
+    const chain = await page.evaluate(() => {
+      const root = document.getElementById('app');
+      const shell = root && root.querySelector(':scope > .app-shell');
+      const game = shell && shell.querySelector('#game-container');
+      const read = (el) => (el ? getComputedStyle(el) : null);
+      const shellStyle = read(shell);
+      const gameStyle = read(game);
+      return {
+        hasShell: Boolean(shell),
+        hasGame: Boolean(game),
+        shellDisplay: shellStyle && shellStyle.display,
+        shellDirection: shellStyle && shellStyle.flexDirection,
+        gameFlexGrow: gameStyle && gameStyle.flexGrow,
+      };
+    });
+
+    expect(chain.hasShell, '#app must contain .app-shell').toBe(true);
+    expect(chain.hasGame, '.app-shell must contain #game-container').toBe(true);
+    expect(chain.shellDisplay).toBe('flex');
+    expect(chain.shellDirection).toBe('column');
+    expect(chain.gameFlexGrow).toBe('1');
+
+    // The game area is actually laid out, and never wider than the viewport.
+    const box = await page.locator('#game-container').boundingBox();
+    expect(box, '#game-container must be laid out').not.toBeNull();
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.height).toBeGreaterThan(0);
+    expect(box.width).toBeLessThanOrEqual(viewport.width);
+
+    // No horizontal overflow anywhere in the document.
+    const widths = await page.evaluate(() => ({
+      docScrollWidth: document.documentElement.scrollWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      innerWidth: window.innerWidth,
+    }));
+    expect(widths.docScrollWidth, 'document must not scroll horizontally').toBeLessThanOrEqual(
+      widths.innerWidth
+    );
+    expect(widths.bodyScrollWidth, 'body must not scroll horizontally').toBeLessThanOrEqual(
+      widths.innerWidth
+    );
+  });
+
+  test(`responsive navigation ${viewport.label} — reachable menu, all destinations actionable`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await bootApp(page);
+
+    const menuButton = page.getByRole('button', { name: 'Открыть меню игры' });
+    await expect(menuButton).toBeVisible();
+
+    // МЕНЮ is the only entry point to the sheet — if it wraps off-screen the
+    // entire rest of the app becomes unreachable.
+    const menuBox = await menuButton.boundingBox();
+    expect(menuBox).not.toBeNull();
+    expect(menuBox.x, 'МЕНЮ pushed past the left edge').toBeGreaterThanOrEqual(0);
+    expect(menuBox.x + menuBox.width, 'МЕНЮ pushed past the right edge').toBeLessThanOrEqual(
+      viewport.width
+    );
+
+    await menuButton.click();
+
+    const sheet = page.locator('.hud-v2__nav-sheet');
+    await expect(sheet).toBeVisible();
+
+    const destinations = page.locator('.hud-v2__nav-grid .hud-v2__nav-item');
+    const count = await destinations.count();
+    expect(
+      count,
+      `expected at least ${EXPECTED_MIN_DESTINATIONS} destinations in the sheet`
+    ).toBeGreaterThanOrEqual(EXPECTED_MIN_DESTINATIONS);
+
+    for (let i = 0; i < count; i += 1) {
+      const item = destinations.nth(i);
+      await expect(item, `destination #${i + 1} must be visible`).toBeVisible();
+      const itemBox = await item.boundingBox();
+      expect(itemBox, `destination #${i + 1} must be laid out`).not.toBeNull();
+      expect(itemBox.width, `destination #${i + 1} has no width`).toBeGreaterThan(0);
+    }
+
+    // Closing through the scrim proves the sheet is the topmost layer. Before
+    // the stacking-context fix the absolutely positioned tap area sat above it
+    // and swallowed the click.
+    await page.locator('.hud-v2__nav-scrim').click({ position: { x: 12, y: 40 } });
+    await expect(sheet).toHaveCount(0);
+  });
+}
 
 test('event keyart files are served', async ({ request }) => {
   // RandomEventToast uses these as card backgrounds; a missing file would

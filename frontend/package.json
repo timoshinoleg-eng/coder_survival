@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "test": "npm run smoke && node --test tests/*.test.mjs",
+    "test:e2e": "playwright test",
     "preview": "vite preview",
     "smoke": "node scripts/frontend-smoke.mjs",
     "analyze": "vite build --mode analyze"

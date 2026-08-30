@@ -189,7 +189,6 @@ export default function TapArea({ active }) {
       left: 0,
       right: 0,
       zIndex: 20,
-      padding: '14px',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',

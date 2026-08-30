@@ -274,7 +274,9 @@ export default function StatsBar({ runtimeNow }) {
   return h(
     "div",
     {
-      className: "pixel-panel hud-v2",
+      className: navigationOpen
+        ? "pixel-panel hud-v2 hud-v2--navigation-open"
+        : "pixel-panel hud-v2",
       style: {
         position: "relative",
         zIndex: 10,
@@ -392,7 +394,18 @@ export default function StatsBar({ runtimeNow }) {
           ),
           h(
             "div",
-            { style: { display: "flex", alignItems: "center", gap: "10px" } },
+            {
+              // hud-v2__quick-actions supplies flex-wrap. Without it the МЕНЮ
+              // button is pushed off-screen at 360px — and it is the only entry
+              // point to every destination in the bottom sheet.
+              className: "hud-v2__quick-actions",
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                justifyContent: "space-between",
+              },
+            },
             [
               h("div", { style: { textAlign: "right" } }, [
                 h(

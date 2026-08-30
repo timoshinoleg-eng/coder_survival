@@ -92,6 +92,9 @@ function getRandomEventGameStatePayload() {
 
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
+  // Stable identity: an inline arrow gave PhaserGame a new onReady prop on
+  // every render, re-triggering its ready effect each time.
+  const handleGameReady = useCallback(() => setGameReady(true), []);
   const {
     loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast,
     memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState,
@@ -569,10 +572,12 @@ function AppInner() {
   return h(
     "div",
     {
-      id: "app",
+      // Was id="app", which produced a second #app nested inside the mount
+      // container from index.html. Class-only now; .app-shell carries the
+      // layout contract (see visual-system-v2.css).
+      className: "app-shell",
       style: themeColor
         ? {
-            minHeight: '100vh',
             background: `linear-gradient(180deg, #0b1622 0%, ${themeColor}22 40%, #0b1622 100%)`,
           }
         : undefined,
@@ -602,7 +607,7 @@ function AppInner() {
     h(
       "div",
       { id: "game-container" },
-      h(PhaserGame, { onReady: () => setGameReady(true) }),
+      h(PhaserGame, { onReady: handleGameReady }),
     ),
     h(TapArea, { active: gameReady }),
     activeRuntimeEvents.length > 0 && h(
