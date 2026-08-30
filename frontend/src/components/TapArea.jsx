@@ -171,19 +171,24 @@ export default function TapArea({ active }) {
           : depression >= 60 ? 'depression-med'
             : 'depression-low';
   const buttonText = isExhausted
-    ? '⚡ Нет энергии'
+    ? 'НЕТ ЭНЕРГИИ'
     : isBurnout
-      ? '💥 Session reset'
-      : '💻 КОДИТЬ';
+      ? 'ПАУЗА · ВОССТАНОВЛЕНИЕ'
+      : 'COMMIT КОДА';
+  const buttonHint = isExhausted
+    ? 'Дождись восстановления энергии'
+    : isBurnout
+      ? 'Безопаснее сделать паузу'
+      : 'Тапни, чтобы отправить коммит';
 
   return h('div', {
+    className: 'tap-area-v2',
     style: {
       position: 'absolute',
       bottom: 0,
       left: 0,
       right: 0,
       zIndex: 20,
-      padding: '14px',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -221,7 +226,7 @@ export default function TapArea({ active }) {
     gameError && h('div', {
       style: {
         position: 'absolute',
-        bottom: 'calc(min(260px, 75vw) + 20px)',
+        bottom: 'calc(min(172px, 38vw) + 28px)',
         left: '50%',
         transform: 'translateX(-50%)',
         padding: '6px 14px',
@@ -253,16 +258,16 @@ export default function TapArea({ active }) {
       }
       .pulse-red { animation: pulseRed 1.5s infinite; }
       @keyframes pulseRed { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-      .depression-low { background: #FFD700; }
-      .depression-med { background: #FF8C00; }
-      .depression-high { background: #DC143C; animation: pulseRed 2s infinite; }
-      .depression-critical { background: #8B0000; animation: pulseRed 0.8s infinite; box-shadow: 0 0 12px rgba(139,0,0,0.7); }
-      .depression-burnout { background: #2F2F2F; color: #FF0000; }
+      .depression-low { background: var(--signal-green); }
+      .depression-med { background: var(--coffee-amber); }
+      .depression-high { background: var(--incident-red); animation: pulseRed 2s infinite; }
+      .depression-critical { background: var(--incident-red); animation: pulseRed 0.8s infinite; box-shadow: 0 0 12px rgba(255,94,102,0.45); }
+      .depression-burnout { background: var(--ink-base); color: var(--incident-red); }
     `),
 
     h('div', {
       style: {
-        width: 'min(260px, 75vw)',
+        width: 'min(320px, calc(100vw - 28px))',
         display: 'flex',
         flexDirection: 'column',
         gap: '6px',
@@ -281,7 +286,7 @@ export default function TapArea({ active }) {
         style: {
           width: luckArmed ? '20%' : '0%',
           height: '100%',
-          background: 'linear-gradient(90deg, #c0c0c0, #ffd700)',
+          background: 'var(--electric-cyan)',
           transition: luckArmed ? 'width 180ms ease-out' : 'none'
         }
       })),
@@ -306,22 +311,18 @@ export default function TapArea({ active }) {
 
     // Tap zone
     h('div', {
-      className: tapZoneClass,
+      className: ['terminal-action', isExhausted ? 'terminal-action--exhausted' : '', isBurnout ? 'terminal-action--burnout' : '', tapZoneClass].filter(Boolean).join(' '),
       onPointerDown: handlePointerDown,
       onPointerUp: handlePointerUp,
       onPointerLeave: handlePointerUp,
       style: {
         pointerEvents: 'auto',
-        width: 'min(260px, 75vw)',
-        height: 'min(260px, 75vw)',
+        width: 'min(320px, calc(100vw - 28px))',
+        height: 'min(172px, 38vw)',
         borderRadius: '0',
         opacity: isExhausted ? 0.6 : 1,
-        background: isExhausted
-          ? 'radial-gradient(circle at 40% 40%, #3a2a2a, #2a1a1a)'
-          : isBurnout
-            ? 'rgba(255, 69, 0, 0.5)'
-          : 'radial-gradient(circle at 40% 40%, #2d5a3e, #1a3f25)',
-        border: `3px solid ${isExhausted || isBurnout ? '#ff4500' : 'var(--accent-green)'}`,
+        background: isExhausted || isBurnout ? 'var(--ink-base)' : 'var(--ink-base)',
+        border: `3px solid ${isExhausted || isBurnout ? 'var(--incident-red)' : 'var(--signal-green)'}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -337,15 +338,16 @@ export default function TapArea({ active }) {
         touchAction: 'manipulation',
         WebkitTapHighlightColor: 'transparent',
         boxShadow: pressed
-          ? '0 0 18px rgba(74,222,128,0.45) inset'
+          ? 'inset 0 0 0 2px var(--electric-cyan), 0 3px 0 rgba(0,0,0,0.45)'
           : isExhausted || isBurnout
-            ? '0 0 16px rgba(239,68,68,0.35)'
-            : '0 4px 24px rgba(0,0,0,0.35)'
+            ? 'inset 0 0 0 2px var(--panel-ink), 0 3px 0 rgba(0,0,0,0.45)'
+            : 'inset 0 0 0 2px var(--panel-ink), 0 5px 0 rgba(0,0,0,0.45)'
       }
     }, [
-      h('span', { style: { pointerEvents: 'none', fontWeight: 'bold', letterSpacing: '1px' } },
-        buttonText
-      ),
+      h('div', { className: 'terminal-action__content' }, [
+        h('span', { className: 'terminal-action__label' }, buttonText),
+        h('span', { className: 'terminal-action__hint' }, buttonHint),
+      ]),
       // Ripple effects
       ...ripples.map(r => h('div', {
         key: r.id,
@@ -356,8 +358,8 @@ export default function TapArea({ active }) {
           width: '56px',
           height: '56px',
           borderRadius: '50%',
-          background: 'rgba(74, 222, 128, 0.28)',
-          border: '2px solid rgba(74, 222, 128, 0.4)',
+          background: 'rgba(98, 240, 123, 0.22)',
+          border: '2px solid rgba(98, 240, 123, 0.45)',
           animation: 'ripple 0.7s ease-out forwards',
           pointerEvents: 'none'
         }

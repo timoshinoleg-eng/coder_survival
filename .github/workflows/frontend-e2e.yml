@@ -33,5 +33,5 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - name: Boot gate (stubbed Telegram + mocked API)
-        run: npx playwright test
+      - name: Boot gate + responsive layout (stubbed Telegram + mocked API)
+        run: npm run test:e2e

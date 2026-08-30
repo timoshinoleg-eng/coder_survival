@@ -1,31 +1,38 @@
 :root {
-  --bg-primary: #1a1a2e;
-  --bg-panel: #16213e;
-  --bg-deep: #0f172a;
-  --bg-button: #0f3460;
-  --bg-button-active: #1a3a5c;
-  --bg-button-hover: #122642;
+  /* Binding semantic palette from Art Spec v2. */
+  --ink-base: #0D1224;
+  --panel-ink: #151B32;
+  --signal-green: #62F07B;
+  --electric-cyan: #35D7FF;
+  --coffee-amber: #F4A62A;
+  --incident-red: #FF5E66;
+  --soft-paper: #E6ECEF;
+  --border-technical: #284462;
 
-  --accent-green: #4ade80;
-  --accent-gold: #facc15;
-  --accent-blue: #60a5fa;
-  --accent-purple: #8b5cf6;
-  --accent-orange: #fb923c;
-
-  --danger: #ef4444;
-  --danger-light: #f87171;
-  --danger-dark: #dc2626;
-  --warning: #f59e0b;
-  --success: #22c55e;
-
-  --text-primary: #e2e8f0;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
-  --text-accent: #4ade80;
-
-  --border-panel: #334155;
-  --border-button: #4ade80;
-  --border-subtle: #1e293b;
+  /* Compatibility aliases: migrate high-visibility surfaces first. */
+  --bg-primary: var(--ink-base);
+  --bg-panel: var(--panel-ink);
+  --bg-deep: #080D1B;
+  --bg-button: #182744;
+  --bg-button-active: #20395A;
+  --bg-button-hover: #1A2D4B;
+  --accent-green: var(--signal-green);
+  --accent-gold: var(--coffee-amber);
+  --accent-blue: var(--electric-cyan);
+  --accent-purple: #8673D8;
+  --accent-orange: var(--coffee-amber);
+  --danger: var(--incident-red);
+  --danger-light: #FF8890;
+  --danger-dark: #C83F49;
+  --warning: var(--coffee-amber);
+  --success: var(--signal-green);
+  --text-primary: var(--soft-paper);
+  --text-muted: #AAB6C9;
+  --text-dim: #728198;
+  --text-accent: var(--signal-green);
+  --border-panel: var(--border-technical);
+  --border-button: var(--signal-green);
+  --border-subtle: #21304B;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -36,22 +43,23 @@
   --space-8: 32px;
 
   --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+  --font-ui: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 
-  --text-xs: 9px;
-  --text-sm: 10px;
-  --text-base: 12px;
-  --text-md: 13px;
-  --text-lg: 14px;
-  --text-xl: 16px;
-  --text-2xl: 18px;
-  --text-3xl: 22px;
+  /* Pixel font remains for compact labels; body/action copy uses --font-ui. */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 24px;
 
-  --shadow-panel: 4px 4px 0 #0f172a;
-  --shadow-text: 2px 2px 0 #0f172a;
+  --shadow-panel: 4px 4px 0 var(--ink-base);
+  --shadow-text: 2px 2px 0 var(--ink-base);
   --shadow-button-press: translate(2px, 2px);
-
   --radius-none: 0;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
 }
