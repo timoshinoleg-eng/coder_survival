@@ -1,10 +1,11 @@
 import fs from 'fs';
 
 export function buildDatabaseUrl(env = process.env) {
-  if (env.NODE_ENV === 'test' && env.TEST_DATABASE_URL) {
-    return env.TEST_DATABASE_URL;
-  }
-  if (env.TEST_DATABASE_URL) {
+  // TEST_DATABASE_URL is a test-harness escape hatch. It must never win in
+  // production: if it leaked into the deploy environment, both the API and the
+  // migration runner would silently target a throwaway database while the
+  // deploy still reported success.
+  if (env.NODE_ENV !== 'production' && env.TEST_DATABASE_URL) {
     return env.TEST_DATABASE_URL;
   }
   if (env.DATABASE_URL) {

@@ -61,20 +61,67 @@ jobs:
           rsync -avz --exclude='node_modules' --exclude='.git' \
             ./backend/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/coder-survival-backend/
 
-      - name: Build and deploy on VM
+      - name: Backup database before schema change
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
             set -e
-            
+            BACKUP_DIR=/opt/coder-survival-backups
+            mkdir -p "$BACKUP_DIR"
+            STAMP=$(date +%Y%m%d-%H%M%S)
+            # host.docker.internal covers the VM-host database; the same flag is
+            # used by docker-compose.backend.yml for the running service.
+            docker run --rm \
+              --add-host=host.docker.internal:host-gateway \
+              -e PGPASSWORD="${{ secrets.DB_PASSWORD }}" \
+              postgres:15 \
+              pg_dump -h "${{ secrets.DB_HOST }}" -p "${{ secrets.DB_PORT }}" \
+                      -U "${{ secrets.DB_USER }}" -d "${{ secrets.DB_NAME }}" -Fc \
+              > "$BACKUP_DIR/predeploy-$STAMP.dump"
+            ls -la "$BACKUP_DIR/predeploy-$STAMP.dump"
+          '
+
+      - name: Build image on VM
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
+            set -e
             cd /tmp/coder-survival-backend
-            
-            # Build image
             docker build -t coder-survival-backend:local .
-            
+          '
+
+      - name: Run database migrations
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
+            set -e
+            # Migrations run against the PRODUCTION database, from inside the new
+            # image, BEFORE the container swap. If a migration fails the job dies
+            # here and the currently running container is left untouched.
+            #
+            # Before this step existed, migrations only ever ran in the `test`
+            # job against an ephemeral CI Postgres, so 059/060/061 were never
+            # applied to production.
+            docker run --rm \
+              --add-host=host.docker.internal:host-gateway \
+              -e NODE_ENV=production \
+              -e DB_HOST="${{ secrets.DB_HOST }}" \
+              -e DB_PORT="${{ secrets.DB_PORT }}" \
+              -e DB_NAME="${{ secrets.DB_NAME }}" \
+              -e DB_USER="${{ secrets.DB_USER }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e DB_SSL="${{ secrets.DB_SSL }}" \
+              -e DB_SSL_REJECT_UNAUTHORIZED="${{ secrets.DB_SSL_REJECT_UNAUTHORIZED }}" \
+              coder-survival-backend:local \
+              node src/migrate.js
+          '
+
+      - name: Swap container
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
+            set -e
+
             # Stop old container
             docker stop coder-survival-backend 2>/dev/null || true
             docker rm coder-survival-backend 2>/dev/null || true
-            
+
             # Run new container with secrets from GitHub
             docker run -d \
               --name coder-survival-backend \
@@ -87,19 +134,29 @@ jobs:
               -e DB_NAME="${{ secrets.DB_NAME }}" \
               -e DB_USER="${{ secrets.DB_USER }}" \
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e DB_SSL="${{ secrets.DB_SSL }}" \
+              -e DB_SSL_REJECT_UNAUTHORIZED="${{ secrets.DB_SSL_REJECT_UNAUTHORIZED }}" \
               -e BOT_TOKEN="${{ secrets.BOT_TOKEN }}" \
               -e WEBAPP_URL="${{ secrets.WEBAPP_URL }}" \
               -e BOT_BACKEND_SECRET="${{ secrets.BOT_BACKEND_SECRET }}" \
               coder-survival-backend:local
-            
-            # Health check with retry (up to 30s)
+          '
+
+      - name: Health check with retry (up to 30s)
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
+            set -e
             for i in 1 2 3; do
               sleep 10
               curl -f http://localhost:3000/health && break
               if [ $i -eq 3 ]; then exit 1; fi
             done
-            
-            # Cleanup
+          '
+
+      - name: Cleanup
+        if: always()
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
             docker image prune -f
             rm -rf /tmp/coder-survival-backend
           '
