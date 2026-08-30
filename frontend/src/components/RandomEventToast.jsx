@@ -2,6 +2,14 @@ import { h } from "preact";
 import { useEffect, useState, useCallback } from "preact/hooks";
 
 const CLICK_EVENTS = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
+const INCIDENT_EVENTS = new Set([
+  'bug_production',
+  'deploy_friday',
+  'production_500_spike',
+  'ci_pipeline_red',
+  'friday_release_outage',
+  'stack_overflow_down',
+]);
 
 const EVENT_CHOICE_HINTS = {
   golden_commit: { solve: '+40 коммитов · −4 стресс', ignore: '+2 стресс' },
@@ -34,39 +42,16 @@ function getClickKey(type) {
   return null;
 }
 
-// Events with dedicated key art (Visual Assets/first_pack). The dark gradient
-// overlay keeps the pixel font readable over the art.
-const EVENT_KEYART = {
-  friday_release_outage: 'url(/visual_assets/first_pack/friday_release_outage_keyart_780.jpg)',
-  blameless_postmortem: 'url(/visual_assets/first_pack/blameless_postmortem_keyart_780.jpg)',
-};
-
 function getEventColor(type) {
-  switch (type) {
-    case 'golden_commit': return '#fbbf24';
-    case 'open_source_contribution': return '#34d399';
-    case 'green_build': return '#22c55e';
-    case 'bug_production': return '#ef4444';
-    case 'deploy_friday': return '#f97316';
-    case 'legacy_code': return '#a78bfa';
-    case 'code_review': return '#60a5fa';
-    case 'slack_huddle': return '#38bdf8';
-    case 'scope_creep': return '#e879f9';
-    case 'merge_conflict': return '#fb7185';
-    case 'canary_rollback': return '#facc15';
-    case 'production_500_spike': return '#ef4444';
-    case 'ci_pipeline_red': return '#f97316';
-    case 'slack_thread_storm': return '#a78bfa';
-    case 'friday_release_outage': return '#dc2626';
-    case 'coffee_stain': return '#8B4513';
-    case 'stack_overflow_down': return '#f43f5e';
-    default: return '#fbbf24';
-  }
+  if (INCIDENT_EVENTS.has(type)) return 'var(--incident-red)';
+  if (type === 'green_build' || type === 'canary_rollback') return 'var(--signal-green)';
+  if (type === 'coffee_stain' || type === 'golden_commit') return 'var(--coffee-amber)';
+  return 'var(--electric-cyan)';
 }
 
 export default function RandomEventToast({ event, onChoice, onTap, disabled = false }) {
   const [timeLeft, setTimeLeft] = useState(100);
-  const [mode, setMode] = useState('choice'); // 'choice' | 'minigame'
+  const [mode, setMode] = useState('choice');
 
   useEffect(() => {
     if (!event) {
@@ -88,9 +73,7 @@ export default function RandomEventToast({ event, onChoice, onTap, disabled = fa
   useEffect(() => {
     if (!event?.state) return;
     const clickKey = getClickKey(event.type);
-    if (clickKey && event.state[clickKey] > 0) {
-      setMode('minigame');
-    }
+    if (clickKey && event.state[clickKey] > 0) setMode('minigame');
   }, [event?.state, event?.type]);
 
   useEffect(() => {
@@ -118,169 +101,83 @@ export default function RandomEventToast({ event, onChoice, onTap, disabled = fa
 
   const isClickEvent = CLICK_EVENTS.includes(event.type);
   const isAutoEvent = event.type === 'stack_overflow_down';
+  const isIncident = INCIDENT_EVENTS.has(event.type);
   const color = getEventColor(event.type);
   const clickKey = getClickKey(event.type);
   const clicksLeft = clickKey ? (event.state?.[clickKey] || 0) : 0;
   const solveHint = getChoiceHint(event.type, 'solve');
   const ignoreHint = getChoiceHint(event.type, 'ignore');
-
-  const keyart = EVENT_KEYART[event.type] || null;
+  const secondsLeft = Math.max(0, Math.ceil((timeLeft / 100) * Math.max(1, Number(event.timeout || 15))));
+  const cardClass = ['pixel-toast', 'event-card-v2', isIncident ? 'event-card-v2--incident' : ''].filter(Boolean).join(' ');
   const baseStyle = {
+    '--event-signal': color,
     position: "fixed",
     top: "16px",
     left: "50%",
     transform: "translateX(-50%)",
     width: "90vw",
     maxWidth: "420px",
-    zIndex: 200,
+    // Above the HUD (z-index 10) and the tap area (z-index 20). The card is
+    // time-limited, so being painted underneath either makes it unreadable.
+    zIndex: 400,
     animation: "pixel-fade-in 150ms step-end forwards",
-    background: keyart
-      ? `linear-gradient(rgba(7, 13, 25, 0.78), rgba(7, 13, 25, 0.92)), ${keyart}`
-      : "rgba(16, 25, 45, 0.96)",
-    backgroundSize: keyart ? "cover" : undefined,
-    backgroundPosition: keyart ? "center" : undefined,
-    border: `2px solid ${color}`,
-    borderRadius: "4px",
-    padding: keyart ? "16px 12px" : "12px",
   };
 
+  const header = h('div', null, [
+    h('div', { className: 'event-card-v2__eyebrow' }, `${isIncident ? 'АКТИВНЫЙ ИНЦИДЕНТ' : 'СИСТЕМНОЕ СОБЫТИЕ'} · ${secondsLeft}с`),
+    h('h2', { className: 'event-card-v2__title' }, event.title),
+  ]);
+
+  const timer = h('div', { className: 'event-card-v2__timer-track', 'aria-label': `До автоматического выбора: ${secondsLeft} секунд` },
+    h('div', {
+      style: {
+        width: `${timeLeft}%`,
+        height: '100%',
+        background: color,
+        transition: "width 1s linear",
+      },
+    }),
+  );
+
   if (mode === 'minigame' && isClickEvent) {
-    return h(
-      "div",
-      { className: "pixel-toast", style: baseStyle },
-      [
-        h("div", {
-          style: {
-            fontFamily: "'Press Start 2P', 'Courier New', monospace",
-            fontSize: "11px",
-            color,
-            textTransform: "uppercase",
-            marginBottom: "8px",
-            textShadow: "2px 2px 0 #0f172a",
-          },
-        }, event.title),
-        h("div", {
-          style: {
-            fontFamily: "'Press Start 2P', 'Courier New', monospace",
-            fontSize: "9px",
-            color: "#e2e8f0",
-            lineHeight: 1.5,
-            marginBottom: "12px",
-            textShadow: "2px 2px 0 #0f172a",
-          },
-        }, `Осталось кликов: ${clicksLeft}`),
-        h("div", {
-          style: {
-            width: "100%",
-            height: "2px",
-            background: "#0f3460",
-            marginBottom: "12px",
-            overflow: "hidden",
-          },
-        }, h("div", {
-          style: {
-            width: `${timeLeft}%`,
-            height: "100%",
-            background: color,
-            transition: "width 1s linear",
-          },
-        })),
-        h("button", {
-          className: "pixel-button",
-          disabled,
-          onClick: handleMiniGameTap,
-          style: {
-            width: "100%",
-            padding: "16px",
-            fontSize: "14px",
-            background: color,
-            color: "#0f172a",
-            opacity: disabled ? 0.65 : 1,
-          },
-        }, disabled ? "..." : "ТАП!"),
-      ]
-    );
+    return h('section', { className: cardClass, style: baseStyle, role: 'dialog', 'aria-live': 'assertive', 'aria-label': event.title }, [
+      header,
+      h('div', { className: 'event-card-v2__status' }, `Осталось действий: ${clicksLeft}`),
+      timer,
+      h('button', {
+        className: 'event-card-v2__choice',
+        disabled,
+        onClick: handleMiniGameTap,
+        style: { width: '100%', borderColor: color, color, opacity: disabled ? 0.65 : 1 },
+      }, disabled ? 'ОБРАБОТКА…' : 'ВЫПОЛНИТЬ ДЕЙСТВИЕ'),
+    ]);
   }
 
-  return h(
-    "div",
-    { className: "pixel-toast", style: baseStyle },
-    [
-      h("div", {
-        style: {
-          fontFamily: "'Press Start 2P', 'Courier New', monospace",
-          fontSize: "11px",
-          color,
-          textTransform: "uppercase",
-          marginBottom: "8px",
-          textShadow: "2px 2px 0 #0f172a",
-        },
-      }, event.title),
-      h("div", {
-        style: {
-          fontFamily: "'Press Start 2P', 'Courier New', monospace",
-          fontSize: "9px",
-          color: "#e2e8f0",
-          lineHeight: 1.5,
-          marginBottom: "12px",
-          textShadow: "2px 2px 0 #0f172a",
-        },
-      }, event.description),
-      h("div", {
-        style: {
-          width: "100%",
-          height: "2px",
-          background: "#0f3460",
-          marginBottom: "12px",
-          overflow: "hidden",
-        },
-      }, h("div", {
-        style: {
-          width: `${timeLeft}%`,
-          height: "100%",
-          background: color,
-          transition: "width 1s linear",
-        },
-      })),
-      isAutoEvent
-        ? h("div", {
-            style: {
-              fontFamily: "'Press Start 2P', 'Courier New', monospace",
-              fontSize: "9px",
-              color: "#94a3b8",
-              textAlign: "center",
-            },
-          }, "Авто-закрытие...")
-        : h("div", {
-            style: {
-              display: "flex",
-              gap: "8px",
-              justifyContent: "stretch",
-            },
+  return h('section', { className: cardClass, style: baseStyle, role: 'dialog', 'aria-live': 'assertive', 'aria-label': event.title }, [
+    header,
+    h('div', { className: 'event-card-v2__description' }, event.description),
+    timer,
+    isAutoEvent
+      ? h('div', { className: 'event-card-v2__status' }, 'Событие завершится автоматически…')
+      : h('div', { className: 'event-card-v2__choices', style: { display: 'flex', justifyContent: 'stretch' } }, [
+          event.options?.solve && h('button', {
+            className: 'event-card-v2__choice',
+            disabled,
+            onClick: handleSolve,
+            style: { flex: 1, opacity: disabled ? 0.65 : 1 },
           }, [
-            event.options?.solve && h("button", {
-              className: "pixel-button",
-              disabled,
-              onClick: handleSolve,
-              style: { flex: 1, opacity: disabled ? 0.65 : 1 },
-            }, [
-              h('div', null, event.options.solve.label),
-              solveHint && h('div', {
-                style: { fontSize: '8px', opacity: 0.76, marginTop: '4px', lineHeight: 1.25 },
-              }, solveHint),
-            ]),
-            event.options?.ignore && h("button", {
-              className: "pixel-button pixel-button--danger",
-              disabled,
-              onClick: handleIgnore,
-              style: { flex: 1, opacity: disabled ? 0.65 : 1 },
-            }, [
-              h('div', null, event.options.ignore.label),
-              ignoreHint && h('div', {
-                style: { fontSize: '8px', opacity: 0.76, marginTop: '4px', lineHeight: 1.25 },
-              }, ignoreHint),
-            ]),
+            h('div', null, event.options.solve.label),
+            solveHint && h('div', { className: 'event-card-v2__hint' }, solveHint),
           ]),
-    ]
-  );
+          event.options?.ignore && h('button', {
+            className: 'event-card-v2__choice event-card-v2__choice--danger',
+            disabled,
+            onClick: handleIgnore,
+            style: { flex: 1, opacity: disabled ? 0.65 : 1 },
+          }, [
+            h('div', null, event.options.ignore.label),
+            ignoreHint && h('div', { className: 'event-card-v2__hint' }, ignoreHint),
+          ]),
+        ]),
+  ]);
 }

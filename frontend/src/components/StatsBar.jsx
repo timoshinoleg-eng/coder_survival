@@ -86,6 +86,7 @@ export default function StatsBar({ runtimeNow }) {
   const [careerOpen, setCareerOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
 
   // Telegram BackButton: closing the topmost modal instead of exiting the app.
   // Last entry wins (reverse iteration). Shop/boosters use their closers.
@@ -107,6 +108,7 @@ export default function StatsBar({ runtimeNow }) {
     [appealOpen, () => setAppealOpen(false)],
     [careerOpen, () => setCareerOpen(false)],
     [languageOpen, () => setLanguageOpen(false)],
+    [navigationOpen, () => setNavigationOpen(false)],
     [shopOpen, () => (typeof closeShop === 'function' ? closeShop() : setShopOpen(false))],
     [boostersOpen, () => (typeof closeBoosters === 'function' ? closeBoosters() : setBoostersOpen(false))],
   ];
@@ -244,10 +246,37 @@ export default function StatsBar({ runtimeNow }) {
     }
   }, [adLoading, energy, maxEnergy, initData]);
 
+  const openNavigationDestination = (openDestination) => {
+    haptic?.('light');
+    setNavigationOpen(false);
+    openDestination();
+  };
+  const navigationItems = [
+    { label: 'Усилители', detail: 'Временные бустеры', open: () => setBoostersOpen(true) },
+    { label: 'Генераторы', detail: 'Пассивные коммиты', open: () => setGeneratorsOpen(true) },
+    { label: 'Пригласить', detail: 'Реферальная программа', open: () => setReferralOpen(true) },
+    { label: 'Баттл дня', detail: 'Соревнование с коллегами', open: () => setBattleOpen(true) },
+    { label: 'Сводка', detail: 'Итоги дня', open: () => setDailySummaryOpen(true) },
+    { label: 'События', detail: productionAlertActive ? 'Есть активный риск' : 'Лента инцидентов', open: () => setEventOpen(true), alert: productionAlertActive },
+    { label: 'Спринт-пасс', detail: 'Награды сезона', open: () => setPassOpen(true) },
+    { label: 'Достижения', detail: unseenAchievementsCount > 0 ? `Новых: ${unseenAchievementsCount}` : 'Прогресс', open: () => setAchievementsOpen(true) },
+    { label: 'Команда', detail: 'Рабочая группа', open: () => setTeamOpen(true) },
+    { label: 'Командный баттл', detail: 'Общий вклад', open: () => setTeamBattleOpen(true) },
+    { label: 'Лидерборд', detail: 'Рейтинг разработчиков', open: () => setLeaderboardOpen(true) },
+    { label: 'Мемы', detail: 'Поделиться прогрессом', open: () => setMemeOpen(true) },
+    { label: 'Скины', detail: 'Внешний вид героя', open: () => setSkinOpen(true) },
+    { label: 'Карьера', detail: 'Ранг и путь развития', open: () => setCareerOpen(true) },
+    { label: 'Язык', detail: activeLanguage?.name || 'Бонусная специализация', open: () => setLanguageOpen(true) },
+    ...(miniGamesEnabled ? [{ label: 'Мини-игры', detail: 'Короткие отвлечения', open: () => setMiniGameOpen(true) }] : []),
+    ...(antiCheat?.banScore >= 20 ? [{ label: 'Проверка аккаунта', detail: 'Статус и апелляция', open: () => setAppealOpen(true), alert: antiCheat.appealAvailable }] : []),
+  ];
+
   return h(
     "div",
     {
-      className: "pixel-panel",
+      className: navigationOpen
+        ? "pixel-panel hud-v2 hud-v2--navigation-open"
+        : "pixel-panel hud-v2",
       style: {
         position: "relative",
         zIndex: 10,
@@ -365,7 +394,21 @@ export default function StatsBar({ runtimeNow }) {
           ),
           h(
             "div",
-            { style: { display: "flex", alignItems: "center", gap: "10px" } },
+            {
+              // hud-v2__quick-actions supplies flex-wrap (and justify-content:
+              // flex-end). Without the wrap the МЕНЮ button is pushed off-screen
+              // at 360px — and it is the only entry point to every destination
+              // in the bottom sheet. Keep justify-content from the class: the
+              // parent top row already spreads the badge and this group apart,
+              // so spreading again here would strand the commit counter on the
+              // far left, away from the buttons it belongs to.
+              className: "hud-v2__quick-actions",
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              },
+            },
             [
               h("div", { style: { textAlign: "right" } }, [
                 h(
@@ -390,7 +433,23 @@ export default function StatsBar({ runtimeNow }) {
                   "коммитов",
                 ),
               ]),
-              h("div", { style: { display: "flex", gap: "4px" } }, [
+              h("button", {
+                type: "button",
+                className: "hud-v2__action hud-v2__action--safe",
+                onClick: () => setQuestsOpen(true),
+              }, daily?.claimable ? `ЗАДАЧИ ${daily.claimable}` : "ЗАДАЧИ"),
+              h("button", {
+                type: "button",
+                className: isLowEnergy ? "hud-v2__action hud-v2__action--amber" : "hud-v2__action",
+                onClick: () => setShopOpen(true),
+              }, isLowEnergy ? "ЭНЕРГИЯ" : "МАГАЗИН"),
+              h("button", {
+                type: "button",
+                className: isHighStress || productionAlertActive ? "hud-v2__action hud-v2__action--alert" : "hud-v2__action",
+                onClick: () => setNavigationOpen(true),
+                "aria-label": "Открыть меню игры",
+              }, "МЕНЮ"),
+              h("div", { className: "hud-v2__legacy-actions", style: { display: "flex", gap: "4px" } }, [
                 h(
                   "button",
                   {
@@ -985,6 +1044,45 @@ export default function StatsBar({ runtimeNow }) {
           },
           toast.message,
         ),
+
+      navigationOpen && h('div', { className: 'hud-v2__navigation' }, [
+        h('button', {
+          type: 'button',
+          className: 'hud-v2__nav-scrim',
+          onClick: () => setNavigationOpen(false),
+          'aria-label': 'Закрыть меню игры',
+        }),
+        h('section', {
+          className: 'hud-v2__nav-sheet',
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-label': 'Меню игры',
+        }, [
+          h('div', { className: 'hud-v2__nav-header' }, [
+            h('div', { className: 'hud-v2__nav-title' }, 'СИСТЕМЫ'),
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+              h('span', { className: 'hud-v2__compact-status' }, 'Звук'),
+              h(AudioSettings),
+              h('button', {
+                type: 'button',
+                className: 'hud-v2__action',
+                onClick: () => setNavigationOpen(false),
+                'aria-label': 'Закрыть меню игры',
+              }, 'ЗАКРЫТЬ'),
+            ]),
+          ]),
+          h('div', { className: 'hud-v2__nav-grid' }, navigationItems.map((item) => h('button', {
+            key: item.label,
+            type: 'button',
+            className: 'hud-v2__nav-item',
+            onClick: () => openNavigationDestination(item.open),
+            style: item.alert ? { borderColor: 'var(--incident-red)', color: 'var(--incident-red)' } : undefined,
+          }, [
+            item.label,
+            h('small', null, item.detail),
+          ]))),
+        ]),
+      ]),
 
       h(LeaderboardPanel, {
         open: leaderboardOpen,

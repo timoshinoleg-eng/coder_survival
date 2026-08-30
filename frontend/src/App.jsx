@@ -25,6 +25,7 @@ import TeamPanel from "./components/TeamPanel.jsx";
 import BattleCard from "./components/BattleCard.jsx";
 import ShareButton from "./components/ShareButton.jsx";
 import AudioToggle from "./components/AudioToggle.jsx";
+import VisualFixture from "./components/VisualFixture.jsx";
 import CareerModal from "./components/CareerModal.jsx";
 import MemeGenerator from "./components/MemeGenerator.jsx";
 import PrestigeModal from "./components/PrestigeModal.jsx";
@@ -91,6 +92,9 @@ function getRandomEventGameStatePayload() {
 
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
+  // Stable identity: an inline arrow gave PhaserGame a new onReady prop on
+  // every render, re-triggering its ready effect each time.
+  const handleGameReady = useCallback(() => setGameReady(true), []);
   const {
     loading, rank, crunchTime, showOnboarding, battles, applyEventDeltas, showToast,
     memePrompt, clearMemePrompt, randomEventState: persistedRandomEventState,
@@ -568,10 +572,12 @@ function AppInner() {
   return h(
     "div",
     {
-      id: "app",
+      // Was id="app", which produced a second #app nested inside the mount
+      // container from index.html. Class-only now; .app-shell carries the
+      // layout contract (see visual-system-v2.css).
+      className: "app-shell",
       style: themeColor
         ? {
-            minHeight: '100vh',
             background: `linear-gradient(180deg, #0b1622 0%, ${themeColor}22 40%, #0b1622 100%)`,
           }
         : undefined,
@@ -600,8 +606,15 @@ function AppInner() {
     h(PassPanel),
     h(
       "div",
-      { id: "game-container" },
-      h(PhaserGame, { onReady: () => setGameReady(true) }),
+      {
+        id: "game-container",
+        // minWidth: 0 overrides the default min-width: auto of a flex item.
+        // Without it the Phaser canvas' intrinsic width sets a floor on this
+        // box and the game area can push the shell wider than the viewport,
+        // which is exactly the horizontal-overflow failure the E2E gate checks.
+        style: { minWidth: 0 },
+      },
+      h(PhaserGame, { onReady: handleGameReady }),
     ),
     h(TapArea, { active: gameReady }),
     activeRuntimeEvents.length > 0 && h(
@@ -797,5 +810,8 @@ function AppInner() {
 }
 
 export default function App() {
+  const visualFixtureEnabled = import.meta.env.DEV
+    && new URLSearchParams(window.location.search).has('visual-fixture');
+  if (visualFixtureEnabled) return h(VisualFixture);
   return h(TelegramProvider, null, h(GameProvider, null, h(TonWalletProvider, null, h(AppInner))));
 }
