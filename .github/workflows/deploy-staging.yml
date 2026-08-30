@@ -46,7 +46,7 @@ jobs:
             ./backend/ \
             ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/opt/coder-survival/backend/
 
-      - name: Build and run Docker on staging
+      - name: Build Docker image on staging
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.STAGING_HOST }}
@@ -55,6 +55,31 @@ jobs:
           script: |
             cd /opt/coder-survival/backend
             docker build -t coder-survival-staging:latest .
+
+      - name: Run database migrations on staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            # Migrations must run against the real staging database before the
+            # new container starts serving. Without this step the schema only
+            # ever changed in CI, against an ephemeral Postgres.
+            docker run --rm \
+              -e NODE_ENV=${{ secrets.NODE_ENV }} \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              coder-survival-staging:latest \
+              node src/migrate.js
+
+      - name: Run Docker container on staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/coder-survival/backend
             docker stop coder-survival-staging || true
             docker rm coder-survival-staging || true
             docker run -d \
