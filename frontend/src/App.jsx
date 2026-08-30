@@ -606,7 +606,14 @@ function AppInner() {
     h(PassPanel),
     h(
       "div",
-      { id: "game-container" },
+      {
+        id: "game-container",
+        // minWidth: 0 overrides the default min-width: auto of a flex item.
+        // Without it the Phaser canvas' intrinsic width sets a floor on this
+        // box and the game area can push the shell wider than the viewport,
+        // which is exactly the horizontal-overflow failure the E2E gate checks.
+        style: { minWidth: 0 },
+      },
       h(PhaserGame, { onReady: handleGameReady }),
     ),
     h(TapArea, { active: gameReady }),

@@ -56,8 +56,30 @@ const VIEWPORTS = [
   { label: '360x800', width: 360, height: 800 },
 ];
 
-/** Every destination that used to live in the legacy toolbar. */
-const EXPECTED_MIN_DESTINATIONS = 15;
+/**
+ * Every destination that used to live in the legacy toolbar. Named explicitly
+ * rather than counted: a count of 15 still passes when a destination was
+ * renamed or dropped and an unrelated tile took its place. Two entries are
+ * conditional at runtime (Мини-игры, Проверка аккаунта), hence the
+ * greater-or-equal check on top of the per-name assertions.
+ */
+const EXPECTED_DESTINATIONS = [
+  'Усилители',
+  'Генераторы',
+  'Пригласить',
+  'Баттл дня',
+  'Сводка',
+  'События',
+  'Спринт-пасс',
+  'Достижения',
+  'Команда',
+  'Командный баттл',
+  'Лидерборд',
+  'Мемы',
+  'Скины',
+  'Карьера',
+  'Язык',
+];
 
 async function bootApp(page) {
   await page.route('https://telegram.org/js/telegram-web-app.js', (route) =>
@@ -163,19 +185,30 @@ for (const viewport of VIEWPORTS) {
 
     await menuButton.click();
 
-    const sheet = page.locator('.hud-v2__nav-sheet');
+    // Located by role and accessible name, not by class: if the sheet ever
+    // loses role="dialog" or its aria-label, screen-reader users lose the
+    // modal semantics even though the class-based selector still matches.
+    const sheet = page.getByRole('dialog', { name: 'Меню игры' });
     await expect(sheet).toBeVisible();
 
-    const destinations = page.locator('.hud-v2__nav-grid .hud-v2__nav-item');
-    const count = await destinations.count();
-    expect(
-      count,
-      `expected at least ${EXPECTED_MIN_DESTINATIONS} destinations in the sheet`
-    ).toBeGreaterThanOrEqual(EXPECTED_MIN_DESTINATIONS);
+    const all = page.locator('.hud-v2__nav-grid .hud-v2__nav-item');
+    const count = await all.count();
+    expect(count, 'destination tiles in the sheet').toBeGreaterThanOrEqual(
+      EXPECTED_DESTINATIONS.length
+    );
+
+    for (const label of EXPECTED_DESTINATIONS) {
+      const item = sheet.getByRole('button', { name: new RegExp(`^${label}`) });
+      await expect(item, `menu destination ${label}`).toBeVisible();
+      await expect(item, `menu destination ${label} must be actionable`).toBeEnabled();
+      // A trial click runs the full actionability check — including hit-target
+      // verification — without dispatching the event. This is what catches a
+      // destination that is on screen but covered by another layer.
+      await item.click({ trial: true });
+    }
 
     for (let i = 0; i < count; i += 1) {
-      const item = destinations.nth(i);
-      await expect(item, `destination #${i + 1} must be visible`).toBeVisible();
+      const item = all.nth(i);
       const itemBox = await item.boundingBox();
       expect(itemBox, `destination #${i + 1} must be laid out`).not.toBeNull();
       expect(itemBox.width, `destination #${i + 1} has no width`).toBeGreaterThan(0);
