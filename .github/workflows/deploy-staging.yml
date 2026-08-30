@@ -86,7 +86,7 @@ jobs:
               --name coder-survival-staging \
               --restart unless-stopped \
               -p 3000:3000 \
-              -e NODE_ENV=${{ secrets.NODE_ENV }} \
+              -e NODE_ENV=${{ secrets.NODE_ENV || 'production' }} \
               -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
               -e BOT_TOKEN=${{ secrets.BOT_TOKEN }} \
               -e WEBAPP_URL=${{ secrets.WEBAPP_URL }} \
