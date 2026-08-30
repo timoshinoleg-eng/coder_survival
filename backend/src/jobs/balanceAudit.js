@@ -81,13 +81,23 @@ async function runBalanceAudit() {
       return;
     }
 
-    const insertValues = violations.map(v =>
-      `(${v.userId}, 'balance_audit_violation', '${JSON.stringify({ type: v.type, ...v.details }).replace(/'/g, "''")}'::jsonb, NOW())`
-    ).join(',\n');
+    // Parameterized multi-row insert — no row data is interpolated into SQL.
+    // Fixes sql-injection (code-scanning alert #113) on this query.
+    const placeholders = violations.map((_, i) => {
+      const b = i * 3 + 1;
+      return `(${b}, 'balance_audit_violation', ${b + 1}::jsonb, NOW())`;
+    }).join(', ');
+
+    const params = [];
+    for (const v of violations) {
+      params.push(Number(v.userId));
+      params.push(JSON.stringify({ type: v.type, ...v.details }));
+    }
 
     await client.query(
       `INSERT INTO audit_logs (user_id, action, context, created_at)
-       VALUES ${insertValues}`
+       VALUES ${placeholders}`,
+      params
     );
 
     console.warn('[BalanceAudit] Нарушения обнаружены:', violations.length, 'записей');
