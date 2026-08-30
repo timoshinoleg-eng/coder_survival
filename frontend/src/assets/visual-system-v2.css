@@ -1,5 +1,24 @@
 /* Coder Survival visual system v2 — high-visibility runtime surfaces only. */
 
+/* Single flex column that owns the viewport height, so #game-container can
+   claim the remaining space with flex: 1. Without this the game area collapses
+   because its parent was a plain block element. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100dvh;
+}
+
+/* While the navigation sheet is open the whole HUD is lifted above
+   .tap-area-v2 (z-index 20). The sheet is a child of .hud-v2, which forms a
+   stacking context at z-index 10 — so on its own the sheet's z-index 300 can
+   never out-rank its sibling tap area, and the absolutely positioned tap area
+   keeps intercepting pointer events over the open sheet. */
+.hud-v2--navigation-open {
+  z-index: 500 !important;
+}
+
 .hud-v2 {
   background: var(--panel-ink) !important;
   border-color: var(--border-technical) !important;
@@ -138,8 +157,11 @@
   font-weight: 400;
 }
 
+/* Full padding lives here, not inline: an inline `padding: 14px` on the element
+   overrides the bottom value and drops the primary tap control under the home
+   indicator on devices with a bottom safe-area inset. */
 .tap-area-v2 {
-  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
 }
 
 .tap-area-v2__meters {
