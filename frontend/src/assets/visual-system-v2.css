@@ -10,13 +10,20 @@
   min-height: 100dvh;
 }
 
-/* While the navigation sheet is open the whole HUD is lifted above
-   .tap-area-v2 (z-index 20). The sheet is a child of .hud-v2, which forms a
-   stacking context at z-index 10 — so on its own the sheet's z-index 300 can
-   never out-rank its sibling tap area, and the absolutely positioned tap area
-   keeps intercepting pointer events over the open sheet. */
+/* While the navigation sheet is open the whole HUD is lifted above its siblings
+   in the app shell. The sheet is a child of .hud-v2, which forms a stacking
+   context at z-index 10 — so on its own the sheet's z-index 300 can never
+   out-rank .tap-area-v2 (z-index 20), and the absolutely positioned tap area
+   keeps intercepting pointer events over the open sheet.
+
+   50 is deliberate, not arbitrary: it clears every sibling the menu has to
+   cover (.tap-area-v2 at 20/30, panels at 40/44/45) while staying BELOW the
+   layers that must remain on top of an open menu — LoadingOverlay,
+   AchievementToast and PrestigeModal all sit at 100, OnboardingModal at 1000.
+   A value like 300 or 500 would paint the menu over a blocking loading state
+   or over a freshly earned achievement toast. */
 .hud-v2--navigation-open {
-  z-index: 500 !important;
+  z-index: 50 !important;
 }
 
 .hud-v2 {

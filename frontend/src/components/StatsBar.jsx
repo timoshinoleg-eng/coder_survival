@@ -395,15 +395,18 @@ export default function StatsBar({ runtimeNow }) {
           h(
             "div",
             {
-              // hud-v2__quick-actions supplies flex-wrap. Without it the МЕНЮ
-              // button is pushed off-screen at 360px — and it is the only entry
-              // point to every destination in the bottom sheet.
+              // hud-v2__quick-actions supplies flex-wrap (and justify-content:
+              // flex-end). Without the wrap the МЕНЮ button is pushed off-screen
+              // at 360px — and it is the only entry point to every destination
+              // in the bottom sheet. Keep justify-content from the class: the
+              // parent top row already spreads the badge and this group apart,
+              // so spreading again here would strand the commit counter on the
+              // far left, away from the buttons it belongs to.
               className: "hud-v2__quick-actions",
               style: {
                 display: "flex",
                 alignItems: "center",
                 gap: "10px",
-                justifyContent: "space-between",
               },
             },
             [
