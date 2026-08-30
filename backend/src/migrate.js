@@ -7,6 +7,48 @@ import { buildDatabaseSslOptions, buildDatabaseUrl } from './config/database.js'
 const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * Stable advisory-lock key for the migration runner.
+ *
+ * The service is single-instance by design (in-memory anti-cheat state), but a
+ * deploy can overlap with a manual `node src/migrate.js` on the VM, and two
+ * concurrent runners would interleave DDL/DML. The lock serialises them.
+ *
+ * Passed as a string and cast to bigint in SQL so we never round-trip through
+ * a JS Number (2^53 precision limit).
+ */
+export const MIGRATION_LOCK_KEY = '8140027311552001';
+
+async function acquireMigrationLock(pool) {
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query(
+      'SELECT pg_try_advisory_lock($1::bigint) AS acquired',
+      [MIGRATION_LOCK_KEY]
+    );
+    if (!rows[0]?.acquired) {
+      throw new Error(
+        'Another migration run is already holding the advisory lock. ' +
+        'Aborting to avoid concurrent schema changes.'
+      );
+    }
+    return client;
+  } catch (err) {
+    client.release();
+    throw err;
+  }
+}
+
+async function releaseMigrationLock(client) {
+  try {
+    await client.query('SELECT pg_advisory_unlock($1::bigint)', [MIGRATION_LOCK_KEY]);
+  } catch {
+    // Releasing is best-effort: closing the session drops the lock anyway.
+  } finally {
+    client.release();
+  }
+}
+
 export function buildMigrationPoolOptions(env = process.env) {
   return {
     connectionString: buildDatabaseUrl(env),
@@ -21,6 +63,7 @@ export async function migrate(env = process.env) {
     .filter((file) => file.endsWith('.sql'))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
+  const lockClient = await acquireMigrationLock(pool);
   try {
     console.log('Running migrations...');
     await pool.query(`
@@ -65,6 +108,7 @@ export async function migrate(env = process.env) {
 
     console.log('Migrations complete.');
   } finally {
+    await releaseMigrationLock(lockClient);
     await pool.end();
   }
 }
