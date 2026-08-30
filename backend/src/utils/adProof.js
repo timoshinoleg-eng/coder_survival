@@ -40,6 +40,11 @@ export function verifyPropellerCallbackHash({ eventId, userId, hash, secret }) {
   if (!secret || !eventId || !userId || !hash) {
     return false;
   }
+  // PropellerAds S2S postback signs its callback with MD5(event_id + user_id + secret) per the
+  // ad network's mandated spec; the secret is server-side only and never exposed to clients.
+  // The algorithm is fixed by the external contract and cannot be strengthened without breaking
+  // callback verification. Accept the weak-crypto alert as an externally-mandated integration constraint.
+  // codeql[js/weak-cryptographic-algorithm] Externally-mandated PropellerAds postback hash; secret is server-side only.
   const expected = crypto.createHash('md5').update(`${eventId}${userId}${secret}`, 'utf8').digest('hex');
   return safeEqual(String(hash).trim(), expected);
 }

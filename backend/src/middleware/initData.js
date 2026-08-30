@@ -61,20 +61,63 @@ export function initDataMiddleware(req, res, next) {
   }
 
   const parsed = parseInitData(initData);
-  // Replay window: 1 hour by default. Never widen to 24h — stolen initData
-  // stays valid for the whole window otherwise.
-  const maxAgeSeconds = parseInt(process.env.INIT_DATA_MAX_AGE_SECONDS || '3600', 10);
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const age = parsed.authDate ? nowSeconds - parsed.authDate : null;
 
-  if (!parsed.authDate || nowSeconds - parsed.authDate > maxAgeSeconds) {
-    console.log(`[auth] ${method} ${path} — REJECTED: expired initData (age: ${age}s, max: ${maxAgeSeconds}s)`);
+  // Replay window. Default 1h. Hardened so a misconfigured / non-numeric
+  // INIT_DATA_MAX_AGE_SECONDS can NEVER widen the window to "never expires":
+  // an unparseable or non-positive value falls back to the safe default, and
+  // the window is capped so an operator cannot widen the replay surface to
+  // 24h+ (a stolen initData would stay valid for the whole window).
+  const maxAgeSeconds = resolveMaxAgeSeconds(process.env.INIT_DATA_MAX_AGE_SECONDS);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const age =
+    Number.isInteger(parsed.authDate) && parsed.authDate > 0
+      ? nowSeconds - parsed.authDate
+      : null;
+
+  // Reject when authDate is missing/garbage OR the initData is older than the
+  // replay window. `age === null` (no valid auth_date) MUST reject — otherwise
+  // `nowSeconds - NaN > maxAgeSeconds` evaluates to false and initData would
+  // never expire (fail-open).
+  if (age === null || age > maxAgeSeconds) {
+    console.log(`[auth] ${method} ${path} — REJECTED: expired or malformed initData (age: ${age}s, max: ${maxAgeSeconds}s)`);
     return res.status(403).json({ error: 'Expired initData' });
   }
 
   console.log(`[auth] ${method} ${path} — accepted user=${parsed.user?.id} via=${verifiedVia} age=${age}s`);
   req.telegramUser = parsed;
   next();
+}
+
+/**
+ * Безопасное разрешение окна replay для initData.
+ * Невалидное (не число / не положительное) значение INIT_DATA_MAX_AGE_SECONDS
+ * возвращает безопасный дефолт, а слишком большое — обрезается жёстким потолком,
+ * чтобы нельзя было расширить окно replay до 24h+.
+ */
+const DEFAULT_INIT_DATA_MAX_AGE_SECONDS = 3600;
+const MAX_INIT_DATA_MAX_AGE_SECONDS = 7200; // 2h hard cap — never widen to 24h+.
+
+function resolveMaxAgeSeconds(raw) {
+  const parsed = parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    if (raw !== undefined && raw !== '') {
+      console.warn(
+        `[auth] INIT_DATA_MAX_AGE_SECONDS=${JSON.stringify(raw)} is invalid ` +
+          `(expected a positive integer) — falling back to ` +
+          `${DEFAULT_INIT_DATA_MAX_AGE_SECONDS}s.`,
+      );
+    }
+    return DEFAULT_INIT_DATA_MAX_AGE_SECONDS;
+  }
+  if (parsed > MAX_INIT_DATA_MAX_AGE_SECONDS) {
+    console.warn(
+      `[auth] INIT_DATA_MAX_AGE_SECONDS=${parsed} exceeds the hard cap of ` +
+        `${MAX_INIT_DATA_MAX_AGE_SECONDS}s — clamping to prevent an over-wide ` +
+        `replay window.`,
+    );
+    return MAX_INIT_DATA_MAX_AGE_SECONDS;
+  }
+  return parsed;
 }
 
 /**
