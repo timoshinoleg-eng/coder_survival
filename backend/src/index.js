@@ -120,13 +120,17 @@ app.use(
 // CORS allowlist.
 // Telegram WebView origins (t.me / telegram.org) are always allowed. Production
 // front-end origins must be configured explicitly via FRONTEND_URL and/or
-// CORS_ALLOWED_ORIGINS (comma-separated). The permissive `*.vercel.app` preview
-// origin is NOT allowed by default — it lets any attacker-controlled Vercel
-// project make credentialed cross-origin requests. It is re-enabled only when
-// an operator opts in with ALLOW_VERCEL_PREVIEW_ORIGINS=true, and as a
-// backward-compatibility fallback when NO explicit front-end origin is
-// configured (so an un-migrated deployment does not break — a warning is
-// logged on boot instead).
+// CORS_ALLOWED_ORIGINS (comma-separated).
+//
+// SECURITY: `*.vercel.app` preview origins are NEVER allowed by default in
+// production. Any Vercel project can deploy a page on `*.vercel.app`, so
+// allowing it lets an attacker host a page that makes credentialed cross-origin
+// requests to our API using a victim's Telegram session. It is only permitted
+// when an operator EXPLICITLY opts in with ALLOW_VERCEL_PREVIEW_ORIGINS=true.
+// In non-production (dev/test) the permissive fallback is retained so
+// un-migrated local deployments keep working, but production is fail-closed:
+// with no explicit origin and no opt-in, ALL non-Telegram cross-origin
+// requests are rejected.
 const isProd = process.env.NODE_ENV === "production";
 const explicitOrigins = [
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
@@ -134,13 +138,23 @@ const explicitOrigins = [
     ? process.env.CORS_ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
     : []),
 ];
-const allowVercelPreviews =
-  process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === "true" || explicitOrigins.length === 0;
-if (allowVercelPreviews && process.env.ALLOW_VERCEL_PREVIEW_ORIGINS !== "true") {
+const optInVercelPreviews = process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === "true";
+// Fail-closed in production: Vercel previews are attacker-controlled, so they
+// require an explicit opt-in. The un-migrated fallback (allow when no explicit
+// origin is set) is retained ONLY for non-production convenience.
+const allowVercelPreviews = optInVercelPreviews || (!isProd && explicitOrigins.length === 0);
+
+if (isProd && explicitOrigins.length === 0 && !optInVercelPreviews) {
+  console.warn(
+    "[cors] PRODUCTION has no FRONTEND_URL/CORS_ALLOWED_ORIGINS configured — " +
+      "rejecting all non-Telegram cross-origin requests (fail-closed). Set " +
+      "CORS_ALLOWED_ORIGINS to your production origin(s).",
+  );
+} else if (!isProd && allowVercelPreviews && !optInVercelPreviews) {
   console.warn(
     "[cors] No FRONTEND_URL/CORS_ALLOWED_ORIGINS configured — falling back to " +
-      "allowing *.vercel.app origins. Set CORS_ALLOWED_ORIGINS to your production " +
-      "origin(s) to close this.",
+      "allowing *.vercel.app origins (non-production only). Set " +
+      "CORS_ALLOWED_ORIGINS to your origin(s) to close this in production.",
   );
 }
 const corsWhitelist = [
