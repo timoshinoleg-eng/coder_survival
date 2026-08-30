@@ -1,0 +1,16 @@
+{
+  "batch": "luna_p1_v01",
+  "checked_at": "2026-08-30T22:02:28.460Z",
+  "source_status": "CANDIDATE / CHANGES_REQUESTED pending Manus raw-file review",
+  "integration_allowed": false,
+  "assets_checked": 15,
+  "files_checked": 38,
+  "all_hashes_dimensions_qa_pass": true,
+  "manual_review_required": [
+    "identity/silhouette at 128px",
+    "palette semantics",
+    "390px Telegram overlay readability",
+    "no accidental text/brand marks"
+  ],
+  "note": "Source package remains CANDIDATE; this command does not grant runtime approval."
+}\n
