@@ -5,6 +5,7 @@ param(
   [string]$FrontendDir = "frontend",
   [string]$BotDir = "bot",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
+  [string]$BackendImageTag = $env:BACKEND_IMAGE_TAG,
   [string]$SshKeyPath = $env:CODER_SURVIVAL_SSH_KEY_PATH,
   [string]$SshKnownHostsPath = $env:CODER_SURVIVAL_SSH_KNOWN_HOSTS_PATH,
   [switch]$AllowDirty,
@@ -23,9 +24,14 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $frontendPath = Join-Path $repoRoot $FrontendDir
 $botPath = Join-Path $repoRoot $BotDir
 $smokeScript = Join-Path $PSScriptRoot "smoke-core-prod.ps1"
+$releaseImageTagHelper = Join-Path $PSScriptRoot "release-image-tag.ps1"
+. $releaseImageTagHelper
 $backendImageRepo = "coder-survival-backend"
-$gitSha = (git -C $repoRoot rev-parse --short=12 HEAD).Trim()
-$backendImageTag = "git-$gitSha"
+$backendImageTag = Assert-ReviewedBackendImageTag -BackendImageTag $BackendImageTag
+$checkedOutCommit = (git -C $repoRoot rev-parse HEAD).Trim().ToLowerInvariant()
+if ($backendImageTag -ne "git-$checkedOutCommit") {
+  throw "BACKEND_IMAGE_TAG must identify the checked-out reviewed commit ($checkedOutCommit)."
+}
 $backendPayloadWhitelist = @(
   "backend/Dockerfile",
   "backend/package.json",
@@ -95,7 +101,6 @@ function Invoke-SshScript {
 Write-Host "=== Coder Survival Release ==="
 Write-Host "Started at: $(Get-Date -Format o)"
 Write-Host "Backend image: ${backendImageRepo}:${backendImageTag}"
-Write-Host "Backend latest alias: ${backendImageRepo}:latest"
 
 if (-not $AllowDirty) {
   $gitStatus = @(git -C $repoRoot status --porcelain)
@@ -237,9 +242,12 @@ rm -f /tmp/coder-survival-release.zip
 BACKEND_IMAGE_REPO='__BACKEND_IMAGE_REPO__'
 BACKEND_IMAGE_TAG='__BACKEND_IMAGE_TAG__'
 export BACKEND_IMAGE_TAG
-docker build --no-cache -t "${BACKEND_IMAGE_REPO}:${BACKEND_IMAGE_TAG}" -t "${BACKEND_IMAGE_REPO}:latest" ./backend
+docker build --no-cache -t "${BACKEND_IMAGE_REPO}:${BACKEND_IMAGE_TAG}" ./backend
+	# Validate the exact compose-injected runtime contract before any schema change
+	# or restart. The preflight emits named checks only and never prints values.
+	docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ run --rm --no-deps backend node -e "import('./src/config/productionPreflight.js').then(({assertProductionConfig}) => assertProductionConfig())"
 docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ run --rm backend node src/migrate.js
-docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ up -d --force-recreate backend
+docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ up -d --force-recreate --no-build backend
 backend_container_id="$(docker compose --env-file backend/.env -f __BACKEND_COMPOSE_FILE__ ps -q backend)"
 for i in 1 2 3 4 5 6 7 8 9 10; do
   if [ -n "$backend_container_id" ] && [ "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$backend_container_id")" = "healthy" ]; then
@@ -271,7 +279,7 @@ exit 1
 
 if (-not $SkipSmoke) {
   Invoke-Checked -Label "Production core smoke" -Action {
-    & $smokeScript -VmHost $VmHost -RemoteAppDir $RemoteAppDir -BackendComposeFile $BackendComposeFile
+    & $smokeScript -VmHost $VmHost -RemoteAppDir $RemoteAppDir -BackendComposeFile $BackendComposeFile -BackendImageTag $backendImageTag
   }.GetNewClosure()
 }
 

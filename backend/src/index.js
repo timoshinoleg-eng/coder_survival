@@ -25,6 +25,7 @@ function optionalInitData(req, res, next) {
 
 import { startBalanceAuditJob } from "./jobs/balanceAudit.js";
 import { buildDatabaseSslOptions, buildDatabaseUrl, shouldExitOnUnexpectedDbError } from "./config/database.js";
+import { assertProductionConfig } from "./config/productionPreflight.js";
 import tapRouter from "./routes/tap.js";
 import stateRouter from "./routes/state.js";
 import buyRouter from "./routes/buy.js";
@@ -82,6 +83,14 @@ const { Pool } = pg;
 // --- Конфигурация ---
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = buildDatabaseUrl(process.env);
+const isProd = process.env.NODE_ENV === "production";
+
+// Fail closed before accepting production traffic when release-critical
+// secrets, HTTPS origins, auth freshness or the payments kill switch drift.
+// The preflight reports only named checks and never prints config values.
+if (isProd) {
+  assertProductionConfig(process.env);
+}
 
 // --- Пул соединений PostgreSQL ---
 export const pool = new Pool({
@@ -131,7 +140,6 @@ app.use(
 // un-migrated local deployments keep working, but production is fail-closed:
 // with no explicit origin and no opt-in, ALL non-Telegram cross-origin
 // requests are rejected.
-const isProd = process.env.NODE_ENV === "production";
 const explicitOrigins = [
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
   ...(process.env.CORS_ALLOWED_ORIGINS
