@@ -25,6 +25,22 @@ export function getLeagueForCommits(weeklyCommits) {
   return { league, next, commits };
 }
 
+export function getLeagueProgress(weeklyCommits) {
+  const { league, next, commits } = getLeagueForCommits(weeklyCommits);
+  if (!next) {
+    return { currentTierMin: league.min, nextTierMin: null, progressPercent: 100 };
+  }
+
+  const span = Math.max(1, next.min - league.min);
+  const earnedInsideTier = Math.max(0, commits - league.min);
+  return {
+    currentTierMin: league.min,
+    nextTierMin: next.min,
+    // Never display a completed band before the user actually crosses into the next tier.
+    progressPercent: Math.max(0, Math.min(99, Math.floor((earnedInsideTier / span) * 100))),
+  };
+}
+
 export function getLeagueById(id) {
   return LEAGUES.find((l) => l.id === id) || null;
 }
