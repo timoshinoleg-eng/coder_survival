@@ -1,0 +1,13 @@
+{
+  "description": "Phase C staged soft-launch cohort schedule for coder_survival.",
+  "cohorts": [
+    { "name": "5m",  "minutes": 5 },
+    { "name": "15m", "minutes": 15 },
+    { "name": "1h",  "minutes": 60 },
+    { "name": "24h", "minutes": 1440 },
+    { "name": "72h", "minutes": 4320 }
+  ],
+  "maxAdsPerDay": 5,
+  "adCooldownMinutes": 15,
+  "haltOn": ["duplicate_reward_divergence", "daily_cap_regression", "security_red"]
+}
