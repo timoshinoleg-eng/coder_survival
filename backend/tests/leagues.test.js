@@ -1,6 +1,6 @@
 import { createInitData, ensureTestSchema, resetTestDatabase, testPool, TEST_DATABASE_URL } from "./helpers/testDb.js";
 import { startTestServer } from "./helpers/testServer.js";
-import { getLeagueForCommits, getWeekMonday, snapshotLeagueWeek, LEAGUES } from "../src/utils/leagues.js";
+import { getLeagueForCommits, getLeagueProgress, getWeekMonday, snapshotLeagueWeek, LEAGUES } from "../src/utils/leagues.js";
 
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -25,8 +25,34 @@ describe("league tier thresholds (pure)", () => {
     expect(ctx.next.min - ctx.commits).toBe(1300);
   });
 
+  test("progress is measured inside the current tier band without pre-promotion 100%", () => {
+    expect(getLeagueProgress(0).progressPercent).toBe(0);
+    expect(getLeagueProgress(250).progressPercent).toBe(50);
+    expect(getLeagueProgress(500).progressPercent).toBe(0);
+    expect(getLeagueProgress(1250).progressPercent).toBe(50);
+    expect(getLeagueProgress(1999).progressPercent).toBe(99);
+    expect(getLeagueProgress(2000).progressPercent).toBe(0);
+
+    for (let i = 0; i < LEAGUES.length - 1; i += 1) {
+      const current = LEAGUES[i];
+      const next = LEAGUES[i + 1];
+      const beforePromotion = getLeagueProgress(next.min - 1);
+      expect(beforePromotion.currentTierMin).toBe(current.min);
+      expect(beforePromotion.nextTierMin).toBe(next.min);
+      expect(beforePromotion.progressPercent).toBeLessThan(100);
+      expect(beforePromotion.progressPercent).toBe(99);
+    }
+  });
+
+  test("legend is terminal and reports complete progress", () => {
+    const progress = getLeagueProgress(40000);
+    expect(progress.currentTierMin).toBe(40000);
+    expect(progress.nextTierMin).toBeNull();
+    expect(progress.progressPercent).toBe(100);
+  });
+
   test("monday of week is a Monday", () => {
-    const monday = getWeekMonday(new Date("2026-08-16T12:00:00Z")); // Sunday
+    const monday = getWeekMonday(new Date("2026-08-16T12:00:00Z"));
     expect(monday.getUTCDay()).toBe(1);
     expect(monday.toISOString().slice(0, 10)).toBe("2026-08-10");
   });
@@ -55,7 +81,6 @@ describeIfDb("weekly league snapshot (db)", () => {
     const state = await server.request("/api/state", { headers: { "X-Telegram-Init-Data": initData } });
     expect(state.status).toBe(200);
     const userId = state.body?.user?.id;
-    // Anchor inside the CURRENT ISO week regardless of the weekday the suite runs on.
     await testPool.query(
       `INSERT INTO sessions (session_id, user_id, started_at, taps_count, commits_earned)
        VALUES (gen_random_uuid(), $1, date_trunc('week', NOW()) + INTERVAL '1 hour', 10, $2)`,
@@ -64,13 +89,42 @@ describeIfDb("weekly league snapshot (db)", () => {
     return userId;
   }
 
+  test("active Legend players receive a place inside Legend", async () => {
+    await seedUserWithWeekCommits(910011, 45000);
+    await seedUserWithWeekCommits(910012, 42000);
+
+    const response = await server.request("/api/leaderboard?limit=10&period=week&aroundMe=1", {
+      headers: { "X-Telegram-Init-Data": createInitData(910012) }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body?.league?.tier).toBe("legend");
+    expect(response.body?.league?.placementInLeague).toBe(2);
+    expect(response.body?.league?.progressPercent).toBe(100);
+    expect(response.body?.league?.nextTier).toBeNull();
+  });
+
+  test("pre-promotion Gold boundary reports 99% until Gold is actually reached", async () => {
+    await seedUserWithWeekCommits(910013, 1999);
+
+    const response = await server.request("/api/leaderboard?limit=10&period=week&aroundMe=1", {
+      headers: { "X-Telegram-Init-Data": createInitData(910013) }
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body?.league?.tier).toBe("silver");
+    expect(response.body?.league?.weeklyCommits).toBe(1999);
+    expect(response.body?.league?.progressPercent).toBe(99);
+    expect(response.body?.league?.nextTier?.id).toBe("gold");
+    expect(response.body?.league?.nextTierCommitsLeft).toBe(1);
+  });
+
   test("snapshot places players, grants tier stars, idempotent on rerun", async () => {
     const bronzeUser = await seedUserWithWeekCommits(910001, 100);
     const goldUser = await seedUserWithWeekCommits(910002, 2500);
     const legendUser = await seedUserWithWeekCommits(910003, 45000);
 
     const weekMonday = getWeekMonday(new Date());
-    // sessions were seeded NOW()-2d => inside the CURRENT week; snapshot the current week
     const client = await testPool.connect();
     let result;
     try {
@@ -100,7 +154,6 @@ describeIfDb("weekly league snapshot (db)", () => {
       LEAGUES.find((l) => l.id === "gold").rewardStars
     );
 
-    // idempotency: rerun must not double-place or double-grant
     const client2 = await testPool.connect();
     let rerun;
     try {
