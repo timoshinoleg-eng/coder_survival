@@ -1,0 +1,33 @@
+{
+  "id": "migration_lock",
+  "locale": "ru",
+  "archetype": "production",
+  "rarity": "rare",
+  "title": "Миграция на 99%",
+  "body": "Миграция стоит на 99%. База ждёт один длинный запрос, который «уже почти закончил».",
+  "choices": [
+    {
+      "id": "cancel_and_retry",
+      "label": "Остановить и повторить",
+      "risk": "Потеряешь часть прогресса, но вернёшь контроль.",
+      "effects": { "commits": -3, "depression": 2, "coffeeCoins": 0 }
+    },
+    {
+      "id": "wait_one_more_minute",
+      "label": "Ещё минуту",
+      "risk": "Сохранишь коммиты, но заплатишь нервами.",
+      "effects": { "commits": 2, "depression": 5, "coffeeCoins": 0 }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "cancel_and_retry",
+      "punchline": "Lock снят. 99% снова означает почти готово."
+    },
+    {
+      "id": "wait_one_more_minute",
+      "punchline": "Минута прошла. Теперь 99% — это название инцидента."
+    }
+  ],
+  "shareTemplate": "Миграция: 99%. Время: технически движется."
+}

@@ -1,0 +1,28 @@
+{
+  "image": "ui_icons_a3_atlas.png",
+  "tile": { "width": 24, "height": 32 },
+  "grid": { "columns": 11, "rows": 3, "width": 264, "height": 96 },
+  "background": "#0d1224",
+  "palette": {
+    "cyan": "#38bdf8",
+    "green": "#4ade80",
+    "red": "#ef4444"
+  },
+  "variants": ["01", "02", "03"],
+  "columns": [
+    { "index": 0, "id": "energy" },
+    { "index": 1, "id": "stress" },
+    { "index": 2, "id": "commits" },
+    { "index": 3, "id": "coffee_coin" },
+    { "index": 4, "id": "shop" },
+    { "index": 5, "id": "quests" },
+    { "index": 6, "id": "pass" },
+    { "index": 7, "id": "team" },
+    { "index": 8, "id": "leaderboard" },
+    { "index": 9, "id": "memes" },
+    { "index": 10, "id": "settings" }
+  ],
+  "cropRule": "x = column.index * 24; y = variantIndex * 32; w = 24; h = 32",
+  "status": "sol_draft",
+  "note": "Reversible atlas transport for A3 review; tiles may be atomized into individual PNG files after art review."
+}

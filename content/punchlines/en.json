@@ -1,0 +1,210 @@
+{
+  "events": {
+    "golden_commit": {
+      "success": "Clean commit. Nobody opens the diff. We do not disturb miracles.",
+      "failure": "Perfect commit missed. At least the TODO now has documented history."
+    },
+    "open_source_contribution": {
+      "success": "PR merged. Strangers now know why this code should not be touched.",
+      "failure": "PR closed. “Thanks!” is technically still feedback."
+    },
+    "green_build": {
+      "success": "CI went green on the first try. The team agreed not to ask questions.",
+      "failure": "Pipeline is red again. The log says yesterday was fine."
+    },
+    "legacy_code": {
+      "success": "Refactor done. The new file is called legacy_adapter_final.js.",
+      "failure": "Legacy stayed. It interpreted this as a contract extension."
+    },
+    "deploy_friday": {
+      "success": "Deploy cancelled. Friday is a weekday again.",
+      "failure": "Deploy shipped. Chat went quiet: everyone is typing."
+    },
+    "bug_production": {
+      "success": "Hotfix shipped. Prod works again; postmortem opened itself.",
+      "failure": "Bug stayed. The pager took that as an invitation to continue."
+    },
+    "code_review": {
+      "success": "PR approved. The “small note” is now only 11 items.",
+      "failure": "PR rejected. Author replied “got it.” Most alarming status today."
+    },
+    "slack_huddle": {
+      "success": "Two-minute huddle. Twenty-three minutes later, a ticket exists.",
+      "failure": "Huddle declined. Context still arrived in six messages."
+    },
+    "scope_creep": {
+      "success": "Focus saved. The “tiny change” moved to the next sprint.",
+      "failure": "Change accepted. An hour later it had an epic and a roadmap."
+    },
+    "slack_thread_storm": {
+      "success": "Status posted. The thread stayed calm for fourteen seconds.",
+      "failure": "Notifications muted. Came back to 68 messages and one “urgent.”"
+    },
+    "coffee_stain": {
+      "success": "Keyboard survived. Spacebar now requires respectful pressure.",
+      "failure": "Coffee stayed. The keyboard got liquid cooling without approval."
+    },
+    "merge_conflict": {
+      "success": "Conflict resolved. Both branches believe they won.",
+      "failure": "Left for later. Later branched into two more branches."
+    },
+    "canary_rollback": {
+      "success": "Canary rolled back. Errors fell; Friday is theoretically free again.",
+      "failure": "Waited a minute. Metrics waited too, then went up."
+    },
+    "production_500_spike": {
+      "success": "Feature disabled. 500s vanished. Hypothesis temporarily unavailable.",
+      "failure": "Grafana refreshed. The spike is taller, but now it is real-time."
+    },
+    "ci_pipeline_red": {
+      "success": "Logs read. It was the test that “never failed before.”",
+      "failure": "Pressed Re-run. Failed faster. Pipeline values consistency."
+    },
+    "friday_release_outage": {
+      "success": "Release rolled back. Prod is green. Friday still made the postmortem.",
+      "failure": "Posted “works locally.” Prod remained unconvinced."
+    },
+    "stack_overflow_down": {
+      "success": "Stack Overflow is back. Documentation may be closed again.",
+      "failure": "Stack Overflow is down. Documentation opened and stared first."
+    }
+  },
+  "incidents": [
+    {
+      "id": "expired_certificate",
+      "locale": "en",
+      "archetype": "production",
+      "rarity": "rare",
+      "title": "Certificate expires",
+      "body": "The certificate expires in 11 minutes. Monitoring remembered before the calendar.",
+      "choices": [
+        {"id":"renew_now","label":"Renew now","risk":"Lose momentum, close the incident immediately.","effects":{"commits":-2,"depression":2,"coffeeCoins":0}},
+        {"id":"defer_to_morning","label":"Leave it till morning","risk":"Save time now, accept a visible penalty.","effects":{"commits":-7,"depression":6,"coffeeCoins":0}}
+      ],
+      "outcomes": [
+        {"id":"renew_now","punchline":"Certificate renewed. The internet trusts you for another 90 days."},
+        {"id":"defer_to_morning","punchline":"Certificate expired. The browser announced the release to clients first."}
+      ],
+      "shareTemplate": "Certificate: 11 minutes until production-grade calendar training."
+    },
+    {
+      "id": "migration_lock",
+      "locale": "en",
+      "archetype": "production",
+      "rarity": "rare",
+      "title": "Migration at 99%",
+      "body": "The migration is stuck at 99%. The database waits for one query that is “almost done.”",
+      "choices": [
+        {"id":"cancel_and_retry","label":"Cancel and retry","risk":"Lose some progress, regain control.","effects":{"commits":-3,"depression":2,"coffeeCoins":0}},
+        {"id":"wait_one_more_minute","label":"One more minute","risk":"Keep commits, pay in nerves.","effects":{"commits":2,"depression":5,"coffeeCoins":0}}
+      ],
+      "outcomes": [
+        {"id":"cancel_and_retry","punchline":"Lock cleared. 99% means almost done again."},
+        {"id":"wait_one_more_minute","punchline":"A minute passed. Now 99% is the incident title."}
+      ],
+      "shareTemplate": "Migration: 99%. Time: technically moving."
+    },
+    {
+      "id": "feature_flag_ghost",
+      "locale": "en",
+      "archetype": "legacy",
+      "rarity": "common",
+      "title": "Ghost feature flag",
+      "body": "The feature has been off for three months. Seven percent of traffic disagrees.",
+      "choices": [
+        {"id":"remove_flag","label":"Remove the flag","risk":"Untangle the old behavior branches.","effects":{"commits":5,"depression":2,"coffeeCoins":0}},
+        {"id":"freeze_flag","label":"Freeze it OFF","risk":"Fast and safe, with almost no progress.","effects":{"commits":1,"depression":0,"coffeeCoins":0}}
+      ],
+      "outcomes": [
+        {"id":"remove_flag","punchline":"Flag removed. Nobody knew why it existed — a promising sign."},
+        {"id":"freeze_flag","punchline":"Flag is permanently off. The code still checks it anyway."}
+      ],
+      "shareTemplate": "Feature disabled. The code has not received the memo."
+    },
+    {
+      "id": "queue_backlog",
+      "locale": "en",
+      "archetype": "production",
+      "rarity": "rare",
+      "title": "Queue backlog",
+      "body": "The queue grows faster than workers can pretend everything is normal.",
+      "choices": [
+        {"id":"drain_dead_letters","label":"Drain dead letters","risk":"Manual work: slow, but predictable.","effects":{"commits":4,"depression":2,"coffeeCoins":-1}},
+        {"id":"raise_timeout","label":"Raise timeout","risk":"The queue gets quieter; progress barely changes.","effects":{"commits":1,"depression":3,"coffeeCoins":0}}
+      ],
+      "outcomes": [
+        {"id":"drain_dead_letters","punchline":"Queue drained. The chart looks like a chart, not career growth."},
+        {"id":"raise_timeout","punchline":"Timeout raised. The system now fails more slowly and confidently."}
+      ],
+      "shareTemplate": "Queue growing. Workers maintain a professional expression."
+    },
+    {
+      "id": "flaky_test_quarantine",
+      "locale": "en",
+      "archetype": "deploy",
+      "rarity": "common",
+      "title": "Flaky test",
+      "body": "One test turns red every fifth build. The team already knows it by name.",
+      "choices": [
+        {"id":"quarantine_and_fix","label":"Quarantine and fix","risk":"Spend time now for a stable CI later.","effects":{"commits":5,"depression":2,"coffeeCoins":0}},
+        {"id":"rerun_until_green","label":"Re-run until green","risk":"Fast, stressful, and not actually fixed.","effects":{"commits":1,"depression":4,"coffeeCoins":0}}
+      ],
+      "outcomes": [
+        {"id":"quarantine_and_fix","punchline":"Flaky test fixed. Pipeline has stopped running a lottery."},
+        {"id":"rerun_until_green","punchline":"Green on the fourth Re-run. Cause officially undetermined."}
+      ],
+      "shareTemplate": "CI is green. The method is not part of the report."
+    },
+    {
+      "id": "cache_stampede",
+      "locale": "en",
+      "archetype": "production",
+      "rarity": "rare",
+      "title": "Cache stampede",
+      "body": "The cache expired all at once. Backend met all traffic personally.",
+      "choices": [
+        {"id":"jitter_ttl","label":"Jitter the TTL","risk":"Carefully fix the cache strategy.","effects":{"commits":5,"depression":2,"coffeeCoins":0}},
+        {"id":"raise_limits","label":"Raise limits","risk":"Fast symptom relief paid in resources and nerves.","effects":{"commits":1,"depression":4,"coffeeCoins":-1}}
+      ],
+      "outcomes": [
+        {"id":"jitter_ttl","punchline":"TTLs spread out. The next panic is at least distributed."},
+        {"id":"raise_limits","punchline":"Limits raised. The server got more resources for the same mistake."}
+      ],
+      "shareTemplate": "Cache expired together. Architecture values teamwork."
+    },
+    {
+      "id": "oncall_handoff",
+      "locale": "en",
+      "archetype": "meetings",
+      "rarity": "common",
+      "title": "On-call handoff",
+      "body": "The shift is over. The runbook ends with: “if needed, ask the on-call engineer.”",
+      "choices": [
+        {"id":"update_runbook","label":"Update the runbook","risk":"Spend energy on docs instead of current pace.","effects":{"commits":3,"depression":1,"coffeeCoins":-1}},
+        {"id":"verbal_handoff","label":"Hand it over verbally","risk":"Fast, but context becomes oral tradition.","effects":{"commits":1,"depression":3,"coffeeCoins":0}}
+      ],
+      "outcomes": [
+        {"id":"update_runbook","punchline":"Runbook updated. The on-call engineer is a person again, not a dependency."},
+        {"id":"verbal_handoff","punchline":"Handoff was verbal. An hour later, only the word “there” remained."}
+      ],
+      "shareTemplate": "On-call handed over. Context currently exists in oral form."
+    },
+    {
+      "id": "dependency_major",
+      "locale": "en",
+      "archetype": "legacy",
+      "rarity": "rare",
+      "title": "Major update",
+      "body": "A library offers a major update. The changelog has 38 breaking changes and the word “simple.”",
+      "choices": [
+        {"id":"upgrade_now","label":"Upgrade now","risk":"High load now for substantial technical progress.","effects":{"commits":7,"depression":4,"coffeeCoins":0}},
+        {"id":"pin_version","label":"Pin the version","risk":"Calm option with minimal progress.","effects":{"commits":1,"depression":-1,"coffeeCoins":0}}
+      ],
+      "outcomes": [
+        {"id":"upgrade_now","punchline":"Upgrade survived. Breaking changes ended at item 41."},
+        {"id":"pin_version","punchline":"Version pinned. The future has officially moved to backlog."}
+      ],
+      "shareTemplate": "Major update: simple. Changelog: 38 reasons to redefine simple."
+    }
+  ]
+}
