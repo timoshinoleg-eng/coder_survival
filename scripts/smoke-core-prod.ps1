@@ -3,6 +3,7 @@ param(
   [string]$VmHost = $env:CODER_SURVIVAL_VM_SSH_TARGET,
   [string]$RemoteAppDir = "/opt/coder_survival",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
+  [string]$BackendImageTag = $env:BACKEND_IMAGE_TAG,
   [string]$SshKeyPath = $env:CODER_SURVIVAL_SSH_KEY_PATH,
   [string]$SshKnownHostsPath = $env:CODER_SURVIVAL_SSH_KNOWN_HOSTS_PATH,
   [string]$BaseUrl = "https://frontend-ashy-alpha-77.vercel.app",
@@ -17,6 +18,10 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+$releaseImageTagHelper = Join-Path $PSScriptRoot "release-image-tag.ps1"
+. $releaseImageTagHelper
+$backendImageTag = Assert-ReviewedBackendImageTag -BackendImageTag $BackendImageTag
 
 if ([string]::IsNullOrWhiteSpace($VmHost) -or $VmHost -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
   throw "VmHost is required in user@host form. Pass -VmHost or set CODER_SURVIVAL_VM_SSH_TARGET."
@@ -61,7 +66,7 @@ function Get-BotToken {
   if ($env:BOT_TOKEN) { return $env:BOT_TOKEN.Trim() }
 
   Write-Host "==> Fetching BOT_TOKEN from backend runtime"
-  $token = ssh @sshOptions $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
+  $token = ssh @sshOptions $VmHost "cd $RemoteAppDir && BACKEND_IMAGE_TAG='$backendImageTag' docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
   if ($LASTEXITCODE -ne 0 -or -not $token) {
     throw "Failed to retrieve BOT_TOKEN from backend runtime on $VmHost"
   }
@@ -260,7 +265,7 @@ if (-not $SkipOffers) {
   $offerSmokeScript = Join-Path $PSScriptRoot "smoke-offers.ps1"
   if (Test-Path $offerSmokeScript -PathType Leaf) {
     try {
-      & $offerSmokeScript -VmHost $VmHost -RemoteAppDir $RemoteAppDir -BackendComposeFile $BackendComposeFile -BaseUrl $BaseUrl -DirectApiBaseUrl $DirectApiBaseUrl -BotToken $script:botToken
+      & $offerSmokeScript -VmHost $VmHost -RemoteAppDir $RemoteAppDir -BackendComposeFile $BackendComposeFile -BackendImageTag $backendImageTag -BaseUrl $BaseUrl -DirectApiBaseUrl $DirectApiBaseUrl -BotToken $script:botToken
       Write-Result -Results $results -Name "offers" -Ok $true -Detail "smoke-offers.ps1 passed"
     } catch {
       Write-Result -Results $results -Name "offers" -Ok $false -Detail $_.Exception.Message
