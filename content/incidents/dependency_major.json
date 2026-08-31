@@ -1,0 +1,33 @@
+{
+  "id": "dependency_major",
+  "locale": "ru",
+  "archetype": "legacy",
+  "rarity": "rare",
+  "title": "Major update",
+  "body": "Библиотека предлагает major update. В changelog 38 breaking changes и слово «simple».",
+  "choices": [
+    {
+      "id": "upgrade_now",
+      "label": "Обновить сейчас",
+      "risk": "Высокая нагрузка сейчас ради большого технического прогресса.",
+      "effects": { "commits": 7, "depression": 4, "coffeeCoins": 0 }
+    },
+    {
+      "id": "pin_version",
+      "label": "Зафиксировать версию",
+      "risk": "Спокойный вариант с минимальным прогрессом.",
+      "effects": { "commits": 1, "depression": -1, "coffeeCoins": 0 }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "upgrade_now",
+      "punchline": "Обновление пережито. Breaking changes закончились на пункте 41."
+    },
+    {
+      "id": "pin_version",
+      "punchline": "Версия закреплена. Будущее официально перенесено в backlog."
+    }
+  ],
+  "shareTemplate": "Major update: simple. Changelog: 38 причин уточнить определение simple."
+}

@@ -1,0 +1,33 @@
+{
+  "id": "oncall_handoff",
+  "locale": "ru",
+  "archetype": "meetings",
+  "rarity": "common",
+  "title": "Передача дежурства",
+  "body": "Смена закончилась. Runbook заканчивается строкой: «если что — спросить дежурного инженера».",
+  "choices": [
+    {
+      "id": "update_runbook",
+      "label": "Обновить runbook",
+      "risk": "Потратишь силы на документацию вместо текущего темпа.",
+      "effects": { "commits": 3, "depression": 1, "coffeeCoins": -1 }
+    },
+    {
+      "id": "verbal_handoff",
+      "label": "Передать голосом",
+      "risk": "Быстро, но контекст превращается в устную традицию.",
+      "effects": { "commits": 1, "depression": 3, "coffeeCoins": 0 }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "update_runbook",
+      "punchline": "Runbook обновлён. Дежурный инженер снова человек, а не зависимость."
+    },
+    {
+      "id": "verbal_handoff",
+      "punchline": "Передача состоялась устно. Через час осталось только слово «там»."
+    }
+  ],
+  "shareTemplate": "Дежурство передано. Контекст пока существует в устной форме."
+}

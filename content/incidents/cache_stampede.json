@@ -1,0 +1,33 @@
+{
+  "id": "cache_stampede",
+  "locale": "ru",
+  "archetype": "production",
+  "rarity": "rare",
+  "title": "Cache stampede",
+  "body": "Кэш протух одновременно. Бэкенд внезапно познакомился со всем трафиком лично.",
+  "choices": [
+    {
+      "id": "jitter_ttl",
+      "label": "Разнести TTL",
+      "risk": "Нужно аккуратно поправить стратегию кэша.",
+      "effects": { "commits": 5, "depression": 2, "coffeeCoins": 0 }
+    },
+    {
+      "id": "raise_limits",
+      "label": "Поднять лимиты",
+      "risk": "Быстро тушит симптом ценой ресурсов и нервов.",
+      "effects": { "commits": 1, "depression": 4, "coffeeCoins": -1 }
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "jitter_ttl",
+      "punchline": "TTL разнесены. Следующая паника теперь хотя бы распределённая."
+    },
+    {
+      "id": "raise_limits",
+      "punchline": "Лимиты подняты. Сервер получил больше ресурсов для той же ошибки."
+    }
+  ],
+  "shareTemplate": "Кэш закончился одновременно. Архитектура ценит командную работу."
+}
