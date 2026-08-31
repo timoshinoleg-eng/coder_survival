@@ -35,7 +35,7 @@ Updated: 2026-06-17 21:45 +03
 - Frontend Vercel production alias: `https://frontend-ashy-alpha-77.vercel.app`.
 - Bot Vercel production alias: `https://coder-survival-bot.vercel.app`.
 - API origin: `https://coder-survival-api.duckdns.org`.
-- Backend compose image pattern: `cr.yandex/crpduv7gci2puq300f38/coder-survival-backend:${BACKEND_IMAGE_TAG:-latest}`.
+- Active backend compose requires `BACKEND_IMAGE_TAG=git-<40-hex-reviewed-sha>`; mutable `latest` is forbidden for validation, migration, restart and smoke.
 - Local release script default VM host: `root@185.92.221.219`.
 - GitHub secrets present: `VM_HOST`, `VM_USER`, `VM_SSH_KEY`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `BOT_TOKEN`, `BOT_BACKEND_SECRET`, `WEBAPP_URL`, `TEST_DB_PASSWORD`.
 - Public API health returned `status=ok`, `db=connected`.

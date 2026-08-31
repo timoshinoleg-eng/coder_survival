@@ -71,6 +71,28 @@ All 15 candidate IDs were reviewed individually from the atomized master/runtime
 | `ui_icon_check` | `ui_icon_check_master_v01.png` / `25b6fc4e231754f458b3cf22707338abf2f2d70f32daab17f83e2ec837c57bea` | `ui_icon_check_runtime_48_v01.png` | 392 | `d46cdead18d368824fddd9120dcf3c50f96dc9f59c68db56a0b55653a4958302` | `APPROVED_RUNTIME` — dimensions, alpha/chroma, semantic read and required preview/manual gates pass. |
 | `ui_icon_timer` | `ui_icon_timer_master_v01.png` / `e9ffe43bae190f1d664ad931dd996fb77f08ca5ca822e8aa0c442f9c1284f48b` | `ui_icon_timer_runtime_48_v01.png` | 363 | `fe1409dc30e0758f8c5659e5858770e735a5b6618a545c84b3e7372dfc43e5de` | `APPROVED_RUNTIME` — dimensions, alpha/chroma, semantic read and required preview/manual gates pass. |
 
+## D-C — Luna P1 v01 raw-archive identity (governance reference)
+
+The binary source package is intentionally not duplicated in this governance-only PR. Canonical exports remain in the verified Luna P1 v01 raw archive. Every approved Asset ID is bound to path, byte length, dimensions and SHA-256 in [`LUNA_P1_V01_RUNTIME_IDENTITY.json`](./LUNA_P1_V01_RUNTIME_IDENTITY.json). ZCode must re-verify those values before copying an export into a separate integration PR; this registry entry is an approval decision, not a replacement for source-asset provenance or runtime evidence.
+
+| Asset ID | Canonical runtime file / source role | Version | Dimensions | Status | Verification note |
+|---|---|---:|---:|---|---|
+| `hero_coder_coffee` | Luna P1 v01 raw archive: `hero_coder_coffee_runtime_128_v01.png` | v01 | 128×128 RGBA PNG | `APPROVED_RUNTIME` | Master/runtime pair, true alpha and 390px overlay preview verified. |
+| `hero_coder_incident` | Luna P1 v01 raw archive: `hero_coder_incident_runtime_128_v01.png` | v01 | 128×128 RGBA PNG | `APPROVED_RUNTIME` | Master/runtime pair, true alpha and 390px overlay preview verified. Incident red remains context-only. |
+| `hero_coder_recovery` | Luna P1 v01 raw archive: `hero_coder_recovery_runtime_128_v01.png` | v01 | 128×128 RGBA PNG | `APPROVED_RUNTIME` | Master/runtime pair, true alpha and 390px overlay preview verified. Recovery cue remains green/cyan. |
+| `ui_icon_commit` | Luna P1 v01 raw archive: `ui_icon_commit_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+| `ui_icon_energy` | Luna P1 v01 raw archive: `ui_icon_energy_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+| `ui_icon_stress` | Luna P1 v01 raw archive: `ui_icon_stress_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Amber non-critical state only; critical red variant requires a separate comprehension review. |
+| `ui_icon_coffee_coin` | Luna P1 v01 raw archive: `ui_icon_coffee_coin_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+| `ui_icon_incident_alert` | Luna P1 v01 raw archive: `ui_icon_incident_alert_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Incident-context usage only; no provider logo or baked UI text. |
+| `ui_icon_rollback` | Luna P1 v01 raw archive: `ui_icon_rollback_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+| `ui_icon_ci_pipeline` | Luna P1 v01 raw archive: `ui_icon_ci_pipeline_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+| `ui_icon_slack_storm` | Luna P1 v01 raw archive: `ui_icon_slack_storm_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+| `ui_icon_deploy` | Luna P1 v01 raw archive: `ui_icon_deploy_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+| `ui_icon_prod_500` | Luna P1 v01 raw archive: `ui_icon_prod_500_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Incident-context usage only; no provider logo or baked UI text. |
+| `ui_icon_check` | Luna P1 v01 raw archive: `ui_icon_check_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+| `ui_icon_timer` | Luna P1 v01 raw archive: `ui_icon_timer_runtime_48_v01.png` | v01 | 48×48 RGBA PNG | `APPROVED_RUNTIME` | Exact v2 mapping, atomized export and alpha verified. |
+
 ## Approval log
 
 | Date | Asset / batch | Decision | Reviewer | Reason |
@@ -95,5 +117,7 @@ All 15 candidate IDs were reviewed individually from the atomized master/runtime
 | 2026-08-30 | `ui_icon_timer` / Luna P1 v01 | `APPROVED_RUNTIME` | Manus | Individual master/runtime pair, inventory SHA-256, dimensions, true alpha, zero outer-border magenta, semantic/icon readability and applicable overlay evidence verified. |
 | 2026-08-30 | `frontend/public/visual_assets/first_pack/friday_release_outage_keyart_780.jpg` / existing production runtime | `APPROVED_RUNTIME` | Manus | Actual path, 39470 bytes, SHA-256 `c91825da126dfb1d6fae1a95aeef6d4d19c722836b1e046a97d76e09ee63d499`, E2E-served and under 40 KB; uncommitted PNG master remains Drive-only. |
 | 2026-08-30 | `frontend/public/visual_assets/first_pack/blameless_postmortem_keyart_780.jpg` / existing production runtime | `APPROVED_RUNTIME` | Manus | Actual path, 37383 bytes, SHA-256 `2392b72ea4fb4114d412c6654fecce76ffb2da8f0e1b3b4f700bf1c90ebaae56`, E2E-served and under 40 KB; uncommitted PNG master remains Drive-only. |
+
+| 2026-08-17 | Luna P1 v01: 3 hero states + 12 atomized UI icons | `APPROVED_RUNTIME` | Manus | Immutable runtime identity is recorded in `LUNA_P1_V01_RUNTIME_IDENTITY.json`; raw archive, SHA/bytes, dimensions, alpha/chroma and 390px overlays verified. Separate ZCode integration PR remains required. |
 
 Luna must append a candidate row before review. Manus records `APPROVED`, `CHANGES_REQUESTED` or `REJECTED` in a dated report and updates this registry. ZCode must reference approved Asset IDs in PR descriptions. Approval is limited to the exact file hashes recorded above; any replacement file requires a new review.

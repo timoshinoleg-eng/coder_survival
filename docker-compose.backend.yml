@@ -10,7 +10,9 @@
 
 services:
   backend:
-    image: coder-survival-backend:${BACKEND_IMAGE_TAG:-latest}
+    # A release must set this to its reviewed git-tagged image. Never silently
+    # fall back to mutable `latest` for migration or restart operations.
+    image: coder-survival-backend:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}
     build: ./backend
     environment:
       NODE_ENV: production
@@ -27,6 +29,15 @@ services:
       DB_SSL_CA_PATH: ${DB_SSL_CA_PATH:-}
       BOT_TOKEN: ${BOT_TOKEN}
       BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
+      ADMIN_API_SECRET: ${ADMIN_API_SECRET}
+      WEBAPP_URL: ${WEBAPP_URL}
+      FRONTEND_URL: ${FRONTEND_URL:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      INIT_DATA_MAX_AGE_SECONDS: ${INIT_DATA_MAX_AGE_SECONDS:-3600}
+      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
+      REWARDED_AD_PROVIDER: ${REWARDED_AD_PROVIDER:-}
+      ADSGRAM_SECRET: ${ADSGRAM_SECRET:-}
+      PROPELLER_SECRET: ${PROPELLER_SECRET:-}
     ports:
       - "127.0.0.1:3000:3000"
     network_mode: bridge
