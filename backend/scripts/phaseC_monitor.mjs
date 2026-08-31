@@ -37,6 +37,13 @@ const dbUrl = process.env.DATABASE_URL;
 const launchTs = process.argv.includes('--launch-ts')
   ? process.argv[process.argv.indexOf('--launch-ts') + 1]
   : process.env.LAUNCH_TS;
+// Guard: an unparseable launch timestamp would make every `c.minutes <= elapsedMin`
+// comparison false (NaN), silently reporting the FIRST cohort and GO. That is a
+// dangerous failure mode for rollout automation — refuse to run instead.
+if (launchTs && Number.isNaN(new Date(launchTs).getTime())) {
+  console.error(`ERROR: --launch-ts is not a valid ISO 8601 timestamp: ${JSON.stringify(launchTs)}`);
+  process.exitCode = 2;
+}
 const asJson = process.argv.includes('--json');
 
 const MAX_ADS_PER_DAY = Number(process.env.MAX_ADS_PER_DAY || 5);
@@ -57,7 +64,7 @@ function run(sql, params = []) {
 
 let pool;
 async function main() {
-  if (!dbUrl) { console.error('ERROR: set DATABASE_URL.'); process.exit(2); }
+  if (!dbUrl) { console.error('ERROR: set DATABASE_URL.'); process.exitCode = 2; return; }
   pool = new pg.Pool({ connectionString: dbUrl });
 
   const red = [];
@@ -160,7 +167,11 @@ async function main() {
     console.log(`\nVERDICT: ${verdict}` + (verdict === 'HALT' ? ' — DO NOT widen cohort; investigate Red before proceeding.' : ' — safe to observe / widen to next cohort.'));
   }
 
-  process.exit(verdict === 'HALT' ? 1 : 0);
+  // Set exitCode and return instead of process.exit(): process.exit() can truncate
+  // pending async stdout writes, so a piped consumer (CI/dashboard) would receive a
+  // partial or invalid JSON payload even though the monitor ran correctly.
+  process.exitCode = verdict === 'HALT' ? 1 : 0;
+  return;
 }
 
-main().catch(async (e) => { console.error('Fatal:', e.message); try { await pool?.end(); } catch {} process.exit(2); });
+main().catch(async (e) => { console.error('Fatal:', e.message); try { await pool?.end(); } catch {} process.exitCode = 2; });
