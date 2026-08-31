@@ -40,6 +40,11 @@ const launchTs = process.argv.includes('--launch-ts')
 const asJson = process.argv.includes('--json');
 
 const MAX_ADS_PER_DAY = Number(process.env.MAX_ADS_PER_DAY || 5);
+// The enforced cap lives in backend/src/config/balance.js (DEFAULTS.ADS.maxPerDay=5).
+// If this env override diverges, the monitor and the code disagree on daily_cap_regression.
+if (MAX_ADS_PER_DAY !== 5) {
+  console.error(`WARN: MAX_ADS_PER_DAY=${MAX_ADS_PER_DAY} but DEFAULTS.ADS.maxPerDay=5 — monitor/code diverge on daily_cap_regression.`);
+}
 const FALLBACK_COHORTS = '{"cohorts":[{"name":"5m","minutes":5},{"name":"15m","minutes":15},{"name":"1h","minutes":60},{"name":"24h","minutes":1440},{"name":"72h","minutes":4320}]}';
 // resolve cohorts.json next to this script first, then cwd — so the harness works
 // regardless of where it is invoked from.
@@ -59,6 +64,9 @@ async function main() {
   const amber = [];
 
   // 1+2: divergence + daily-cap regression
+  // NOTE: ad_rewards.date (written via CURRENT_DATE) and used_at::date both resolve in the PG
+  // session timezone. No SET TIME ZONE is configured anywhere in the backend, so the monitor
+  // and the writer share the server default — keep it that way (no per-connection tz).
   const { rows: div } = await run(
     `SELECT ar.user_id,
             ar.date,
@@ -86,6 +94,26 @@ async function main() {
     }
   }
 
+  // 3b: catch used_sessions that have NO ad_rewards ledger row at all. A LEFT JOIN off `ar`
+  // (above) silently hides these, suppressing both RED and AMBER — a blind spot that would
+  // mask lost/missing reward ledger rows. Uses the same (used_at::date) expression as the
+  // main query so the two stay timezone-consistent.
+  const { rows: missingLedger } = await run(
+    `SELECT s.user_id, s.d, s.used_sessions
+     FROM (
+       SELECT user_id,
+              (used_at::date) AS d,
+              COUNT(*) FILTER (WHERE status = 'used') AS used_sessions
+       FROM ad_reward_sessions
+       GROUP BY user_id, (used_at::date)
+     ) s LEFT JOIN ad_rewards ar ON ar.user_id = s.user_id AND ar.date = s.d
+     WHERE ar.user_id IS NULL AND s.used_sessions > 0
+     ORDER BY s.d DESC, s.used_sessions DESC`,
+  );
+  for (const r of missingLedger) {
+    amber.push({ type: 'ledger_mismatch', user: r.user_id, date: String(r.d), rewards: 0, used: r.used_sessions, reason: 'no_ad_rewards_row' });
+  }
+
   // 4: watchlist — top session volume today
   const { rows: watch } = await run(
     `SELECT user_id, COUNT(*) AS sessions_today
@@ -104,7 +132,9 @@ async function main() {
     const elapsedMin = (Date.now() - new Date(launchTs).getTime()) / 60000;
     const passed = COHORTS.filter((c) => c.minutes <= elapsedMin).length;
     const current = COHORTS[Math.min(passed, COHORTS.length - 1)].name;
-    const next = passed < COHORTS.length ? COHORTS[passed].name : 'FULL (72h reached)';
+    // `passed` = cohorts already fully observed; the next widen target is the following
+    // cohort, not the current one (avoids next === current at launch before 5m elapses).
+    const next = passed + 1 < COHORTS.length ? COHORTS[passed + 1].name : 'FULL (72h reached)';
     cohort = { launchTs, elapsedMin: Math.round(elapsedMin), observedCohorts: passed, currentCohort: current, nextCohort: next };
   }
 
