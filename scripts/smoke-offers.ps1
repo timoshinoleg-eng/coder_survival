@@ -3,6 +3,7 @@ param(
   [string]$VmHost = $env:CODER_SURVIVAL_VM_SSH_TARGET,
   [string]$RemoteAppDir = "/opt/coder_survival",
   [string]$BackendComposeFile = "docker-compose.backend.yml",
+  [string]$BackendImageTag = $env:BACKEND_IMAGE_TAG,
   [string]$BaseUrl = "https://frontend-ashy-alpha-77.vercel.app",
   [string]$DirectApiBaseUrl = "https://coder-survival-api.duckdns.org",
   [string]$BotToken = "",
@@ -15,6 +16,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$releaseImageTagHelper = Join-Path $PSScriptRoot "release-image-tag.ps1"
+. $releaseImageTagHelper
+$backendImageTag = Assert-ReviewedBackendImageTag -BackendImageTag $BackendImageTag
+
 if ([string]::IsNullOrWhiteSpace($VmHost) -or $VmHost -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._:-]*$') {
   throw "VmHost is required in user@host form. Pass -VmHost or set CODER_SURVIVAL_VM_SSH_TARGET."
 }
@@ -26,7 +31,7 @@ if (-not $PSBoundParameters.ContainsKey('SmokeTelegramId')) {
 Write-Host "==> Fetching BOT_TOKEN from backend runtime"
 $botToken = $BotToken
 if (-not $botToken) {
-  $botToken = ssh $VmHost "cd $RemoteAppDir && docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
+  $botToken = ssh $VmHost "cd $RemoteAppDir && BACKEND_IMAGE_TAG='$backendImageTag' docker compose --env-file backend/.env -f $BackendComposeFile run --rm -T backend printenv BOT_TOKEN" | Select-Object -Last 1
   if ($LASTEXITCODE -ne 0 -or -not $botToken) {
     throw "Failed to retrieve BOT_TOKEN from backend runtime on $VmHost"
   }
