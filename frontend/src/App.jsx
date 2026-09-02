@@ -35,26 +35,9 @@ import { applyRandomEventChoice, getActiveRuntimeEvents, reduceLegacyCodeClick }
 import { apiRequest } from './utils/api.js';
 import { Analytics } from './utils/analytics.js';
 import { useTelegram } from './hooks/useTelegram.js';
+import { ru } from './locales/ru.js';
 
-const EVENT_PUNCHLINES = {
-  golden_commit: '✨ Код на секунду был красивым. Никому не рассказывай.',
-  open_source_contribution: '🌍 Твой PR приняли. Теперь его будут поддерживать все, кроме тебя.',
-  green_build: '🟢 CI зелёный с первого раза. Никто не трогает pipeline, пока он не передумал.',
-  legacy_code: '🧹 Legacy пережит. Файл всё ещё называется final_final_v2.js.',
-  deploy_friday: '📅 Пятничный deploy: потому что понедельник слишком предсказуемый.',
-  bug_production: '🐛 Прод спасён. Постмортем назначен на завтра в 09:00.',
-  code_review: '👀 Ревью завершено. Комментарий «небольшое замечание» оказался на 47 пунктов.',
-  slack_huddle: '🎧 Созвон длился ровно две минуты. По времени Slack. В реальности — как всегда.',
-  scope_creep: '📐 «Одна маленькая правка» получила отдельный epic, дедлайн и собственный эмодзи.',
-  merge_conflict: '🌿 Конфликт решён. Git всё ещё помнит. Но теперь хотя бы молчит.',
-  canary_rollback: '🐤 Канарейка выжила. Релиз — почти. Зато пятница снова принадлежит тебе.',
-  production_500_spike: '📈 Grafana обновлена. Ошибки никуда не делись, но теперь выглядят свежее.',
-  ci_pipeline_red: '🧪 Логи прочитаны. Виноват тест, который «никогда раньше не падал».',
-  slack_thread_storm: '💬 Статус отправлен. Тред успокоился на 14 секунд и снова спросил ETA.',
-  friday_release_outage: '🚨 Релиз откатан. Прод снова дышит. Пятница теперь — официальный участник postmortem.',
-  coffee_stain: '☕ Кофе убран. Клавиатура официально снова production-ready.',
-  stack_overflow_down: '📚 Stack Overflow вернулся. Самостоятельность продлилась 30 секунд.',
-};
+const EVENT_PUNCHLINES = ru.punchlines;
 
 function normalizeRuntimeEventState(state = {}) {
   const source = state || {};
@@ -283,7 +266,7 @@ function AppInner() {
     const previous = previousLegacyClicksRef.current;
     const current = runtimeEventState.legacyCodeClicksRemaining || 0;
     if (previous > 0 && current === 0) {
-      showToast('🧹 Legacy Code отрефакторен. Цены вернулись в норму.', 'success', 2200);
+      showToast(ru.eventResolution.legacyCodeDone, 'success', 2200);
     }
     previousLegacyClicksRef.current = current;
   }, [runtimeEventState.legacyCodeClicksRemaining, showToast]);
@@ -293,7 +276,7 @@ function AppInner() {
     const previous = previousBugProductionClicksRef.current;
     const current = runtimeEventState.bugProductionClicksRemaining || 0;
     if (previous > 0 && current === 0) {
-      showToast('🐛 Bug in Production исправлен. Продакшн спасён.', 'success', 2200);
+      showToast(ru.eventResolution.bugProductionDone, 'success', 2200);
     }
     previousBugProductionClicksRef.current = current;
   }, [runtimeEventState.bugProductionClicksRemaining, showToast]);
@@ -303,7 +286,7 @@ function AppInner() {
     const previous = previousCoffeeStainClicksRef.current;
     const current = runtimeEventState.coffeeStainClicksRemaining || 0;
     if (previous > 0 && current === 0) {
-      showToast('☕ Coffee Stain вытерта. Клавиатура чиста.', 'success', 2200);
+      showToast(ru.eventResolution.coffeeStainDone, 'success', 2200);
     }
     previousCoffeeStainClicksRef.current = current;
   }, [runtimeEventState.coffeeStainClicksRemaining, showToast]);
@@ -313,7 +296,7 @@ function AppInner() {
     const previous = previousDeployFridayClicksRef.current;
     const current = runtimeEventState.deployFridayClicksRemaining || 0;
     if (previous > 0 && current === 0) {
-      showToast('📅 Deploy Friday отменён. Выходные спасены.', 'success', 2200);
+      showToast(ru.eventResolution.deployFridayCancelled, 'success', 2200);
     }
     previousDeployFridayClicksRef.current = current;
   }, [runtimeEventState.deployFridayClicksRemaining, showToast]);
@@ -322,7 +305,7 @@ function AppInner() {
   useEffect(() => {
     const active = getActiveRuntimeEvents(runtimeEventState, runtimeNow).goldenCommitActive;
     if (previousGoldenCommitRef.current && !active) {
-      showToast('✨ Golden Commit завершён. Множитель LOC/s вернулся к норме.', 'info', 1800);
+      showToast(ru.eventResolution.goldenCommitDone, 'info', 1800);
     }
     previousGoldenCommitRef.current = active;
   }, [runtimeEventState.goldenCommitUntil, runtimeNow, showToast]);
@@ -331,7 +314,7 @@ function AppInner() {
   useEffect(() => {
     const active = getActiveRuntimeEvents(runtimeEventState, runtimeNow).stackOverflowDownActive;
     if (previousStackOverflowDownRef.current && !active) {
-      showToast('📉 Stack Overflow восстановлен. Можно снова копипастить.', 'success', 1800);
+      showToast(ru.eventResolution.stackOverflowBack, 'success', 1800);
     }
     previousStackOverflowDownRef.current = active;
   }, [runtimeEventState.stackOverflowDownUntil, runtimeNow, showToast]);
@@ -339,7 +322,7 @@ function AppInner() {
   useEffect(() => {
     const active = getActiveRuntimeEvents(runtimeEventState, runtimeNow).hotStreakActive;
     if (previousHotStreakActiveRef.current && !active) {
-      showToast('🔥 Hot Streak завершён. Темп вернулся к норме.', 'info', 1800);
+      showToast(ru.eventResolution.hotStreakDone, 'info', 1800);
     }
     previousHotStreakActiveRef.current = active;
   }, [runtimeEventState.hotStreakUntil, runtimeNow, showToast]);
@@ -347,7 +330,7 @@ function AppInner() {
   useEffect(() => {
     const active = getActiveRuntimeEvents(runtimeEventState, runtimeNow).productionAlertActive;
     if (previousProductionAlertActiveRef.current && !active) {
-      showToast('🚨 Production Alert погашен. Утечка энергии остановлена.', 'success', 1800);
+      showToast(ru.eventResolution.productionAlertDone, 'success', 1800);
     }
     previousProductionAlertActiveRef.current = active;
   }, [runtimeEventState.productionAlertUntil, runtimeNow, showToast]);
@@ -726,14 +709,14 @@ function AppInner() {
               });
             }
             if (type === 'bug_production' && action === 'ignore') {
-              showToast('🚨 Production Alert активирован на 3 минуты.', 'error', 1800);
+              showToast(ru.toasts.productionAlertStarted, 'error', 1800);
             }
             if (type === 'golden_commit' && action === 'solve') {
-              showToast('✨ Golden Commit активирован! x7 LOC/s на 77 секунд.', 'success', 1800);
+              showToast(ru.toasts.goldenCommitStarted, 'success', 1800);
             }
           } catch (_e) {
             resolveFailed = true;
-            showToast('Не удалось применить выбор. Попробуй ещё раз.', 'warning', 1800);
+            showToast(ru.toasts.choiceFailed, 'warning', 1800);
           }
 
           if (!resolveFailed) {
@@ -786,7 +769,7 @@ function AppInner() {
             if (payload.deltas?.commitsDelta) parts.push(`${sign(payload.deltas.commitsDelta)} коммитов`);
             if (payload.deltas?.energyDelta) parts.push(`${sign(payload.deltas.energyDelta)} энергии`);
             if (payload.deltas?.depressionDelta) parts.push(`${sign(payload.deltas.depressionDelta)} стресса`);
-            const msg = parts.length > 0 ? `Мини-игра пройдена: ${parts.join(', ')}` : 'Мини-игра пройдена!';
+            const msg = parts.length > 0 ? `Мини-игра пройдена: ${parts.join(', ')}` : ru.toasts.minigameWon;
             showToast(msg, 'success', 1500);
             if (payload?.deltas) {
               applyEventDeltas(payload.deltas);
@@ -797,9 +780,9 @@ function AppInner() {
           const gone = err?.status === 404 || /not found|already resolved|уже решено|не найдено|событие не активно|event.*expired/i.test(msg);
           if (gone) {
             setRandomEvent(null);
-            showToast('Событие уже завершилось.', 'info', 1500);
+            showToast(ru.toasts.eventAlreadyResolved, 'info', 1500);
           } else {
-            showToast('Не удалось синхронизировать событие. Повтори тап.', 'error', 1800);
+            showToast(ru.toasts.eventSyncFailed, 'error', 1800);
           }
         } finally {
           setRandomEventBusy(false);
