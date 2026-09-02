@@ -1,0 +1,138 @@
+name: P0 History Sanitize
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/p0-history-sanitize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sanitize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Install pinned tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user --disable-pip-version-check 'git-filter-repo==2.47.0'
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+          version='8.30.1'
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
+          curl -fsSLO "${base}/gitleaks_${version}_linux_x64.tar.gz"
+          curl -fsSLO "${base}/gitleaks_${version}_checksums.txt"
+          grep " gitleaks_${version}_linux_x64.tar.gz$" "gitleaks_${version}_checksums.txt" | sha256sum -c -
+          tar -xzf "gitleaks_${version}_linux_x64.tar.gz" gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+
+      - name: Mirror repository and remove only historical secret env paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/coder-survival-sanitized.git"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          git clone --mirror "$remote" "$work"
+          cd "$work"
+
+          # P0 scope is deliberately narrow: remove only the two historical
+          # credential-bearing env paths identified by the preceding path audit.
+          git filter-repo \
+            --invert-paths \
+            --path backend/.env \
+            --path backend/.env.production \
+            --force
+
+          # git-filter-repo removes origin intentionally; restore it without
+          # displaying the credential-bearing URL.
+          git remote add origin "$remote"
+
+          # Fail closed before mutating GitHub: forbidden paths must be absent
+          # from every rewritten branch/tag.
+          python3 <<'PY'
+          import os
+          import subprocess
+
+          forbidden = {'backend/.env', 'backend/.env.production'}
+          commits = subprocess.check_output(['git', 'rev-list', '--all'], text=True).splitlines()
+          found = set()
+          for commit in commits:
+              out = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', commit], text=True)
+              found.update(forbidden.intersection(out.splitlines()))
+          print(f"POST_FILTER_PATH_AUDIT commits={len(commits)} forbidden_paths={len(found)}")
+          if found:
+              for path in sorted(found):
+                  print(f"POST_FILTER_PATH_FINDING file={path}")
+              raise SystemExit(1)
+          PY
+
+          # Scan the entire rewritten history; raw matches stay only in runner temp.
+          report="$RUNNER_TEMP/post-filter-gitleaks.json"
+          set +e
+          gitleaks git . \
+            --log-opts='--all' \
+            --report-format=json \
+            --report-path="$report" \
+            --redact=100 \
+            --exit-code=23 \
+            --no-banner
+          scan_rc=$?
+          set -e
+          if [ "$scan_rc" -ne 0 ]; then
+            echo "POST_FILTER_SECRET_AUDIT scanner_rc=$scan_rc"
+            exit 1
+          fi
+          echo "POST_FILTER_SECRET_AUDIT findings=0 scanner_rc=0"
+
+          # Rewrite all public branches and tags. Do not touch GitHub internal refs.
+          git push --force origin 'refs/heads/*:refs/heads/*'
+          git push --force origin 'refs/tags/*:refs/tags/*'
+
+      - name: Re-clone remote and verify published refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify="$RUNNER_TEMP/coder-survival-remote-verify.git"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone --mirror "$remote" "$verify"
+          cd "$verify"
+
+          python3 <<'PY'
+          import subprocess
+
+          forbidden = {'backend/.env', 'backend/.env.production'}
+          commits = subprocess.check_output(['git', 'rev-list', '--all'], text=True).splitlines()
+          found = set()
+          for commit in commits:
+              out = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', commit], text=True)
+              found.update(forbidden.intersection(out.splitlines()))
+          print(f"REMOTE_PATH_AUDIT commits={len(commits)} forbidden_paths={len(found)}")
+          if found:
+              for path in sorted(found):
+                  print(f"REMOTE_PATH_FINDING file={path}")
+              raise SystemExit(1)
+          PY
+
+          report="$RUNNER_TEMP/remote-gitleaks.json"
+          set +e
+          gitleaks git . \
+            --log-opts='--all' \
+            --report-format=json \
+            --report-path="$report" \
+            --redact=100 \
+            --exit-code=23 \
+            --no-banner
+          scan_rc=$?
+          set -e
+          if [ "$scan_rc" -ne 0 ]; then
+            echo "REMOTE_SECRET_AUDIT scanner_rc=$scan_rc"
+            exit 1
+          fi
+          echo "REMOTE_SECRET_AUDIT findings=0 scanner_rc=0"
