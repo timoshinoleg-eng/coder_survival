@@ -18,13 +18,14 @@ export default function StatsBar(props) {
   );
 
   // Keep the large, battle-tested HUD intact while overriding only the energy
-  // color produced by the legacy thresholds. The lookup is anchored to the
-  // visible "Энергия" label, so unrelated progress bars are never touched.
+  // color produced by the legacy thresholds. The source component renders the
+  // icon and label in one span ("⚡Энергия"), so match the visible label rather
+  // than relying on an exact text node shape.
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const energyLabel = Array.from(root.querySelectorAll('span'))
-      .find((node) => node.textContent === 'Энергия');
+      .find((node) => String(node.textContent || '').includes('Энергия'));
     const row = energyLabel?.parentElement;
     const track = row?.children?.[1];
     const fill = track?.firstElementChild;
