@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { DEPRESSION_SCALE, STAGE2 } from '../config/balance.js';
+import { DEPRESSION_SCALE, LOGIN_STREAK_BONUS, STAGE2 } from '../config/balance.js';
 import { addPassXp } from '../utils/pass.js';
 import { processDailyLogin, starRecover, calculateRecoveryCost, shouldOfferStreakSaver } from '../utils/streak.js';
 import { getProductById } from '../utils/shopCatalog.js';
-import { ensurePlayerLevel, addPlayerXp } from '../utils/vnext.js';
+import { ensurePlayerLevel } from '../utils/vnext.js';
 
 const router = Router();
 
@@ -122,6 +122,14 @@ function aggregateRewards(result) {
   return rewards;
 }
 
+export function getLoginStreakBonus(currentStreak) {
+  const day = Math.max(1, Math.min(7, Number(currentStreak || 1)));
+  return {
+    day,
+    reward: { ...(LOGIN_STREAK_BONUS[day] || {}) }
+  };
+}
+
 router.get('/', async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) {
@@ -151,14 +159,15 @@ router.get('/', async (req, res) => {
       streakState,
       energy,
       todayDate: today,
-      now: new Date()
+      now: new Date(),
+      timezoneOffsetMinutes: timezoneOffset
     })
       ? {
           type: 'streak_saver',
           productId: 'streak_saver',
           stars: getProductById('streak_saver')?.stars ?? 1,
           discountPercent: STAGE2.STREAK.SAVER.discountPercent,
-          body: `Твой стрик ${streakState.currentStreak} дней сгорит через 2 часа! Купи 'Экстренный кофе' за 1⭐ (скидка 90%), чтобы сохранить его.`
+          body: `Твой стрик ${streakState.currentStreak} дней под угрозой до локальной полуночи. Купи «Экстренный кофе» за 1⭐, чтобы сохранить его.`
         }
       : null;
 
@@ -214,6 +223,10 @@ router.post('/claim', async (req, res) => {
     }
 
     const rewards = aggregateRewards(result);
+    const loginStreakBonus = getLoginStreakBonus(result.streakState.currentStreak);
+    rewards.energy = Number(rewards.energy || 0) + Number(loginStreakBonus.reward.energy || 0);
+    rewards.depressionRelief = Number(rewards.depressionRelief || 0) + Number(loginStreakBonus.reward.depressionRelief || 0);
+
     let passState = progression.pass_state || {};
     let passUpdate = null;
     if (Number(rewards.passXp || 0) > 0) {
@@ -238,7 +251,7 @@ router.post('/claim', async (req, res) => {
            pass_state = $3,
            energy = LEAST($4, energy + $5),
            depression_level = GREATEST(0, depression_level - $6),
-            is_burnout = GREATEST(0, depression_level - $6) >= $8,
+           is_burnout = GREATEST(0, depression_level - $6) >= $8,
            inventory = $7
        WHERE user_id = $1`,
       [
@@ -253,12 +266,26 @@ router.post('/claim', async (req, res) => {
       ]
     );
 
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, context)
+       VALUES ($1, 'daily_login_claim', $2::jsonb)`,
+      [
+        userId,
+        JSON.stringify({
+          streak: result.streakState.currentStreak,
+          bonusDay: loginStreakBonus.day,
+          bonus: loginStreakBonus.reward
+        })
+      ]
+    );
+
     await client.query('COMMIT');
 
     return res.json({
       status: result.status,
       currentStreak: result.streakState.currentStreak,
       rewards,
+      loginStreakBonus,
       passUpdate,
       brokenStreak: result.brokenStreak || null,
       missedDays: result.missedDays || 0,
