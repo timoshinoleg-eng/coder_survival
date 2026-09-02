@@ -469,7 +469,7 @@ const STAGE2 = {
 
 const totalStage2PassXp = STAGE2.PASS.LEVELS.reduce((sum, level) => sum + level.requiredXp, 0);
 console.assert(totalStage2PassXp === 915, `Pass XP mismatch: ${totalStage2PassXp}`);
-console.assert(STAGE2.PASS.LEVELS.length === 20, 'Level count must be 50');
+console.assert(STAGE2.PASS.LEVELS.length === 20, 'Level count must be 20');
 console.assert(
   STAGE2.DAILY_QUEST.FULL_CLEAR.LOOT_BOX.drops.reduce((sum, drop) => sum + drop.weight, 0) === 100,
   'LootBox weights must sum to 100'

@@ -177,6 +177,29 @@ router.post('/telegram/confirm', async (req, res, next) => {
       // cannot both observe an empty payment history and both receive the x2 bonus.
       await client.query('SELECT pg_advisory_xact_lock($1::bigint)', [userId]);
 
+      // A duplicate callback can pass the optimistic pre-lock lookup while the
+      // first callback is still uncommitted. Re-check after acquiring the user
+      // lock so concurrent replays return the same idempotent 200 instead of
+      // reaching the unique charge constraint after reward application.
+      const existingPaymentAfterLock = await client.query(
+        `SELECT id, user_id, purchase_id, item_type, stars_amount
+         FROM star_payments
+         WHERE telegram_payment_charge_id = $1`,
+        [telegramPaymentChargeId]
+      );
+      if (existingPaymentAfterLock.rows.length > 0) {
+        await client.query('COMMIT');
+        if (paymentsWereDisabled) {
+          alertPaymentWhileDisabled({ itemType: parsed.itemType, idempotent: true });
+        }
+        return res.status(200).json({
+          success: true,
+          idempotent: true,
+          payment: existingPaymentAfterLock.rows[0],
+          ...(paymentsWereDisabled ? { paymentsDisabled: true } : {})
+        });
+      }
+
       const purchaseResult = await client.query(
         `SELECT id, user_id, item_type, stars_amount, status
          FROM purchases

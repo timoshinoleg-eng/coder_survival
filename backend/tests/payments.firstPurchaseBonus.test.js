@@ -143,4 +143,47 @@ describeIfDb('first purchase x2 fulfillment', () => {
     expect(Number(progression.rows[0].energy)).toBe(60);
     expect(Number(progression.rows[0].depression_level)).toBe(90);
   });
+
+  test('concurrent replay of the same charge returns two 200 responses and credits once', async () => {
+    const telegramId = 920000102;
+    const userResult = await testPool.query(
+      `INSERT INTO users (telegram_id, username) VALUES ($1, 'first_bonus_race') RETURNING id`,
+      [telegramId]
+    );
+    const userId = userResult.rows[0].id;
+    await testPool.query(
+      `INSERT INTO progression (user_id, energy, depression_level, commits_total)
+       VALUES ($1, 10, 100, 0)`,
+      [userId]
+    );
+
+    const purchaseId = await createPurchase(userId);
+    const body = confirmBody(telegramId, purchaseId, 'first_bonus_concurrent_charge');
+    const responses = await Promise.all([request(body), request(body)]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 200]);
+    expect(responses.map((response) => response.body.idempotent).sort()).toEqual([false, true]);
+
+    const progression = await testPool.query(
+      `SELECT energy, depression_level FROM progression WHERE user_id = $1`,
+      [userId]
+    );
+    expect(Number(progression.rows[0].energy)).toBe(100);
+    expect(Number(progression.rows[0].depression_level)).toBe(80);
+
+    const payments = await testPool.query(
+      `SELECT COUNT(*)::int AS count FROM star_payments
+       WHERE telegram_payment_charge_id = $1`,
+      ['first_bonus_concurrent_charge']
+    );
+    expect(payments.rows[0].count).toBe(1);
+
+    const audit = await testPool.query(
+      `SELECT COUNT(*)::int AS count FROM audit_logs
+       WHERE user_id = $1 AND action = 'first_purchase_bonus'`,
+      [userId]
+    );
+    expect(audit.rows[0].count).toBe(1);
+  });
+
 });
