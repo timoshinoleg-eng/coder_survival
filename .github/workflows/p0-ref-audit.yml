@@ -56,3 +56,62 @@ jobs:
                   f"files={','.join(paths)}"
               )
           PY
+
+      - name: Collect git-filter-repo sensitive-data-removal metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user --disable-pip-version-check 'git-filter-repo==2.47.0' >/dev/null
+          export PATH="$HOME/.local/bin:$PATH"
+          repo="$RUNNER_TEMP/support-metadata.git"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone --mirror "$remote" "$repo" >/dev/null 2>&1
+          cd "$repo"
+
+          # This copy is disposable. Use the official sensitive-data-removal mode
+          # only to obtain the exact first-changed-commit metadata GitHub Support asks for.
+          log="$RUNNER_TEMP/filter-repo-support.log"
+          git filter-repo \
+            --sensitive-data-removal \
+            --invert-paths \
+            --path backend/.env \
+            --path backend/.env.production \
+            --force >"$log" 2>&1
+
+          python3 - "$log" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8', errors='replace')
+          lines = text.splitlines()
+          first_changed = []
+          orphaned_lfs = False
+          capture = False
+          for line in lines:
+              if 'First Changed Commit' in line:
+                  capture = True
+                  # A SHA can appear on the same line or immediately after it.
+                  first_changed.extend(re.findall(r'\b[0-9a-f]{40}\b', line))
+                  continue
+              if capture:
+                  shas = re.findall(r'\b[0-9a-f]{40}\b', line)
+                  if shas:
+                      first_changed.extend(shas)
+                      continue
+                  if line.strip() and not line.lstrip().startswith(('-', '*')):
+                      capture = False
+              if 'LFS Objects Orphaned' in line:
+                  orphaned_lfs = True
+
+          # Deduplicate while preserving order. Output contains commit IDs only,
+          # never file contents or credential values.
+          seen = set()
+          first_changed = [x for x in first_changed if not (x in seen or seen.add(x))]
+          print(
+              f"SUPPORT_METADATA first_changed_count={len(first_changed)} "
+              f"orphaned_lfs={int(orphaned_lfs)}"
+          )
+          for sha in first_changed:
+              print(f"SUPPORT_FIRST_CHANGED_COMMIT sha={sha}")
+          PY
