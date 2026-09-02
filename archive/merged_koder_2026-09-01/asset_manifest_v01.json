@@ -1,0 +1,372 @@
+{
+  "batch": "luna_p1_v01",
+  "status": "CANDIDATE",
+  "integration_allowed": false,
+  "style_reference": "hero_coder_style_master / Visual System v2",
+  "assets": [
+    {
+      "asset_id": "hero_coder_coffee",
+      "canonical_filename": "hero_coder_coffee_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        512,
+        512
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "panel_ink",
+        "coffee_amber",
+        "electric_cyan"
+      ],
+      "prompt_summary": "Neon Office Survival hero state: coffee; dark-green hoodie, square glasses, dark hair, amber coffee pin; no readable text or brand logos.",
+      "intended_ui_location": "hero state sprite",
+      "preview_path": "previews/hero_coder_coffee_preview_390_v01.png",
+      "runtime_filename": "hero_coder_coffee_runtime_128_v01.png",
+      "runtime_dimensions": [
+        128,
+        128
+      ]
+    },
+    {
+      "asset_id": "hero_coder_incident",
+      "canonical_filename": "hero_coder_incident_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        512,
+        512
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "panel_ink",
+        "coffee_amber",
+        "electric_cyan",
+        "incident_red"
+      ],
+      "prompt_summary": "Neon Office Survival hero state: incident; dark-green hoodie, square glasses, dark hair, amber coffee pin; no readable text or brand logos.",
+      "intended_ui_location": "hero state sprite",
+      "preview_path": "previews/hero_coder_incident_preview_390_v01.png",
+      "runtime_filename": "hero_coder_incident_runtime_128_v01.png",
+      "runtime_dimensions": [
+        128,
+        128
+      ]
+    },
+    {
+      "asset_id": "hero_coder_recovery",
+      "canonical_filename": "hero_coder_recovery_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        512,
+        512
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "panel_ink",
+        "coffee_amber",
+        "electric_cyan",
+        "signal_green"
+      ],
+      "prompt_summary": "Neon Office Survival hero state: recovery; dark-green hoodie, square glasses, dark hair, amber coffee pin; no readable text or brand logos.",
+      "intended_ui_location": "hero state sprite",
+      "preview_path": "previews/hero_coder_recovery_preview_390_v01.png",
+      "runtime_filename": "hero_coder_recovery_runtime_128_v01.png",
+      "runtime_dimensions": [
+        128,
+        128
+      ]
+    },
+    {
+      "asset_id": "ui_icon_commit",
+      "canonical_filename": "ui_icon_commit_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "soft_paper",
+        "electric_cyan"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_commit_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_commit_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_energy",
+      "canonical_filename": "ui_icon_energy_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "signal_green"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_energy_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_energy_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_stress",
+      "canonical_filename": "ui_icon_stress_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "panel_ink",
+        "coffee_amber"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_stress_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_stress_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_coffee_coin",
+      "canonical_filename": "ui_icon_coffee_coin_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "coffee_amber",
+        "soft_paper"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_coffee_coin_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_coffee_coin_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_incident_alert",
+      "canonical_filename": "ui_icon_incident_alert_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "incident_red"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_incident_alert_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_incident_alert_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_rollback",
+      "canonical_filename": "ui_icon_rollback_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "signal_green"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_rollback_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_rollback_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_ci_pipeline",
+      "canonical_filename": "ui_icon_ci_pipeline_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "electric_cyan",
+        "panel_ink"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_ci_pipeline_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_ci_pipeline_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_slack_storm",
+      "canonical_filename": "ui_icon_slack_storm_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "electric_cyan",
+        "soft_paper",
+        "incident_red"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_slack_storm_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_slack_storm_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_deploy",
+      "canonical_filename": "ui_icon_deploy_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "electric_cyan",
+        "panel_ink"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_deploy_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_deploy_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_prod_500",
+      "canonical_filename": "ui_icon_prod_500_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "panel_ink",
+        "incident_red",
+        "soft_paper"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_prod_500_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_prod_500_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_check",
+      "canonical_filename": "ui_icon_check_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "signal_green",
+        "soft_paper"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_check_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_check_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    },
+    {
+      "asset_id": "ui_icon_timer",
+      "canonical_filename": "ui_icon_timer_master_v01.png",
+      "version": "v01",
+      "dimensions": [
+        96,
+        96
+      ],
+      "format": "PNG RGBA",
+      "alpha_status": "true_alpha",
+      "palette_tokens": [
+        "ink_base",
+        "soft_paper",
+        "electric_cyan"
+      ],
+      "prompt_summary": "Hard-edge pixel UI icon, 1px dark outline, transparent background, no letters or numbers, no provider branding.",
+      "intended_ui_location": "HUD / event action/status icon",
+      "preview_path": "icons/runtime/ui_icon_timer_runtime_48_v01.png",
+      "runtime_filename": "ui_icon_timer_runtime_48_v01.png",
+      "runtime_dimensions": [
+        48,
+        48
+      ]
+    }
+  ]
+}
