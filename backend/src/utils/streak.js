@@ -34,20 +34,33 @@ function getNextDate(dateString) {
   return date.toISOString().slice(0, 10);
 }
 
-export function shouldOfferStreakSaver({ streakState = {}, energy = 0, todayDate, now = new Date() }) {
+export function getSecondsToLocalMidnight(now = new Date(), timezoneOffsetMinutes = 0) {
+  const offsetMs = Number(timezoneOffsetMinutes || 0) * 60 * 1000;
+  const localNowMs = now.getTime() + offsetMs;
+  const localNow = new Date(localNowMs);
+  const nextLocalMidnightMs = Date.UTC(
+    localNow.getUTCFullYear(),
+    localNow.getUTCMonth(),
+    localNow.getUTCDate() + 1,
+    0, 0, 0, 0
+  );
+  return Math.max(0, Math.floor((nextLocalMidnightMs - localNowMs) / 1000));
+}
+
+export function shouldOfferStreakSaver({
+  streakState = {},
+  energy = 0,
+  todayDate,
+  now = new Date(),
+  timezoneOffsetMinutes = 0
+}) {
   const currentStreak = Number(streakState.currentStreak || 0);
   if (currentStreak <= 0) return false;
   if (Number(energy || 0) > 0) return false;
   if (streakState.lastLoginDate === todayDate) return false;
 
-  const secondsToMidnightUtc = Math.max(0, Math.floor((Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate() + 1,
-    0, 0, 0, 0
-  ) - now.getTime()) / 1000));
-
-  if (secondsToMidnightUtc >= STAGE2.STREAK.SAVER.triggerWindowSeconds) {
+  const secondsToMidnight = getSecondsToLocalMidnight(now, timezoneOffsetMinutes);
+  if (secondsToMidnight >= STAGE2.STREAK.SAVER.triggerWindowSeconds) {
     return false;
   }
 
