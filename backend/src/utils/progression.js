@@ -8,6 +8,10 @@ import {
 import { getEventRecoveryMultiplier } from './events.js';
 import { applyProductionAlertDrain } from './randomEventState.js';
 
+// P0 / D4-008: the product invariant lives in balance.js and is re-exported
+// here for compatibility with existing callers/tests.
+export { DEPRESSION_PASSIVE_RECOVERY_PER_HOUR };
+
 function toValidDate(value) {
   if (!value) return null;
   const date = new Date(value);

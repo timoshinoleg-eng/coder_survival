@@ -14,17 +14,7 @@ export function getPassRequiredXp(level) {
   if (!Number.isInteger(normalizedLevel) || normalizedLevel < 1 || normalizedLevel > PASS.MAX_LEVEL) {
     return null;
   }
-  const tiers = [
-    { end: 10, xp: 100 },
-    { end: 20, xp: 150 },
-    { end: 30, xp: 200 },
-    { end: 40, xp: 250 },
-    { end: 50, xp: 300 },
-  ];
-  for (const tier of tiers) {
-    if (normalizedLevel <= tier.end) return tier.xp;
-  }
-  return 300;
+  return PASS.LEVELS.find((entry) => entry.level === normalizedLevel)?.requiredXp ?? null;
 }
 
 export function calculateCatchUpXp(missedDays, avgDailyXP) {

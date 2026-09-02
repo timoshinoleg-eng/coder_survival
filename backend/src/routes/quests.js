@@ -131,12 +131,10 @@ async function applyStage2Rewards(client, userId, progression, rewards) {
   const levelRow = await ensurePlayerLevel(client, userId);
   const maxEnergy = levelRow.resolved.maxEnergy;
   const inventory = mergeInventory(progression.inventory || {}, rewards);
-  let passState = progression.pass_state || {};
   let passUpdate = null;
 
   if (Number(rewards.passXp || 0) > 0) {
-    passUpdate = addPassXp(passState, Number(rewards.passXp || 0));
-    passState = passUpdate.newState;
+    passUpdate = await addPassXp(client, userId, Number(rewards.passXp || 0));
   }
 
   if (Number(rewards.xp || 0) > 0) {
@@ -147,16 +145,14 @@ async function applyStage2Rewards(client, userId, progression, rewards) {
     `UPDATE progression
      SET energy = LEAST($2, energy + $3),
          commits_current = commits_current + $4,
-         inventory = $5,
-         pass_state = $6
+         inventory = $5
      WHERE user_id = $1`,
     [
       userId,
       maxEnergy,
       Number(rewards.energy || 0),
       Number(rewards.commitsCurrent || 0),
-      JSON.stringify(inventory),
-      JSON.stringify(passState)
+      JSON.stringify(inventory)
     ]
   );
 
@@ -164,7 +160,7 @@ async function applyStage2Rewards(client, userId, progression, rewards) {
     await logDailyFarm(client, userId, Number(rewards.commitsCurrent || 0));
   }
 
-  return { passState, passUpdate, inventory, appliedRewards: rewards };
+  return { passUpdate, inventory, appliedRewards: rewards };
 }
 
 router.get(['/', '/daily'], async (req, res) => {
@@ -268,10 +264,9 @@ router.post('/claim', async (req, res) => {
 
     await client.query(
       `UPDATE progression
-       SET daily_quests_state = $2,
-           pass_state = $3
+       SET daily_quests_state = $2
        WHERE user_id = $1`,
-      [userId, JSON.stringify(state), JSON.stringify(rewardResult.passState)]
+      [userId, JSON.stringify(state)]
     );
 
     await client.query('COMMIT');
@@ -345,10 +340,9 @@ router.post('/full-clear', async (req, res) => {
 
     await client.query(
       `UPDATE progression
-       SET daily_quests_state = $2,
-           pass_state = $3
+       SET daily_quests_state = $2
        WHERE user_id = $1`,
-      [userId, JSON.stringify(state), JSON.stringify(rewardResult.passState)]
+      [userId, JSON.stringify(state)]
     );
 
     await client.query('COMMIT');
@@ -465,10 +459,9 @@ router.post('/weekly/claim', async (req, res) => {
 
     await client.query(
       `UPDATE progression
-       SET weekly_sprint_quest_state = $2,
-           pass_state = $3
+       SET weekly_sprint_quest_state = $2
        WHERE user_id = $1`,
-      [userId, JSON.stringify(state), JSON.stringify(rewardResult.passState)]
+      [userId, JSON.stringify(state)]
     );
 
     await client.query('COMMIT');

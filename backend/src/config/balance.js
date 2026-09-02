@@ -180,7 +180,7 @@ export const BATTLE_REWARD_PREVIEW = {
 };
 
 export const MIN_IDLE_THRESHOLD_SECONDS = 300;
-export const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 20;
+export const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 5;
 export const RECOVERY_INTERVAL_NEWBIE_SECONDS = 90;
 export const RECOVERY_INTERVAL_VETERAN_SECONDS = 120;
 
@@ -292,23 +292,29 @@ const STAGE2 = {
   PASS: {
     SEASON_DAYS: 30,
     SEASON_ID: 'season_1_startup',
-    MAX_LEVEL: 50,
-    LEVELS: (() => {
-      const levels = [];
-      const tiers = [
-        { start: 1, end: 10, xp: 100 },
-        { start: 11, end: 20, xp: 150 },
-        { start: 21, end: 30, xp: 200 },
-        { start: 31, end: 40, xp: 250 },
-        { start: 41, end: 50, xp: 300 },
-      ];
-      for (const tier of tiers) {
-        for (let i = tier.start; i <= tier.end; i++) {
-          levels.push({ level: i, requiredXp: tier.xp });
-        }
-      }
-      return levels;
-    })(),
+    MAX_LEVEL: 20,
+    LEVELS: [
+      { level: 1, requiredXp: 20 },
+      { level: 2, requiredXp: 20 },
+      { level: 3, requiredXp: 25 },
+      { level: 4, requiredXp: 25 },
+      { level: 5, requiredXp: 30 },
+      { level: 6, requiredXp: 30 },
+      { level: 7, requiredXp: 35 },
+      { level: 8, requiredXp: 35 },
+      { level: 9, requiredXp: 40 },
+      { level: 10, requiredXp: 45 },
+      { level: 11, requiredXp: 45 },
+      { level: 12, requiredXp: 50 },
+      { level: 13, requiredXp: 50 },
+      { level: 14, requiredXp: 55 },
+      { level: 15, requiredXp: 60 },
+      { level: 16, requiredXp: 60 },
+      { level: 17, requiredXp: 65 },
+      { level: 18, requiredXp: 70 },
+      { level: 19, requiredXp: 75 },
+      { level: 20, requiredXp: 80 }
+    ],
     FREE_REWARDS: {
       1: { energy: 15 },
       2: { energy: 15 },
@@ -462,8 +468,8 @@ const STAGE2 = {
 };
 
 const totalStage2PassXp = STAGE2.PASS.LEVELS.reduce((sum, level) => sum + level.requiredXp, 0);
-console.assert(totalStage2PassXp === 10000, `Pass XP mismatch: ${totalStage2PassXp}`);
-console.assert(STAGE2.PASS.LEVELS.length === 50, 'Level count must be 50');
+console.assert(totalStage2PassXp === 915, `Pass XP mismatch: ${totalStage2PassXp}`);
+console.assert(STAGE2.PASS.LEVELS.length === 20, 'Level count must be 20');
 console.assert(
   STAGE2.DAILY_QUEST.FULL_CLEAR.LOOT_BOX.drops.reduce((sum, drop) => sum + drop.weight, 0) === 100,
   'LootBox weights must sum to 100'
