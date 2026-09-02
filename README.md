@@ -126,7 +126,7 @@ For live tuning without redeploying:
 - **Anti-cheat:** Only L1 (real-time tap pattern analysis + persisted ban_score) is production-ready. L2 (session fatigue pipeline) and L3 (total_minted-grade reconciliation) are deferred.
 - **Premium Referral UX:** Backend is complete; frontend claim UI and post-claim states are functional but will be polished post-MVP.
 - **Random Events:** Server-authoritative state machine is implemented with PostgreSQL persistence. WebSocket push is not implemented; frontend polls every 5s.
-- **Secrets in Git History:** An earlier commit contained local secrets. They were rotated and removed from the working tree. Run `git-filter-repo` before a fully public release if you need to sanitize history.
+- **Historical secrets incident:** On 2026-09-02, `backend/.env` and `backend/.env.production` were removed from all public branches and tags by rewriting Git history. The rewritten public history passed a full Gitleaks scan with zero findings. Legacy GitHub-managed pull-request refs for PRs #7, #8 and #9 still retain the pre-rewrite commits and require GitHub server-side purge/garbage collection; previously exposed credentials had already been rotated.
 
 ## Project Structure
 
