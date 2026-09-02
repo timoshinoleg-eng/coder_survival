@@ -56,9 +56,23 @@ describe('P0/P1 audit requirements', () => {
     expect(tuples).toHaveLength(20);
     expect(tuples.map((entry) => entry.level)).toEqual(Array.from({ length: 20 }, (_, index) => index + 1));
 
-    const requiredXp = tuples.reduce((sum, entry) => sum + entry.requiredXp, 0);
+    const configuredXp = tuples.reduce((sum, entry) => sum + entry.requiredXp, 0);
+    // player_passes starts at level 1. Reaching level 20 consumes thresholds
+    // 1..19; level 20's stored threshold would be a nonexistent 20→21 step.
+    const xpToUnlockLevel20 = tuples.slice(0, -1).reduce((sum, entry) => sum + entry.requiredXp, 0);
     const baselineThirtyDayXp = 120 * 30; // 1 XP/tap, excludes quests/weekend bonuses.
-    expect(requiredXp).toBe(915);
-    expect(requiredXp).toBeLessThanOrEqual(baselineThirtyDayXp);
+    expect(configuredXp).toBe(915);
+    expect(xpToUnlockLevel20).toBe(835);
+    expect(xpToUnlockLevel20).toBeLessThanOrEqual(baselineThirtyDayXp);
+
+    const questsSource = fs.readFileSync(path.resolve(__dirname, '../src/routes/quests.js'), 'utf8');
+    const streakSource = fs.readFileSync(path.resolve(__dirname, '../src/routes/streak.js'), 'utf8');
+    const buySource = fs.readFileSync(path.resolve(__dirname, '../src/routes/buy.js'), 'utf8');
+    expect(questsSource).toContain('await addPassXp(client, userId');
+    expect(streakSource).toContain('await addPassXp(client, userId');
+    expect(questsSource).not.toContain('pass_state =');
+    expect(streakSource).not.toContain('pass_state =');
+    expect(buySource).toContain('streak_state, timezone_offset');
+    expect(buySource).toContain('now.getTime() + timezoneOffset * 60000');
   });
 });

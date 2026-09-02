@@ -1,4 +1,5 @@
 import {
+  DEPRESSION_PASSIVE_RECOVERY_PER_HOUR,
   MIN_IDLE_THRESHOLD_SECONDS,
   RECOVERY_INTERVAL_NEWBIE_SECONDS,
   RECOVERY_INTERVAL_VETERAN_SECONDS,
@@ -7,9 +8,9 @@ import {
 import { getEventRecoveryMultiplier } from './events.js';
 import { applyProductionAlertDrain } from './randomEventState.js';
 
-// P0 / D4-008: this is a product invariant, not an experiment. Keep the
-// passive stress relief independent from energy recovery and feature flags.
-export const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 5;
+// P0 / D4-008: the product invariant lives in balance.js and is re-exported
+// here for compatibility with existing callers/tests.
+export { DEPRESSION_PASSIVE_RECOVERY_PER_HOUR };
 
 function toValidDate(value) {
   if (!value) return null;

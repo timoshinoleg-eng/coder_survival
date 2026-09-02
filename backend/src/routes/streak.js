@@ -207,7 +207,7 @@ router.post('/claim', async (req, res) => {
     const today = getTodayDate(timezoneOffset);
     const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
     const progressionResult = await client.query(
-      `SELECT streak_state, pass_state, inventory
+      `SELECT streak_state, inventory
        FROM progression
        WHERE user_id = $1
        FOR UPDATE`,
@@ -226,12 +226,9 @@ router.post('/claim', async (req, res) => {
     const loginStreakBonus = getLoginStreakBonus(result.streakState.currentStreak);
     rewards.energy = Number(rewards.energy || 0) + Number(loginStreakBonus.reward.energy || 0);
     rewards.depressionRelief = Number(rewards.depressionRelief || 0) + Number(loginStreakBonus.reward.depressionRelief || 0);
-
-    let passState = progression.pass_state || {};
     let passUpdate = null;
     if (Number(rewards.passXp || 0) > 0) {
-      passUpdate = addPassXp(passState, Number(rewards.passXp || 0));
-      passState = passUpdate.newState;
+      passUpdate = await addPassXp(client, userId, Number(rewards.passXp || 0));
     }
 
     if (Number(rewards.xp || 0) > 0) {
@@ -248,16 +245,14 @@ router.post('/claim', async (req, res) => {
     await client.query(
       `UPDATE progression
        SET streak_state = $2,
-           pass_state = $3,
-           energy = LEAST($4, energy + $5),
-           depression_level = GREATEST(0, depression_level - $6),
-           is_burnout = GREATEST(0, depression_level - $6) >= $8,
-           inventory = $7
+           energy = LEAST($3, energy + $4),
+           depression_level = GREATEST(0, depression_level - $5),
+           is_burnout = GREATEST(0, depression_level - $5) >= $7,
+           inventory = $6
        WHERE user_id = $1`,
       [
         userId,
         JSON.stringify(result.streakState),
-        JSON.stringify(passState),
         levelRow.resolved.maxEnergy,
         Number(rewards.energy || 0),
         Number(rewards.depressionRelief || 0),
