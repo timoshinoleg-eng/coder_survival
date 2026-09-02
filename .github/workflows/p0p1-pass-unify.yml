@@ -1,0 +1,422 @@
+name: P0 P1 pass unification
+
+on:
+  push:
+    branches:
+      - fix/p0-p1-audit-requirements
+    paths:
+      - '.github/workflows/p0p1-pass-unify.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  unify-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: coder_survival_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/coder_survival_test
+      DATABASE_URL_TEST: postgresql://postgres:postgres@127.0.0.1:5432/coder_survival_test
+      NODE_ENV: test
+      BOT_TOKEN: 123456789:test_token_for_ci_only
+      BOT_BACKEND_SECRET: p0p1-ci-secret
+      SESSION_SECRET: p0p1-ci-session
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-p1-audit-requirements
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Apply audited source-of-truth fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, got {count}')
+              return text.replace(old, new, 1)
+
+          # 1) Single product/config source for passive depression decay.
+          balance_path = Path('backend/src/config/balance.js')
+          balance = balance_path.read_text()
+          balance = replace_once(
+              balance,
+              'export const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 20;',
+              'export const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 5;',
+              'passive depression constant'
+          )
+
+          pass_levels = """MAX_LEVEL: 20,
+              LEVELS: [
+                { level: 1, requiredXp: 20 },
+                { level: 2, requiredXp: 20 },
+                { level: 3, requiredXp: 25 },
+                { level: 4, requiredXp: 25 },
+                { level: 5, requiredXp: 30 },
+                { level: 6, requiredXp: 30 },
+                { level: 7, requiredXp: 35 },
+                { level: 8, requiredXp: 35 },
+                { level: 9, requiredXp: 40 },
+                { level: 10, requiredXp: 45 },
+                { level: 11, requiredXp: 45 },
+                { level: 12, requiredXp: 50 },
+                { level: 13, requiredXp: 50 },
+                { level: 14, requiredXp: 55 },
+                { level: 15, requiredXp: 60 },
+                { level: 16, requiredXp: 60 },
+                { level: 17, requiredXp: 65 },
+                { level: 18, requiredXp: 70 },
+                { level: 19, requiredXp: 75 },
+                { level: 20, requiredXp: 80 }
+              ],"""
+          balance, count = re.subn(
+              r"MAX_LEVEL: 50,\n\s+LEVELS: \(\(\) => \{.*?\n\s+\}\)\(\),",
+              pass_levels,
+              balance,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit(f'pass curve: expected 1 replacement, got {count}')
+          balance = replace_once(balance, 'totalStage2PassXp === 10000', 'totalStage2PassXp === 915', 'pass total assertion')
+          balance = replace_once(balance, "STAGE2.PASS.LEVELS.length === 50", "STAGE2.PASS.LEVELS.length === 20", 'pass level assertion')
+          balance_path.write_text(balance)
+
+          progression_path = Path('backend/src/utils/progression.js')
+          progression = progression_path.read_text()
+          progression = replace_once(
+              progression,
+              "import {\n  MIN_IDLE_THRESHOLD_SECONDS,",
+              "import {\n  DEPRESSION_PASSIVE_RECOVERY_PER_HOUR,\n  MIN_IDLE_THRESHOLD_SECONDS,",
+              'progression balance import'
+          )
+          progression = replace_once(
+              progression,
+              "// P0 / D4-008: this is a product invariant, not an experiment. Keep the\n// passive stress relief independent from energy recovery and feature flags.\nexport const DEPRESSION_PASSIVE_RECOVERY_PER_HOUR = 5;",
+              "// P0 / D4-008: the product invariant lives in balance.js and is re-exported\n// here for compatibility with existing callers/tests.\nexport { DEPRESSION_PASSIVE_RECOVERY_PER_HOUR };",
+              'progression local passive constant'
+          )
+          progression_path.write_text(progression)
+
+          # 2) Make the compatibility helper use the same 20-level curve as DB pass_rewards.
+          pass_path = Path('backend/src/utils/pass.js')
+          pass_src = pass_path.read_text()
+          pass_src, count = re.subn(
+              r"export function getPassRequiredXp\(level\) \{.*?\n\}\n\nexport function calculateCatchUpXp",
+              """export function getPassRequiredXp(level) {
+            const normalizedLevel = Number(level || 0);
+            if (!Number.isInteger(normalizedLevel) || normalizedLevel < 1 || normalizedLevel > PASS.MAX_LEVEL) {
+              return null;
+            }
+            return PASS.LEVELS.find((entry) => entry.level === normalizedLevel)?.requiredXp ?? null;
+          }
+
+          export function calculateCatchUpXp""",
+              pass_src,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit(f'pass helper curve: expected 1 replacement, got {count}')
+          pass_path.write_text(pass_src)
+
+          # 3) Quest XP goes to player_passes (DB), not the old progression.pass_state JSON.
+          quests_path = Path('backend/src/routes/quests.js')
+          quests = quests_path.read_text()
+          quests = replace_once(
+              quests,
+              """  let passState = progression.pass_state || {};
+            let passUpdate = null;
+
+            if (Number(rewards.passXp || 0) > 0) {
+              passUpdate = addPassXp(passState, Number(rewards.passXp || 0));
+              passState = passUpdate.newState;
+            }""",
+              """  let passUpdate = null;
+
+            if (Number(rewards.passXp || 0) > 0) {
+              passUpdate = await addPassXp(client, userId, Number(rewards.passXp || 0));
+            }""",
+              'quest DB pass award'
+          )
+          quests = replace_once(
+              quests,
+              """    `UPDATE progression
+               SET energy = LEAST($2, energy + $3),
+                   commits_current = commits_current + $4,
+                   inventory = $5,
+                   pass_state = $6
+               WHERE user_id = $1`,
+              [
+                userId,
+                maxEnergy,
+                Number(rewards.energy || 0),
+                Number(rewards.commitsCurrent || 0),
+                JSON.stringify(inventory),
+                JSON.stringify(passState)
+              ]""",
+              """    `UPDATE progression
+               SET energy = LEAST($2, energy + $3),
+                   commits_current = commits_current + $4,
+                   inventory = $5
+               WHERE user_id = $1`,
+              [
+                userId,
+                maxEnergy,
+                Number(rewards.energy || 0),
+                Number(rewards.commitsCurrent || 0),
+                JSON.stringify(inventory)
+              ]""",
+              'quest reward progression update'
+          )
+          quests = replace_once(
+              quests,
+              '  return { passState, passUpdate, inventory, appliedRewards: rewards };',
+              '  return { passUpdate, inventory, appliedRewards: rewards };',
+              'quest reward return'
+          )
+          old_daily_update = """      `UPDATE progression
+               SET daily_quests_state = $2,
+                   pass_state = $3
+               WHERE user_id = $1`,
+              [userId, JSON.stringify(state), JSON.stringify(rewardResult.passState)]"""
+          new_daily_update = """      `UPDATE progression
+               SET daily_quests_state = $2
+               WHERE user_id = $1`,
+              [userId, JSON.stringify(state)]"""
+          count = quests.count(old_daily_update)
+          if count != 2:
+              raise SystemExit(f'daily quest pass_state updates: expected 2, got {count}')
+          quests = quests.replace(old_daily_update, new_daily_update)
+          quests = replace_once(
+              quests,
+              """      `UPDATE progression
+               SET weekly_sprint_quest_state = $2,
+                   pass_state = $3
+               WHERE user_id = $1`,
+              [userId, JSON.stringify(state), JSON.stringify(rewardResult.passState)]""",
+              """      `UPDATE progression
+               SET weekly_sprint_quest_state = $2
+               WHERE user_id = $1`,
+              [userId, JSON.stringify(state)]""",
+              'weekly sprint pass_state update'
+          )
+          quests_path.write_text(quests)
+
+          # 4) Daily login XP also goes to player_passes.
+          streak_path = Path('backend/src/routes/streak.js')
+          streak = streak_path.read_text()
+          streak = replace_once(streak, '`SELECT streak_state, pass_state, inventory', '`SELECT streak_state, inventory', 'streak select legacy pass')
+          streak = replace_once(
+              streak,
+              """    let passState = progression.pass_state || {};
+              let passUpdate = null;
+              if (Number(rewards.passXp || 0) > 0) {
+                passUpdate = addPassXp(passState, Number(rewards.passXp || 0));
+                passState = passUpdate.newState;
+              }""",
+              """    let passUpdate = null;
+              if (Number(rewards.passXp || 0) > 0) {
+                passUpdate = await addPassXp(client, userId, Number(rewards.passXp || 0));
+              }""",
+              'streak DB pass award'
+          )
+          streak = replace_once(
+              streak,
+              """      `UPDATE progression
+               SET streak_state = $2,
+                   pass_state = $3,
+                   energy = LEAST($4, energy + $5),
+                   depression_level = GREATEST(0, depression_level - $6),
+                   is_burnout = GREATEST(0, depression_level - $6) >= $8,
+                   inventory = $7
+               WHERE user_id = $1`,
+              [
+                userId,
+                JSON.stringify(result.streakState),
+                JSON.stringify(passState),
+                levelRow.resolved.maxEnergy,
+                Number(rewards.energy || 0),
+                Number(rewards.depressionRelief || 0),
+                JSON.stringify(inventory),
+                DEPRESSION_SCALE.HEART_ATTACK_THRESHOLD
+              ]""",
+              """      `UPDATE progression
+               SET streak_state = $2,
+                   energy = LEAST($3, energy + $4),
+                   depression_level = GREATEST(0, depression_level - $5),
+                   is_burnout = GREATEST(0, depression_level - $5) >= $7,
+                   inventory = $6
+               WHERE user_id = $1`,
+              [
+                userId,
+                JSON.stringify(result.streakState),
+                levelRow.resolved.maxEnergy,
+                Number(rewards.energy || 0),
+                Number(rewards.depressionRelief || 0),
+                JSON.stringify(inventory),
+                DEPRESSION_SCALE.HEART_ATTACK_THRESHOLD
+              ]""",
+              'streak progression update'
+          )
+          streak_path.write_text(streak)
+
+          # 5) Arm paid Streak Saver for the player's local calendar date.
+          buy_path = Path('backend/src/routes/buy.js')
+          buy = buy_path.read_text()
+          buy = replace_once(
+              buy,
+              '`SELECT streak_state FROM progression WHERE user_id = $1 FOR UPDATE`',
+              '`SELECT streak_state, timezone_offset FROM progression WHERE user_id = $1 FOR UPDATE`',
+              'streak saver timezone select'
+          )
+          buy = replace_once(
+              buy,
+              """      const streakState = streakResult.rows[0]?.streak_state || {};
+              const todayDate = new Date().toISOString().slice(0, 10);
+              const nextState = armStreakSaver(streakState, todayDate, new Date());""",
+              """      const streakState = streakResult.rows[0]?.streak_state || {};
+              const timezoneOffset = Number(streakResult.rows[0]?.timezone_offset ?? 180);
+              const now = new Date();
+              const localNow = new Date(now.getTime() + timezoneOffset * 60000);
+              const todayDate = localNow.toISOString().slice(0, 10);
+              const nextState = armStreakSaver(streakState, todayDate, now);""",
+              'streak saver local date'
+          )
+          buy_path.write_text(buy)
+
+          # 6) Retire test assumptions for the old 50-level JSON pass.
+          oracle_path = Path('backend/tests/stage2.oracles.test.js')
+          oracle = oracle_path.read_text()
+          oracle = replace_once(
+              oracle,
+              """test('Oracle 2: pass XP conservation', () => {
+            const result = addPassXp({ currentXp: 0, claimedLevels: [] }, 21000);
+            assert.strictEqual(calculatePassLevel(result.newState).currentLevel, 50);
+            assert.strictEqual(calculatePassLevel(result.newState).progressToNext, 1.0);
+          });""",
+              """test('Oracle 2: pass XP conservation', () => {
+            const result = addPassXp({ currentXp: 0, claimedLevels: [] }, 915);
+            assert.strictEqual(calculatePassLevel(result.newState).currentLevel, 20);
+            assert.strictEqual(calculatePassLevel(result.newState).progressToNext, 1.0);
+          });""",
+              'pass conservation oracle'
+          )
+          oracle = replace_once(
+              oracle,
+              """test('pass boundary: 99/100 XP plus 2 XP unlocks level 1 claimable reward', () => {
+            const result = addPassXp({ currentXp: 99, claimedLevels: [] }, 2);""",
+              """test('pass boundary: 19/20 XP plus 2 XP unlocks level 1 claimable reward', () => {
+            const result = addPassXp({ currentXp: 19, claimedLevels: [] }, 2);""",
+              'pass boundary oracle'
+          )
+          oracle, count = re.subn(
+              r"test\('sprint pass config uses 50-level tiered XP curve', \(\) => \{.*?\n\}\);",
+              """test('sprint pass config mirrors the production 20-level DB curve', () => {
+            assert.strictEqual(STAGE2.PASS.SEASON_DAYS, 30);
+            assert.strictEqual(STAGE2.PASS.LEVELS.length, 20);
+            assert.deepStrictEqual(STAGE2.PASS.LEVELS.map((level) => level.requiredXp), [
+              20, 20, 25, 25, 30, 30, 35, 35, 40, 45,
+              45, 50, 50, 55, 60, 60, 65, 70, 75, 80
+            ]);
+            assert.strictEqual(getPassRequiredXp(1), 20);
+            assert.strictEqual(getPassRequiredXp(20), 80);
+            assert.strictEqual(getPassRequiredXp(21), null);
+          });""",
+              oracle,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit(f'pass config oracle: expected 1 replacement, got {count}')
+          oracle_path.write_text(oracle)
+
+          audit_path = Path('backend/tests/p0p1AuditRequirements.test.js')
+          audit = audit_path.read_text()
+          audit = replace_once(
+              audit,
+              """    const requiredXp = tuples.reduce((sum, entry) => sum + entry.requiredXp, 0);
+              const baselineThirtyDayXp = 120 * 30; // 1 XP/tap, excludes quests/weekend bonuses.
+              expect(requiredXp).toBe(915);
+              expect(requiredXp).toBeLessThanOrEqual(baselineThirtyDayXp);""",
+              """    const configuredXp = tuples.reduce((sum, entry) => sum + entry.requiredXp, 0);
+              // player_passes starts at level 1, so reaching level 20 consumes
+              // thresholds 1..19; level 20's threshold would be a nonexistent 20→21 step.
+              const xpToUnlockLevel20 = tuples.slice(0, -1).reduce((sum, entry) => sum + entry.requiredXp, 0);
+              const baselineThirtyDayXp = 120 * 30; // 1 XP/tap, excludes quests/weekend bonuses.
+              expect(configuredXp).toBe(915);
+              expect(xpToUnlockLevel20).toBe(835);
+              expect(xpToUnlockLevel20).toBeLessThanOrEqual(baselineThirtyDayXp);
+
+              const questsSource = fs.readFileSync(path.resolve(__dirname, '../src/routes/quests.js'), 'utf8');
+              const streakSource = fs.readFileSync(path.resolve(__dirname, '../src/routes/streak.js'), 'utf8');
+              expect(questsSource).toContain('await addPassXp(client, userId');
+              expect(streakSource).toContain('await addPassXp(client, userId');
+              expect(questsSource).not.toContain('pass_state =');
+              expect(streakSource).not.toContain('pass_state =');""",
+              'audit pass pacing assertion'
+          )
+          audit_path.write_text(audit)
+
+          for p in [balance_path, progression_path, pass_path, quests_path, streak_path, buy_path, oracle_path, audit_path]:
+              print(f'UPDATED {p}')
+          PY
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run targeted backend tests
+        working-directory: backend
+        run: >-
+          node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand
+          tests/p0p1AuditRequirements.test.js
+          tests/progression.passiveDecay.test.js
+          tests/stage2.oracles.test.js
+          tests/payments.firstPurchaseBonus.test.js
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests and build
+        working-directory: frontend
+        run: |
+          npm test
+          npm run build
+
+      - name: Commit verified unification
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/src/config/balance.js backend/src/utils/progression.js backend/src/utils/pass.js backend/src/routes/quests.js backend/src/routes/streak.js backend/src/routes/buy.js backend/tests/stage2.oracles.test.js backend/tests/p0p1AuditRequirements.test.js
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'fix(pass): unify P0/P1 progression on production DB curve'
+          git push origin HEAD:fix/p0-p1-audit-requirements
