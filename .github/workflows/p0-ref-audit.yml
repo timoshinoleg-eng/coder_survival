@@ -1,0 +1,58 @@
+name: P0 Residual Ref Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/p0-ref-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  locate-residual-refs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Clone all server-visible refs and locate forbidden paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$RUNNER_TEMP/ref-audit.git"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone --mirror "$remote" "$repo"
+          cd "$repo"
+
+          python3 <<'PY'
+          import subprocess
+
+          forbidden = ('backend/.env', 'backend/.env.production')
+          refs = subprocess.check_output(
+              ['git', 'for-each-ref', '--format=%(refname)'], text=True
+          ).splitlines()
+          findings = []
+
+          for ref in refs:
+              commits = subprocess.check_output(['git', 'rev-list', ref], text=True).splitlines()
+              hit = None
+              for commit in commits:
+                  paths = set(subprocess.check_output(
+                      ['git', 'ls-tree', '-r', '--name-only', commit], text=True
+                  ).splitlines())
+                  matched = [p for p in forbidden if p in paths]
+                  if matched:
+                      hit = (commit, matched)
+                      break
+              if hit:
+                  findings.append((ref, hit[0], hit[1]))
+
+          print(f"RESIDUAL_REF_AUDIT_SUMMARY refs={len(refs)} affected_refs={len(findings)}")
+          for ref, commit, paths in findings:
+              print(
+                  f"RESIDUAL_REF_FINDING ref={ref} commit={commit} "
+                  f"files={','.join(paths)}"
+              )
+          PY
