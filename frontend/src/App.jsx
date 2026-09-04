@@ -689,6 +689,11 @@ function AppInner() {
                 const next = normalizeRuntimeEventState({ ...latest, ...payload.randomEventState });
                 return runtimeEventStatesEqual(latest, next) ? latest : next;
               });
+              setRandomEvent((current) => (
+                current?.eventId === eventId
+                  ? { ...current, state: payload.randomEventState }
+                  : current
+              ));
             }
             if (type === 'bug_production' && action === 'ignore') {
               showToast('🚨 Production Alert активирован на 3 минуты.', 'error', 1800);
@@ -752,6 +757,11 @@ function AppInner() {
               const next = normalizeRuntimeEventState({ ...latest, ...payload.randomEventState });
               return runtimeEventStatesEqual(latest, next) ? latest : next;
             });
+            setRandomEvent((current) => (
+              current?.eventId === eventId
+                ? { ...current, state: payload.randomEventState }
+                : current
+            ));
           }
           if (payload?.resolved) {
             setRandomEvent(null);

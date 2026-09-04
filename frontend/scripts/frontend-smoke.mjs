@@ -107,6 +107,10 @@ function assertRandomEventChoiceIsSingleFlight() {
   if (!app.includes("isRandomEventGoneError(err)") || !app.includes("Событие уже завершилось.")) {
     failures.push("src/App.jsx: expired or already-resolved choices must close cleanly instead of reporting a retry failure");
   }
+  const activeEventStateUpdates = (app.match(/state: payload\.randomEventState/g) || []).length;
+  if (activeEventStateUpdates < 2) {
+    failures.push("src/App.jsx: choice and tap responses must update the active event state without waiting for the next poll");
+  }
 }
 
 function assertUseCallbackDepsDoNotReadLaterDeclarations() {
