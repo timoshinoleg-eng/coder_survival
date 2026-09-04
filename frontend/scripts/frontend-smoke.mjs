@@ -95,6 +95,20 @@ function assertOnboardingCompletionIsRetryableAndVisible() {
   }
 }
 
+function assertRandomEventChoiceIsSingleFlight() {
+  const app = read("src/App.jsx");
+
+  if (!app.includes("const randomEventResolveRef = useRef(false)")) {
+    failures.push("src/App.jsx: random-event resolutions must have a synchronous single-flight guard");
+  }
+  if (!app.includes("randomEventBusy || randomEventResolveRef.current")) {
+    failures.push("src/App.jsx: timer and tap must both respect the random-event single-flight guard");
+  }
+  if (!app.includes("isRandomEventGoneError(err)") || !app.includes("Событие уже завершилось.")) {
+    failures.push("src/App.jsx: expired or already-resolved choices must close cleanly instead of reporting a retry failure");
+  }
+}
+
 function assertUseCallbackDepsDoNotReadLaterDeclarations() {
   const file = "src/hooks/useGameState.js";
   const source = read(file);
@@ -495,6 +509,7 @@ assertAppComponentReferencesAreImported();
 assertMobileScreensHaveOneOwnerAndTopmostModalLayer();
 assertVercelPreviewUsesTheCurrentApiProxy();
 assertOnboardingCompletionIsRetryableAndVisible();
+assertRandomEventChoiceIsSingleFlight();
 assertPaymentControlsAreGated();
 assertCoffeeCosmeticProgressRemainsVisualOnly();
 assertUseCallbackDepsDoNotReadLaterDeclarations();

@@ -84,6 +84,11 @@ function getRandomEventGameStatePayload() {
   };
 }
 
+function isRandomEventGoneError(err) {
+  const message = String(err?.payload?.error || err?.payload?.message || err?.message || '').toLowerCase();
+  return err?.status === 404 || /not found|already resolved|уже решено|не найдено|событие не активно|event.*expired/i.test(message);
+}
+
 function AppInner() {
   const [gameReady, setGameReady] = useState(false);
   // Stable identity: an inline arrow gave PhaserGame a new onReady prop on
@@ -101,6 +106,10 @@ function AppInner() {
     useState(false);
   const [randomEvent, setRandomEvent] = useState(null);
   const [randomEventBusy, setRandomEventBusy] = useState(false);
+  // State updates do not take effect until the next render. The timer and a
+  // tap can happen in the same frame, so a ref is needed to make the server
+  // resolution single-flight immediately.
+  const randomEventResolveRef = useRef(false);
   const [runtimeEventState, setRuntimeEventState] = useState({
     legacyCodeClicksRemaining: 0,
     productionAlertUntil: null,
@@ -647,7 +656,8 @@ function AppInner() {
       event: randomEvent,
       disabled: randomEventBusy,
       onChoice: async (eventId, type, action) => {
-        if (randomEventBusy) return;
+        if (randomEventBusy || randomEventResolveRef.current) return;
+        randomEventResolveRef.current = true;
         setRandomEventBusy(true);
         try {
           const clickEvents = ['legacy_code', 'bug_production', 'coffee_stain', 'deploy_friday'];
@@ -686,9 +696,16 @@ function AppInner() {
             if (type === 'golden_commit' && action === 'solve') {
               showToast('✨ Golden Commit активирован! x7 LOC/s на 77 секунд.', 'success', 1800);
             }
-          } catch (_e) {
+          } catch (err) {
             resolveFailed = true;
-            showToast('Не удалось применить выбор. Попробуй ещё раз.', 'warning', 1800);
+            if (isRandomEventGoneError(err)) {
+              setRandomEvent(null);
+              showToast('Событие уже завершилось.', 'info', 1500);
+            } else if (err?.status === 429) {
+              showToast('Выбор уже отправлен. Обновляем состояние…', 'info', 1500);
+            } else {
+              showToast('Не удалось применить выбор. Попробуй ещё раз.', 'warning', 1800);
+            }
           }
 
           if (!resolveFailed) {
@@ -716,11 +733,13 @@ function AppInner() {
             }
           }
         } finally {
+          randomEventResolveRef.current = false;
           setRandomEventBusy(false);
         }
       },
       onTap: async (eventId, type) => {
-        if (randomEventBusy) return;
+        if (randomEventBusy || randomEventResolveRef.current) return;
+        randomEventResolveRef.current = true;
         setRandomEventBusy(true);
         try {
           const payload = await apiRequest('/api/events/resolve', {
@@ -748,15 +767,14 @@ function AppInner() {
             }
           }
         } catch (err) {
-          const msg = String(err?.payload?.error || err?.payload?.message || err?.message || '').toLowerCase();
-          const gone = err?.status === 404 || /not found|already resolved|уже решено|не найдено|событие не активно|event.*expired/i.test(msg);
-          if (gone) {
+          if (isRandomEventGoneError(err)) {
             setRandomEvent(null);
             showToast('Событие уже завершилось.', 'info', 1500);
           } else {
             showToast('Не удалось синхронизировать событие. Повтори тап.', 'error', 1800);
           }
         } finally {
+          randomEventResolveRef.current = false;
           setRandomEventBusy(false);
         }
       },
