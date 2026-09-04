@@ -54,7 +54,13 @@ router.post('/complete', async (req, res) => {
                ELSE '{}'::jsonb
              END,
              '{coffee_cups}',
-             to_jsonb(COALESCE((inventory->>'coffee_cups')::int, 0) + 1),
+             to_jsonb(
+               CASE
+                 WHEN inventory->>'coffee_cups' ~ '^(?:0|[1-9][0-9]{0,8})$'
+                   THEN (inventory->>'coffee_cups')::int
+                 ELSE 0
+               END + 1
+             ),
              TRUE
            )
        WHERE user_id = $1
