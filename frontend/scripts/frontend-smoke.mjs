@@ -80,6 +80,21 @@ function assertVercelPreviewUsesTheCurrentApiProxy() {
   }
 }
 
+function assertOnboardingCompletionIsRetryableAndVisible() {
+  const modal = read("src/components/OnboardingModal.jsx");
+  const state = read("src/hooks/useGameState.js");
+
+  if (modal.includes("completing || loading")) {
+    failures.push("src/components/OnboardingModal.jsx: the visible final onboarding action must not be silently blocked by global loading");
+  }
+  if (!modal.includes("setCompletionError(message)") || !modal.includes("role: 'alert'")) {
+    failures.push("src/components/OnboardingModal.jsx: a failed completion must be shown in the onboarding modal");
+  }
+  if (!state.includes('err?.status === 409 && err?.payload?.error === "already_completed"')) {
+    failures.push("src/hooks/useGameState.js: a safely-retried completed onboarding request must resolve locally");
+  }
+}
+
 function assertUseCallbackDepsDoNotReadLaterDeclarations() {
   const file = "src/hooks/useGameState.js";
   const source = read(file);
@@ -479,6 +494,7 @@ function assertPaymentControlsAreGated() {
 assertAppComponentReferencesAreImported();
 assertMobileScreensHaveOneOwnerAndTopmostModalLayer();
 assertVercelPreviewUsesTheCurrentApiProxy();
+assertOnboardingCompletionIsRetryableAndVisible();
 assertPaymentControlsAreGated();
 assertCoffeeCosmeticProgressRemainsVisualOnly();
 assertUseCallbackDepsDoNotReadLaterDeclarations();

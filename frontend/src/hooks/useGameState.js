@@ -1171,14 +1171,27 @@ export function GameProvider({ children }) {
       }
     },
     completeOnboarding: async () => {
-      const payload = await apiRequest("/api/onboarding/complete", {
-        method: "POST",
-        initData: telegram?.initData,
-      });
-      applyServerState(payload);
-      setColdState((current) => ({ ...current, showOnboarding: false }));
-      localStorage.setItem("cs_onboarding_completed", "1");
-      return payload;
+      try {
+        const payload = await apiRequest("/api/onboarding/complete", {
+          method: "POST",
+          initData: telegram?.initData,
+        });
+        applyServerState(payload);
+        setColdState((current) => ({ ...current, showOnboarding: false }));
+        localStorage.setItem("cs_onboarding_completed", "1");
+        return payload;
+      } catch (err) {
+        // The completion request is safe to retry. If a prior tap committed on
+        // the server but the client lost its response, the server reports a
+        // conflict. Treat that exact response as the completed state instead
+        // of trapping the player on the final onboarding screen.
+        if (err?.status === 409 && err?.payload?.error === "already_completed") {
+          setColdState((current) => ({ ...current, showOnboarding: false }));
+          localStorage.setItem("cs_onboarding_completed", "1");
+          return { alreadyCompleted: true };
+        }
+        throw err;
+      }
     },
     skipOnboarding: () => {
       console.log("onboarding_skipped");

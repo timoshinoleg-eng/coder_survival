@@ -18,11 +18,11 @@ export default function OnboardingModal({ visible, onClose }) {
     energy,
     depression,
     daily,
-    loading,
   } = useGameState();
   const [step, setStep] = useState(0);
   const [tutorialTaps, setTutorialTaps] = useState(0);
   const [completing, setCompleting] = useState(false);
+  const [completionError, setCompletionError] = useState('');
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const current = STEPS[step];
   const startRef = useRef(null);
@@ -36,6 +36,7 @@ export default function OnboardingModal({ visible, onClose }) {
       setStep(0);
       setTutorialTaps(0);
       setTooltipOpen(false);
+      setCompletionError('');
     }
   }, [visible]);
 
@@ -63,17 +64,26 @@ export default function OnboardingModal({ visible, onClose }) {
   }, [energy, tap, tutorialTaps]);
 
   const handleComplete = useCallback(async () => {
-    if (completing || loading) return;
+    if (completing) return;
     setCompleting(true);
+    setCompletionError('');
     try {
       await completeOnboarding();
       const duration_sec = startRef.current ? Math.round((Date.now() - startRef.current) / 1000) : 0;
       Analytics.track('onboarding_completed', { duration_sec });
       onClose?.({ completed: true });
+    } catch (err) {
+      const message =
+        err?.status === 401 || err?.status === 403
+          ? 'Сессия Telegram устарела. Закройте и откройте игру заново.'
+          : err?.isTimeout || err?.isNetwork
+            ? 'Нет связи с игрой. Проверьте интернет и попробуйте ещё раз.'
+            : 'Не удалось сохранить прогресс. Попробуйте ещё раз.';
+      setCompletionError(message);
     } finally {
       setCompleting(false);
     }
-  }, [completeOnboarding, completing, loading, onClose]);
+  }, [completeOnboarding, completing, onClose]);
 
   const handleClose = useCallback(() => {
     console.log('onboarding_skipped');
@@ -148,6 +158,14 @@ export default function OnboardingModal({ visible, onClose }) {
       }
       .onboarding-energy-flash {
         animation: onboardingEnergyFlash 700ms ease-out;
+      }
+      .onboarding-error {
+        border: 1px solid var(--accent-red, #ff5c5c);
+        background: rgba(127, 29, 29, 0.32);
+        color: #fecaca;
+        padding: 10px;
+        font-size: var(--text-md);
+        line-height: 1.35;
       }
       @keyframes onboardingEnergyFlash {
         0%, 100% { box-shadow: none; }
@@ -283,11 +301,13 @@ export default function OnboardingModal({ visible, onClose }) {
           h('span', { style: { color: '#dbeafe', fontWeight: 700 } }, 'Дневные квесты'),
           h('span', { style: { color: 'var(--accent-green)', fontWeight: 800 } }, `${daily?.quests?.length || 3}/день`),
         ]),
+        completionError && h('div', { className: 'onboarding-error', role: 'alert', 'aria-live': 'polite' }, completionError),
         h('button', {
           type: 'button',
           className: 'onboarding-primary',
           onClick: handleComplete,
           disabled: completing,
+          'aria-busy': completing ? 'true' : 'false',
           style: { opacity: completing ? 0.7 : 1 },
         }, completing ? 'Сохраняем...' : 'Пережить первый рабочий день'),
       ]),
