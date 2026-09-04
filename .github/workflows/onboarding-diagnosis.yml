@@ -1,0 +1,77 @@
+name: Onboarding Save Diagnosis
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnosis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Bot menu button (getChatMenuButton)
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          node --input-type=module -e '
+            const token = process.env.BOT_TOKEN;
+            if (!token) { console.log("menu_ok=false (no BOT_TOKEN)"); process.exit(0); }
+            const r = await fetch(`https://api.telegram.org/bot${token}/getChatMenuButton`);
+            const d = await r.json();
+            console.log("menu_ok=" + d.ok);
+            console.log("menu_result=" + JSON.stringify(d.result ?? { description: d.description }));
+          '
+
+      - name: Prod DB schema + rows (read-only, masked)
+        env:
+          PGHOST: ${{ secrets.DB_HOST }}
+          PGPORT: ${{ secrets.DB_PORT }}
+          PGUSER: ${{ secrets.DB_USER }}
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+          PGDATABASE: ${{ secrets.DB_NAME }}
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: 15
+        run: |
+          set -uo pipefail
+          if [ -z "${PGHOST:-}" ] || [ -z "${PGUSER:-}" ]; then
+            echo "db_ok=false (no DB secrets)"
+            exit 0
+          fi
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq postgresql-client >/dev/null 2>&1
+          if ! psql -X -A -t -c "SELECT 'db_reachable=1';" >/dev/null 2>&1; then
+            echo "db_ok=false (unreachable)"
+            exit 0
+          fi
+          echo "db_ok=true"
+          psql -X -A -t <<'SQL'
+          SELECT 'migration_019=' || COALESCE(string_agg(filename, ','), '<none>') FROM schema_migrations WHERE filename LIKE '019_%';
+          SELECT 'progression_rows=' || count(*) FROM progression;
+          SELECT 'not_onboarded=' || count(*) FROM progression WHERE onboarding_completed = false;
+          SELECT 'non_object_inventory=' || count(*) FROM progression WHERE jsonb_typeof(inventory) <> 'object';
+          SELECT 'cc_type_number=' || count(*) FROM progression WHERE jsonb_typeof(inventory->'coffee_cups') = 'number';
+          SELECT 'cc_type_string=' || count(*) FROM progression WHERE jsonb_typeof(inventory->'coffee_cups') = 'string';
+          SELECT 'cc_type_other=' || count(*) FROM progression WHERE jsonb_typeof(inventory->'coffee_cups') IS NOT NULL AND jsonb_typeof(inventory->'coffee_cups') NOT IN ('number','string');
+          SELECT 'cc_huge_or_float=' || count(*) FROM progression WHERE length(COALESCE(inventory->>'coffee_cups','')) >= 10 OR (inventory->>'coffee_cups') ~ '[.eE]';
+          SQL
+
+      - name: Prod backend logs (best-effort, masked)
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          SSH_HOST: ${{ secrets.VM_HOST }}
+          SSH_USER: ${{ secrets.VM_USER }}
+          SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_KEY:-}" ]; then
+            echo "ssh_ok=false (no VM secrets)"
+            exit 0
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_diag && chmod 600 ~/.ssh/id_diag
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          timeout 90 ssh -i ~/.ssh/id_diag -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" \
+            'docker ps --format "{{.Names}}" 2>/dev/null | head -20; echo "---onboarding log tail---"; docker logs --tail 400 coder-survival-backend 2>&1 | grep -i "onboarding" | tail -40 || echo "no onboarding log lines"' \
+            || echo "ssh_ok=false (unreachable or no container)"
