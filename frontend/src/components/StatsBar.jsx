@@ -274,9 +274,12 @@ export default function StatsBar({ runtimeNow }) {
   return h(
     "div",
     {
-      className: navigationOpen
-        ? "pixel-panel hud-v2 hud-v2--navigation-open"
-        : "pixel-panel hud-v2",
+      className: [
+        "pixel-panel",
+        "hud-v2",
+        anyModalOpen && "hud-v2--overlay-open",
+        navigationOpen && "hud-v2--navigation-open",
+      ].filter(Boolean).join(" "),
       style: {
         position: "relative",
         zIndex: 10,

@@ -17,14 +17,8 @@ import PhaserGame from "./game/PhaserGame.js";
 import LoadingOverlay from "./components/LoadingOverlay.jsx";
 import RandomEventToast from "./components/RandomEventToast.jsx";
 import StreakCalendar from "./components/StreakCalendar.jsx";
-import DailyQuests from "./components/DailyQuests.jsx";
-import WeeklySprintPanel from "./components/WeeklySprintPanel.jsx";
-import PassPanel from "./components/PassPanel.jsx";
 import RewardedVideo from "./components/RewardedVideo.jsx";
-import TeamPanel from "./components/TeamPanel.jsx";
 import BattleCard from "./components/BattleCard.jsx";
-import ShareButton from "./components/ShareButton.jsx";
-import AudioToggle from "./components/AudioToggle.jsx";
 import VisualFixture from "./components/VisualFixture.jsx";
 import CareerModal from "./components/CareerModal.jsx";
 import MemeGenerator from "./components/MemeGenerator.jsx";
@@ -601,9 +595,6 @@ function AppInner() {
       },
       activeRuntimeEvents.map((line) => h('div', { key: line, style: { color: '#facc15' } }, line)),
     ),
-    h(DailyQuests),
-    h(WeeklySprintPanel),
-    h(PassPanel),
     h(
       "div",
       {
@@ -617,44 +608,8 @@ function AppInner() {
       h(PhaserGame, { onReady: handleGameReady }),
     ),
     h(TapArea, { active: gameReady }),
-    activeRuntimeEvents.length > 0 && h(
-      "div",
-      {
-        style: {
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: '300px',
-          zIndex: 28,
-          display: 'flex',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-        },
-      },
-      h(
-        "div",
-        {
-          className: 'pixel-panel',
-          style: {
-            padding: '8px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            minWidth: 'min(320px, 80vw)',
-            textAlign: 'center',
-            color: '#e6edf7',
-            fontSize: '11px',
-            background: 'rgba(16, 25, 45, 0.92)',
-          },
-        },
-        activeRuntimeEvents.map((line) => h('div', { key: line, style: { color: '#facc15' } }, line)),
-      ),
-    ),
     h(RewardedVideo),
-    h(TeamPanel),
-    h(AudioToggle),
     (battles || []).slice(0, 1).map((battle) => h(BattleCard, { key: battle.id, battle })),
-    h(ShareButton),
     h(CareerModal),
     h(OnboardingModal, {
       visible: shouldShowOnboarding,

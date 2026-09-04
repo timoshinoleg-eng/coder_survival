@@ -220,6 +220,32 @@ for (const viewport of VIEWPORTS) {
     await page.locator('.hud-v2__nav-scrim').click({ position: { x: 12, y: 40 } });
     await expect(sheet).toHaveCount(0);
   });
+
+  test(`responsive tasks ${viewport.label} — task screen stays above commit control`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await bootApp(page);
+
+    await page.getByRole('button', { name: /^ЗАДАЧИ/ }).click();
+    await expect(page.getByText('Дневные квесты').last()).toBeVisible();
+
+    const layers = await page.evaluate(() => {
+      const hud = document.querySelector('.hud-v2');
+      const tapArea = document.querySelector('.tap-area-v2');
+      const hudStyle = hud && getComputedStyle(hud);
+      const tapStyle = tapArea && getComputedStyle(tapArea);
+      const hudBox = hud?.getBoundingClientRect();
+      return {
+        hudPosition: hudStyle?.position,
+        hudZIndex: Number(hudStyle?.zIndex || 0),
+        tapZIndex: Number(tapStyle?.zIndex || 0),
+        hudHeight: hudBox?.height || 0,
+      };
+    });
+
+    expect(layers.hudPosition, 'an open task screen must use the viewport layer').toBe('fixed');
+    expect(layers.hudZIndex, 'an open task screen must be above the commit control').toBeGreaterThan(layers.tapZIndex);
+    expect(layers.hudHeight, 'the modal owner must cover the full mobile viewport').toBeGreaterThanOrEqual(viewport.height);
+  });
 }
 
 test('event keyart files are served', async ({ request }) => {

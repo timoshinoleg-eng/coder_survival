@@ -3,7 +3,7 @@
 const viteEnv = import.meta.env ?? {};
 
 const configuredApiBaseUrl = viteEnv.VITE_API_BASE_URL || '';
-const API_BASE_URL =
+export const API_BASE_URL =
   typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app')
     ? ''
     : configuredApiBaseUrl;

@@ -6,8 +6,22 @@
 .app-shell {
   display: flex;
   flex-direction: column;
+  position: relative;
   width: 100%;
-  min-height: 100dvh;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* A panel opened from StatsBar is rendered as its child. The HUD normally
+   owns only its compact top strip (z-index: 10), while the commit control is
+   a sibling at z-index: 20. Lift the HUD to a full-viewport fixed layer while
+   *any* of its screens is open: absolute modal backdrops then resolve against
+   the viewport and no game control can cover or intercept a panel action. */
+.hud-v2--overlay-open {
+  position: fixed !important;
+  inset: 0;
+  z-index: 50 !important;
 }
 
 /* While the navigation sheet is open the whole HUD is lifted above its siblings

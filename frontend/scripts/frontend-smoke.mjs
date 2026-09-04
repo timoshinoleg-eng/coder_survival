@@ -43,6 +43,43 @@ function assertAppComponentReferencesAreImported() {
   }
 }
 
+function assertMobileScreensHaveOneOwnerAndTopmostModalLayer() {
+  const app = read("src/App.jsx");
+  const statsBar = read("src/components/StatsBar.jsx");
+  const visualSystem = read("src/assets/visual-system-v2.css");
+
+  for (const duplicateSurface of ["h(DailyQuests),", "h(WeeklySprintPanel),", "h(PassPanel),"]) {
+    if (app.includes(duplicateSurface)) {
+      failures.push(`src/App.jsx: ${duplicateSurface} duplicates a screen already opened from StatsBar`);
+    }
+  }
+  if (app.includes("h(AudioToggle)") || app.includes("h(ShareButton)")) {
+    failures.push("src/App.jsx: fixed utility controls must not cover the HUD or commit area");
+  }
+  if (!statsBar.includes("anyModalOpen && \"hud-v2--overlay-open\"")) {
+    failures.push("src/components/StatsBar.jsx: every open screen must elevate the HUD modal owner");
+  }
+  if (!visualSystem.includes(".hud-v2--overlay-open") || !visualSystem.includes("position: fixed !important")) {
+    failures.push("src/assets/visual-system-v2.css: open HUD screens must occupy the fixed viewport layer");
+  }
+}
+
+function assertVercelPreviewUsesTheCurrentApiProxy() {
+  const vercelConfig = read("vercel.json");
+  const api = read("src/utils/api.js");
+  const memeGenerator = read("src/components/MemeGenerator.jsx");
+
+  if (!vercelConfig.includes("https://coder-api.chatbot24.su/api/$1") || !vercelConfig.includes("https://coder-api.chatbot24.su/health")) {
+    failures.push("vercel.json: Preview /api and /health rewrites must target coder-api.chatbot24.su");
+  }
+  if (vercelConfig.includes("coder-survival-api.duckdns.org")) {
+    failures.push("vercel.json: retired DuckDNS API rewrite must not be used by Vercel previews");
+  }
+  if (!api.includes("window.location.hostname.endsWith('.vercel.app')") || !memeGenerator.includes("API_BASE_URL, apiRequest")) {
+    failures.push("frontend: all Vercel API consumers must use the same-origin proxy to avoid CORS");
+  }
+}
+
 function assertUseCallbackDepsDoNotReadLaterDeclarations() {
   const file = "src/hooks/useGameState.js";
   const source = read(file);
@@ -440,6 +477,8 @@ function assertPaymentControlsAreGated() {
 }
 
 assertAppComponentReferencesAreImported();
+assertMobileScreensHaveOneOwnerAndTopmostModalLayer();
+assertVercelPreviewUsesTheCurrentApiProxy();
 assertPaymentControlsAreGated();
 assertCoffeeCosmeticProgressRemainsVisualOnly();
 assertUseCallbackDepsDoNotReadLaterDeclarations();
