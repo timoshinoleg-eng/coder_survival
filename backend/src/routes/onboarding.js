@@ -49,7 +49,10 @@ router.post('/complete', async (req, res) => {
        SET onboarding_completed = TRUE,
            energy = LEAST(100, energy + 20),
            inventory = jsonb_set(
-             COALESCE(inventory, '{}'::jsonb),
+             CASE
+               WHEN jsonb_typeof(inventory) = 'object' THEN inventory
+               ELSE '{}'::jsonb
+             END,
              '{coffee_cups}',
              to_jsonb(COALESCE((inventory->>'coffee_cups')::int, 0) + 1),
              TRUE
