@@ -2,6 +2,7 @@ name: Onboarding Save Diagnosis
 
 on:
   workflow_dispatch:
+  push:
 
 permissions:
   contents: read
