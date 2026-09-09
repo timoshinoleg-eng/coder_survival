@@ -49,9 +49,10 @@ USING active_passes ap
 WHERE pr.pass_id = ap.id
   AND pr.level > 20;
 
--- Defensive repair for accounts that may have advanced above the new cap before
--- this migration. Rewards already claimed remain recorded in pass_claims; we do
--- not attempt to reverse grants.
+-- Defensive repair for accounts that may have advanced to or above the new cap
+-- before this migration. Rewards already claimed remain recorded in pass_claims;
+-- we do not attempt to reverse grants. Level 20 is terminal, so it must not retain
+-- a partial XP cursor toward a now-nonexistent level 21.
 WITH active_passes AS (
   SELECT id
   FROM sprint_passes
@@ -62,4 +63,4 @@ SET current_level = 20,
     current_xp = 0
 FROM active_passes ap
 WHERE pp.pass_id = ap.id
-  AND pp.current_level > 20;
+  AND pp.current_level >= 20;
