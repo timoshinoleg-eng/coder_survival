@@ -1,14 +1,30 @@
-name: Deploy Backend
+name: Deploy Backend to Cloud.ru
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type deploy to release this commit to Cloud.ru production'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudru-production-backend
+  cancel-in-progress: false
+
+env:
+  IMAGE_REPOSITORY: coder-survival-backend
 
 jobs:
   test:
+    if: ${{ inputs.confirm == 'deploy' }}
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
           POSTGRES_DB: coder_survival_test
           POSTGRES_USER: postgres
@@ -27,140 +43,198 @@ jobs:
       NODE_ENV: test
       TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/coder_survival_test
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Run backend tests
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Backend migration and test gate
         run: |
           npm ci
           node src/migrate.js
           node src/migrate.js
           npm test
 
-  deploy:
+  build:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup SSH
+      - uses: actions/checkout@v4
+      - name: Build immutable backend image
         run: |
+          docker build --pull -t "$IMAGE_REPOSITORY:$GITHUB_SHA" ./backend
+          docker save "$IMAGE_REPOSITORY:$GITHUB_SHA" | gzip -1 > backend-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-image-${{ github.sha }}
+          path: backend-image.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production-cloudru
+    env:
+      SSH_HOST: ${{ secrets.CLOUDRU_VM_HOST }}
+      SSH_USER: ${{ secrets.CLOUDRU_VM_USER }}
+      SSH_PORT: ${{ vars.CLOUDRU_VM_SSH_PORT || '22' }}
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      BOT_BACKEND_SECRET: ${{ secrets.BOT_BACKEND_SECRET }}
+      ADMIN_API_SECRET: ${{ secrets.ADMIN_API_SECRET }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_SSL: ${{ vars.CLOUDRU_DB_SSL || 'false' }}
+      WEBAPP_URL: ${{ secrets.WEBAPP_URL }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+      CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+      REWARDED_AD_PROVIDER: ${{ secrets.REWARDED_AD_PROVIDER }}
+      ADSGRAM_SECRET: ${{ secrets.ADSGRAM_SECRET }}
+      PROPELLER_SECRET: ${{ secrets.PROPELLER_SECRET }}
+      ALERT_CHAT_ID: ${{ secrets.ALERT_CHAT_ID }}
+      BACKEND_HEALTH_URL: ${{ vars.BACKEND_HEALTH_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-image-${{ github.sha }}
+
+      - name: Validate production deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(SSH_HOST SSH_USER BOT_TOKEN BOT_BACKEND_SECRET ADMIN_API_SECRET DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD WEBAPP_URL FRONTEND_URL BACKEND_HEALTH_URL)
+          for key in "${required[@]}"; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "Missing required Cloud.ru deployment value: $key" >&2
+              exit 1
+            fi
+          done
+          case "$BACKEND_HEALTH_URL" in
+            https://*/health) ;;
+            *) echo "BACKEND_HEALTH_URL must be an HTTPS /health endpoint" >&2; exit 1 ;;
+          esac
+
+      - name: Build redacted backend env file
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > backend.env
+          import json, os
+          keys = [
+              'BOT_TOKEN', 'BOT_BACKEND_SECRET', 'ADMIN_API_SECRET',
+              'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_SSL',
+              'WEBAPP_URL', 'FRONTEND_URL', 'CORS_ALLOWED_ORIGINS',
+              'REWARDED_AD_PROVIDER', 'ADSGRAM_SECRET', 'PROPELLER_SECRET',
+              'ALERT_CHAT_ID',
+          ]
+          for key in keys:
+              print(f"{key}={json.dumps(os.environ.get(key, ''))}")
+          print('NODE_ENV="production"')
+          print('PORT="3000"')
+          print('INIT_DATA_MAX_AGE_SECONDS="3600"')
+          print('PAYMENTS_ENABLED="false"')
+          PY
+          chmod 600 backend.env
+
+      - name: Configure SSH host identity
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.CLOUDRU_VM_SSH_KEY }}
+          SSH_HOST_KEY: ${{ secrets.CLOUDRU_VM_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SSH_PRIVATE_KEY" ]] || { echo "Missing CLOUDRU_VM_SSH_KEY" >&2; exit 1; }
+          [[ -n "$SSH_HOST_KEY" ]] || { echo "Missing CLOUDRU_VM_HOST_KEY" >&2; exit 1; }
           mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
-      - name: Copy code to VM
+      - name: Transfer immutable release payload
+        shell: bash
         run: |
-          rsync -avz --exclude='node_modules' --exclude='.git' \
-            ./backend/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/coder-survival-backend/
+          set -euo pipefail
+          SSH=(ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST")
+          SCP=(scp -P "$SSH_PORT")
+          "${SSH[@]}" 'mkdir -p "$HOME/coder-survival/backups" && chmod 700 "$HOME/coder-survival" "$HOME/coder-survival/backups"'
+          "${SCP[@]}" backend-image.tar.gz docker-compose.backend.yml backend.env "$SSH_USER@$SSH_HOST:/tmp/"
 
-      - name: Backup database before schema change
+      - name: Backup, migrate, deploy and rollback on failed health
+        shell: bash
         run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
-            set -e
-            BACKUP_DIR=/opt/coder-survival-backups
-            mkdir -p "$BACKUP_DIR"
-            STAMP=$(date +%Y%m%d-%H%M%S)
-            # host.docker.internal covers the VM-host database; the same flag is
-            # used by docker-compose.backend.yml for the running service.
-            docker run --rm \
-              --add-host=host.docker.internal:host-gateway \
-              -e PGPASSWORD="${{ secrets.DB_PASSWORD }}" \
-              postgres:15 \
-              pg_dump -h "${{ secrets.DB_HOST }}" -p "${{ secrets.DB_PORT }}" \
-                      -U "${{ secrets.DB_USER }}" -d "${{ secrets.DB_NAME }}" -Fc \
-              > "$BACKUP_DIR/predeploy-$STAMP.dump"
-            ls -la "$BACKUP_DIR/predeploy-$STAMP.dump"
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "NEW_TAG='$GITHUB_SHA' NEW_IMAGE='$IMAGE_REPOSITORY:$GITHUB_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+          APP_DIR="$HOME/coder-survival"
+          BACKUP_DIR="$APP_DIR/backups"
+          mkdir -p "$BACKUP_DIR"
+
+          mv /tmp/docker-compose.backend.yml "$APP_DIR/docker-compose.backend.yml"
+          mv /tmp/backend.env "$APP_DIR/backend.env"
+          chmod 600 "$APP_DIR/backend.env"
+
+          gzip -dc /tmp/backend-image.tar.gz | docker load >/dev/null
+          rm -f /tmp/backend-image.tar.gz
+
+          OLD_IMAGE="$(docker inspect -f '{{.Config.Image}}' coder-survival-backend 2>/dev/null || true)"
+          STAMP="$(date -u +%Y%m%d-%H%M%S)"
+          BACKUP_FILE="$BACKUP_DIR/predeploy-$STAMP.dump"
+
+          docker run --rm --env-file "$APP_DIR/backend.env" postgres:16-alpine sh -euc '
+            export PGPASSWORD="$DB_PASSWORD"
+            if [ "${DB_SSL:-false}" = "false" ]; then export PGSSLMODE=disable; else export PGSSLMODE=require; fi
+            exec pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc
+          ' > "$BACKUP_FILE"
+          test -s "$BACKUP_FILE"
+
+          docker run --rm --env-file "$APP_DIR/backend.env" "$NEW_IMAGE" node src/migrate.js
+
+          if ! BACKEND_IMAGE_TAG="$NEW_TAG" \
+            docker compose --env-file "$APP_DIR/backend.env" -f "$APP_DIR/docker-compose.backend.yml" up -d --no-build --remove-orphans; then
+            echo "Container swap failed before health check" >&2
+            exit 1
+          fi
+
+          healthy=false
+          for _ in $(seq 1 12); do
+            status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' coder-survival-backend 2>/dev/null || true)"
+            if [ "$status" = "healthy" ]; then
+              healthy=true
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$healthy" != "true" ]; then
+            docker logs --tail=150 coder-survival-backend || true
+            if [[ "$OLD_IMAGE" == coder-survival-backend:* ]] && docker image inspect "$OLD_IMAGE" >/dev/null 2>&1; then
+              OLD_TAG="${OLD_IMAGE#coder-survival-backend:}"
+              echo "Health failed; rolling back to $OLD_IMAGE" >&2
+              BACKEND_IMAGE_TAG="$OLD_TAG" \
+                docker compose --env-file "$APP_DIR/backend.env" -f "$APP_DIR/docker-compose.backend.yml" up -d --no-build --remove-orphans || true
+            fi
+            exit 1
+          fi
+
+          printf '%s\n' "$NEW_IMAGE" > "$APP_DIR/deployed-image.txt"
+          find "$BACKUP_DIR" -type f -name 'predeploy-*.dump' -mtime +14 -delete
+          docker image prune -f >/dev/null
+          REMOTE
+
+      - name: Verify public HTTPS health
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --show-error --silent --retry 5 --retry-all-errors --retry-delay 5 --max-time 20 "$BACKEND_HEALTH_URL")"
+          HEALTH_BODY="$body" node --input-type=module -e '
+            const health = JSON.parse(process.env.HEALTH_BODY);
+            if (health.status !== "ok" || health.db !== "connected") process.exit(1);
           '
-
-      - name: Build image on VM
-        run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
-            set -e
-            cd /tmp/coder-survival-backend
-            docker build -t coder-survival-backend:local .
-          '
-
-      - name: Run database migrations
-        run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
-            set -e
-            # Migrations run against the PRODUCTION database, from inside the new
-            # image, BEFORE the container swap. If a migration fails the job dies
-            # here and the currently running container is left untouched.
-            #
-            # Before this step existed, migrations only ever ran in the `test`
-            # job against an ephemeral CI Postgres, so 059/060/061 were never
-            # applied to production.
-            docker run --rm \
-              --add-host=host.docker.internal:host-gateway \
-              -e NODE_ENV=production \
-              -e DB_HOST="${{ secrets.DB_HOST }}" \
-              -e DB_PORT="${{ secrets.DB_PORT }}" \
-              -e DB_NAME="${{ secrets.DB_NAME }}" \
-              -e DB_USER="${{ secrets.DB_USER }}" \
-              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-              -e DB_SSL="${{ secrets.DB_SSL }}" \
-              -e DB_SSL_REJECT_UNAUTHORIZED="${{ secrets.DB_SSL_REJECT_UNAUTHORIZED }}" \
-              coder-survival-backend:local \
-              node src/migrate.js
-          '
-
-      - name: Swap container
-        run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
-            set -e
-
-            # Stop old container
-            docker stop coder-survival-backend 2>/dev/null || true
-            docker rm coder-survival-backend 2>/dev/null || true
-
-            # Run new container with secrets from GitHub
-            docker run -d \
-              --name coder-survival-backend \
-              --restart unless-stopped \
-              -p 3000:3000 \
-              -e NODE_ENV=production \
-              -e PORT=3000 \
-              -e DB_HOST="${{ secrets.DB_HOST }}" \
-              -e DB_PORT="${{ secrets.DB_PORT }}" \
-              -e DB_NAME="${{ secrets.DB_NAME }}" \
-              -e DB_USER="${{ secrets.DB_USER }}" \
-              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-              -e DB_SSL="${{ secrets.DB_SSL }}" \
-              -e DB_SSL_REJECT_UNAUTHORIZED="${{ secrets.DB_SSL_REJECT_UNAUTHORIZED }}" \
-              -e BOT_TOKEN="${{ secrets.BOT_TOKEN }}" \
-              -e WEBAPP_URL="${{ secrets.WEBAPP_URL }}" \
-              -e BOT_BACKEND_SECRET="${{ secrets.BOT_BACKEND_SECRET }}" \
-              coder-survival-backend:local
-          '
-
-      - name: Health check with retry (up to 30s)
-        run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
-            set -e
-            for i in 1 2 3; do
-              sleep 10
-              curl -f http://localhost:3000/health && break
-              if [ $i -eq 3 ]; then exit 1; fi
-            done
-          '
-
-      - name: Cleanup
-        if: always()
-        run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} '
-            docker image prune -f
-            rm -rf /tmp/coder-survival-backend
-          '
-
-      - name: Verify deployment
-        run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'docker ps --filter name=coder-survival-backend'
