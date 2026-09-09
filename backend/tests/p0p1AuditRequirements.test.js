@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEPRESSION_PASSIVE_RECOVERY_PER_HOUR } from '../src/utils/progression.js';
 import { getNearRankOfferVariant } from '../src/utils/offers.js';
-import { getSecondsToLocalMidnight, shouldOfferStreakSaver } from '../src/utils/streak.js';
+import { getSecondsToLocalMidnight, processDailyLogin, shouldOfferStreakSaver } from '../src/utils/streak.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -47,6 +47,24 @@ describe('P0/P1 audit requirements', () => {
     })).toBe(false);
   });
 
+  test('frozen streak status is idempotent and route preserves the freeze field', () => {
+    const frozenUntil = '2999-01-01T00:00:00.000Z';
+    const frozen = processDailyLogin({
+      currentStreak: 7,
+      lastLoginDate: '2026-09-01',
+      streakFrozenUntil: frozenUntil,
+      protection: {}
+    }, '2026-09-02');
+    expect(frozen.status).toBe('streak_frozen');
+    expect(frozen.rewards).toBeNull();
+
+    const streakSource = fs.readFileSync(path.resolve(__dirname, '../src/routes/streak.js'), 'utf8');
+    expect(streakSource).toContain('streakFrozenUntil: streakState.streakFrozenUntil || null');
+    expect(streakSource).toContain("result.status === 'streak_frozen'");
+    expect(streakSource).toContain("code: 'STREAK_FROZEN'");
+    expect(streakSource).toContain('timezone_offset = COALESCE($2, progression.timezone_offset)');
+  });
+
   test('production Sprint Pass is achievable within 30 days at 120 baseline taps/day', () => {
     const migrationPath = path.resolve(__dirname, '../migrations/004_stage4_retention.sql');
     const sql = fs.readFileSync(migrationPath, 'utf8');
@@ -68,11 +86,15 @@ describe('P0/P1 audit requirements', () => {
     const questsSource = fs.readFileSync(path.resolve(__dirname, '../src/routes/quests.js'), 'utf8');
     const streakSource = fs.readFileSync(path.resolve(__dirname, '../src/routes/streak.js'), 'utf8');
     const buySource = fs.readFileSync(path.resolve(__dirname, '../src/routes/buy.js'), 'utf8');
+    const reconcileSource = fs.readFileSync(path.resolve(__dirname, '../migrations/062_reconcile_sprint_pass_20_levels.sql'), 'utf8');
     expect(questsSource).toContain('await addPassXp(client, userId');
     expect(streakSource).toContain('await addPassXp(client, userId');
     expect(questsSource).not.toContain('pass_state =');
     expect(streakSource).not.toContain('pass_state =');
     expect(buySource).toContain('streak_state, timezone_offset');
     expect(buySource).toContain('now.getTime() + timezoneOffset * 60000');
+    expect(reconcileSource).toContain('AND pr.level > 20');
+    expect(reconcileSource).toContain('AND pp.current_level >= 20');
+    expect(reconcileSource).toContain('current_xp = 0');
   });
 });
