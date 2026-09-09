@@ -1,53 +1,31 @@
 # BACKEND-ONLY PRODUCTION COMPOSE
-# This is the active production compose file. It runs only the backend container.
-# Frontend and bot production traffic are hosted on Vercel.
-# See HANDOFF.md and DEPLOY.md for topology details.
-# Production backend compose. The canonical env file is /opt/coder_survival/backend/.env.
-# DB_* variables are interpolated from the operator's shell; the backend builds
-# its connection string from them. DATABASE_URL is intentionally omitted because
-# DB_HOST is set to host.docker.internal in production, and the backend prefers
-# DATABASE_URL when present, which would override the intended DB_* strategy.
+# Target: Cloud.ru Evolution VM. Frontend and Telegram bot webhook remain on Vercel.
+# The backend is bound to loopback; host nginx terminates HTTPS and proxies to :3000.
+# Managed PostgreSQL is reached by its private Evolution VPC address.
 
 services:
   backend:
-    # A release must set this to its reviewed git-tagged image. Never silently
-    # fall back to mutable `latest` for migration or restart operations.
-    image: coder-survival-backend:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}
-    build: ./backend
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    pull_policy: never
+    container_name: coder-survival-backend
+    env_file:
+      - ${BACKEND_ENV_FILE:-./backend.env}
     environment:
       NODE_ENV: production
       PORT: 3000
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASSWORD}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_SSL: ${DB_SSL:-}
-      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-}
-      DB_SSL_CA: ${DB_SSL_CA:-}
-      DB_SSL_CA_PATH: ${DB_SSL_CA_PATH:-}
-      BOT_TOKEN: ${BOT_TOKEN}
-      BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET}
-      ADMIN_API_SECRET: ${ADMIN_API_SECRET}
-      WEBAPP_URL: ${WEBAPP_URL}
-      FRONTEND_URL: ${FRONTEND_URL:-}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
-      INIT_DATA_MAX_AGE_SECONDS: ${INIT_DATA_MAX_AGE_SECONDS:-3600}
-      PAYMENTS_ENABLED: ${PAYMENTS_ENABLED:-false}
-      REWARDED_AD_PROVIDER: ${REWARDED_AD_PROVIDER:-}
-      ADSGRAM_SECRET: ${ADSGRAM_SECRET:-}
-      PROPELLER_SECRET: ${PROPELLER_SECRET:-}
     ports:
       - "127.0.0.1:3000:3000"
-    network_mode: bridge
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    expose:
-      - "3000"
     restart: unless-stopped
+    stop_grace_period: 20s
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(async r=>{if(!r.ok)process.exit(1);const h=await r.json();process.exit(h.status==='ok'&&h.db==='connected'?0:1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

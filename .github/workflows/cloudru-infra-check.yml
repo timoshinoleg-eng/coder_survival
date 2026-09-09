@@ -1,0 +1,56 @@
+name: Cloud.ru Infra Check
+
+on:
+  push:
+    branches:
+      - infra/cloudru-production
+    paths:
+      - 'backend/**'
+      - 'docker-compose.backend.yml'
+      - 'deploy/cloudru/**'
+      - '.github/workflows/deploy-backend.yml'
+      - '.github/workflows/cloudru-infra-check.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'docker-compose.backend.yml'
+      - 'deploy/cloudru/**'
+      - '.github/workflows/deploy-backend.yml'
+      - '.github/workflows/cloudru-infra-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate shell scripts
+        run: |
+          bash -n deploy/cloudru/bootstrap-vm.sh
+          bash -n deploy/cloudru/configure-nginx.sh
+
+      - name: Validate compose
+        run: |
+          cat > /tmp/backend.env <<'ENV'
+          BOT_TOKEN=test-token
+          BOT_BACKEND_SECRET=test-secret
+          ADMIN_API_SECRET=test-admin-secret
+          DB_HOST=10.0.0.10
+          DB_PORT=5432
+          DB_NAME=coder_survival
+          DB_USER=coder_survival
+          DB_PASSWORD=test-password
+          DB_SSL=false
+          WEBAPP_URL=https://frontend.example.com
+          FRONTEND_URL=https://frontend.example.com
+          PAYMENTS_ENABLED=false
+          ENV
+          BACKEND_IMAGE=coder-survival-backend:ci \
+          BACKEND_ENV_FILE=/tmp/backend.env \
+            docker compose -f docker-compose.backend.yml config >/dev/null
+
+      - name: Build backend image
+        run: docker build -t coder-survival-backend:ci ./backend

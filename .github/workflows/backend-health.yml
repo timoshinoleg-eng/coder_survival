@@ -1,0 +1,43 @@
+name: Backend Health
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      health_url:
+        description: 'Optional one-off backend /health URL'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  health-check:
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.health_url != '') || vars.BACKEND_HEALTH_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      HEALTH_URL: ${{ inputs.health_url || vars.BACKEND_HEALTH_URL }}
+    steps:
+      - name: Validate target
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$HEALTH_URL" in
+            https://*/health) ;;
+            *) echo "BACKEND_HEALTH_URL must be an HTTPS /health endpoint"; exit 1 ;;
+          esac
+
+      - name: Verify application and database health
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --show-error --silent --retry 2 --retry-all-errors --max-time 20 "$HEALTH_URL")"
+          HEALTH_BODY="$body" node --input-type=module -e '
+            const health = JSON.parse(process.env.HEALTH_BODY);
+            if (health.status !== "ok" || health.db !== "connected") {
+              throw new Error("backend health payload is not production-ready");
+            }
+          '
