@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { applyItemEffect } from './buy.js';
 import { getProductById } from '../utils/shopCatalog.js';
+import { applyReward } from '../utils/rewards.js';
+import { SHOP_ITEM_EFFECTS } from '../config/balance.js';
 import { sendAlert } from '../utils/alertSender.js';
 import { arePaymentsEnabled, paymentsDisabledResponse } from '../config/payments.js';
 import { secretsMatch } from '../utils/secretCompare.js';
@@ -9,6 +11,7 @@ import { secretsMatch } from '../utils/secretCompare.js';
 const router = Router();
 
 const BOT_BACKEND_SECRET = process.env.BOT_BACKEND_SECRET;
+const FIRST_PURCHASE_BONUS_MULTIPLIER = 2;
 
 function parseInvoicePayload(payload) {
   const match = /^purchase:(\d+):([a-z_]+)$/.exec(payload || '');
@@ -173,6 +176,33 @@ router.post('/telegram/confirm', async (req, res, next) => {
 
       const userId = userResult.rows[0].id;
 
+      // Serialize paid fulfillment per user so two simultaneous first purchases
+      // cannot both observe an empty payment history and both receive the bonus.
+      await client.query('SELECT pg_advisory_xact_lock($1::bigint)', [userId]);
+
+      // A duplicate callback can pass the optimistic pre-lock lookup while the
+      // first callback is still uncommitted. Re-check after acquiring the user
+      // lock so concurrent replays return the same idempotent 200 instead of
+      // reaching the unique charge constraint after reward application.
+      const existingPaymentAfterLock = await client.query(
+        `SELECT id, user_id, purchase_id, item_type, stars_amount
+         FROM star_payments
+         WHERE telegram_payment_charge_id = $1`,
+        [telegramPaymentChargeId]
+      );
+      if (existingPaymentAfterLock.rows.length > 0) {
+        await client.query('COMMIT');
+        if (paymentsWereDisabled) {
+          alertPaymentWhileDisabled({ itemType: parsed.itemType, idempotent: true });
+        }
+        return res.status(200).json({
+          success: true,
+          idempotent: true,
+          payment: existingPaymentAfterLock.rows[0],
+          ...(paymentsWereDisabled ? { paymentsDisabled: true } : {})
+        });
+      }
+
       const purchaseResult = await client.query(
         `SELECT id, user_id, item_type, stars_amount, status
          FROM purchases
@@ -198,7 +228,48 @@ router.post('/telegram/confirm', async (req, res, next) => {
         return res.status(400).json({ error: 'Amount mismatch' });
       }
 
+      const product = getProductById(parsed.itemType);
+      const priorPaidPurchase = await client.query(
+        `SELECT 1
+         FROM star_payments
+         WHERE user_id = $1
+           AND status IN ('completed', 'refunded')
+         LIMIT 1`,
+        [userId]
+      );
+      const firstPurchaseBonusApplied = (
+        product?.first_purchase_bonus === true
+        && priorPaidPurchase.rows.length === 0
+      );
+
       await applyItemEffect(client, userId, parsed.itemType);
+      if (firstPurchaseBonusApplied) {
+        const baseEffect = SHOP_ITEM_EFFECTS[parsed.itemType];
+        if (!baseEffect) {
+          throw new Error(`First purchase bonus is not supported for item: ${parsed.itemType}`);
+        }
+
+        const extraFraction = FIRST_PURCHASE_BONUS_MULTIPLIER - 1;
+        await applyReward(client, userId, {
+          energy: Math.round(Number(baseEffect.energy || 0) * extraFraction),
+          depressionRelief: Math.round(Number(baseEffect.depressionRelief || 0) * extraFraction),
+          commitsCurrent: Math.round(Number(baseEffect.commitsCurrent || 0) * extraFraction),
+          xpTotal: Math.round(Number(baseEffect.xpTotal || 0) * extraFraction)
+        });
+
+        await client.query(
+          `INSERT INTO audit_logs (user_id, action, context)
+           VALUES ($1, 'first_purchase_bonus', $2::jsonb)`,
+          [
+            userId,
+            JSON.stringify({
+              purchaseId: purchase.id,
+              itemType: parsed.itemType,
+              multiplier: FIRST_PURCHASE_BONUS_MULTIPLIER
+            })
+          ]
+        );
+      }
 
       await client.query(
         `UPDATE purchases
@@ -241,6 +312,7 @@ router.post('/telegram/confirm', async (req, res, next) => {
       return res.status(200).json({
         success: true,
         idempotent: false,
+        firstPurchaseBonusApplied,
         payment: paymentInsert.rows[0],
         ...(paymentsWereDisabled ? { paymentsDisabled: true } : {})
       });

@@ -6,18 +6,9 @@
  *
  * On first interaction it also initialises the AudioContext (lazy-init),
  * satisfying the browser autoplay policy which requires a user gesture.
- *
- * Usage:
- *   import AudioSettings from './components/AudioSettings.jsx';
- *   // In your HUD:
- *   <AudioSettings />
- *
- * Styling:
- *   Import './AudioSettings.css' in your app entry or add the styles
- *   to your global stylesheet.
  */
 
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useEffect } from 'preact/hooks';
 import { audioManager } from '../utils/AudioManager.js';
 import { Analytics } from '../utils/analytics.js';
 import './AudioSettings.css';
@@ -25,23 +16,25 @@ import './AudioSettings.css';
 /**
  * AudioSettings toggle button.
  *
+ * Multiple controls may be mounted in different HUD surfaces. Their local
+ * render state is subscribed to the single AudioManager source of truth so
+ * toggling one control immediately updates every other mounted control.
+ *
  * @returns {JSX.Element} Circular icon button showing 🔊 or 🔇.
  */
 export default function AudioSettings() {
-  /** @type {[boolean, Function]} muted state synced with audioManager. */
   const [muted, setMuted] = useState(() => audioManager.isMuted());
 
-  /**
-   * Toggle mute state.
-   * Initialises AudioContext on first click (browser autoplay requirement).
-   */
+  useEffect(() => audioManager.subscribeMute(setMuted), []);
+
   const toggle = useCallback(() => {
     // Lazy-init AudioContext on first user gesture.
     if (!audioManager.initialized) {
       audioManager.init().catch(() => { /* graceful degradation */ });
     }
 
-    const next = !muted;
+    const previous = audioManager.isMuted();
+    const next = !previous;
     audioManager.setMute(next);
     if (!next) {
       if (audioManager.currentBGMTrack) {
@@ -53,10 +46,9 @@ export default function AudioSettings() {
     Analytics.track('settings_changed', {
       setting_name: 'audio_mute',
       new_value: next,
-      old_value: muted,
+      old_value: previous,
     });
-    setMuted(next);
-  }, [muted]);
+  }, []);
 
   return (
     <button

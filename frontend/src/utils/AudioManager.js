@@ -20,6 +20,7 @@ class AudioManager {
     this.sfxVolume = 1.0;
     this.muted = false;
     this.burnoutInterval = null;
+    this.muteListeners = new Set();
 
     try {
       this.muted = localStorage.getItem(MUTE_KEY) === 'true';
@@ -32,6 +33,12 @@ class AudioManager {
     if (typeof document !== 'undefined') {
       this.visibilityHandler = () => this.handleVisibility();
       document.addEventListener('visibilitychange', this.visibilityHandler);
+    }
+    if (typeof window !== 'undefined') {
+      this.pageHideHandler = () => this.suspendForBackground();
+      this.pageShowHandler = () => this.resumeFromBackground();
+      window.addEventListener('pagehide', this.pageHideHandler);
+      window.addEventListener('pageshow', this.pageShowHandler);
     }
   }
 
@@ -205,14 +212,27 @@ class AudioManager {
     }
   }
 
-  handleVisibility() {
+  suspendForBackground() {
     if (!this.ctx) return;
-    if (document.hidden) {
+    this.pauseBGM();
+    if (this.ctx.state !== 'closed') {
       this.ctx.suspend().catch(() => {});
-      this.pauseBGM();
-    } else if (this.initialized) {
-      this.ctx.resume().catch(() => {});
-      this.resumeBGMPlayback();
+    }
+  }
+
+  resumeFromBackground() {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (!this.ctx || !this.initialized || this.ctx.state === 'closed') return;
+    this.ctx.resume().catch(() => {});
+    this.resumeBGMPlayback();
+  }
+
+  handleVisibility() {
+    if (typeof document === 'undefined') return;
+    if (document.hidden) {
+      this.suspendForBackground();
+    } else {
+      this.resumeFromBackground();
     }
   }
 
@@ -226,6 +246,20 @@ class AudioManager {
     if (this.sfxGain) this.sfxGain.gain.value = this.muted ? 0.001 : this.sfxVolume;
     if (this.bgmGain) this.bgmGain.gain.value = this.muted ? 0.001 : this.bgmVolume;
     this.syncBGMVolume();
+    for (const listener of this.muteListeners) {
+      try {
+        listener(this.muted);
+      } catch (_err) {
+        // A settings control must never break global audio state propagation.
+      }
+    }
+  }
+
+  subscribeMute(listener) {
+    if (typeof listener !== 'function') return () => {};
+    this.muteListeners.add(listener);
+    listener(this.muted);
+    return () => this.muteListeners.delete(listener);
   }
 
   toggleMute() {
@@ -262,7 +296,14 @@ class AudioManager {
   dispose() {
     this.endBurnout();
     this.stopBGM();
-    document.removeEventListener('visibilitychange', this.visibilityHandler);
+    if (typeof document !== 'undefined' && this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
+    if (typeof window !== 'undefined') {
+      if (this.pageHideHandler) window.removeEventListener('pagehide', this.pageHideHandler);
+      if (this.pageShowHandler) window.removeEventListener('pageshow', this.pageShowHandler);
+    }
+    this.muteListeners.clear();
     this.ctx?.close().catch(() => {});
     this.ctx = null;
     this.initialized = false;

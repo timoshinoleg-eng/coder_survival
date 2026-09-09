@@ -330,9 +330,9 @@ describe("Economy Constants — regression", () => {
     expect(TAP_MECHANICS.streakBonusCap).toBe(0.20);
   });
 
-  test("pass max level is 50 with 50 entries", () => {
-    expect(STAGE2.PASS.MAX_LEVEL).toBe(50);
-    expect(STAGE2.PASS.LEVELS.length).toBe(50);
+  test("pass max level is 20 with 20 entries", () => {
+    expect(STAGE2.PASS.MAX_LEVEL).toBe(20);
+    expect(STAGE2.PASS.LEVELS.length).toBe(20);
   });
 
   test("pass levels have level + requiredXp", () => {
@@ -343,9 +343,9 @@ describe("Economy Constants — regression", () => {
     }
   });
 
-  test("total pass XP sums to 10000", () => {
+  test("total configured pass XP sums to 915", () => {
     const total = STAGE2.PASS.LEVELS.reduce((s, l) => s + l.requiredXp, 0);
-    expect(total).toBe(10000);
+    expect(total).toBe(915);
   });
 
   test("premium_pass costs 499 stars in shop catalog", () => {

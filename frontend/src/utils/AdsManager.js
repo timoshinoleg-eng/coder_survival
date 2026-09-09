@@ -20,6 +20,7 @@ class AdsManager {
   constructor() {
     this.provider = this.detectProvider();
     this.sessionProviders = new Map();
+    this.sessionProofs = new Map();
     this.adsGramController = null;
   }
 
@@ -69,11 +70,16 @@ class AdsManager {
     return this.createAdSession(initData);
   }
 
+  rememberProof(nonce, proof) {
+    if (nonce) this.sessionProofs.set(nonce, proof);
+    return proof;
+  }
+
   async showRewardedAd(initData, nonce) {
     if (this.provider === 'mock') {
       // Dev/QA only: simulate a 5-second rewarded video view
       await new Promise((resolve) => { setTimeout(resolve, 5000); });
-      return true;
+      return this.rememberProof(nonce, true);
     }
 
     if (this.provider === 'adsgram') {
@@ -93,7 +99,7 @@ class AdsManager {
       if (result && result.done === false) {
         throw new Error('AdsGram rewarded ad was not completed');
       }
-      return result || { done: true };
+      return this.rememberProof(nonce, result || { done: true });
     }
 
     if (this.provider === 'telegram_native') {
@@ -103,7 +109,7 @@ class AdsManager {
         if (result && result.done === false) {
           throw new Error('Telegram rewarded ad was not completed');
         }
-        return result || { done: true };
+        return this.rememberProof(nonce, result || { done: true });
       }
       throw new Error('Telegram native rewarded video not available');
     }
@@ -123,6 +129,9 @@ class AdsManager {
             nonce: sessionOrNonce,
             provider: this.sessionProviders.get(sessionOrNonce) || this.provider
           };
+    const resolvedProof = proof ?? (
+      session?.nonce ? (this.sessionProofs.get(session.nonce) ?? null) : null
+    );
 
     const payload = await apiRequest('/api/rewards/ad-claim', {
       method: 'POST',
@@ -130,11 +139,12 @@ class AdsManager {
       body: {
         nonce: session?.nonce,
         provider: session?.provider,
-        proof
+        proof: resolvedProof
       }
     });
     if (session?.nonce) {
       this.sessionProviders.delete(session.nonce);
+      this.sessionProofs.delete(session.nonce);
     }
     return payload;
   }

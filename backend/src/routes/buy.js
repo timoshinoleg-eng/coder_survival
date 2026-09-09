@@ -207,12 +207,15 @@ export async function applyItemEffect(client, userId, itemType) {
 
     case 'streak_saver': {
       const streakResult = await client.query(
-        `SELECT streak_state FROM progression WHERE user_id = $1 FOR UPDATE`,
+        `SELECT streak_state, timezone_offset FROM progression WHERE user_id = $1 FOR UPDATE`,
         [userId]
       );
       const streakState = streakResult.rows[0]?.streak_state || {};
-      const todayDate = new Date().toISOString().slice(0, 10);
-      const nextState = armStreakSaver(streakState, todayDate, new Date());
+      const timezoneOffset = Number(streakResult.rows[0]?.timezone_offset ?? 180);
+      const now = new Date();
+      const localNow = new Date(now.getTime() + timezoneOffset * 60000);
+      const todayDate = localNow.toISOString().slice(0, 10);
+      const nextState = armStreakSaver(streakState, todayDate, now);
       await client.query(
         `UPDATE progression SET streak_state = $2, updated_at = NOW() WHERE user_id = $1`,
         [userId, JSON.stringify(nextState)]

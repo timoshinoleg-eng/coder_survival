@@ -1,15 +1,48 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 import { apiRequest } from '../utils/api.js';
+
+const sharedAchievementState = {
+  myAchievements: [],
+  toastQueue: [],
+};
+const sharedListeners = new Set();
+let sharedToastTimer = null;
+
+function emitSharedState() {
+  for (const listener of sharedListeners) {
+    try {
+      listener();
+    } catch (_err) {
+      // One unmounted consumer must not break the shared achievement channel.
+    }
+  }
+}
+
+function scheduleToastDismiss() {
+  if (sharedToastTimer || sharedAchievementState.toastQueue.length === 0) return;
+  sharedToastTimer = setTimeout(() => {
+    sharedToastTimer = null;
+    sharedAchievementState.toastQueue = sharedAchievementState.toastQueue.slice(1);
+    emitSharedState();
+    scheduleToastDismiss();
+  }, 3000);
+}
 
 export function useAchievements(initData) {
   const [achievements, setAchievements] = useState([]);
-  const [myAchievements, setMyAchievements] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [claiming, setClaiming] = useState(null);
-  const [toastQueue, setToastQueue] = useState([]);
-  const toastTimerRef = useRef(null);
+  const [, setSharedRevision] = useState(0);
 
+  useEffect(() => {
+    const listener = () => setSharedRevision((value) => value + 1);
+    sharedListeners.add(listener);
+    return () => sharedListeners.delete(listener);
+  }, []);
+
+  const myAchievements = sharedAchievementState.myAchievements;
+  const toastQueue = sharedAchievementState.toastQueue;
   const unreadCount = myAchievements.filter(
     (a) => a.earned_at && !a.claimed_at && !a.notification_sent
   ).length;
@@ -32,11 +65,16 @@ export function useAchievements(initData) {
     if (!initData) return;
     try {
       const data = await apiRequest('/api/achievements/my', { initData });
-      setMyAchievements(data?.earned || []);
+      sharedAchievementState.myAchievements = data?.earned || [];
+      emitSharedState();
     } catch (err) {
       // Silent fail for badge
     }
   }, [initData]);
+
+  useEffect(() => {
+    if (initData) fetchMyAchievements();
+  }, [initData, fetchMyAchievements]);
 
   const claimAchievement = useCallback(async (slug) => {
     if (!initData || claiming) return null;
@@ -46,7 +84,6 @@ export function useAchievements(initData) {
         method: 'POST',
         initData,
       });
-      // Refresh after claim
       await fetchAchievements();
       await fetchMyAchievements();
       return result;
@@ -74,29 +111,24 @@ export function useAchievements(initData) {
 
   const queueToast = useCallback((slugs) => {
     if (!slugs?.length) return;
-    setToastQueue((prev) => [...prev, ...slugs]);
+    sharedAchievementState.toastQueue = [
+      ...sharedAchievementState.toastQueue,
+      ...slugs,
+    ];
+    emitSharedState();
+    scheduleToastDismiss();
   }, []);
 
   const dismissToast = useCallback(() => {
-    setToastQueue((prev) => prev.slice(1));
-  }, []);
-
-  // Auto-dismiss toast
-  useEffect(() => {
-    if (toastQueue.length === 0) {
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = null;
-      }
-      return;
+    if (sharedAchievementState.toastQueue.length === 0) return;
+    if (sharedToastTimer) {
+      clearTimeout(sharedToastTimer);
+      sharedToastTimer = null;
     }
-    toastTimerRef.current = setTimeout(() => {
-      dismissToast();
-    }, 3000);
-    return () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    };
-  }, [toastQueue, dismissToast]);
+    sharedAchievementState.toastQueue = sharedAchievementState.toastQueue.slice(1);
+    emitSharedState();
+    scheduleToastDismiss();
+  }, []);
 
   return {
     achievements,

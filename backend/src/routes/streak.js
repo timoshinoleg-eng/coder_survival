@@ -1,21 +1,21 @@
 import { Router } from 'express';
 import { pool } from '../index.js';
-import { DEPRESSION_SCALE, STAGE2 } from '../config/balance.js';
+import { DEPRESSION_SCALE, LOGIN_STREAK_BONUS, STAGE2 } from '../config/balance.js';
 import { addPassXp } from '../utils/pass.js';
 import { processDailyLogin, starRecover, calculateRecoveryCost, shouldOfferStreakSaver } from '../utils/streak.js';
 import { getProductById } from '../utils/shopCatalog.js';
-import { ensurePlayerLevel, addPlayerXp } from '../utils/vnext.js';
+import { ensurePlayerLevel } from '../utils/vnext.js';
 
 const router = Router();
 
-function getTimezoneOffset(req, fallback = 180) {
+function getTimezoneOffset(req, fallback = null) {
   const raw =
     req.body?.timezoneOffset ??
     req.query?.timezoneOffset ??
     req.headers['x-timezone-offset'] ??
     req.telegramUser?.user?.time_zone_offset;
   const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return raw != null && Number.isFinite(parsed) ? parsed : fallback;
 }
 
 export function getTodayDate(timezoneOffset = 180, now = new Date()) {
@@ -23,7 +23,7 @@ export function getTodayDate(timezoneOffset = 180, now = new Date()) {
   return local.toISOString().slice(0, 10);
 }
 
-async function ensureUserAndProgression(client, telegramUser, timezoneOffset = 180) {
+async function ensureUserAndProgression(client, telegramUser, requestedTimezoneOffset = null) {
   const userResult = await client.query(
     `INSERT INTO users (telegram_id, username, first_name, last_name)
      VALUES ($1, $2, $3, $4)
@@ -41,15 +41,19 @@ async function ensureUserAndProgression(client, telegramUser, timezoneOffset = 1
     ]
   );
   const userId = userResult.rows[0].id;
-  await client.query(
+  const progressionResult = await client.query(
     `INSERT INTO progression (user_id, timezone_offset)
-     VALUES ($1, $2)
+     VALUES ($1, COALESCE($2, 180))
      ON CONFLICT (user_id) DO UPDATE SET
-       timezone_offset = COALESCE(progression.timezone_offset, EXCLUDED.timezone_offset)`,
-    [userId, timezoneOffset]
+       timezone_offset = COALESCE($2, progression.timezone_offset)
+     RETURNING timezone_offset`,
+    [userId, requestedTimezoneOffset]
   );
   await ensurePlayerLevel(client, userId);
-  return userId;
+  return {
+    userId,
+    timezoneOffset: Number(progressionResult.rows[0]?.timezone_offset ?? 180)
+  };
 }
 
 function normalizeProtection(protection = {}) {
@@ -68,6 +72,7 @@ function normalizeStreakState(streakState = {}) {
     brokenStreak: streakState.brokenStreak != null ? Number(streakState.brokenStreak) : null,
     lastStreakSaveTimestamp: streakState.lastStreakSaveTimestamp || null,
     saverArmedForDate: streakState.saverArmedForDate || null,
+    streakFrozenUntil: streakState.streakFrozenUntil || null,
     protection: normalizeProtection(streakState.protection)
   };
 }
@@ -122,6 +127,14 @@ function aggregateRewards(result) {
   return rewards;
 }
 
+export function getLoginStreakBonus(currentStreak) {
+  const day = Math.max(1, Math.min(7, Number(currentStreak || 1)));
+  return {
+    day,
+    reward: { ...(LOGIN_STREAK_BONUS[day] || {}) }
+  };
+}
+
 router.get('/', async (req, res) => {
   const telegramUser = req.telegramUser?.user;
   if (!telegramUser) {
@@ -131,9 +144,9 @@ router.get('/', async (req, res) => {
   let client;
   try {
     client = await pool.connect();
-    const timezoneOffset = getTimezoneOffset(req);
+    const requestedTimezoneOffset = getTimezoneOffset(req);
+    const { userId, timezoneOffset } = await ensureUserAndProgression(client, telegramUser, requestedTimezoneOffset);
     const today = getTodayDate(timezoneOffset);
-    const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
     const result = await client.query(
       `SELECT streak_state, energy
        FROM progression
@@ -151,14 +164,15 @@ router.get('/', async (req, res) => {
       streakState,
       energy,
       todayDate: today,
-      now: new Date()
+      now: new Date(),
+      timezoneOffsetMinutes: timezoneOffset
     })
       ? {
           type: 'streak_saver',
           productId: 'streak_saver',
           stars: getProductById('streak_saver')?.stars ?? 1,
           discountPercent: STAGE2.STREAK.SAVER.discountPercent,
-          body: `Твой стрик ${streakState.currentStreak} дней сгорит через 2 часа! Купи 'Экстренный кофе' за 1⭐ (скидка 90%), чтобы сохранить его.`
+          body: `Твой стрик ${streakState.currentStreak} дней под угрозой до локальной полуночи. Купи «Экстренный кофе» за 1⭐, чтобы сохранить его.`
         }
       : null;
 
@@ -194,11 +208,11 @@ router.post('/claim', async (req, res) => {
     client = await pool.connect();
     await client.query('BEGIN');
 
-    const timezoneOffset = getTimezoneOffset(req);
+    const requestedTimezoneOffset = getTimezoneOffset(req);
+    const { userId, timezoneOffset } = await ensureUserAndProgression(client, telegramUser, requestedTimezoneOffset);
     const today = getTodayDate(timezoneOffset);
-    const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
     const progressionResult = await client.query(
-      `SELECT streak_state, pass_state, inventory
+      `SELECT streak_state, inventory
        FROM progression
        WHERE user_id = $1
        FOR UPDATE`,
@@ -213,12 +227,22 @@ router.post('/claim', async (req, res) => {
       return res.status(400).json({ error: 'Награда сегодня уже получена' });
     }
 
+    if (result.status === 'streak_frozen') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Серия временно заморожена',
+        code: 'STREAK_FROZEN',
+        frozenUntil: result.frozenUntil || null
+      });
+    }
+
     const rewards = aggregateRewards(result);
-    let passState = progression.pass_state || {};
+    const loginStreakBonus = getLoginStreakBonus(result.streakState.currentStreak);
+    rewards.energy = Number(rewards.energy || 0) + Number(loginStreakBonus.reward.energy || 0);
+    rewards.depressionRelief = Number(rewards.depressionRelief || 0) + Number(loginStreakBonus.reward.depressionRelief || 0);
     let passUpdate = null;
     if (Number(rewards.passXp || 0) > 0) {
-      passUpdate = addPassXp(passState, Number(rewards.passXp || 0));
-      passState = passUpdate.newState;
+      passUpdate = await addPassXp(client, userId, Number(rewards.passXp || 0));
     }
 
     if (Number(rewards.xp || 0) > 0) {
@@ -235,21 +259,32 @@ router.post('/claim', async (req, res) => {
     await client.query(
       `UPDATE progression
        SET streak_state = $2,
-           pass_state = $3,
-           energy = LEAST($4, energy + $5),
-           depression_level = GREATEST(0, depression_level - $6),
-            is_burnout = GREATEST(0, depression_level - $6) >= $8,
-           inventory = $7
+           energy = LEAST($3, energy + $4),
+           depression_level = GREATEST(0, depression_level - $5),
+           is_burnout = GREATEST(0, depression_level - $5) >= $7,
+           inventory = $6
        WHERE user_id = $1`,
       [
         userId,
         JSON.stringify(result.streakState),
-        JSON.stringify(passState),
         levelRow.resolved.maxEnergy,
         Number(rewards.energy || 0),
         Number(rewards.depressionRelief || 0),
         JSON.stringify(inventory),
         DEPRESSION_SCALE.HEART_ATTACK_THRESHOLD
+      ]
+    );
+
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, context)
+       VALUES ($1, 'daily_login_claim', $2::jsonb)`,
+      [
+        userId,
+        JSON.stringify({
+          streak: result.streakState.currentStreak,
+          bonusDay: loginStreakBonus.day,
+          bonus: loginStreakBonus.reward
+        })
       ]
     );
 
@@ -259,6 +294,7 @@ router.post('/claim', async (req, res) => {
       status: result.status,
       currentStreak: result.streakState.currentStreak,
       rewards,
+      loginStreakBonus,
       passUpdate,
       brokenStreak: result.brokenStreak || null,
       missedDays: result.missedDays || 0,
@@ -284,9 +320,9 @@ router.post('/recover', async (req, res) => {
     client = await pool.connect();
     await client.query('BEGIN');
 
-    const timezoneOffset = getTimezoneOffset(req);
+    const requestedTimezoneOffset = getTimezoneOffset(req);
+    const { userId, timezoneOffset } = await ensureUserAndProgression(client, telegramUser, requestedTimezoneOffset);
     const today = getTodayDate(timezoneOffset);
-    const userId = await ensureUserAndProgression(client, telegramUser, timezoneOffset);
 
     const progressionResult = await client.query(
       `SELECT streak_state, inventory

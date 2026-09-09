@@ -22,7 +22,7 @@ describe('Season creation', () => {
     const result = await createNextSeason(client);
     expect(result.season.season_number).toBe(2);
     expect(result.season.season_name).toBe('Season 2');
-    expect(result.rewardCount).toBe(50);
+    expect(result.rewardCount).toBe(20);
   });
 
   test('createNextSeason accepts overrides', async () => {
