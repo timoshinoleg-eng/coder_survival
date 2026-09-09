@@ -7,7 +7,7 @@ import {
 
 const describeIfDb = TEST_DATABASE_URL ? describe : describe.skip;
 
-describeIfDb('first purchase x2 fulfillment', () => {
+describeIfDb('first purchase x1.2 fulfillment', () => {
   const INTERNAL_SECRET = 'first-purchase-test-secret';
   const originalFlag = process.env.PAYMENTS_ENABLED;
   const originalSecret = process.env.BOT_BACKEND_SECRET;
@@ -79,7 +79,7 @@ describeIfDb('first purchase x2 fulfillment', () => {
     };
   }
 
-  test('first eligible payment is x2, replay is no-op, next payment is x1', async () => {
+  test('first eligible payment is x1.2, replay is no-op, next payment is x1', async () => {
     const telegramId = 920000101;
     const userResult = await testPool.query(
       `INSERT INTO users (telegram_id, username) VALUES ($1, 'first_bonus') RETURNING id`,
@@ -104,16 +104,18 @@ describeIfDb('first purchase x2 fulfillment', () => {
       `SELECT energy, depression_level FROM progression WHERE user_id = $1`,
       [userId]
     );
-    // coffee_break = +50 energy / -10 stress; x2 reaches 100 / 80.
-    expect(Number(progression.rows[0].energy)).toBe(100);
-    expect(Number(progression.rows[0].depression_level)).toBe(80);
+    // coffee_break = +50 energy / -10 stress; +20% first purchase bonus => +60 / -12.
+    expect(Number(progression.rows[0].energy)).toBe(70);
+    expect(Number(progression.rows[0].depression_level)).toBe(88);
 
     const audit = await testPool.query(
-      `SELECT COUNT(*)::int AS count FROM audit_logs
+      `SELECT COUNT(*)::int AS count, MAX((context->>'multiplier')::numeric) AS multiplier
+       FROM audit_logs
        WHERE user_id = $1 AND action = 'first_purchase_bonus'`,
       [userId]
     );
     expect(audit.rows[0].count).toBe(1);
+    expect(Number(audit.rows[0].multiplier)).toBe(1.2);
 
     const replay = await request(firstBody);
     expect(replay.status).toBe(200);
@@ -123,8 +125,8 @@ describeIfDb('first purchase x2 fulfillment', () => {
       `SELECT energy, depression_level FROM progression WHERE user_id = $1`,
       [userId]
     );
-    expect(Number(progression.rows[0].energy)).toBe(100);
-    expect(Number(progression.rows[0].depression_level)).toBe(80);
+    expect(Number(progression.rows[0].energy)).toBe(70);
+    expect(Number(progression.rows[0].depression_level)).toBe(88);
 
     await testPool.query(
       `UPDATE progression SET energy = 10, depression_level = 100 WHERE user_id = $1`,
@@ -168,8 +170,8 @@ describeIfDb('first purchase x2 fulfillment', () => {
       `SELECT energy, depression_level FROM progression WHERE user_id = $1`,
       [userId]
     );
-    expect(Number(progression.rows[0].energy)).toBe(100);
-    expect(Number(progression.rows[0].depression_level)).toBe(80);
+    expect(Number(progression.rows[0].energy)).toBe(70);
+    expect(Number(progression.rows[0].depression_level)).toBe(88);
 
     const payments = await testPool.query(
       `SELECT COUNT(*)::int AS count FROM star_payments
@@ -179,11 +181,13 @@ describeIfDb('first purchase x2 fulfillment', () => {
     expect(payments.rows[0].count).toBe(1);
 
     const audit = await testPool.query(
-      `SELECT COUNT(*)::int AS count FROM audit_logs
+      `SELECT COUNT(*)::int AS count, MAX((context->>'multiplier')::numeric) AS multiplier
+       FROM audit_logs
        WHERE user_id = $1 AND action = 'first_purchase_bonus'`,
       [userId]
     );
     expect(audit.rows[0].count).toBe(1);
+    expect(Number(audit.rows[0].multiplier)).toBe(1.2);
   });
 
 });
