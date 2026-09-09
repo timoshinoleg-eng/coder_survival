@@ -11,7 +11,7 @@ import { secretsMatch } from '../utils/secretCompare.js';
 const router = Router();
 
 const BOT_BACKEND_SECRET = process.env.BOT_BACKEND_SECRET;
-const FIRST_PURCHASE_BONUS_MULTIPLIER = 1.2;
+const FIRST_PURCHASE_BONUS_MULTIPLIER = 2;
 
 function parseInvoicePayload(payload) {
   const match = /^purchase:(\d+):([a-z_]+)$/.exec(payload || '');
