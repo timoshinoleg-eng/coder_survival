@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { pool } from '../index.js';
 import { applyItemEffect } from './buy.js';
 import { getProductById } from '../utils/shopCatalog.js';
+import { applyReward } from '../utils/rewards.js';
+import { SHOP_ITEM_EFFECTS } from '../config/balance.js';
 import { sendAlert } from '../utils/alertSender.js';
 import { arePaymentsEnabled, paymentsDisabledResponse } from '../config/payments.js';
 import { secretsMatch } from '../utils/secretCompare.js';
@@ -9,6 +11,7 @@ import { secretsMatch } from '../utils/secretCompare.js';
 const router = Router();
 
 const BOT_BACKEND_SECRET = process.env.BOT_BACKEND_SECRET;
+const FIRST_PURCHASE_BONUS_MULTIPLIER = 1.2;
 
 function parseInvoicePayload(payload) {
   const match = /^purchase:(\d+):([a-z_]+)$/.exec(payload || '');
@@ -174,7 +177,7 @@ router.post('/telegram/confirm', async (req, res, next) => {
       const userId = userResult.rows[0].id;
 
       // Serialize paid fulfillment per user so two simultaneous first purchases
-      // cannot both observe an empty payment history and both receive the x2 bonus.
+      // cannot both observe an empty payment history and both receive the bonus.
       await client.query('SELECT pg_advisory_xact_lock($1::bigint)', [userId]);
 
       // A duplicate callback can pass the optimistic pre-lock lookup while the
@@ -241,10 +244,19 @@ router.post('/telegram/confirm', async (req, res, next) => {
 
       await applyItemEffect(client, userId, parsed.itemType);
       if (firstPurchaseBonusApplied) {
-        // The catalog flag is intentionally opt-in. Calling the same server-side
-        // effect twice keeps fulfillment authoritative and gives an exact x2
-        // reward while preserving each effect's normal caps (for example energy).
-        await applyItemEffect(client, userId, parsed.itemType);
+        const baseEffect = SHOP_ITEM_EFFECTS[parsed.itemType];
+        if (!baseEffect) {
+          throw new Error(`First purchase bonus is not supported for item: ${parsed.itemType}`);
+        }
+
+        const extraFraction = FIRST_PURCHASE_BONUS_MULTIPLIER - 1;
+        await applyReward(client, userId, {
+          energy: Math.round(Number(baseEffect.energy || 0) * extraFraction),
+          depressionRelief: Math.round(Number(baseEffect.depressionRelief || 0) * extraFraction),
+          commitsCurrent: Math.round(Number(baseEffect.commitsCurrent || 0) * extraFraction),
+          xpTotal: Math.round(Number(baseEffect.xpTotal || 0) * extraFraction)
+        });
+
         await client.query(
           `INSERT INTO audit_logs (user_id, action, context)
            VALUES ($1, 'first_purchase_bonus', $2::jsonb)`,
@@ -253,7 +265,7 @@ router.post('/telegram/confirm', async (req, res, next) => {
             JSON.stringify({
               purchaseId: purchase.id,
               itemType: parsed.itemType,
-              multiplier: 2
+              multiplier: FIRST_PURCHASE_BONUS_MULTIPLIER
             })
           ]
         );
