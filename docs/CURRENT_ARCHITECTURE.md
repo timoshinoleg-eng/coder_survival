@@ -1,99 +1,68 @@
 # Coder Survival — Current Architecture
 
-**Date:** 2026-07-24 · **Status:** canonical (supersedes topology claims in
-`DEPLOY.md`, `HANDOFF.md`, `AGENT_HANDOFF.md`, `YANDEX_CLOUD_MIGRATION_PLAN.md`,
-`RENDER_SETUP.md`, `project-status.json`).
-
-> **Live verification — 2026-08-02.** `coder-survival-api.duckdns.org` resolves
-> to `185.92.221.219`; reverse DNS identifies `vultrusercontent.com`; HTTPS
-> `/health` returns `200`. The backend is on Vultr. The SSH target is never
-> committed: releases receive it as `CODER_SURVIVAL_VM_SSH_TARGET` / the
-> `VM_SSH_TARGET` GitHub secret.
+**Date:** 2026-09-09  
+**Status:** canonical target architecture for the Cloud.ru cutover.
 
 ## Components
 
-- **Frontend** (Preact 10 + Phaser 3.60 + Vite): static build hosted on
-  **Vercel**. Loaded inside the Telegram Mini App WebView. `vercel.json`
-  rewrites `/api/*` to the backend via the DuckDNS hostname.
-- **Bot webhook** (Grammy, serverless): **Vercel** function
-  (`bot/api/webhook.js`, `bot/api/invoice-link.js`). Verifies Telegram’s
-  `X-Telegram-Bot-Api-Secret-Token` (now fail-closed).
-- **Backend API** (Node 20 + Express): **Docker container on a Vultr VM**,
-  port 3000, behind a reverse proxy (Caddy/nginx) terminating TLS. Health at
-  `/health`.
-- **Database:** externally managed PostgreSQL. Migrations via `backend/src/migrate.js`
-  (`schema_migrations`, filename-keyed, transactional).
-- **Payments:** Telegram Stars (`XTR`). Invoice created via bot; confirmation via
-  bot `successful_payment` → backend `internal/payments` (secured with
-  `BOT_BACKEND_SECRET`).
-- **Cron/jobs:** `node-cron` inside the backend process (season rotation, daily
-  battle, hackathon, achievements, random events, flash sales, daily summary,
-  health alert).
-- **Container image:** built on the Vultr VM from the reviewed backend payload;
-  no external container registry is part of the release path.
+- **Frontend** — Preact + Phaser + Vite static build on Vercel, loaded in Telegram Mini App WebView.
+- **Bot webhook** — Vercel serverless runtime. Telegram Stars fulfillment calls the backend through `BOT_BACKEND_SECRET`.
+- **Backend API** — Node 20 + Express in Docker on a Cloud.ru Evolution Ubuntu VM.
+- **Public backend edge** — host nginx + Let's Encrypt on the VM. Backend container publishes only `127.0.0.1:3000`.
+- **Database** — Cloud.ru Evolution Managed PostgreSQL reachable by private IP only. VM and database must be in the same Evolution project and subnet.
+- **Public API hostname** — `coder-survival-api.duckdns.org`; the DuckDNS record is repointed from the retired Vultr host to the Cloud.ru VM public IP.
+- **Payments** — Telegram Stars code remains present, but production real-money paths remain disabled until an explicit go-live (`PAYMENTS_ENABLED=false`).
 
 ## Diagram
 
 ```mermaid
 flowchart TD
-  user["Telegram user"] -->|opens Mini App| tg["Telegram client (iOS/Android WebView)"]
-  tg -->|loads static SPA| fe["Frontend (Vercel)"]
-  tg -->|bot messages / Stars| botapi["Telegram Bot API"]
+  user[Telegram user] --> tg[Telegram client]
+  tg --> fe[Frontend on Vercel]
+  tg --> botapi[Telegram Bot API]
+  botapi --> bot[Bot webhook on Vercel]
 
-  fe -->|"/api/* (initData in X-Telegram-Init-Data)"| proxy["Reverse proxy + TLS (Caddy/nginx on VM)"]
-  botapi -->|webhook + secret token| botfn["Bot webhook (Vercel serverless)"]
-
-  proxy --> be["Backend API (Docker on Vultr VM)"]
-  botfn -->|create invoice| botapi
-  botfn -->|"successful_payment (X-Bot-Backend-Secret)"| be
-
-  be --> pg[("PostgreSQL 15")]
-  be -->|node-cron jobs| be
-
-  subgraph dns["DNS (CONFIRM)"]
-    duck["coder-survival-api.duckdns.org → VM IP"]
-  end
-  proxy -.-> duck
-
-  classDef confirm stroke-dasharray: 4 3;
-  class dns confirm;
+  fe -->|/api/* via Vercel rewrite| dns[coder-survival-api.duckdns.org]
+  bot -->|internal payment calls| dns
+  dns --> nginx[Cloud.ru VM nginx / HTTPS]
+  nginx -->|127.0.0.1:3000| be[Backend Docker container]
+  be -->|private Evolution VPC| pg[(Cloud.ru Managed PostgreSQL)]
 ```
 
-## Data / payment flow (happy path)
+## Network policy
 
-1. User opens Mini App → SPA boots, reads `window.Telegram.WebApp.initData`.
-2. SPA calls `/api/state` etc. with `X-Telegram-Init-Data`; backend verifies
-   HMAC/Ed25519 + `auth_date` age, then serves server-authoritative state.
-3. Purchase: SPA → `/api/buy` (or `/api/shop/purchase-deal`) → backend creates a
-   `pending` purchase + returns a Stars payload → bot `invoice-link` →
-   `tg.openInvoice`.
-4. On payment, Telegram calls the bot webhook (`successful_payment`); the bot
-   calls backend `internal/payments` (with `BOT_BACKEND_SECRET`) which credits
-   the reward idempotently; the SPA reloads state to reflect it.
+Cloud.ru VM security group:
 
-## Topology drift table (resolve before deploy)
+- 22/tcp: restricted SSH sources.
+- 80/tcp: public, for HTTP/ACME and redirect.
+- 443/tcp: public HTTPS API.
+- 3000/tcp: not public; container binds to loopback.
+- 5432/tcp: not public; Managed PostgreSQL uses the private subnet.
 
-| Value | Where it appears | Assessment |
-|-------|------------------|------------|
-| `185.92.221.219` | Live DuckDNS resolution + reverse DNS | **Confirmed Vultr backend address on 2026-08-02.** |
-| `coder-survival-api.duckdns.org` | `frontend/vercel.json`, live HTTPS health | Current public API hostname. |
-| `VM_SSH_TARGET` / `CODER_SURVIVAL_VM_SSH_TARGET` | Manual release workflow and PowerShell release/smoke scripts | Canonical secret-only SSH target; prevents future hard-coded-address drift. |
-| `STAGING_TEST_DATABASE_URL` | `integration-tests-staging.yml` | Isolated PostgreSQL URL stored as an environment secret; absence is a failing gate. |
-| `DB_SSL` / `DB_SSL_CA` | VM `backend/.env` and backend container | Verified TLS is the production default; `DB_SSL=false` is allowed only for a trusted local VM database. |
-| Yandex and Render references | Archived planning/history material only | Not production topology and not release dependencies. |
+## Deployment path
 
-## Deploy path (current, manual, human-gated)
+`.github/workflows/deploy-backend.yml` is manual-only and targets the GitHub environment `production-cloudru`.
 
-`deploy-backend.yml` (`workflow_dispatch` only): runs migrations twice and the
-complete backend suite against a disposable PostgreSQL service before it can
-deploy → syncs the backend to the VM → builds locally on Vultr → migrates →
-restarts → verifies health. There is **no auto-deploy on push** and no
-zero-downtime guarantee (single-container restart = brief outage; rollback =
-redeploy a previously accepted commit). See `docs/TEST_LAUNCH_RUNBOOK.md`.
+Release sequence:
 
-**Required CI set:** `backend-tests.yml` and the deploy preflight both run the
-migration bootstrap/idempotency gate; `integration-tests-staging.yml` fails when
-its isolated DB is not configured or reachable; `security-scan.yml` remains the
-security gate; `vultr-health.yml` checks the real public API and database health.
-The remote-code AI workflow is manual-only and least-privilege. The old Render
-workflows are removed.
+1. PostgreSQL-backed backend test gate.
+2. Immutable Docker build tagged with commit SHA on GitHub Actions.
+3. SSH host-key-pinned transfer to the VM.
+4. Pre-migration `pg_dump`.
+5. Production migration using the new image.
+6. Container swap through `docker-compose.backend.yml`.
+7. Internal container health check.
+8. Automatic rollback to the previous image on failed health.
+9. Public HTTPS `/health` verification.
+
+The scheduled `.github/workflows/backend-health.yml` checks that `/health` reports both `status=ok` and `db=connected`.
+
+## Database contract
+
+The application supports `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and configurable SSL. Cloud.ru's current Managed PostgreSQL guide documents private-IP PostgreSQL connectivity from a VM in the same project/subnet; the Cloud.ru deployment therefore starts with `CLOUDRU_DB_SSL=false`. Change it only if the selected cluster configuration explicitly requires TLS.
+
+Managed PostgreSQL automatic backups should remain enabled; deployment also keeps a short-lived pre-migration `pg_dump` on the VM for release rollback/recovery.
+
+## Frontend routing
+
+`frontend/vercel.json` already points `/api/*` and `/health` at `https://coder-survival-api.duckdns.org`. Preserving this hostname means the Cloud.ru infrastructure cutover does not require a frontend code change.
