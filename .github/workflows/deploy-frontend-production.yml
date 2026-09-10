@@ -21,8 +21,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  VERCEL_ORG_ID: olegs-projects-bfc4e11a
+  VERCEL_ORG_ID: team_szHwcCa6CdtVuEvDGWkvvbZ1
   VERCEL_PROJECT_ID: prj_6HewqIVhYFQFgim5yQPJjvz6ucHa
+  VERCEL_CLI_VERSION: 59.15.1
   PRODUCTION_ORIGIN: https://frontend-olegs-projects-bfc4e11a.vercel.app
 
 jobs:
@@ -103,23 +104,35 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Build frontend release candidate
+      - name: Install and test frontend
         working-directory: frontend
         shell: bash
         run: |
           set -euo pipefail
           npm ci
           npm test --if-present
-          npm run build
 
-      - name: Deploy exact main to Vercel production
+      - name: Install pinned Vercel CLI
+        shell: bash
+        run: npm install --global "vercel@$VERCEL_CLI_VERSION"
+
+      - name: Pull Vercel production configuration
+        working-directory: frontend
+        shell: bash
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build exact production artifact
+        working-directory: frontend
+        shell: bash
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt artifact to Vercel production
         id: vercel
         working-directory: frontend
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-save --no-package-lock vercel
-          deployment_url="$(npx vercel --prod --yes --token="$VERCEL_TOKEN" | tail -n1 | tr -d '\r')"
+          deployment_url="$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" | tail -n1 | tr -d '\r')"
           case "$deployment_url" in
             https://*.vercel.app) ;;
             *) echo "Unexpected Vercel deployment URL: $deployment_url" >&2; exit 1 ;;
@@ -145,4 +158,5 @@ jobs:
             echo "- Source SHA: \`$RELEASE_SHA\`"
             echo "- Deployment: ${{ steps.vercel.outputs.deployment_url }}"
             echo "- Stable origin: $PRODUCTION_ORIGIN"
+            echo "- Vercel CLI: $VERCEL_CLI_VERSION"
           } >> "$GITHUB_STEP_SUMMARY"
