@@ -90,22 +90,40 @@ describe('production configuration preflight', () => {
     expect(logger.info).not.toHaveBeenCalled();
   });
 
-  test('active production compose forwards every preflight-controlled runtime variable', () => {
+  test('active production compose consumes a raw env file and release workflow populates preflight variables', () => {
     const compose = readFileSync(new URL('../../docker-compose.backend.yml', import.meta.url), 'utf8');
+    const deploy = readFileSync(new URL('../../.github/workflows/deploy-backend.yml', import.meta.url), 'utf8');
 
     expect(compose).toContain('image: coder-survival-backend:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}');
+    expect(compose).toContain('path: ./backend.env');
+    expect(compose).toContain('format: raw');
+    expect(compose).toContain('PAYMENTS_ENABLED: "false"');
 
     for (const variable of [
+      'BOT_TOKEN',
+      'BOT_BACKEND_SECRET',
       'ADMIN_API_SECRET',
+      'DB_HOST',
+      'DB_PORT',
+      'DB_NAME',
+      'DB_USER',
+      'DB_PASSWORD',
+      'DB_SSL',
       'WEBAPP_URL',
       'FRONTEND_URL',
       'CORS_ALLOWED_ORIGINS',
-      'PAYMENTS_ENABLED',
       'REWARDED_AD_PROVIDER',
       'ADSGRAM_SECRET',
       'PROPELLER_SECRET',
+      'ALERT_CHAT_ID',
+      'INIT_DATA_MAX_AGE_SECONDS',
     ]) {
-      expect(compose).toContain(`${variable}: \${${variable}`);
+      expect(deploy).toContain(`'${variable}'`);
     }
+
+    // Secrets must not be expanded by Compose itself; raw env_file owns their transport.
+    expect(compose).not.toContain('ADMIN_API_SECRET: ${ADMIN_API_SECRET');
+    expect(compose).not.toContain('BOT_BACKEND_SECRET: ${BOT_BACKEND_SECRET');
+    expect(deploy).toContain("print('PAYMENTS_ENABLED=false')");
   });
 });

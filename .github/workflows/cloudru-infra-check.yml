@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - infra/cloudru-production
+      - infra/cloudru-first-deploy-hardening
     paths:
       - 'backend/**'
       - 'docker-compose.backend.yml'
@@ -32,24 +33,45 @@ jobs:
           bash -n deploy/cloudru/bootstrap-vm.sh
           bash -n deploy/cloudru/configure-nginx.sh
 
-      - name: Validate compose
+      - name: Build backend image
+        run: docker build -t coder-survival-backend:ci ./backend
+
+      - name: Validate raw env round-trip and compose
+        shell: bash
         run: |
-          cat > /tmp/backend.env <<'ENV'
+          set -euo pipefail
+          trap 'rm -f backend.env' EXIT
+          cat > backend.env <<'ENV'
           BOT_TOKEN=test-token
-          BOT_BACKEND_SECRET=test-secret
+          BOT_BACKEND_SECRET=literal-$TOKEN#value with spaces
           ADMIN_API_SECRET=test-admin-secret
           DB_HOST=10.0.0.10
           DB_PORT=5432
           DB_NAME=coder_survival
           DB_USER=coder_survival
-          DB_PASSWORD=test-password
+          DB_PASSWORD=pa$$word#with spaces
           DB_SSL=false
           WEBAPP_URL=https://frontend.example.com
           FRONTEND_URL=https://frontend.example.com
+          CORS_ALLOWED_ORIGINS=
+          REWARDED_AD_PROVIDER=
+          ADSGRAM_SECRET=
+          PROPELLER_SECRET=
+          ALERT_CHAT_ID=
+          INIT_DATA_MAX_AGE_SECONDS=3600
+          NODE_ENV=production
+          PORT=3000
           PAYMENTS_ENABLED=false
           ENV
-          BACKEND_IMAGE_TAG=ci \
-            docker compose --env-file /tmp/backend.env -f docker-compose.backend.yml config >/dev/null
+          chmod 600 backend.env
 
-      - name: Build backend image
-        run: docker build -t coder-survival-backend:ci ./backend
+          BACKEND_IMAGE_TAG=ci docker compose -f docker-compose.backend.yml config >/dev/null
+
+          BACKEND_IMAGE_TAG=ci docker compose -f docker-compose.backend.yml run --rm --no-deps backend \
+            node -e 'if (process.env.DB_PASSWORD !== "pa$$word#with spaces" || process.env.BOT_BACKEND_SECRET !== "literal-$TOKEN#value with spaces") process.exit(1)'
+
+          docker run --rm --env-file backend.env coder-survival-backend:ci \
+            node -e 'if (process.env.DB_PASSWORD !== "pa$$word#with spaces" || process.env.BOT_BACKEND_SECRET !== "literal-$TOKEN#value with spaces") process.exit(1)'
+
+          docker run --rm --env-file backend.env coder-survival-backend:ci \
+            node --input-type=module -e 'import { assertProductionConfig } from "./src/config/productionPreflight.js"; assertProductionConfig(process.env)'
