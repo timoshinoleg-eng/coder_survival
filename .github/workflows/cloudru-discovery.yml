@@ -1,0 +1,150 @@
+name: Cloud.ru Production Input Discovery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudru-production-input-discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    environment: production-cloudru
+    steps:
+      - name: Guard production discovery ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "Cloud.ru production discovery is allowed only from main; got $GITHUB_REF" >&2
+            exit 1
+          }
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Require Cloud.ru read credentials
+        shell: bash
+        env:
+          TF_VAR_project_id: ${{ secrets.CLOUDRU_PROJECT_ID }}
+          TF_VAR_auth_key_id: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}
+          TF_VAR_auth_secret: ${{ secrets.CLOUDRU_AUTH_SECRET }}
+        run: |
+          set -euo pipefail
+          for key in TF_VAR_project_id TF_VAR_auth_key_id TF_VAR_auth_secret; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "Missing required production-cloudru secret for discovery: $key" >&2
+              exit 1
+            fi
+          done
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Install pinned Cloud.ru Evolution provider
+        run: bash deploy/cloudru/install-terraform-provider-linux-amd64.sh
+
+      - name: Query Cloud.ru catalogs without creating resources
+        working-directory: deploy/cloudru/terraform/discovery
+        shell: bash
+        env:
+          TF_VAR_project_id: ${{ secrets.CLOUDRU_PROJECT_ID }}
+          TF_VAR_auth_key_id: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}
+          TF_VAR_auth_secret: ${{ secrets.CLOUDRU_AUTH_SECRET }}
+        run: |
+          set -euo pipefail
+          terraform init -backend=false -input=false
+          terraform plan -input=false -lock=false -out=discovery.tfplan
+          terraform show -json discovery.tfplan > discovery.json
+
+      - name: Publish sanitized production choices
+        working-directory: deploy/cloudru/terraform/discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          def cell(value):
+              text = '' if value is None else str(value)
+              return text.replace('\\', '\\\\').replace('|', '\\|').replace('\r', ' ').replace('\n', ' ')
+
+          with open('discovery.json', 'r', encoding='utf-8') as handle:
+              plan = json.load(handle)
+
+          outputs = plan.get('planned_values', {}).get('outputs', {})
+          images = outputs.get('ubuntu_2404_images', {}).get('value') or []
+          specs = outputs.get('postgres16_specifications', {}).get('value') or []
+
+          images = sorted(images, key=lambda item: (item.get('min_ram_gb', 0), item.get('min_cpu', 0), item.get('name', '')))
+          specs = sorted(
+              specs,
+              key=lambda item: (
+                  0 if item.get('deployment_mode') == 'standard' else 1,
+                  item.get('cpu', 0),
+                  item.get('memory_gb', 0),
+                  item.get('min_storage_gb', 0),
+                  item.get('display_name', ''),
+              ),
+          )
+
+          summary = os.environ['GITHUB_STEP_SUMMARY']
+          with open(summary, 'a', encoding='utf-8') as out:
+              out.write('## Cloud.ru production input discovery\n\n')
+              out.write('Read-only catalog query. No Cloud.ru resources were created or modified.\n\n')
+
+              out.write('### Ubuntu 24.04 images\n\n')
+              if images:
+                  out.write('| Image ID | Name | Display name | Min CPU | Min RAM GB | Min disk GB | Enabled zones |\n')
+                  out.write('|---|---|---|---:|---:|---:|---|\n')
+                  for image in images:
+                      zones = ', '.join(cell(zone) for zone in (image.get('zones') or []))
+                      out.write(
+                          f"| `{cell(image.get('id'))}` | {cell(image.get('name'))} | {cell(image.get('display_name'))} | "
+                          f"{cell(image.get('min_cpu'))} | {cell(image.get('min_ram_gb'))} | {cell(image.get('min_disk_gb'))} | {zones} |\n"
+                      )
+              else:
+                  out.write('No image whose name/display name contains both `ubuntu` and `24.04` was returned.\n')
+
+              out.write('\n### Managed PostgreSQL 16 specifications\n\n')
+              if specs:
+                  out.write('| Specification ID | Name | Mode | Flavor | CPU | RAM GB | Min storage GB | Max hosts | HA supported |\n')
+                  out.write('|---|---|---|---|---:|---:|---:|---:|---|\n')
+                  for spec in specs:
+                      out.write(
+                          f"| `{cell(spec.get('id'))}` | {cell(spec.get('display_name'))} | {cell(spec.get('deployment_mode'))} | "
+                          f"{cell(spec.get('flavor_type'))} | {cell(spec.get('cpu'))} | {cell(spec.get('memory_gb'))} | "
+                          f"{cell(spec.get('min_storage_gb'))} | {cell(spec.get('max_hosts'))} | {cell(spec.get('allow_primary_standby'))} |\n"
+                      )
+
+                  standard = [spec for spec in specs if spec.get('deployment_mode') == 'standard']
+                  if standard:
+                      candidate = standard[0]
+                      out.write(
+                          '\nSmallest returned `standard` specification by CPU/RAM/minimum-storage ordering: '
+                          f"`{cell(candidate.get('id'))}` ({cell(candidate.get('display_name'))}). "
+                          '**This is not a price comparison or automatic approval.** Verify the current Cloud.ru price before selecting it.\n'
+                      )
+              else:
+                  out.write('No PostgreSQL 16 specifications were returned for this account/project.\n')
+
+          if not images or not specs:
+              print('Discovery did not return both required catalogs; inspect the Job Summary.', file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Remove local discovery plan and state
+        if: ${{ always() }}
+        working-directory: deploy/cloudru/terraform/discovery
+        shell: bash
+        run: rm -f discovery.tfplan discovery.json terraform.tfstate terraform.tfstate.backup

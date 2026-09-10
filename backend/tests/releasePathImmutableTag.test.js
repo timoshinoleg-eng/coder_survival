@@ -4,6 +4,7 @@ const repoFile = (relativePath) => readFileSync(new URL(`../../${relativePath}`,
 
 const backendRelease = repoFile('.github/workflows/deploy-backend.yml');
 const frontendRelease = repoFile('.github/workflows/deploy-frontend-production.yml');
+const cloudruDiscovery = repoFile('.github/workflows/cloudru-discovery.yml');
 const legacyManualRelease = repoFile('.github/workflows/manual-release.yml');
 const legacyPowerShellRelease = repoFile('scripts/release-prod.ps1');
 const legacyShellRelease = repoFile('scripts/deploy.sh');
@@ -13,6 +14,7 @@ const envExample = repoFile('backend/.env.example');
 const providerInstaller = repoFile('deploy/cloudru/install-terraform-provider-linux-amd64.sh');
 const ciSshMain = repoFile('deploy/cloudru/terraform/ci-ssh-access/main.tf');
 const ciSshVariables = repoFile('deploy/cloudru/terraform/ci-ssh-access/variables.tf');
+const discoveryMain = repoFile('deploy/cloudru/terraform/discovery/main.tf');
 
 describe('production release-path contract', () => {
   test('backend release is main-only, explicit and uses one immutable GitHub SHA image', () => {
@@ -69,6 +71,31 @@ describe('production release-path contract', () => {
     expect(providerInstaller).toContain("EXPECTED_SHA256='41b14bbf195131364d58d3f5d33face1d7f151d6b4ca6175bf6b0f6b83ede5a7'");
     expect(providerInstaller).toContain('sha256sum --check --strict');
     expect(providerInstaller).toContain('github.com/cloud-ru/evo-terraform/releases/download');
+  });
+
+  test('Cloud.ru input discovery is main-only, least-privilege and cannot apply infrastructure', () => {
+    expect(cloudruDiscovery).toContain('name: Cloud.ru Production Input Discovery');
+    expect(cloudruDiscovery).toContain('environment: production-cloudru');
+    expect(cloudruDiscovery).toContain('[[ "$GITHUB_REF" == "refs/heads/main" ]]');
+    expect(cloudruDiscovery).toContain('ref: main');
+    expect(cloudruDiscovery).toContain('terraform plan -input=false -lock=false -out=discovery.tfplan');
+    expect(cloudruDiscovery).toContain('terraform show -json discovery.tfplan > discovery.json');
+    expect(cloudruDiscovery).toContain('def cell(value):');
+    expect(cloudruDiscovery).toContain('if: ${{ always() }}');
+    expect(cloudruDiscovery).toContain('rm -f discovery.tfplan discovery.json terraform.tfstate terraform.tfstate.backup');
+    expect(cloudruDiscovery).not.toMatch(/terraform\s+apply/);
+    expect(cloudruDiscovery).not.toMatch(/terraform\s+destroy/);
+
+    expect((cloudruDiscovery.match(/secrets\.CLOUDRU_PROJECT_ID/g) || [])).toHaveLength(2);
+    expect((cloudruDiscovery.match(/secrets\.CLOUDRU_AUTH_KEY_ID/g) || [])).toHaveLength(2);
+    expect((cloudruDiscovery.match(/secrets\.CLOUDRU_AUTH_SECRET/g) || [])).toHaveLength(2);
+
+    expect(discoveryMain).toContain('data "cloudru_evolution_compute_image_collection" "project"');
+    expect(discoveryMain).toContain('data "cloudru_evolution_postgresql_specification_collection" "postgres16"');
+    expect(discoveryMain).toContain('version_name = "16"');
+    expect(discoveryMain).toContain('output "ubuntu_2404_images"');
+    expect(discoveryMain).toContain('output "postgres16_specifications"');
+    expect(discoveryMain).not.toMatch(/^resource\s+"/m);
   });
 
   test('all obsolete manual/local production entrypoints are fail-closed', () => {
