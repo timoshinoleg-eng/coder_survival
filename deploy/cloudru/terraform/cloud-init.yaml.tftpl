@@ -1,0 +1,55 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+users:
+  - default
+  - name: ${deploy_user}
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+packages:
+  - ca-certificates
+  - curl
+  - nginx
+  - certbot
+  - python3-certbot-nginx
+
+write_files:
+  - path: /usr/local/sbin/coder-survival-cloud-init-bootstrap
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      if ! command -v docker >/dev/null 2>&1; then
+        curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+        sh /tmp/get-docker.sh
+        rm -f /tmp/get-docker.sh
+      fi
+
+      systemctl enable --now docker nginx
+      usermod -aG docker ${deploy_user}
+      install -d -m 0700 -o ${deploy_user} -g ${deploy_user} /home/${deploy_user}/coder-survival
+      install -d -m 0700 -o ${deploy_user} -g ${deploy_user} /home/${deploy_user}/coder-survival/backups
+
+      compose_version="$(docker compose version --short 2>/dev/null | sed 's/^v//' || true)"
+      if [[ -z "$compose_version" ]]; then
+        echo "Docker Compose plugin is missing" >&2
+        exit 1
+      fi
+
+      if [[ "$(printf '%s\n%s\n' '2.30.0' "$compose_version" | sort -V | head -n1)" != "2.30.0" ]]; then
+        echo "Docker Compose >= 2.30.0 is required; found $compose_version" >&2
+        exit 1
+      fi
+
+runcmd:
+  - [bash, /usr/local/sbin/coder-survival-cloud-init-bootstrap]
+
+final_message: "Coder Survival Cloud.ru VM bootstrap completed."
