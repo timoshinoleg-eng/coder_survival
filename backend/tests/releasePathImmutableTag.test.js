@@ -30,7 +30,10 @@ describe('production release-path contract', () => {
     expect(frontendRelease).toContain('ops/frontend-production-release');
     expect(frontendRelease).toContain('git fetch --no-tags origin main');
     expect(frontendRelease).toContain('ref: main');
-    expect(frontendRelease).toContain('npx vercel --prod --yes --token="$VERCEL_TOKEN"');
+    expect(frontendRelease).toContain('VERCEL_CLI_VERSION: 59.15.1');
+    expect(frontendRelease).toContain('vercel pull --yes --environment=production --token="$VERCEL_TOKEN"');
+    expect(frontendRelease).toContain('vercel build --prod --token="$VERCEL_TOKEN"');
+    expect(frontendRelease).toContain('vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"');
     expect(frontendRelease).toContain('https://frontend-olegs-projects-bfc4e11a.vercel.app');
     expect(frontendRelease).toContain('<title>Coder Survival</title>');
   });
