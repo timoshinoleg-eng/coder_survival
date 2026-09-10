@@ -33,6 +33,54 @@ output "vm_public_ip" {
   value       = cloudru_evolution_compute_external_ip.backend.ip_address
 }
 
+output "selected_zone" {
+  description = "Selected enabled Cloud.ru availability zone metadata."
+  value = local.selected_zone == null ? null : {
+    id           = local.selected_zone.id
+    name         = local.selected_zone.name
+    short_name   = local.selected_zone.short_name
+    display_name = local.selected_zone.display_name
+    default      = local.selected_zone.default
+  }
+}
+
+output "selected_vm_flavor" {
+  description = "Selected VM flavor metadata validated for the selected zone and image."
+  value = local.selected_flavor == null ? null : {
+    id               = local.selected_flavor.id
+    name             = local.selected_flavor.name
+    cpu              = local.selected_flavor.cpu
+    ram_gb           = local.selected_flavor.ram
+    gpu              = local.selected_flavor.gpu
+    type             = local.selected_flavor.type
+    oversubscription = local.selected_flavor.oversubscription
+  }
+}
+
+output "selected_boot_disk_type" {
+  description = "Selected boot disk type metadata validated for the selected zone."
+  value = local.selected_disk_type == null ? null : {
+    id           = local.selected_disk_type.id
+    name         = local.selected_disk_type.name
+    display_name = local.selected_disk_type.display_name
+    free_tier    = local.selected_disk_type.free_tier
+    min_size_gb  = local.selected_disk_type.min_size
+    max_size_gb  = local.selected_disk_type.max_size
+  }
+}
+
+output "selected_vm_image" {
+  description = "Selected Ubuntu 24.04 image metadata validated for the selected zone."
+  value = local.selected_image == null ? null : {
+    id           = local.selected_image.id
+    name         = local.selected_image.name
+    display_name = local.selected_image.display_name
+    min_cpu      = local.selected_image.min_cpu
+    min_ram_gb   = local.selected_image.min_ram
+    min_disk_gb  = local.selected_image.min_disk
+  }
+}
+
 output "postgres_cluster_id" {
   description = "Managed PostgreSQL cluster ID."
   value       = cloudru_evolution_postgresql_cluster.production.id
