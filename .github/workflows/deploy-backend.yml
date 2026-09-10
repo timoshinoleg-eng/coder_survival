@@ -19,8 +19,20 @@ env:
   IMAGE_REPOSITORY: coder-survival-backend
 
 jobs:
+  request:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_CONFIRM: ${{ inputs.confirm }}
+    steps:
+      - name: Guard production release request
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_CONFIRM" == "deploy" ]] || { echo "Confirmation must be exactly: deploy" >&2; exit 1; }
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "Production releases are allowed only from main; got $GITHUB_REF" >&2; exit 1; }
+
   test:
-    if: ${{ inputs.confirm == 'deploy' }}
+    needs: request
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -119,26 +131,44 @@ jobs:
             https://*/health) ;;
             *) echo "BACKEND_HEALTH_URL must be an HTTPS /health endpoint" >&2; exit 1 ;;
           esac
+          NODE_ENV=production PAYMENTS_ENABLED=false node --input-type=module <<'NODE'
+          import { inspectProductionConfig } from './backend/src/config/productionPreflight.js';
+          const findings = inspectProductionConfig(process.env);
+          if (findings.errors.length) {
+            console.error(`Production config preflight failed: ${findings.errors.join(', ')}`);
+            process.exit(1);
+          }
+          const webapp = new URL(process.env.WEBAPP_URL);
+          const frontend = new URL(process.env.FRONTEND_URL);
+          if (frontend.origin !== process.env.FRONTEND_URL || webapp.origin !== frontend.origin) {
+            console.error('WEBAPP_URL must use the canonical FRONTEND_URL origin');
+            process.exit(1);
+          }
+          NODE
 
-      - name: Build redacted backend env file
+      - name: Build raw backend env file
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY' > backend.env
-          import json, os
+          import os, sys
           keys = [
               'BOT_TOKEN', 'BOT_BACKEND_SECRET', 'ADMIN_API_SECRET',
               'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_SSL',
               'WEBAPP_URL', 'FRONTEND_URL', 'CORS_ALLOWED_ORIGINS',
               'REWARDED_AD_PROVIDER', 'ADSGRAM_SECRET', 'PROPELLER_SECRET',
-              'ALERT_CHAT_ID',
+              'ALERT_CHAT_ID', 'INIT_DATA_MAX_AGE_SECONDS',
           ]
+          defaults = {'INIT_DATA_MAX_AGE_SECONDS': '3600'}
           for key in keys:
-              print(f"{key}={json.dumps(os.environ.get(key, ''))}")
-          print('NODE_ENV="production"')
-          print('PORT="3000"')
-          print('INIT_DATA_MAX_AGE_SECONDS="3600"')
-          print('PAYMENTS_ENABLED="false"')
+              value = os.environ.get(key, defaults.get(key, ''))
+              if any(ch in value for ch in ('\n', '\r', '\x00')):
+                  print(f'{key} contains a forbidden newline or NUL', file=sys.stderr)
+                  raise SystemExit(1)
+              print(f'{key}={value}')
+          print('NODE_ENV=production')
+          print('PORT=3000')
+          print('PAYMENTS_ENABLED=false')
           PY
           chmod 600 backend.env
 
@@ -156,6 +186,54 @@ jobs:
           printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/known_hosts
           chmod 700 ~/.ssh
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          known_host="$SSH_HOST"
+          if [[ "$SSH_PORT" != "22" ]]; then known_host="[$SSH_HOST]:$SSH_PORT"; fi
+          ssh-keygen -F "$known_host" -f ~/.ssh/known_hosts >/dev/null || {
+            echo "CLOUDRU_VM_HOST_KEY does not contain the configured SSH host/port" >&2
+            exit 1
+          }
+
+      - name: Verify DNS points health endpoint to deployment VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, socket, sys
+          from urllib.parse import urlparse
+          health_host = urlparse(os.environ['BACKEND_HEALTH_URL']).hostname
+          ssh_host = os.environ['SSH_HOST']
+          def addresses(host):
+              try:
+                  return {row[4][0] for row in socket.getaddrinfo(host, None, socket.AF_INET)}
+              except socket.gaierror as exc:
+                  print(f'Cannot resolve {host}: {exc}', file=sys.stderr)
+                  raise SystemExit(1)
+          health_ips = addresses(health_host)
+          ssh_ips = addresses(ssh_host)
+          if health_ips.isdisjoint(ssh_ips):
+              print('BACKEND_HEALTH_URL DNS does not resolve to the configured Cloud.ru VM', file=sys.stderr)
+              print(f'health IPv4={sorted(health_ips)} vm IPv4={sorted(ssh_ips)}', file=sys.stderr)
+              raise SystemExit(1)
+          print(f'DNS target verified: {health_host} -> {sorted(health_ips)}')
+          PY
+
+      - name: Verify Cloud.ru VM prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          command -v docker >/dev/null
+          docker info >/dev/null
+          compose_version="$(docker compose version --short | sed 's/^v//')"
+          minimum="2.30.0"
+          if [[ "$(printf '%s\n%s\n' "$minimum" "$compose_version" | sort -V | head -n1)" != "$minimum" ]]; then
+            echo "Docker Compose >= $minimum is required; found $compose_version" >&2
+            exit 1
+          fi
+          command -v nginx >/dev/null
+          echo "VM prerequisites passed (Docker Compose $compose_version)"
+          REMOTE
 
       - name: Transfer immutable release payload
         shell: bash
@@ -188,6 +266,17 @@ jobs:
           STAMP="$(date -u +%Y%m%d-%H%M%S)"
           BACKUP_FILE="$BACKUP_DIR/predeploy-$STAMP.dump"
 
+          docker run --rm --env-file "$APP_DIR/backend.env" "$NEW_IMAGE" node --input-type=module -e '
+            import { assertProductionConfig } from "./src/config/productionPreflight.js";
+            assertProductionConfig(process.env);
+          '
+
+          docker run --rm --env-file "$APP_DIR/backend.env" postgres:16-alpine sh -euc '
+            export PGPASSWORD="$DB_PASSWORD"
+            if [ "${DB_SSL:-false}" = "false" ]; then export PGSSLMODE=disable; else export PGSSLMODE=require; fi
+            pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
+          '
+
           docker run --rm --env-file "$APP_DIR/backend.env" postgres:16-alpine sh -euc '
             export PGPASSWORD="$DB_PASSWORD"
             if [ "${DB_SSL:-false}" = "false" ]; then export PGSSLMODE=disable; else export PGSSLMODE=require; fi
@@ -198,7 +287,7 @@ jobs:
           docker run --rm --env-file "$APP_DIR/backend.env" "$NEW_IMAGE" node src/migrate.js
 
           if ! BACKEND_IMAGE_TAG="$NEW_TAG" \
-            docker compose --env-file "$APP_DIR/backend.env" -f "$APP_DIR/docker-compose.backend.yml" up -d --no-build --remove-orphans; then
+            docker compose -f "$APP_DIR/docker-compose.backend.yml" up -d --no-build --remove-orphans; then
             echo "Container swap failed before health check" >&2
             exit 1
           fi
@@ -219,7 +308,7 @@ jobs:
               OLD_TAG="${OLD_IMAGE#coder-survival-backend:}"
               echo "Health failed; rolling back to $OLD_IMAGE" >&2
               BACKEND_IMAGE_TAG="$OLD_TAG" \
-                docker compose --env-file "$APP_DIR/backend.env" -f "$APP_DIR/docker-compose.backend.yml" up -d --no-build --remove-orphans || true
+                docker compose -f "$APP_DIR/docker-compose.backend.yml" up -d --no-build --remove-orphans || true
             fi
             exit 1
           fi
