@@ -2,11 +2,66 @@
 // not define it. Guarded access keeps this module importable everywhere.
 const viteEnv = import.meta.env ?? {};
 
-const configuredApiBaseUrl = viteEnv.VITE_API_BASE_URL || '';
-const API_BASE_URL =
-  typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app')
-    ? ''
-    : configuredApiBaseUrl;
+/**
+ * Resolves the API origin that request paths are appended to.
+ *
+ * Provider-neutral by design: the decision depends only on the configured
+ * value, never on the hostname the app happens to be served from. That is what
+ * lets the same source build run on Vercel (same-origin rewrites), on
+ * Cloudflare Pages (explicit cross-origin API), or locally (Vite's /api proxy)
+ * with no per-provider branch to keep in sync.
+ *
+ * - A non-empty VITE_API_BASE_URL is honoured everywhere, including on
+ *   *.vercel.app and *.pages.dev.
+ * - Missing, empty, or whitespace-only means SAME-ORIGIN (''). Whitespace-only
+ *   is deliberately treated as "not configured" rather than as a URL: a stray
+ *   space in a dashboard field would otherwise build a request against the
+ *   origin " /api/..." and fail at runtime. Same-origin is the safe reading,
+ *   because it is also the behaviour of a correctly configured Vercel deploy.
+ * - Trailing slashes are stripped so `${base}${path}` can never produce `//api`.
+ *
+ * Exported for dependency-free unit tests; application code should use the
+ * resolved API_BASE_URL constant below.
+ *
+ * @param {unknown} rawValue Raw env value, typically viteEnv.VITE_API_BASE_URL
+ * @returns {string} Normalised origin with no trailing slash, or '' for same-origin
+ */
+export function resolveApiBaseUrl(rawValue) {
+  if (typeof rawValue !== 'string') return '';
+
+  const trimmed = rawValue.trim();
+  if (trimmed === '') return '';
+
+  // Strip every trailing slash: "https://api.example.com///" -> "https://api.example.com"
+  return trimmed.replace(/\/+$/, '');
+}
+
+const API_BASE_URL = resolveApiBaseUrl(viteEnv.VITE_API_BASE_URL);
+
+/**
+ * Joins a resolved base origin and a request path into exactly one valid URL.
+ *
+ * The base never ends in a slash (resolveApiBaseUrl guarantees it) and every
+ * call site passes a leading-slash path, but this normalises both sides anyway
+ * so a future caller passing 'api/state' cannot silently produce a
+ * same-origin-relative path or a missing separator.
+ *
+ * Exported for dependency-free unit tests.
+ *
+ * @param {string} baseUrl Resolved origin ('' means same-origin)
+ * @param {string} path Request path, normally '/api/...'
+ * @returns {string} A URL with a single slash between origin and path
+ */
+export function buildRequestUrl(baseUrl, path) {
+  const safePath = typeof path === 'string' ? path : '';
+  const withLeadingSlash = safePath.startsWith('/') ? safePath : `/${safePath}`;
+
+  // Same-origin: return the path as-is so the browser resolves it against the
+  // current origin (Vercel rewrites / Vite dev proxy).
+  if (!baseUrl) return withLeadingSlash;
+
+  return `${baseUrl}${withLeadingSlash}`;
+}
 
 // Default per-request timeout. A bad mobile connection must not leave the app
 // spinning forever — requests abort and surface a typed error the UI can retry.
@@ -62,7 +117,7 @@ export async function apiRequest(path, { method = 'GET', body, initData, timeout
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(buildRequestUrl(API_BASE_URL, path), {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
