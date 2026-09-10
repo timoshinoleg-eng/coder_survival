@@ -35,7 +35,7 @@ resource "cloudru_evolution_compute_security_group_rule" "github_runner_ssh" {
   direction         = "TRAFFIC_DIRECTION_INGRESS"
   ether_type        = "ETHER_TYPE_IPV4"
   ip_protocol       = "IP_PROTOCOL_TCP"
-  port_range        = "22:22"
+  port_range        = "${var.ssh_port}:${var.ssh_port}"
   remote_ip_prefix  = var.source_cidr
   description       = "Temporary GitHub Actions SSH run ${var.github_run_id}"
 
