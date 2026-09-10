@@ -48,6 +48,17 @@ variable "source_cidr" {
   }
 }
 
+variable "ssh_port" {
+  description = "SSH port opened only for the current GitHub-hosted runner."
+  type        = number
+  default     = 22
+
+  validation {
+    condition     = var.ssh_port >= 1 && var.ssh_port <= 65535 && floor(var.ssh_port) == var.ssh_port
+    error_message = "ssh_port must be an integer between 1 and 65535."
+  }
+}
+
 variable "github_run_id" {
   description = "GitHub Actions run ID embedded in the temporary rule description for audit/manual cleanup."
   type        = string
