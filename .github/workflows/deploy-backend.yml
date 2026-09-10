@@ -92,6 +92,10 @@ jobs:
       SSH_HOST: ${{ secrets.CLOUDRU_VM_HOST }}
       SSH_USER: ${{ secrets.CLOUDRU_VM_USER }}
       SSH_PORT: ${{ vars.CLOUDRU_VM_SSH_PORT || '22' }}
+      CLOUDRU_PROJECT_ID: ${{ secrets.CLOUDRU_PROJECT_ID }}
+      CLOUDRU_AUTH_KEY_ID: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}
+      CLOUDRU_AUTH_SECRET: ${{ secrets.CLOUDRU_AUTH_SECRET }}
+      CLOUDRU_SECURITY_GROUP_NAME: ${{ vars.CLOUDRU_SECURITY_GROUP_NAME || 'coder-survival-backend' }}
       BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
       BOT_BACKEND_SECRET: ${{ secrets.BOT_BACKEND_SECRET }}
       ADMIN_API_SECRET: ${{ secrets.ADMIN_API_SECRET }}
@@ -120,7 +124,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=(SSH_HOST SSH_USER BOT_TOKEN BOT_BACKEND_SECRET ADMIN_API_SECRET DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD WEBAPP_URL FRONTEND_URL BACKEND_HEALTH_URL)
+          required=(SSH_HOST SSH_USER CLOUDRU_PROJECT_ID CLOUDRU_AUTH_KEY_ID CLOUDRU_AUTH_SECRET BOT_TOKEN BOT_BACKEND_SECRET ADMIN_API_SECRET DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD WEBAPP_URL FRONTEND_URL BACKEND_HEALTH_URL)
           for key in "${required[@]}"; do
             if [[ -z "${!key:-}" ]]; then
               echo "Missing required Cloud.ru deployment value: $key" >&2
@@ -171,6 +175,42 @@ jobs:
           print('PAYMENTS_ENABLED=false')
           PY
           chmod 600 backend.env
+
+      - name: Setup Terraform for temporary SSH access
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Install pinned Cloud.ru Evolution provider
+        run: bash deploy/cloudru/install-terraform-provider-linux-amd64.sh
+
+      - name: Open ephemeral GitHub runner SSH access
+        id: ci_ssh
+        working-directory: deploy/cloudru/terraform/ci-ssh-access
+        shell: bash
+        env:
+          TF_VAR_project_id: ${{ secrets.CLOUDRU_PROJECT_ID }}
+          TF_VAR_auth_key_id: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}
+          TF_VAR_auth_secret: ${{ secrets.CLOUDRU_AUTH_SECRET }}
+          TF_VAR_security_group_name: ${{ vars.CLOUDRU_SECURITY_GROUP_NAME || 'coder-survival-backend' }}
+          TF_VAR_github_run_id: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          runner_ip="$(curl --fail --silent --show-error --ipv4 https://checkip.amazonaws.com | tr -d '[:space:]')"
+          python3 - "$runner_ip" <<'PY'
+          import ipaddress, sys
+          address = ipaddress.ip_address(sys.argv[1])
+          if address.version != 4 or address.is_unspecified:
+              raise SystemExit('Expected one concrete public IPv4 for the GitHub runner')
+          PY
+          runner_cidr="${runner_ip}/32"
+          echo "source_cidr=$runner_cidr" >> "$GITHUB_OUTPUT"
+          echo "attempted=true" >> "$GITHUB_OUTPUT"
+          export TF_VAR_source_cidr="$runner_cidr"
+          terraform init -backend=false -input=false
+          terraform apply -auto-approve -input=false -no-color
+          echo "Temporary SSH access opened for GitHub Actions run $GITHUB_RUN_ID from $runner_cidr"
 
       - name: Configure SSH host identity
         shell: bash
@@ -327,3 +367,19 @@ jobs:
             const health = JSON.parse(process.env.HEALTH_BODY);
             if (health.status !== "ok" || health.db !== "connected") process.exit(1);
           '
+
+      - name: Revoke ephemeral GitHub runner SSH access
+        if: ${{ always() && steps.ci_ssh.outputs.attempted == 'true' && steps.ci_ssh.outputs.source_cidr != '' }}
+        working-directory: deploy/cloudru/terraform/ci-ssh-access
+        shell: bash
+        env:
+          TF_VAR_project_id: ${{ secrets.CLOUDRU_PROJECT_ID }}
+          TF_VAR_auth_key_id: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}
+          TF_VAR_auth_secret: ${{ secrets.CLOUDRU_AUTH_SECRET }}
+          TF_VAR_security_group_name: ${{ vars.CLOUDRU_SECURITY_GROUP_NAME || 'coder-survival-backend' }}
+          TF_VAR_github_run_id: ${{ github.run_id }}
+          TF_VAR_source_cidr: ${{ steps.ci_ssh.outputs.source_cidr }}
+        run: |
+          set -euo pipefail
+          terraform destroy -auto-approve -input=false -no-color
+          echo "Temporary SSH access revoked for GitHub Actions run $GITHUB_RUN_ID"
