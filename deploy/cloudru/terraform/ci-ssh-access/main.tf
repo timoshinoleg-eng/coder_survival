@@ -37,7 +37,7 @@ resource "cloudru_evolution_compute_security_group_rule" "github_runner_ssh" {
   ip_protocol       = "IP_PROTOCOL_TCP"
   port_range        = "22:22"
   remote_ip_prefix  = var.source_cidr
-  description       = "Temporary GitHub Actions deployment SSH access"
+  description       = "Temporary GitHub Actions SSH run ${var.github_run_id}"
 
   lifecycle {
     precondition {
