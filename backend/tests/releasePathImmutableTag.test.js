@@ -73,15 +73,22 @@ describe('production release-path contract', () => {
     expect(providerInstaller).toContain('github.com/cloud-ru/evo-terraform/releases/download');
   });
 
-  test('Cloud.ru input discovery is read-only and cannot apply infrastructure', () => {
+  test('Cloud.ru input discovery is main-only, least-privilege and cannot apply infrastructure', () => {
     expect(cloudruDiscovery).toContain('name: Cloud.ru Production Input Discovery');
     expect(cloudruDiscovery).toContain('environment: production-cloudru');
+    expect(cloudruDiscovery).toContain('[[ "$GITHUB_REF" == "refs/heads/main" ]]');
+    expect(cloudruDiscovery).toContain('ref: main');
     expect(cloudruDiscovery).toContain('terraform plan -input=false -lock=false -out=discovery.tfplan');
     expect(cloudruDiscovery).toContain('terraform show -json discovery.tfplan > discovery.json');
+    expect(cloudruDiscovery).toContain('def cell(value):');
     expect(cloudruDiscovery).toContain('if: ${{ always() }}');
     expect(cloudruDiscovery).toContain('rm -f discovery.tfplan discovery.json terraform.tfstate terraform.tfstate.backup');
     expect(cloudruDiscovery).not.toMatch(/terraform\s+apply/);
     expect(cloudruDiscovery).not.toMatch(/terraform\s+destroy/);
+
+    expect((cloudruDiscovery.match(/secrets\.CLOUDRU_PROJECT_ID/g) || [])).toHaveLength(2);
+    expect((cloudruDiscovery.match(/secrets\.CLOUDRU_AUTH_KEY_ID/g) || [])).toHaveLength(2);
+    expect((cloudruDiscovery.match(/secrets\.CLOUDRU_AUTH_SECRET/g) || [])).toHaveLength(2);
 
     expect(discoveryMain).toContain('data "cloudru_evolution_compute_image_collection" "project"');
     expect(discoveryMain).toContain('data "cloudru_evolution_postgresql_specification_collection" "postgres16"');
