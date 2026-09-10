@@ -4,12 +4,16 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+
 jobs:
   deploy-preview:
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: olegs-projects-bfc4e11a
       VERCEL_PROJECT_ID: prj_6HewqIVhYFQFgim5yQPJjvz6ucHa
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,10 +27,10 @@ jobs:
         run: npm i -g vercel
 
       - name: Deploy to Vercel
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: ${{ env.VERCEL_TOKEN != '' }}
         working-directory: frontend
-        run: vercel --yes --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel --yes --token="$VERCEL_TOKEN"
 
       - name: Explain skipped preview
-        if: ${{ secrets.VERCEL_TOKEN == '' }}
+        if: ${{ env.VERCEL_TOKEN == '' }}
         run: echo "Vercel preview intentionally skipped because VERCEL_TOKEN is not configured."
