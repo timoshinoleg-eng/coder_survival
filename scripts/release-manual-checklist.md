@@ -1,104 +1,75 @@
-# Coder Survival — Manual Release Checklist
+# Coder Survival — Production Release Checklist
 
-**Date:** ___________  
-**Operator:** ___________  
-**Git commit:** ___________  
+The local `scripts/release-prod.ps1` and `scripts/deploy.sh` entrypoints are retired. Production releases must use the guarded GitHub Actions workflows.
 
----
+## 1. Frontend first
 
-## Pre-flight (do not skip)
+Run **Deploy Frontend Production** from `main` and type `deploy`.
 
-- [ ] `git status` is clean (or `-AllowDirty` is intentional and documented)
-- [ ] No `.env` / `backend/.env*` files in repo workspace (`release-prod.ps1` will block)
-- [ ] `docker-compose.backend.yml` passes `docker compose config` without errors
-- [ ] `node --check bot/index.js` passes (syntax sanity)
-- [ ] `npm --prefix frontend ci && npm --prefix frontend run build` passes locally
-- [ ] `project-status.json` `last_updated` will be bumped after release
-- [ ] `HANDOFF.md` does not need edits for this release
+Required repository secret:
 
----
+- `VERCEL_TOKEN`
 
-## Release Steps
+The workflow deploys the exact current `main` through the connected Vercel frontend project and validates the stable production origin:
 
-Run the hardened release script from a PowerShell operator environment:
+`https://frontend-olegs-projects-bfc4e11a.vercel.app`
 
-```powershell
-pwsh -File scripts/release-prod.ps1
-```
+Do not continue to backend cutover unless that workflow is green and the stable alias serves Coder Survival.
 
-Optional flags (use only when the scope is intentionally reduced):
+## 2. Cloud.ru infrastructure
 
-```powershell
-# Backend-only hotfix (skip Vercel redeploy)
-pwsh -File scripts/release-prod.ps1 -SkipVercel
+Before the first backend release:
 
-# Frontend+bot only (skip VM backend)
-pwsh -File scripts/release-prod.ps1 -SkipBackend
+- Evolution VM and Evolution Managed PostgreSQL are in the same project/private subnet;
+- VM public ingress exposes only required SSH plus HTTP/HTTPS; ports `3000` and `5432` are not public;
+- `coder-survival-api.duckdns.org` resolves to the Cloud.ru VM public IPv4;
+- nginx and Let's Encrypt are configured on the VM;
+- Docker Compose is at least `2.30.0`;
+- Managed PostgreSQL backups are enabled.
 
-# Skip post-deploy smoke (not recommended)
-pwsh -File scripts/release-prod.ps1 -SkipSmoke
+Follow `deploy/cloudru/README.md` for the authoritative values and bootstrap commands.
 
-# Allow uncommitted changes (emergency only)
-pwsh -File scripts/release-prod.ps1 -AllowDirty
-```
+## 3. GitHub `production-cloudru` environment
 
-What the script does:
-1. Validates git cleanliness (unless `-AllowDirty`).
-2. Scans for forbidden secret files.
-3. Builds a filesystem-whitelist payload for the backend.
-4. Prints the payload manifest.
-5. Deploys frontend + bot to Vercel production (unless skipped).
-6. Uploads and extracts backend payload on VM.
-7. Builds immutable `coder-survival-backend:git-<candidate-sha>` and the
-   `latest` alias locally on the VM.
-8. Runs migrations via `docker-compose.backend.yml`.
-9. Force-recreates the backend container.
-10. Waits for Docker healthcheck (up to 20 s).
-11. Runs `smoke-prod.ps1` and `smoke-offers.ps1`.
+Configure the secrets required by **Deploy Backend to Cloud.ru**:
 
----
+- `CLOUDRU_VM_HOST`
+- `CLOUDRU_VM_USER`
+- `CLOUDRU_VM_SSH_KEY`
+- `CLOUDRU_VM_HOST_KEY`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `BOT_TOKEN`
+- `BOT_BACKEND_SECRET`
+- `ADMIN_API_SECRET`
+- `WEBAPP_URL=https://frontend-olegs-projects-bfc4e11a.vercel.app`
+- `FRONTEND_URL=https://frontend-olegs-projects-bfc4e11a.vercel.app`
+- optional `CORS_ALLOWED_ORIGINS`
+- rewarded-ad provider secrets only when enabled.
 
-## Post-Release Verification
+Environment/repository variables:
 
-- [ ] `smoke-prod.ps1` passed (all assertions green)
-- [ ] `smoke-offers.ps1` passed
-- [ ] VM container healthy:
-  ```bash
-  ssh $env:CODER_SURVIVAL_VM_SSH_TARGET
-  docker compose -f docker-compose.backend.yml ps
-  docker compose -f docker-compose.backend.yml logs --tail=20 backend
-  ```
-- [ ] Public health endpoints respond:
-  ```bash
-  curl -I https://frontend-ashy-alpha-77.vercel.app/health
-  curl -I https://coder-survival-api.duckdns.org/health
-  ```
-- [ ] Bot webhook responds with 401/405 (confirms public function alive):
-  ```bash
-  curl -s -o /dev/null -w "%{http_code}" https://coder-survival-bot.vercel.app/api/webhook
-  ```
-- [ ] Telegram `/start` opens Mini App without errors (manual spot-check)
+- `BACKEND_HEALTH_URL=https://coder-survival-api.duckdns.org/health`
+- `CLOUDRU_VM_SSH_PORT=22`
+- `CLOUDRU_DB_SSL=false` unless the managed database is configured to require TLS.
 
----
+## 4. Backend release
 
-## Documentation Update
+Run **Deploy Backend to Cloud.ru** from `main` and type `deploy`.
 
-- [ ] `project-status.json` `last_updated` bumped to release date/time
-- [ ] `project-status.json` `last_deploy` fields updated for changed components
-- [ ] `project-status.json` `latest_applied_migration` updated if new migrations ran
-- [ ] `HANDOFF.md` "Current state" and "Verified behavior" updated if new features shipped
-- [ ] `RELEASE_OPS_RISKS_AUDIT.md` updated if any operational risks changed
+The workflow must complete all of these gates automatically: PostgreSQL-backed tests, immutable Docker build, production config preflight, stable frontend-origin validation, pinned SSH host-key validation, DNS-to-VM verification, VM prerequisite checks, database reachability, pre-migration `pg_dump`, migrations, container health, rollback on failed health, and public HTTPS health verification.
 
----
+`PAYMENTS_ENABLED=false` stays enforced until the separate payment go-live decision.
 
-## Rollback Plan (if smoke fails)
+## 5. Post-release checks
 
-1. Backend: check out the recorded accepted rollback commit and run the same
-   guarded `scripts/release-prod.ps1` path. Do not pull an image from an
-   obsolete registry or substitute an arbitrary VM target.
-2. Frontend / bot: Vercel rollback via dashboard or `npx vercel rollback`.
-3. Notify team in chat and mark release as failed in `project-status.json`.
+- `https://coder-survival-api.duckdns.org/health` returns HTTP 200 with `status=ok` and `db=connected`;
+- Vercel frontend still serves from the stable production alias;
+- Telegram `/start` opens the Mini App;
+- one normal gameplay session persists state after a backend restart;
+- no unexpected errors appear in Vercel/backend logs.
 
----
-
-*This checklist is a companion to `scripts/release-prod.ps1`. If the script changes, update this doc.*
+Never use the retired local release scripts as a rollback mechanism. Backend rollback is handled by the Cloud.ru workflow when a new container fails health; frontend rollback should use Vercel deployment rollback/promotion tooling.
