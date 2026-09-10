@@ -79,14 +79,26 @@ jobs:
               text = '' if value is None else str(value)
               return text.replace('\\', '\\\\').replace('|', '\\|').replace('\r', ' ').replace('\n', ' ')
 
+          def zones_cell(zones):
+              return ', '.join(
+                  f"{cell(zone.get('name'))} (`{cell(zone.get('id'))}`)"
+                  for zone in (zones or [])
+              )
+
           with open('discovery.json', 'r', encoding='utf-8') as handle:
               plan = json.load(handle)
 
           outputs = plan.get('planned_values', {}).get('outputs', {})
+          zones = outputs.get('enabled_zones', {}).get('value') or []
+          flavors = outputs.get('vm_flavors', {}).get('value') or []
+          disk_types = outputs.get('disk_types', {}).get('value') or []
           images = outputs.get('ubuntu_2404_images', {}).get('value') or []
           specs = outputs.get('postgres16_specifications', {}).get('value') or []
 
-          images = sorted(images, key=lambda item: (item.get('min_ram_gb', 0), item.get('min_cpu', 0), item.get('name', '')))
+          zones = sorted(zones, key=lambda item: (not item.get('default', False), item.get('name', '')))
+          flavors = sorted(flavors, key=lambda item: (item.get('gpu', 0) != 0, item.get('cpu', 0), item.get('ram_gb', 0), item.get('name', '')))
+          disk_types = sorted(disk_types, key=lambda item: (not item.get('free_tier', False), item.get('min_size_gb', 0), item.get('name', '')))
+          images = sorted(images, key=lambda item: (item.get('min_ram_gb', 0), item.get('min_cpu', 0), item.get('min_disk_gb', 0), item.get('name', '')))
           specs = sorted(
               specs,
               key=lambda item: (
@@ -101,20 +113,58 @@ jobs:
           summary = os.environ['GITHUB_STEP_SUMMARY']
           with open(summary, 'a', encoding='utf-8') as out:
               out.write('## Cloud.ru production input discovery\n\n')
-              out.write('Read-only catalog query. No Cloud.ru resources were created or modified.\n\n')
+              out.write('Read-only catalog query. No Cloud.ru resources were created or modified. IDs below are the only supported source for production compute selections.\n\n')
 
-              out.write('### Ubuntu 24.04 images\n\n')
+              out.write('### Enabled availability zones\n\n')
+              if zones:
+                  out.write('| Zone ID | Name | Short name | Display name | Default |\n')
+                  out.write('|---|---|---|---|---|\n')
+                  for zone in zones:
+                      out.write(
+                          f"| `{cell(zone.get('id'))}` | {cell(zone.get('name'))} | {cell(zone.get('short_name'))} | "
+                          f"{cell(zone.get('display_name'))} | {cell(zone.get('default'))} |\n"
+                      )
+              else:
+                  out.write('No enabled availability zones were returned.\n')
+
+              out.write('\n### VM flavors\n\n')
+              if flavors:
+                  out.write('| Flavor ID | Name | CPU | RAM GB | GPU | Type | Oversubscription | Enabled zones |\n')
+                  out.write('|---|---|---:|---:|---:|---|---|---|\n')
+                  for flavor in flavors:
+                      out.write(
+                          f"| `{cell(flavor.get('id'))}` | {cell(flavor.get('name'))} | {cell(flavor.get('cpu'))} | "
+                          f"{cell(flavor.get('ram_gb'))} | {cell(flavor.get('gpu'))} | {cell(flavor.get('type'))} | "
+                          f"{cell(flavor.get('oversubscription'))} | {zones_cell(flavor.get('zones'))} |\n"
+                      )
+              else:
+                  out.write('No VM flavors with an enabled zone were returned.\n')
+
+              out.write('\n### Disk types\n\n')
+              if disk_types:
+                  out.write('| Disk type ID | Name | Display name | Free tier | Min GB | Max GB | Enabled zones |\n')
+                  out.write('|---|---|---|---|---:|---:|---|\n')
+                  for disk_type in disk_types:
+                      out.write(
+                          f"| `{cell(disk_type.get('id'))}` | {cell(disk_type.get('name'))} | {cell(disk_type.get('display_name'))} | "
+                          f"{cell(disk_type.get('free_tier'))} | {cell(disk_type.get('min_size_gb'))} | {cell(disk_type.get('max_size_gb'))} | "
+                          f"{zones_cell(disk_type.get('zones'))} |\n"
+                      )
+              else:
+                  out.write('No disk types with an enabled zone were returned.\n')
+
+              out.write('\n### Ubuntu 24.04 images\n\n')
               if images:
                   out.write('| Image ID | Name | Display name | Min CPU | Min RAM GB | Min disk GB | Enabled zones |\n')
                   out.write('|---|---|---|---:|---:|---:|---|\n')
                   for image in images:
-                      zones = ', '.join(cell(zone) for zone in (image.get('zones') or []))
                       out.write(
                           f"| `{cell(image.get('id'))}` | {cell(image.get('name'))} | {cell(image.get('display_name'))} | "
-                          f"{cell(image.get('min_cpu'))} | {cell(image.get('min_ram_gb'))} | {cell(image.get('min_disk_gb'))} | {zones} |\n"
+                          f"{cell(image.get('min_cpu'))} | {cell(image.get('min_ram_gb'))} | {cell(image.get('min_disk_gb'))} | "
+                          f"{zones_cell(image.get('zones'))} |\n"
                       )
               else:
-                  out.write('No image whose name/display name contains both `ubuntu` and `24.04` was returned.\n')
+                  out.write('No enabled image whose name/display name contains both `ubuntu` and `24.04` was returned.\n')
 
               out.write('\n### Managed PostgreSQL 16 specifications\n\n')
               if specs:
@@ -138,8 +188,20 @@ jobs:
               else:
                   out.write('No PostgreSQL 16 specifications were returned for this account/project.\n')
 
-          if not images or not specs:
-              print('Discovery did not return both required catalogs; inspect the Job Summary.', file=sys.stderr)
+              out.write('\n### Selection rule\n\n')
+              out.write('Choose `zone_id`, `vm_flavor_id`, `boot_disk_type_id`, `vm_image_id`, and `postgres_specification_id` from these tables. The production Terraform plan rejects zone incompatibility and image minimum CPU/RAM/disk violations.\n')
+
+          missing = [
+              name for name, values in (
+                  ('enabled_zones', zones),
+                  ('vm_flavors', flavors),
+                  ('disk_types', disk_types),
+                  ('ubuntu_2404_images', images),
+                  ('postgres16_specifications', specs),
+              ) if not values
+          ]
+          if missing:
+              print(f"Discovery did not return required catalogs: {', '.join(missing)}", file=sys.stderr)
               raise SystemExit(1)
           PY
 
