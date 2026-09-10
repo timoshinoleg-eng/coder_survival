@@ -5,7 +5,7 @@ This directory describes the production Cloud.ru Evolution infrastructure for Co
 ## Managed resources
 
 - one dedicated VPC;
-- one routed private subnet in a single availability zone;
+- one routed private subnet in one explicitly selected availability zone;
 - one backend security group;
 - restricted persistent SSH ingress supplied explicitly by the operator;
 - public HTTP/HTTPS ingress for nginx and Let's Encrypt;
@@ -33,25 +33,31 @@ For operator machines, install the same 2.1.3 provider according to the current 
 
 ## Discover production choices before provisioning
 
-Before choosing `vm_image_id` or `postgres_specification_id`, run the manual GitHub Actions workflow **Cloud.ru Production Input Discovery** from `main`.
+Run the manual GitHub Actions workflow **Cloud.ru Production Input Discovery** from `main` before choosing compute or database resources.
 
 The workflow uses only the `production-cloudru` secrets `CLOUDRU_PROJECT_ID`, `CLOUDRU_AUTH_KEY_ID`, and `CLOUDRU_AUTH_SECRET`. Its Terraform module is under `terraform/discovery/` and contains data sources only: it cannot create, update, or delete Cloud.ru resources.
 
-The Job Summary publishes only non-secret catalog fields:
+The Job Summary publishes only non-secret catalog fields for:
 
-- Ubuntu 24.04 image IDs, names, enabled zones, and minimum CPU/RAM/disk requirements;
-- Managed PostgreSQL 16 specification IDs, deployment mode, flavor class, CPU/RAM, minimum storage, max hosts, and HA capability.
+- enabled availability-zone IDs;
+- VM flavor IDs, CPU/RAM/GPU/type and compatible zones;
+- disk-type IDs, min/max size, free-tier flag and compatible zones;
+- Ubuntu 24.04 image IDs, minimum CPU/RAM/disk and compatible zones;
+- Managed PostgreSQL 16 specification IDs, deployment mode, flavor class, CPU/RAM, minimum storage, max hosts and HA capability.
 
 The workflow may highlight the smallest returned `standard` PostgreSQL specification by resource ordering, but that is not an approval or price comparison. Verify the current Cloud.ru price before selecting a specification.
 
 The safe provisioning order is:
 
 1. run **Cloud.ru Production Input Discovery**;
-2. select and record the exact Ubuntu 24.04 image ID and PostgreSQL 16 specification ID;
-3. export the selected IDs and other required `TF_VAR_*` inputs;
-4. create a saved `production.tfplan`;
-5. review resource counts, VM flavor/disk, PostgreSQL specification/storage/backups, and public networking;
-6. apply exactly that reviewed saved plan.
+2. select one compatible `zone_id`, `vm_flavor_id`, `boot_disk_type_id`, `vm_image_id`, and `postgres_specification_id` from the report;
+3. select `boot_disk_size_gb` and `postgres_storage_gb` within the discovered minimum/maximum requirements;
+4. export the selected IDs and other required `TF_VAR_*` inputs;
+5. create a saved `production.tfplan`;
+6. review resource counts, selected compute metadata, PostgreSQL specification/storage/backups, and public networking;
+7. apply exactly that reviewed saved plan.
+
+Production Terraform does not carry example defaults for zone, VM flavor or disk type. It queries the same Cloud.ru catalogs during plan and rejects unavailable or zone-incompatible IDs, an Ubuntu image outside the selected zone, a VM flavor below the image CPU/RAM minimum, or a boot disk outside the disk/image size requirements.
 
 ## Required inputs
 
@@ -65,16 +71,18 @@ export TF_VAR_ssh_public_key='ssh-ed25519 ...'
 export TF_VAR_postgres_app_password='...'
 ```
 
-The following non-secret deployment choices are also required:
+Pass the exact non-secret selections from the discovery report:
 
 ```bash
+export TF_VAR_zone_id='...'
+export TF_VAR_vm_flavor_id='...'
+export TF_VAR_boot_disk_type_id='...'
 export TF_VAR_vm_image_id='...'
+export TF_VAR_boot_disk_size_gb='...'
 export TF_VAR_postgres_specification_id='...'
 export TF_VAR_postgres_storage_gb='...'
 export TF_VAR_ssh_allowed_cidrs='["203.0.113.10/32"]'
 ```
-
-`vm_image_id` must be the exact approved Ubuntu 24.04 image ID from the target Cloud.ru project. `postgres_specification_id` must be an explicitly approved PostgreSQL 16 specification. Terraform deliberately does not auto-select a specification because that could silently change cost. At plan/apply time it verifies that the ID exists for the configured PostgreSQL version and that `postgres_storage_gb` is not below that specification's `min_storage_gb`.
 
 `ssh_allowed_cidrs` is for persistent operator access only. It must contain one or more restricted IPv4 CIDRs; `0.0.0.0/0` is rejected by variable validation. GitHub Actions does not need to be added permanently: backend releases use the isolated `ci-ssh-access` Terraform module to grant the current hosted runner a temporary `/32` and remove it at the end of the release job.
 
@@ -100,7 +108,7 @@ terraform plan -out=production.tfplan
 terraform show production.tfplan
 ```
 
-Review the exact VM flavor, disk size, PostgreSQL specification metadata, storage, backup policy and public-IP resources before apply. In particular, verify the selected PostgreSQL specification shown by the `selected_postgres_specification` output is the intended paid size.
+Review `selected_zone`, `selected_vm_flavor`, `selected_boot_disk_type`, `selected_vm_image`, and `selected_postgres_specification` in addition to the normal resource plan. Those outputs make the exact Cloud.ru selections visible before apply.
 
 Apply only the reviewed plan:
 
