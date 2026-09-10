@@ -5,6 +5,9 @@ const repoFile = (relativePath) => readFileSync(new URL(`../../${relativePath}`,
 const backendRelease = repoFile('.github/workflows/deploy-backend.yml');
 const frontendRelease = repoFile('.github/workflows/deploy-frontend-production.yml');
 const legacyManualRelease = repoFile('.github/workflows/manual-release.yml');
+const legacyPowerShellRelease = repoFile('scripts/release-prod.ps1');
+const legacyShellRelease = repoFile('scripts/deploy.sh');
+const releaseChecklist = repoFile('scripts/release-manual-checklist.md');
 const compose = repoFile('docker-compose.backend.yml');
 const envExample = repoFile('backend/.env.example');
 
@@ -38,11 +41,25 @@ describe('production release-path contract', () => {
     expect(frontendRelease).toContain('<title>Coder Survival</title>');
   });
 
-  test('legacy Vultr/self-hosted workflow cannot mutate production anymore', () => {
+  test('all obsolete manual/local production entrypoints are fail-closed', () => {
     expect(legacyManualRelease).toContain('Legacy Manual Release (Retired)');
     expect(legacyManualRelease).toContain('exit 1');
     expect(legacyManualRelease).not.toContain('release-prod.ps1');
     expect(legacyManualRelease).not.toContain('VM_SSH_KEY');
+
+    expect(legacyPowerShellRelease).toContain('scripts/release-prod.ps1 is retired');
+    expect(legacyPowerShellRelease).toContain('Deploy Frontend Production');
+    expect(legacyPowerShellRelease).toContain('Deploy Backend to Cloud.ru');
+    expect(legacyPowerShellRelease).not.toContain('npx vercel');
+    expect(legacyPowerShellRelease).not.toContain('ssh ');
+
+    expect(legacyShellRelease).toContain('scripts/deploy.sh is retired');
+    expect(legacyShellRelease).toContain('exit 1');
+    expect(legacyShellRelease).not.toContain('release-prod.ps1');
+
+    expect(releaseChecklist).toContain('local `scripts/release-prod.ps1` and `scripts/deploy.sh` entrypoints are retired');
+    expect(releaseChecklist).toContain('Deploy Frontend Production');
+    expect(releaseChecklist).toContain('Deploy Backend to Cloud.ru');
   });
 
   test('operator-facing backend environment contract remains complete', () => {
