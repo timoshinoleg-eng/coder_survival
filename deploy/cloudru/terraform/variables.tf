@@ -31,10 +31,14 @@ variable "auth_secret" {
   }
 }
 
-variable "zone" {
-  description = "Cloud.ru Evolution availability zone."
+variable "zone_id" {
+  description = "Exact enabled Cloud.ru Evolution availability-zone ID selected from the read-only discovery workflow."
   type        = string
-  default     = "ru.AZ-1"
+
+  validation {
+    condition     = length(trimspace(var.zone_id)) > 0
+    error_message = "zone_id must not be empty."
+  }
 }
 
 variable "vpc_name" {
@@ -44,7 +48,7 @@ variable "vpc_name" {
 
 variable "subnet_name" {
   type    = string
-  default = "coder-survival-production-az1"
+  default = "coder-survival-production-subnet"
 }
 
 variable "subnet_cidr" {
@@ -99,24 +103,28 @@ variable "boot_disk_name" {
 }
 
 variable "boot_disk_size_gb" {
-  description = "Production VM boot disk size in GB."
+  description = "Production VM boot disk size in GB. Plan validates this against the selected disk type and image minimum."
   type        = number
   default     = 20
 
   validation {
-    condition     = var.boot_disk_size_gb >= 20
-    error_message = "boot_disk_size_gb must be at least 20 GB."
+    condition     = var.boot_disk_size_gb > 0
+    error_message = "boot_disk_size_gb must be positive."
   }
 }
 
-variable "boot_disk_type" {
-  description = "Cloud.ru disk type name."
+variable "boot_disk_type_id" {
+  description = "Exact Cloud.ru disk-type ID selected from the read-only discovery workflow."
   type        = string
-  default     = "SSD"
+
+  validation {
+    condition     = length(trimspace(var.boot_disk_type_id)) > 0
+    error_message = "boot_disk_type_id must not be empty."
+  }
 }
 
 variable "vm_image_id" {
-  description = "Exact Cloud.ru image ID for the approved Ubuntu 24.04 image. Resolve this from the project image catalog before apply."
+  description = "Exact approved Ubuntu 24.04 image ID selected from the read-only discovery workflow."
   type        = string
 
   validation {
@@ -146,10 +154,14 @@ variable "vm_user" {
   }
 }
 
-variable "vm_flavor" {
-  description = "Cloud.ru VM flavor. The default matches the provider's small-VM example; override deliberately if production load requires more."
+variable "vm_flavor_id" {
+  description = "Exact Cloud.ru VM flavor ID selected from the read-only discovery workflow."
   type        = string
-  default     = "gen-1-1"
+
+  validation {
+    condition     = length(trimspace(var.vm_flavor_id)) > 0
+    error_message = "vm_flavor_id must not be empty."
+  }
 }
 
 variable "ssh_public_key" {
@@ -170,7 +182,7 @@ variable "postgres_version" {
 }
 
 variable "postgres_specification_id" {
-  description = "Exact Cloud.ru Managed PostgreSQL specification ID. This is intentionally required so Terraform never silently selects a paid size."
+  description = "Exact Cloud.ru Managed PostgreSQL specification ID selected from discovery. This is intentionally required so Terraform never silently selects a paid size."
   type        = string
 
   validation {
