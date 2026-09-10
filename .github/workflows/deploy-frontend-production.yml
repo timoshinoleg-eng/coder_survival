@@ -1,0 +1,148 @@
+name: Deploy Frontend Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type deploy to release current main to Vercel production'
+        required: true
+        type: string
+  push:
+    branches:
+      - ops/frontend-production-release
+    paths:
+      - '.ops/frontend-production-release'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-production-frontend
+  cancel-in-progress: false
+
+env:
+  VERCEL_ORG_ID: olegs-projects-bfc4e11a
+  VERCEL_PROJECT_ID: prj_6HewqIVhYFQFgim5yQPJjvz6ucHa
+  PRODUCTION_ORIGIN: https://frontend-olegs-projects-bfc4e11a.vercel.app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Guard release request
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "${{ inputs.confirm }}" == "deploy" ]] || {
+              echo "Confirmation must be exactly: deploy" >&2
+              exit 1
+            }
+            [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+              echo "Production releases are allowed only when workflow_dispatch runs from main" >&2
+              exit 1
+            }
+          else
+            [[ "$GITHUB_REF" == "refs/heads/ops/frontend-production-release" ]] || {
+              echo "Unexpected release branch: $GITHUB_REF" >&2
+              exit 1
+            }
+          fi
+          [[ -n "$VERCEL_TOKEN" ]] || {
+            echo "VERCEL_TOKEN is not configured" >&2
+            exit 1
+          }
+
+      - name: Checkout release trigger
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/checkout@v4
+
+      - name: Verify one-time release marker matches current main
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(tr -d '[:space:]' < .ops/frontend-production-release)"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "Release marker must contain one full lowercase Git SHA" >&2
+            exit 1
+          }
+          git fetch --no-tags origin main
+          actual="$(git rev-parse origin/main)"
+          [[ "$expected" == "$actual" ]] || {
+            echo "Release marker is stale: expected=$expected current-main=$actual" >&2
+            exit 1
+          }
+          echo "MAIN_SHA=$actual" >> "$GITHUB_ENV"
+
+      - name: Checkout exact production source
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Verify checked-out source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          checked="$(git rev-parse HEAD)"
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            [[ "$checked" == "$MAIN_SHA" ]] || {
+              echo "Checked out SHA does not match verified main" >&2
+              exit 1
+            }
+          fi
+          echo "RELEASE_SHA=$checked" >> "$GITHUB_ENV"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend release candidate
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm test --if-present
+          npm run build
+
+      - name: Deploy exact main to Vercel production
+        id: vercel
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock vercel
+          deployment_url="$(npx vercel --prod --yes --token="$VERCEL_TOKEN" | tail -n1 | tr -d '\r')"
+          case "$deployment_url" in
+            https://*.vercel.app) ;;
+            *) echo "Unexpected Vercel deployment URL: $deployment_url" >&2; exit 1 ;;
+          esac
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+
+      - name: Verify stable production alias
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --show-error --silent --retry 5 --retry-all-errors --retry-delay 3 --max-time 20 "$PRODUCTION_ORIGIN/")"
+          printf '%s' "$body" | grep -q '<title>Coder Survival</title>' || {
+            echo "Stable production alias did not return the expected Coder Survival shell" >&2
+            exit 1
+          }
+
+      - name: Release summary
+        shell: bash
+        run: |
+          {
+            echo '## Vercel production frontend'
+            echo ''
+            echo "- Source SHA: \`$RELEASE_SHA\`"
+            echo "- Deployment: ${{ steps.vercel.outputs.deployment_url }}"
+            echo "- Stable origin: $PRODUCTION_ORIGIN"
+          } >> "$GITHUB_STEP_SUMMARY"
