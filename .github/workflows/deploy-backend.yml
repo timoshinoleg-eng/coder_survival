@@ -131,6 +131,10 @@ jobs:
               exit 1
             fi
           done
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]] && (( SSH_PORT >= 1 && SSH_PORT <= 65535 )) || {
+            echo "CLOUDRU_VM_SSH_PORT must be an integer between 1 and 65535" >&2
+            exit 1
+          }
           case "$BACKEND_HEALTH_URL" in
             https://*/health) ;;
             *) echo "BACKEND_HEALTH_URL must be an HTTPS /health endpoint" >&2; exit 1 ;;
@@ -194,6 +198,7 @@ jobs:
           TF_VAR_auth_key_id: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}
           TF_VAR_auth_secret: ${{ secrets.CLOUDRU_AUTH_SECRET }}
           TF_VAR_security_group_name: ${{ vars.CLOUDRU_SECURITY_GROUP_NAME || 'coder-survival-backend' }}
+          TF_VAR_ssh_port: ${{ vars.CLOUDRU_VM_SSH_PORT || '22' }}
           TF_VAR_github_run_id: ${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -201,7 +206,7 @@ jobs:
           python3 - "$runner_ip" <<'PY'
           import ipaddress, sys
           address = ipaddress.ip_address(sys.argv[1])
-          if address.version != 4 or address.is_unspecified:
+          if address.version != 4 or not address.is_global:
               raise SystemExit('Expected one concrete public IPv4 for the GitHub runner')
           PY
           runner_cidr="${runner_ip}/32"
@@ -377,6 +382,7 @@ jobs:
           TF_VAR_auth_key_id: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}
           TF_VAR_auth_secret: ${{ secrets.CLOUDRU_AUTH_SECRET }}
           TF_VAR_security_group_name: ${{ vars.CLOUDRU_SECURITY_GROUP_NAME || 'coder-survival-backend' }}
+          TF_VAR_ssh_port: ${{ vars.CLOUDRU_VM_SSH_PORT || '22' }}
           TF_VAR_github_run_id: ${{ github.run_id }}
           TF_VAR_source_cidr: ${{ steps.ci_ssh.outputs.source_cidr }}
         run: |
