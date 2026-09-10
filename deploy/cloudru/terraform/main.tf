@@ -16,18 +16,70 @@ provider "cloudru" {
   region      = "ru-central-1"
 }
 
+data "cloudru_evolution_compute_zone_collection" "project" {
+  project_id = var.project_id
+  page_size  = 1000
+}
+
+data "cloudru_evolution_compute_flavor_collection" "project" {
+  project_id = var.project_id
+  page_size  = 1000
+}
+
+data "cloudru_evolution_compute_disk_type_collection" "project" {
+  project_id = var.project_id
+  page_size  = 1000
+}
+
+data "cloudru_evolution_compute_image_collection" "project" {
+  project_id = var.project_id
+  page_size  = 1000
+}
+
 data "cloudru_evolution_postgresql_specification_collection" "available" {
   version_name = var.postgres_version
   product_type = "postgres"
 }
 
 locals {
+  selected_zones = [
+    for zone in data.cloudru_evolution_compute_zone_collection.project.zones : zone
+    if zone.id == var.zone_id && zone.enabled
+  ]
+  selected_zone = try(one(local.selected_zones), null)
+
+  selected_flavors = [
+    for flavor in data.cloudru_evolution_compute_flavor_collection.project.flavors : flavor
+    if flavor.id == var.vm_flavor_id && anytrue([
+      for zone in flavor.zones : zone.enabled && zone.id == var.zone_id
+    ])
+  ]
+  selected_flavor = try(one(local.selected_flavors), null)
+
+  selected_disk_types = [
+    for disk_type in data.cloudru_evolution_compute_disk_type_collection.project.disk_types : disk_type
+    if disk_type.id == var.boot_disk_type_id && anytrue([
+      for zone in disk_type.zones : zone.enabled && zone.id == var.zone_id
+    ])
+  ]
+  selected_disk_type = try(one(local.selected_disk_types), null)
+
+  selected_images = [
+    for image in data.cloudru_evolution_compute_image_collection.project.images : image
+    if image.id == var.vm_image_id &&
+    strcontains(lower("${image.name} ${image.display_name}"), "ubuntu") &&
+    strcontains(lower("${image.name} ${image.display_name}"), "24.04") &&
+    anytrue([
+      for zone in image.zones : zone.enabled && zone.id == var.zone_id
+    ])
+  ]
+  selected_image = try(one(local.selected_images), null)
+
   selected_postgres_specs = [
     for spec in data.cloudru_evolution_postgresql_specification_collection.available.specifications : spec
     if spec.id == var.postgres_specification_id
   ]
-
-  selected_postgres_spec = length(local.selected_postgres_specs) == 1 ? local.selected_postgres_specs[0] : null
+  selected_postgres_spec = try(one(local.selected_postgres_specs), null)
 
   cloud_init = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     deploy_user    = var.vm_user
@@ -39,6 +91,51 @@ resource "cloudru_evolution_vpc_vpc" "production" {
   project_id  = var.project_id
   name        = var.vpc_name
   description = "Coder Survival production VPC"
+
+  lifecycle {
+    precondition {
+      condition     = length(local.selected_zones) == 1
+      error_message = "zone_id must identify exactly one enabled availability zone in the target Cloud.ru project."
+    }
+
+    precondition {
+      condition     = length(local.selected_flavors) == 1
+      error_message = "vm_flavor_id must identify exactly one VM flavor enabled in zone_id."
+    }
+
+    precondition {
+      condition     = length(local.selected_disk_types) == 1
+      error_message = "boot_disk_type_id must identify exactly one disk type enabled in zone_id."
+    }
+
+    precondition {
+      condition     = length(local.selected_images) == 1
+      error_message = "vm_image_id must identify exactly one Ubuntu 24.04 image enabled in zone_id."
+    }
+
+    precondition {
+      condition = try(
+        var.boot_disk_size_gb >= local.selected_disk_type.min_size &&
+        var.boot_disk_size_gb <= local.selected_disk_type.max_size,
+        false
+      )
+      error_message = "boot_disk_size_gb must be within the selected Cloud.ru disk type min/max size."
+    }
+
+    precondition {
+      condition     = try(var.boot_disk_size_gb >= local.selected_image.min_disk, false)
+      error_message = "boot_disk_size_gb is below the selected Ubuntu image minimum disk size."
+    }
+
+    precondition {
+      condition = try(
+        local.selected_flavor.cpu >= local.selected_image.min_cpu &&
+        local.selected_flavor.ram >= local.selected_image.min_ram,
+        false
+      )
+      error_message = "vm_flavor_id does not satisfy the selected Ubuntu image minimum CPU/RAM requirements."
+    }
+  }
 }
 
 resource "cloudru_evolution_compute_subnet" "production" {
@@ -46,7 +143,7 @@ resource "cloudru_evolution_compute_subnet" "production" {
   name       = var.subnet_name
 
   zone = {
-    name = var.zone
+    id = var.zone_id
   }
 
   description    = "Coder Survival production VM and Managed PostgreSQL subnet"
@@ -65,7 +162,7 @@ resource "cloudru_evolution_compute_security_group" "backend" {
   name       = var.security_group_name
 
   zone = {
-    name = var.zone
+    id = var.zone_id
   }
 
   description = "Coder Survival backend public ingress and restricted SSH"
@@ -80,7 +177,7 @@ resource "cloudru_evolution_compute_security_group_rule" "ssh" {
   ip_protocol       = "IP_PROTOCOL_TCP"
   port_range        = "22:22"
   remote_ip_prefix  = each.value
-  description       = "SSH from approved operator or CI source"
+  description       = "SSH from approved operator source"
 }
 
 resource "cloudru_evolution_compute_security_group_rule" "http" {
@@ -129,7 +226,7 @@ resource "cloudru_evolution_compute_external_ip" "backend" {
   description = "Coder Survival production backend public IPv4"
 
   zone = {
-    name = var.zone
+    id = var.zone_id
   }
 }
 
@@ -144,11 +241,11 @@ resource "cloudru_evolution_compute_disk" "boot" {
   shared      = false
 
   zone = {
-    name = var.zone
+    id = var.zone_id
   }
 
   disk_type = {
-    name = var.boot_disk_type
+    id = var.boot_disk_type_id
   }
 
   image = {
@@ -162,7 +259,7 @@ resource "cloudru_evolution_compute_interface" "backend" {
   description = "Coder Survival production backend interface"
 
   zone = {
-    name = var.zone
+    id = var.zone_id
   }
 
   subnet = {
@@ -187,11 +284,11 @@ resource "cloudru_evolution_compute_vm" "backend" {
   description = "Coder Survival production backend"
 
   zone = {
-    name = var.zone
+    id = var.zone_id
   }
 
   flavor = {
-    name = var.vm_flavor
+    id = var.vm_flavor_id
   }
 
   disks = [{
@@ -245,7 +342,7 @@ resource "cloudru_evolution_postgresql_cluster" "production" {
     }
 
     precondition {
-      condition     = local.selected_postgres_spec == null ? false : var.postgres_storage_gb >= local.selected_postgres_spec.min_storage_gb
+      condition     = try(var.postgres_storage_gb >= local.selected_postgres_spec.min_storage_gb, false)
       error_message = "postgres_storage_gb is below the minimum required by the selected Cloud.ru PostgreSQL specification."
     }
   }
