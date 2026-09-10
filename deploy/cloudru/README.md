@@ -8,25 +8,41 @@ Target topology for Coder Survival:
 - Cloud.ru Evolution Managed PostgreSQL runs in the same project and private subnet as the VM.
 - PostgreSQL and backend port 3000 are never exposed publicly.
 
-## Cloud.ru resources
+## Infrastructure source of truth
 
-1. Create an Evolution VPC/subnet.
-2. Create an Ubuntu 24.04 VM in that subnet with a public IP and SSH key.
-3. Security-group ingress: allow only 22/tcp from operator/CI sources and 80/443 from the Internet. Do not expose 3000 or 5432.
-4. Create Managed PostgreSQL in the same project and subnet. Use its internal IP as `DB_HOST`.
-5. Keep Managed PostgreSQL backups enabled.
+Production Cloud.ru resources are described in `deploy/cloudru/terraform/` and should be provisioned from a reviewed Terraform plan instead of by manually reproducing console clicks.
+
+The Terraform module manages:
+
+1. a dedicated Evolution VPC and routed subnet;
+2. a security group with restricted SSH and public HTTP/HTTPS only;
+3. a reserved public IPv4;
+4. an encrypted Ubuntu boot disk and backend VM;
+5. cloud-init bootstrap for the deployment user, nginx/certbot, Docker and Docker Compose;
+6. Managed PostgreSQL 16 in the same subnet;
+7. automatic PostgreSQL backups and PgBouncer transaction pooling;
+8. a dedicated application database owner and database.
+
+The PostgreSQL specification ID is an explicit required input. Terraform validates the selected specification and minimum storage at plan/apply time; it never auto-selects a paid database size. SSH `0.0.0.0/0` is rejected.
+
+See `deploy/cloudru/terraform/README.md` for provider installation, required inputs, plan/apply procedure and state-security rules.
 
 Cloud.ru documents that Managed PostgreSQL is reachable only from Evolution VMs in the same project and subnet. Its current connection guide uses the internal IP and normal PostgreSQL port without an `sslmode` requirement; this deployment therefore defaults `CLOUDRU_DB_SSL=false`. Change the environment variable if the database configuration later requires TLS.
 
 ## First VM bootstrap
 
+The Terraform VM uses `deploy/cloudru/terraform/cloud-init.yaml.tftpl`, so the normal first boot installs and enables nginx, certbot and Docker, creates the deployment user, checks Docker Compose >= 2.30, and creates the application/backup directories automatically.
+
+`deploy/cloudru/bootstrap-vm.sh` remains as an idempotent recovery/manual-bootstrap helper for an already-created VM; it is not the primary provisioning path.
+
+After `terraform apply`, wait for cloud-init and verify the VM before the first release:
+
 ```bash
-bash deploy/cloudru/bootstrap-vm.sh
+ssh coderdeploy@<terraform-vm-public-ip>
+sudo cloud-init status --wait
+docker compose version
+sudo systemctl status nginx --no-pager
 ```
-
-The bootstrap requires Docker Compose >= 2.30 because production secrets are consumed with Compose `env_file.format: raw`. This prevents `$`, `${...}`, `#`, spaces and similar characters in secrets from being rewritten by Compose interpolation.
-
-Re-login after the script so membership in the `docker` group is active.
 
 Point `coder-survival-api.duckdns.org` at the Cloud.ru VM public IPv4, then configure nginx and Let's Encrypt:
 
@@ -60,13 +76,15 @@ Create the `production-cloudru` environment and configure:
 
 Required secrets:
 
-- `CLOUDRU_VM_HOST` — Cloud.ru VM public IPv4 or hostname.
-- `CLOUDRU_VM_USER` — SSH user.
-- `CLOUDRU_VM_SSH_KEY` — private SSH key.
+- `CLOUDRU_VM_HOST` — Terraform `vm_public_ip` output.
+- `CLOUDRU_VM_USER` — Terraform `vm_user` output, normally `coderdeploy`.
+- `CLOUDRU_VM_SSH_KEY` — private SSH key matching the public key provisioned by Terraform.
 - `CLOUDRU_VM_HOST_KEY` — pinned `known_hosts` entry for the VM and configured SSH port.
-- `DB_HOST` — Managed PostgreSQL internal IP.
+- `DB_HOST` — private Managed PostgreSQL host from the sensitive Terraform connection output.
 - `DB_PORT` — database port, normally `5432`.
-- `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
+- `DB_NAME` — Terraform `postgres_database` output.
+- `DB_USER` — Terraform `postgres_user` output.
+- `DB_PASSWORD` — same strong password supplied as `TF_VAR_postgres_app_password` during provisioning.
 - `BOT_TOKEN`, `BOT_BACKEND_SECRET`, `ADMIN_API_SECRET`.
 - `WEBAPP_URL=https://frontend-olegs-projects-bfc4e11a.vercel.app`
 - `FRONTEND_URL=https://frontend-olegs-projects-bfc4e11a.vercel.app`
@@ -84,6 +102,12 @@ Repository/environment variables:
 Do not populate `CLOUDRU_VM_HOST_KEY` from an unauthenticated `ssh-keyscan` during deployment. Obtain the VM's ED25519 host public key from the Cloud.ru console/serial console or another trusted channel and store a complete OpenSSH `known_hosts` line.
 
 For port 22 the line starts with the configured host/IP. For a non-standard SSH port it starts with `[host]:port`. The workflow verifies that the pinned entry actually covers `CLOUDRU_VM_HOST` + `CLOUDRU_VM_SSH_PORT`, and SSH itself verifies the server presents that key.
+
+## CI-to-VM SSH constraint
+
+The backend production workflow currently uses a GitHub-hosted runner, whose public source IP is dynamic. Production Terraform intentionally requires a narrow `ssh_allowed_cidrs` list and rejects public SSH from `0.0.0.0/0`.
+
+Do not weaken that rule just to make the first deployment convenient. Before relying on automated backend SSH deployment, establish a stable trusted CI source (for example a dedicated deployment runner/network path) and allowlist only that source plus required operator `/32` addresses.
 
 ## Release contract
 
