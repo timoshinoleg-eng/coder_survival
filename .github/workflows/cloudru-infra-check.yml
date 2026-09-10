@@ -6,6 +6,7 @@ on:
       - infra/cloudru-production
       - infra/cloudru-first-deploy-hardening
       - infra/cloudru-terraform
+      - infra/cloudru-ephemeral-ci-ssh
     paths:
       - 'backend/**'
       - 'docker-compose.backend.yml'
@@ -33,6 +34,7 @@ jobs:
         run: |
           bash -n deploy/cloudru/bootstrap-vm.sh
           bash -n deploy/cloudru/configure-nginx.sh
+          bash -n deploy/cloudru/install-terraform-provider-linux-amd64.sh
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -41,27 +43,22 @@ jobs:
           terraform_wrapper: false
 
       - name: Install pinned Cloud.ru Evolution provider
-        shell: bash
-        run: |
-          set -euo pipefail
-          version='2.1.3'
-          platform='linux_amd64'
-          expected_sha256='41b14bbf195131364d58d3f5d33face1d7f151d6b4ca6175bf6b0f6b83ede5a7'
-          provider_dir="$HOME/.terraform.d/plugins/cloud.ru/cloudru/cloud/$version/$platform"
-          provider_path="$provider_dir/terraform-provider-cloud_${version}_${platform}"
-          mkdir -p "$provider_dir"
-          curl --fail --location --silent --show-error \
-            "https://github.com/cloud-ru/evo-terraform/releases/download/v${version}/terraform-provider-cloud_${version}_${platform}" \
-            --output "$provider_path"
-          printf '%s  %s\n' "$expected_sha256" "$provider_path" | sha256sum --check --strict
-          chmod 0755 "$provider_path"
+        run: bash deploy/cloudru/install-terraform-provider-linux-amd64.sh
 
-      - name: Validate Cloud.ru Terraform
+      - name: Validate Cloud.ru production Terraform
         working-directory: deploy/cloudru/terraform
         shell: bash
         run: |
           set -euo pipefail
           terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: Validate ephemeral CI SSH Terraform
+        working-directory: deploy/cloudru/terraform/ci-ssh-access
+        shell: bash
+        run: |
+          set -euo pipefail
           terraform init -backend=false -input=false
           terraform validate
 

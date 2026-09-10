@@ -10,6 +10,9 @@ const legacyShellRelease = repoFile('scripts/deploy.sh');
 const releaseChecklist = repoFile('scripts/release-manual-checklist.md');
 const compose = repoFile('docker-compose.backend.yml');
 const envExample = repoFile('backend/.env.example');
+const providerInstaller = repoFile('deploy/cloudru/install-terraform-provider-linux-amd64.sh');
+const ciSshMain = repoFile('deploy/cloudru/terraform/ci-ssh-access/main.tf');
+const ciSshVariables = repoFile('deploy/cloudru/terraform/ci-ssh-access/variables.tf');
 
 describe('production release-path contract', () => {
   test('backend release is main-only, explicit and uses one immutable GitHub SHA image', () => {
@@ -39,6 +42,33 @@ describe('production release-path contract', () => {
     expect(frontendRelease).toContain('vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"');
     expect(frontendRelease).toContain('https://frontend-olegs-projects-bfc4e11a.vercel.app');
     expect(frontendRelease).toContain('<title>Coder Survival</title>');
+  });
+
+  test('backend release uses a temporary one-runner SSH allowlist and always destroys it', () => {
+    expect(backendRelease).toContain('CLOUDRU_PROJECT_ID: ${{ secrets.CLOUDRU_PROJECT_ID }}');
+    expect(backendRelease).toContain('CLOUDRU_AUTH_KEY_ID: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}');
+    expect(backendRelease).toContain('CLOUDRU_AUTH_SECRET: ${{ secrets.CLOUDRU_AUTH_SECRET }}');
+    expect(backendRelease).toContain('runner_cidr="${runner_ip}/32"');
+    expect(backendRelease).toContain('not address.is_global');
+    expect(backendRelease).toContain('TF_VAR_ssh_port: ${{ vars.CLOUDRU_VM_SSH_PORT || \'22\' }}');
+    expect(backendRelease).toContain('terraform apply -auto-approve -input=false -no-color');
+    expect(backendRelease).toContain("if: ${{ always() && steps.ci_ssh.outputs.attempted == 'true' && steps.ci_ssh.outputs.source_cidr != '' }}");
+    expect(backendRelease).toContain('terraform destroy -auto-approve -input=false -no-color');
+
+    expect(ciSshMain).toContain('remote_ip_prefix  = var.source_cidr');
+    expect(ciSshMain).toContain('port_range        = "${var.ssh_port}:${var.ssh_port}"');
+    expect(ciSshMain).toContain('Temporary GitHub Actions SSH run ${var.github_run_id}');
+    expect(ciSshMain).not.toContain('remote_ip_prefix  = "0.0.0.0/0"');
+    expect(ciSshVariables).toContain('source_cidr must be one concrete non-zero IPv4 /32 CIDR');
+    expect(ciSshVariables).toContain('github_run_id must contain only decimal digits');
+  });
+
+  test('Cloud.ru Terraform provider installer pins version and published linux amd64 checksum', () => {
+    expect(providerInstaller).toContain("VERSION='2.1.3'");
+    expect(providerInstaller).toContain("PLATFORM='linux_amd64'");
+    expect(providerInstaller).toContain("EXPECTED_SHA256='41b14bbf195131364d58d3f5d33face1d7f151d6b4ca6175bf6b0f6b83ede5a7'");
+    expect(providerInstaller).toContain('sha256sum --check --strict');
+    expect(providerInstaller).toContain('github.com/cloud-ru/evo-terraform/releases/download');
   });
 
   test('all obsolete manual/local production entrypoints are fail-closed', () => {

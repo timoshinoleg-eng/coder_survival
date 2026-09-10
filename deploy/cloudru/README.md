@@ -15,7 +15,7 @@ Production Cloud.ru resources are described in `deploy/cloudru/terraform/` and s
 The Terraform module manages:
 
 1. a dedicated Evolution VPC and routed subnet;
-2. a security group with restricted SSH and public HTTP/HTTPS only;
+2. a security group with restricted persistent SSH and public HTTP/HTTPS only;
 3. a reserved public IPv4;
 4. an encrypted Ubuntu boot disk and backend VM;
 5. cloud-init bootstrap for the deployment user, nginx/certbot, Docker and Docker Compose;
@@ -23,9 +23,9 @@ The Terraform module manages:
 7. automatic PostgreSQL backups and PgBouncer transaction pooling;
 8. a dedicated application database owner and database.
 
-The PostgreSQL specification ID is an explicit required input. Terraform validates the selected specification and minimum storage at plan/apply time; it never auto-selects a paid database size. SSH `0.0.0.0/0` is rejected.
+The PostgreSQL specification ID is an explicit required input. Terraform validates the selected specification and minimum storage at plan/apply time; it never auto-selects a paid database size. Persistent SSH `0.0.0.0/0` is rejected.
 
-See `deploy/cloudru/terraform/README.md` for provider installation, required inputs, plan/apply procedure and state-security rules.
+See `deploy/cloudru/terraform/README.md` for provider installation, required inputs, plan/apply procedure, ephemeral CI SSH access and state-security rules.
 
 Cloud.ru documents that Managed PostgreSQL is reachable only from Evolution VMs in the same project and subnet. Its current connection guide uses the internal IP and normal PostgreSQL port without an `sslmode` requirement; this deployment therefore defaults `CLOUDRU_DB_SSL=false`. Change the environment variable if the database configuration later requires TLS.
 
@@ -74,7 +74,13 @@ The backend deploy enforces this relationship before the production image is tra
 
 Create the `production-cloudru` environment and configure:
 
-Required secrets:
+Required Cloud.ru access secrets:
+
+- `CLOUDRU_PROJECT_ID` — Evolution project ID containing the production VM/security group.
+- `CLOUDRU_AUTH_KEY_ID` — service-account access-key ID allowed to read security groups and create/delete security-group rules.
+- `CLOUDRU_AUTH_SECRET` — secret for that service-account access key.
+
+Required VM/database/application secrets:
 
 - `CLOUDRU_VM_HOST` — Terraform `vm_public_ip` output.
 - `CLOUDRU_VM_USER` — Terraform `vm_user` output, normally `coderdeploy`.
@@ -95,7 +101,10 @@ Repository/environment variables:
 
 - `BACKEND_HEALTH_URL=https://coder-survival-api.duckdns.org/health`
 - `CLOUDRU_VM_SSH_PORT=22`
+- `CLOUDRU_SECURITY_GROUP_NAME=coder-survival-backend`
 - `CLOUDRU_DB_SSL=false`
+
+The Cloud.ru service-account key used by the deployment workflow should be scoped to the least privileges needed for security-group discovery and temporary rule create/delete. It is not the application runtime credential and is never transferred to the VM.
 
 ### Pin the VM host key
 
@@ -103,11 +112,22 @@ Do not populate `CLOUDRU_VM_HOST_KEY` from an unauthenticated `ssh-keyscan` duri
 
 For port 22 the line starts with the configured host/IP. For a non-standard SSH port it starts with `[host]:port`. The workflow verifies that the pinned entry actually covers `CLOUDRU_VM_HOST` + `CLOUDRU_VM_SSH_PORT`, and SSH itself verifies the server presents that key.
 
-## CI-to-VM SSH constraint
+## Ephemeral CI-to-VM SSH access
 
-The backend production workflow currently uses a GitHub-hosted runner, whose public source IP is dynamic. Production Terraform intentionally requires a narrow `ssh_allowed_cidrs` list and rejects public SSH from `0.0.0.0/0`.
+The backend production job remains on a GitHub-hosted runner. It does not require a permanently allowlisted GitHub IP range and does not open SSH to `0.0.0.0/0`.
 
-Do not weaken that rule just to make the first deployment convenient. Before relying on automated backend SSH deployment, establish a stable trusted CI source (for example a dedicated deployment runner/network path) and allowlist only that source plus required operator `/32` addresses.
+For each release the workflow:
+
+1. obtains the current runner's public IPv4 and rejects it unless it is a globally routable IPv4;
+2. uses the pinned Cloud.ru Terraform provider to find exactly one security group named by `CLOUDRU_SECURITY_GROUP_NAME`;
+3. creates one temporary ingress rule for the configured SSH port and exactly `<runner-ip>/32`;
+4. tags the rule description `Temporary GitHub Actions SSH run <run-id>`;
+5. performs the normal pinned-host-key SSH deployment;
+6. runs `terraform destroy` in an `always()` cleanup step.
+
+If normal deployment fails, cleanup still executes. If cleanup itself fails, the GitHub job is failed and must not be treated as a clean release.
+
+A catastrophic runner loss can prevent `always()` cleanup. In that case inspect the production security group and delete the single rule whose description contains the affected GitHub Actions run ID before retrying. Persistent operator SSH rules are unaffected.
 
 ## Release contract
 
@@ -119,20 +139,26 @@ The backend workflow:
 2. runs the complete backend suite against PostgreSQL 16;
 3. builds an immutable Docker image on GitHub Actions rather than on the small VM;
 4. validates the exact production configuration and stable frontend origin;
-5. pins the SSH host key instead of trusting `ssh-keyscan` during release;
-6. verifies the public API DNS resolves to the same VM used for SSH;
-7. verifies Docker, Docker Compose >= 2.30 and nginx on the VM;
-8. transfers the image and a mode-600 raw environment file;
-9. validates production preflight inside the exact release image;
-10. checks Managed PostgreSQL reachability from the VM;
-11. creates a pre-migration `pg_dump` backup;
-12. applies migrations before replacing the live container;
-13. starts the new image on loopback only;
-14. waits for container health (`status=ok`, `db=connected`);
-15. rolls back to the previous image if health fails;
-16. verifies the public HTTPS `/health` endpoint.
+5. opens one temporary runner `/32` SSH rule and records the GitHub run ID in its description;
+6. pins the SSH host key instead of trusting `ssh-keyscan` during release;
+7. verifies the public API DNS resolves to the same VM used for SSH;
+8. verifies Docker, Docker Compose >= 2.30 and nginx on the VM;
+9. transfers the image and a mode-600 raw environment file;
+10. validates production preflight inside the exact release image;
+11. checks Managed PostgreSQL reachability from the VM;
+12. creates a pre-migration `pg_dump` backup;
+13. applies migrations before replacing the live container;
+14. starts the new image on loopback only;
+15. waits for container health (`status=ok`, `db=connected`);
+16. rolls back to the previous image if health fails;
+17. verifies the public HTTPS `/health` endpoint;
+18. removes the temporary SSH rule even after a failed deploy attempt.
 
 `PAYMENTS_ENABLED=false` remains enforced in the generated production environment and Compose until the separate payment go-live decision.
+
+## Main Terraform apply remains manual
+
+The ephemeral `/32` mechanism solves CI-to-VM SSH without a second persistent deployment VM. It does not change the main infrastructure governance: production VPC/VM/PostgreSQL creation still requires a reviewed Terraform plan and protected Terraform state. Do not run the main infrastructure through `-auto-approve`.
 
 ## Secret-format contract
 
