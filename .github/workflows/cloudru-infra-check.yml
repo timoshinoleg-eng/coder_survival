@@ -5,6 +5,7 @@ on:
     branches:
       - infra/cloudru-production
       - infra/cloudru-first-deploy-hardening
+      - infra/cloudru-terraform
     paths:
       - 'backend/**'
       - 'docker-compose.backend.yml'
@@ -32,6 +33,21 @@ jobs:
         run: |
           bash -n deploy/cloudru/bootstrap-vm.sh
           bash -n deploy/cloudru/configure-nginx.sh
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Validate Cloud.ru Terraform
+        working-directory: deploy/cloudru/terraform
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate
 
       - name: Build backend image
         run: docker build -t coder-survival-backend:ci ./backend
