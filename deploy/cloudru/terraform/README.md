@@ -31,6 +31,28 @@ Cloud.ru Evolution distributes this provider from its official GitHub releases r
 
 For operator machines, install the same 2.1.3 provider according to the current Cloud.ru Evolution Terraform quickstart before running `terraform init`. Do not upgrade the provider in a production change without running the Cloud.ru infra CI and reviewing the provider changelog.
 
+## Discover production choices before provisioning
+
+Before choosing `vm_image_id` or `postgres_specification_id`, run the manual GitHub Actions workflow **Cloud.ru Production Input Discovery** from `main`.
+
+The workflow uses only the `production-cloudru` secrets `CLOUDRU_PROJECT_ID`, `CLOUDRU_AUTH_KEY_ID`, and `CLOUDRU_AUTH_SECRET`. Its Terraform module is under `terraform/discovery/` and contains data sources only: it cannot create, update, or delete Cloud.ru resources.
+
+The Job Summary publishes only non-secret catalog fields:
+
+- Ubuntu 24.04 image IDs, names, enabled zones, and minimum CPU/RAM/disk requirements;
+- Managed PostgreSQL 16 specification IDs, deployment mode, flavor class, CPU/RAM, minimum storage, max hosts, and HA capability.
+
+The workflow may highlight the smallest returned `standard` PostgreSQL specification by resource ordering, but that is not an approval or price comparison. Verify the current Cloud.ru price before selecting a specification.
+
+The safe provisioning order is:
+
+1. run **Cloud.ru Production Input Discovery**;
+2. select and record the exact Ubuntu 24.04 image ID and PostgreSQL 16 specification ID;
+3. export the selected IDs and other required `TF_VAR_*` inputs;
+4. create a saved `production.tfplan`;
+5. review resource counts, VM flavor/disk, PostgreSQL specification/storage/backups, and public networking;
+6. apply exactly that reviewed saved plan.
+
 ## Required inputs
 
 Pass sensitive inputs through environment variables rather than committed `.tfvars` files:
@@ -66,7 +88,7 @@ terraform init -backend=false -input=false
 terraform validate
 ```
 
-The same validation runs independently for `terraform/ci-ssh-access`. `terraform validate` does not create resources.
+The same validation runs independently for `terraform/ci-ssh-access` and `terraform/discovery`. `terraform validate` does not create resources.
 
 ## Review a real infrastructure plan
 
@@ -95,6 +117,8 @@ Terraform state contains infrastructure metadata and the application database pa
 Before long-term operation, store state in an approved encrypted remote backend with locking. Until that backend is selected, keep the initial state in a protected operator location and back it up securely after every infrastructure change.
 
 The `ci-ssh-access` module is different: its state is intentionally ephemeral inside one GitHub Actions deploy job and contains only the temporary security-group rule plus Cloud.ru resource metadata. It is created and destroyed on the same runner and is never uploaded as an artifact.
+
+The `discovery` module also uses no persistent state backend. It is read-only, and the workflow removes its local plan/JSON/state files in an `always()` cleanup step.
 
 ## VM bootstrap
 
