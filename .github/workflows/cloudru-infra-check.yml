@@ -40,7 +40,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat > /tmp/backend.env <<'ENV'
+          trap 'rm -f backend.env' EXIT
+          cat > backend.env <<'ENV'
           BOT_TOKEN=test-token
           BOT_BACKEND_SECRET=literal-$TOKEN#value with spaces
           ADMIN_API_SECRET=test-admin-secret
@@ -62,14 +63,15 @@ jobs:
           PORT=3000
           PAYMENTS_ENABLED=false
           ENV
+          chmod 600 backend.env
 
           BACKEND_IMAGE_TAG=ci docker compose -f docker-compose.backend.yml config >/dev/null
 
           BACKEND_IMAGE_TAG=ci docker compose -f docker-compose.backend.yml run --rm --no-deps backend \
             node -e 'if (process.env.DB_PASSWORD !== "pa$$word#with spaces" || process.env.BOT_BACKEND_SECRET !== "literal-$TOKEN#value with spaces") process.exit(1)'
 
-          docker run --rm --env-file /tmp/backend.env coder-survival-backend:ci \
+          docker run --rm --env-file backend.env coder-survival-backend:ci \
             node -e 'if (process.env.DB_PASSWORD !== "pa$$word#with spaces" || process.env.BOT_BACKEND_SECRET !== "literal-$TOKEN#value with spaces") process.exit(1)'
 
-          docker run --rm --env-file /tmp/backend.env coder-survival-backend:ci \
+          docker run --rm --env-file backend.env coder-survival-backend:ci \
             node --input-type=module -e 'import { assertProductionConfig } from "./src/config/productionPreflight.js"; assertProductionConfig(process.env)'
