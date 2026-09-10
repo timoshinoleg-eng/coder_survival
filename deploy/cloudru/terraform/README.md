@@ -24,10 +24,12 @@ Neither backend port 3000 nor PostgreSQL port 5432 is exposed in the VM security
 The configuration pins the official Cloud.ru Evolution provider:
 
 ```text
-cloudru/cloud 2.1.3
+cloud.ru/cloudru/cloud 2.1.3
 ```
 
-Do not upgrade the provider in a production change without running the Cloud.ru infra CI and reviewing the provider changelog.
+Cloud.ru Evolution distributes this provider from its official GitHub releases rather than the public Terraform Registry. CI installs the exact `linux_amd64` 2.1.3 binary into Terraform's local provider directory and verifies its published SHA-256 before `terraform init`.
+
+For operator machines, install the same 2.1.3 provider according to the current Cloud.ru Evolution Terraform quickstart before running `terraform init`. Do not upgrade the provider in a production change without running the Cloud.ru infra CI and reviewing the provider changelog.
 
 ## Required inputs
 
@@ -56,7 +58,7 @@ export TF_VAR_ssh_allowed_cidrs='["203.0.113.10/32"]'
 
 ## Validate without credentials
 
-CI performs syntax/schema validation without contacting the user's Cloud.ru project:
+After installing the pinned Cloud.ru provider, CI performs syntax/schema validation without contacting the user's Cloud.ru project:
 
 ```bash
 terraform fmt -check -recursive
