@@ -41,12 +41,18 @@ Before the first release, verify that the API hostname resolves to the same publ
 
 ## Stable frontend origin
 
-`WEBAPP_URL` and `FRONTEND_URL` must use the same stable production origin. Use a domain assigned to the Vercel `frontend` project, not a deployment-specific preview URL such as `frontend-<deployment-id>-<team>.vercel.app`.
+The connected Vercel `frontend` project has a stable production alias:
+
+`https://frontend-olegs-projects-bfc4e11a.vercel.app`
+
+Use this exact origin for both production `FRONTEND_URL` and, unless a Telegram path is intentionally added later, `WEBAPP_URL`. Do not use a deployment-specific preview URL such as `frontend-<deployment-id>-<team>.vercel.app`.
+
+Before the first Cloud.ru backend cutover, run **Deploy Frontend Production** from the current `main` and verify the stable alias serves that release. The workflow builds/tests the frontend, deploys exact `main` with Vercel `--prod`, and checks that the stable alias still serves the Coder Survival shell.
 
 - `FRONTEND_URL` must be the canonical HTTPS origin only, with no path or trailing slash.
 - `WEBAPP_URL` may include a path, but its origin must equal `FRONTEND_URL`.
 
-This is enforced before the production image is transferred to the VM.
+The backend deploy enforces this relationship before the production image is transferred to the VM.
 
 ## GitHub environment
 
@@ -62,8 +68,8 @@ Required secrets:
 - `DB_PORT` — database port, normally `5432`.
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 - `BOT_TOKEN`, `BOT_BACKEND_SECRET`, `ADMIN_API_SECRET`.
-- `WEBAPP_URL` — production Telegram Mini App HTTPS URL.
-- `FRONTEND_URL` — canonical frontend HTTPS origin.
+- `WEBAPP_URL=https://frontend-olegs-projects-bfc4e11a.vercel.app`
+- `FRONTEND_URL=https://frontend-olegs-projects-bfc4e11a.vercel.app`
 - `CORS_ALLOWED_ORIGINS` — optional extra comma-separated HTTPS origins.
 - Rewarded-ad secrets only when that provider is enabled.
 
@@ -81,9 +87,9 @@ For port 22 the line starts with the configured host/IP. For a non-standard SSH 
 
 ## Release contract
 
-Run **Deploy Backend to Cloud.ru** from the `main` branch and type `deploy`.
+First run **Deploy Frontend Production** from `main`. Then run **Deploy Backend to Cloud.ru** from `main` and type `deploy`.
 
-The workflow:
+The backend workflow:
 
 1. refuses any production release not dispatched from `main`;
 2. runs the complete backend suite against PostgreSQL 16;
