@@ -12,6 +12,8 @@ const releaseChecklist = repoFile('scripts/release-manual-checklist.md');
 const compose = repoFile('docker-compose.backend.yml');
 const envExample = repoFile('backend/.env.example');
 const providerInstaller = repoFile('deploy/cloudru/install-terraform-provider-linux-amd64.sh');
+const productionTerraformMain = repoFile('deploy/cloudru/terraform/main.tf');
+const productionTerraformVariables = repoFile('deploy/cloudru/terraform/variables.tf');
 const ciSshMain = repoFile('deploy/cloudru/terraform/ci-ssh-access/main.tf');
 const ciSshVariables = repoFile('deploy/cloudru/terraform/ci-ssh-access/variables.tf');
 const discoveryMain = repoFile('deploy/cloudru/terraform/discovery/main.tf');
@@ -90,12 +92,50 @@ describe('production release-path contract', () => {
     expect((cloudruDiscovery.match(/secrets\.CLOUDRU_AUTH_KEY_ID/g) || [])).toHaveLength(2);
     expect((cloudruDiscovery.match(/secrets\.CLOUDRU_AUTH_SECRET/g) || [])).toHaveLength(2);
 
-    expect(discoveryMain).toContain('data "cloudru_evolution_compute_image_collection" "project"');
-    expect(discoveryMain).toContain('data "cloudru_evolution_postgresql_specification_collection" "postgres16"');
+    for (const dataSource of [
+      'cloudru_evolution_compute_zone_collection',
+      'cloudru_evolution_compute_flavor_collection',
+      'cloudru_evolution_compute_disk_type_collection',
+      'cloudru_evolution_compute_image_collection',
+      'cloudru_evolution_postgresql_specification_collection',
+    ]) {
+      expect(discoveryMain).toContain(`data "${dataSource}"`);
+    }
+    for (const output of [
+      'enabled_zones',
+      'vm_flavors',
+      'disk_types',
+      'ubuntu_2404_images',
+      'postgres16_specifications',
+    ]) {
+      expect(discoveryMain).toContain(`output "${output}"`);
+      expect(cloudruDiscovery).toContain(`outputs.get('${output}'`);
+    }
     expect(discoveryMain).toContain('version_name = "16"');
-    expect(discoveryMain).toContain('output "ubuntu_2404_images"');
-    expect(discoveryMain).toContain('output "postgres16_specifications"');
     expect(discoveryMain).not.toMatch(/^resource\s+"/m);
+  });
+
+  test('production Cloud.ru compute selections use explicit discovered IDs and reject incompatible choices', () => {
+    for (const variable of ['zone_id', 'vm_flavor_id', 'boot_disk_type_id', 'vm_image_id', 'postgres_specification_id']) {
+      expect(productionTerraformVariables).toContain(`variable "${variable}"`);
+    }
+
+    expect(productionTerraformVariables).not.toContain('default     = "ru.AZ-1"');
+    expect(productionTerraformVariables).not.toContain('default     = "gen-1-1"');
+    expect(productionTerraformVariables).not.toContain('default     = "SSD"');
+    expect(productionTerraformVariables).not.toContain('variable "zone"');
+    expect(productionTerraformVariables).not.toContain('variable "vm_flavor"');
+    expect(productionTerraformVariables).not.toContain('variable "boot_disk_type"');
+
+    expect(productionTerraformMain).toContain('id = var.zone_id');
+    expect(productionTerraformMain).toContain('id = var.vm_flavor_id');
+    expect(productionTerraformMain).toContain('id = var.boot_disk_type_id');
+    expect(productionTerraformMain).toContain('zone_id must identify exactly one enabled availability zone');
+    expect(productionTerraformMain).toContain('vm_flavor_id must identify exactly one VM flavor enabled in zone_id');
+    expect(productionTerraformMain).toContain('boot_disk_type_id must identify exactly one disk type enabled in zone_id');
+    expect(productionTerraformMain).toContain('vm_image_id must identify exactly one Ubuntu 24.04 image enabled in zone_id');
+    expect(productionTerraformMain).toContain('boot_disk_size_gb is below the selected Ubuntu image minimum disk size');
+    expect(productionTerraformMain).toContain('vm_flavor_id does not satisfy the selected Ubuntu image minimum CPU/RAM requirements');
   });
 
   test('all obsolete manual/local production entrypoints are fail-closed', () => {
