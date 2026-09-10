@@ -7,11 +7,13 @@ on:
       - infra/cloudru-first-deploy-hardening
       - infra/cloudru-terraform
       - infra/cloudru-ephemeral-ci-ssh
+      - infra/cloudru-input-discovery
     paths:
       - 'backend/**'
       - 'docker-compose.backend.yml'
       - 'deploy/cloudru/**'
       - '.github/workflows/deploy-backend.yml'
+      - '.github/workflows/cloudru-discovery.yml'
       - '.github/workflows/cloudru-infra-check.yml'
   pull_request:
     paths:
@@ -19,6 +21,7 @@ on:
       - 'docker-compose.backend.yml'
       - 'deploy/cloudru/**'
       - '.github/workflows/deploy-backend.yml'
+      - '.github/workflows/cloudru-discovery.yml'
       - '.github/workflows/cloudru-infra-check.yml'
 
 permissions:
@@ -56,6 +59,14 @@ jobs:
 
       - name: Validate ephemeral CI SSH Terraform
         working-directory: deploy/cloudru/terraform/ci-ssh-access
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: Validate read-only discovery Terraform
+        working-directory: deploy/cloudru/terraform/discovery
         shell: bash
         run: |
           set -euo pipefail
