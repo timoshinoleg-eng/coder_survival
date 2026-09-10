@@ -41,7 +41,7 @@ variable "source_cidr" {
   validation {
     condition = (
       can(cidrhost(var.source_cidr, 0)) &&
-      endswith(var.source_cidr, "/32") &&
+      can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/32$", var.source_cidr)) &&
       var.source_cidr != "0.0.0.0/32"
     )
     error_message = "source_cidr must be one concrete non-zero IPv4 /32 CIDR."
