@@ -47,3 +47,13 @@ variable "source_cidr" {
     error_message = "source_cidr must be one concrete non-zero IPv4 /32 CIDR."
   }
 }
+
+variable "github_run_id" {
+  description = "GitHub Actions run ID embedded in the temporary rule description for audit/manual cleanup."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_run_id))
+    error_message = "github_run_id must contain only decimal digits."
+  }
+}
