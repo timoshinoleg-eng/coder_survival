@@ -8,6 +8,7 @@ on:
       - infra/cloudru-terraform
       - infra/cloudru-ephemeral-ci-ssh
       - infra/cloudru-input-discovery
+      - infra/cloudru-explicit-compute-inputs
     paths:
       - 'backend/**'
       - 'docker-compose.backend.yml'
