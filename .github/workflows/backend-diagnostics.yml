@@ -1,0 +1,130 @@
+name: Backend Diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backend-diagnostics.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudru-backend-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: production-cloudru
+    env:
+      SSH_HOST: ${{ secrets.CLOUDRU_VM_HOST }}
+      SSH_USER: ${{ secrets.CLOUDRU_VM_USER }}
+      SSH_PORT: ${{ vars.CLOUDRU_VM_SSH_PORT || '22' }}
+      TF_VAR_project_id: ${{ secrets.CLOUDRU_PROJECT_ID }}
+      TF_VAR_auth_key_id: ${{ secrets.CLOUDRU_AUTH_KEY_ID }}
+      TF_VAR_auth_secret: ${{ secrets.CLOUDRU_AUTH_SECRET }}
+      TF_VAR_security_group_name: ${{ vars.CLOUDRU_SECURITY_GROUP_NAME || 'coder-survival-backend' }}
+      TF_VAR_ssh_port: ${{ vars.CLOUDRU_VM_SSH_PORT || '22' }}
+      TF_VAR_github_run_id: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate diagnostic configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(SSH_HOST SSH_USER TF_VAR_project_id TF_VAR_auth_key_id TF_VAR_auth_secret TF_VAR_security_group_name)
+          for key in "${required[@]}"; do
+            [[ -n "${!key:-}" ]] || { echo "Missing required diagnostic value: $key" >&2; exit 1; }
+          done
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]] && (( SSH_PORT >= 1 && SSH_PORT <= 65535 ))
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Install pinned Cloud.ru Evolution provider
+        run: bash deploy/cloudru/install-terraform-provider-linux-amd64.sh
+
+      - name: Open ephemeral GitHub runner SSH access
+        id: ci_ssh
+        working-directory: deploy/cloudru/terraform/ci-ssh-access
+        shell: bash
+        run: |
+          set -euo pipefail
+          runner_ip="$(curl --fail --silent --show-error --ipv4 https://checkip.amazonaws.com | tr -d '[:space:]')"
+          python3 - "$runner_ip" <<'PY'
+          import ipaddress, sys
+          address = ipaddress.ip_address(sys.argv[1])
+          if address.version != 4 or not address.is_global:
+              raise SystemExit('Expected one concrete public IPv4 for the GitHub runner')
+          PY
+          runner_cidr="${runner_ip}/32"
+          echo "source_cidr=$runner_cidr" >> "$GITHUB_OUTPUT"
+          echo "attempted=true" >> "$GITHUB_OUTPUT"
+          export TF_VAR_source_cidr="$runner_cidr"
+          terraform init -backend=false -input=false
+          terraform apply -auto-approve -input=false -no-color
+
+      - name: Configure SSH host identity
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.CLOUDRU_VM_SSH_KEY }}
+          SSH_HOST_KEY: ${{ secrets.CLOUDRU_VM_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SSH_PRIVATE_KEY" ]] || { echo "Missing CLOUDRU_VM_SSH_KEY" >&2; exit 1; }
+          [[ -n "$SSH_HOST_KEY" ]] || { echo "Missing CLOUDRU_VM_HOST_KEY" >&2; exit 1; }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          known_host="$SSH_HOST"
+          if [[ "$SSH_PORT" != "22" ]]; then known_host="[$SSH_HOST]:$SSH_PORT"; fi
+          ssh-keygen -F "$known_host" -f ~/.ssh/known_hosts >/dev/null
+
+      - name: Read-only backend diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          echo '=== host ==='
+          hostname
+          echo '=== nginx ==='
+          sudo nginx -t
+          systemctl is-active nginx
+          echo '=== listeners ==='
+          sudo ss -ltnp | grep -E ':(80|443|3000)\b' || true
+          echo '=== containers ==='
+          sudo docker ps --format '{{.Names}}\t{{.Status}}\t{{.Ports}}'
+          echo '=== localhost health ==='
+          code="$(curl --silent --show-error --output /tmp/coder-health.json --write-out '%{http_code}' --max-time 10 http://127.0.0.1:3000/health || true)"
+          echo "LOCAL_HEALTH_HTTP=$code"
+          if [[ "$code" == "200" ]]; then
+            node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('/tmp/coder-health.json','utf8')); console.log('LOCAL_HEALTH_STATUS='+(p.status||'unknown'))" 2>/dev/null || true
+          fi
+          rm -f /tmp/coder-health.json
+          echo '=== certificate ==='
+          cert='/etc/letsencrypt/live/coder-survival-api.duckdns.org/fullchain.pem'
+          if sudo test -f "$cert"; then
+            echo 'CERT_PRESENT=true'
+            sudo openssl x509 -in "$cert" -noout -subject -issuer -dates -ext subjectAltName
+          else
+            echo 'CERT_PRESENT=false'
+          fi
+          REMOTE
+
+      - name: Revoke ephemeral GitHub runner SSH access
+        if: always() && steps.ci_ssh.outputs.attempted == 'true'
+        working-directory: deploy/cloudru/terraform/ci-ssh-access
+        shell: bash
+        env:
+          TF_VAR_source_cidr: ${{ steps.ci_ssh.outputs.source_cidr }}
+        run: |
+          set -euo pipefail
+          terraform destroy -auto-approve -input=false -no-color
