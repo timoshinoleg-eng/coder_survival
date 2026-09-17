@@ -15,63 +15,77 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      JUMP_HOST: 176.108.246.251
       TARGET_HOST: 176.108.243.20
       TARGET_USER: ubuntu
       RELEASE_SHA: 0c75b6d5ad7710f6db74cdb6d7ed694fda490198
     steps:
-      - name: Validate historical SSH secret
+      - name: Validate historical production SSH secret
         env:
           RECOVERY_KEY: ${{ secrets.VM_SSH_KEY }}
         run: |
           set -euo pipefail
           [[ -n "$RECOVERY_KEY" ]] || { echo 'VM_SSH_KEY is missing'; exit 2; }
 
-      - name: Publish runner CIDR handshake
+      - name: Generate and publish ephemeral bastion public key
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          runner_ip="$(curl --fail --silent --show-error --ipv4 https://checkip.amazonaws.com | tr -d '[:space:]')"
-          python3 - "$runner_ip" <<'PY'
-          import ipaddress, sys
-          ip = ipaddress.ip_address(sys.argv[1])
-          assert ip.version == 4 and ip.is_global
-          PY
-          runner_cidr="${runner_ip}/32"
-          encoded="$(printf '%s\n' "$runner_cidr" | base64 -w0)"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keygen -q -t ed25519 -N '' -C "gha-run-${GITHUB_RUN_ID}" -f ~/.ssh/id_jump
+          encoded="$(base64 -w0 ~/.ssh/id_jump.pub)"
           gh api --method PUT \
-            "repos/${GITHUB_REPOSITORY}/contents/.github/recovery-runner-${GITHUB_RUN_ID}.txt" \
-            -f message="ops: publish temporary runner CIDR ${GITHUB_RUN_ID}" \
+            "repos/${GITHUB_REPOSITORY}/contents/.github/recovery-jumpkey-${GITHUB_RUN_ID}.pub" \
+            -f message="ops: publish temporary bastion key ${GITHUB_RUN_ID}" \
             -f content="$encoded" \
             -f branch="$GITHUB_REF_NAME" >/dev/null
-          echo "RUNNER_CIDR=$runner_cidr"
+          echo "JUMP_KEY_PUBLISHED_FOR_RUN=$GITHUB_RUN_ID"
 
-      - name: Configure historical key
+      - name: Configure historical production key
         env:
           RECOVERY_KEY: ${{ secrets.VM_SSH_KEY }}
         run: |
           set -euo pipefail
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
           printf '%s\n' "$RECOVERY_KEY" > ~/.ssh/id_recovery
           chmod 600 ~/.ssh/id_recovery
 
-      - name: Wait for temporary network access and verify historical key
+      - name: Wait for ephemeral bastion trust
         run: |
           set -euo pipefail
-          network_ok=false
           for attempt in $(seq 1 90); do
-            if nc -z -w 3 "$TARGET_HOST" 22; then
-              network_ok=true
-              break
+            if ssh -i ~/.ssh/id_jump -o BatchMode=yes -o ConnectTimeout=4 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              "$TARGET_USER@$JUMP_HOST" 'echo BASTION_OK' >/dev/null 2>&1; then
+              echo 'BASTION_AUTH_OK'
+              exit 0
             fi
-            echo "waiting for SSH network access: attempt $attempt"
+            echo "waiting for bastion public-key installation: attempt $attempt"
             sleep 5
           done
-          [[ "$network_ok" == true ]] || { echo 'SSH network access did not open' >&2; exit 3; }
-          ssh-keyscan -T 5 -t ed25519 -H "$TARGET_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          chmod 600 ~/.ssh/known_hosts
-          ssh -i ~/.ssh/id_recovery -o BatchMode=yes -o ConnectTimeout=5 "$TARGET_USER@$TARGET_HOST" 'echo HISTORICAL_KEY_OK'
+          echo 'Bastion did not accept the ephemeral public key' >&2
+          exit 3
+
+      - name: Configure SSH ProxyJump and verify historical production key
+        run: |
+          set -euo pipefail
+          cat > ~/.ssh/config <<EOF
+          Host ofeliya-jump
+            HostName $JUMP_HOST
+            User $TARGET_USER
+            IdentityFile ~/.ssh/id_jump
+            IdentitiesOnly yes
+            StrictHostKeyChecking accept-new
+          Host ofeliya-prod
+            HostName $TARGET_HOST
+            User $TARGET_USER
+            IdentityFile ~/.ssh/id_recovery
+            IdentitiesOnly yes
+            ProxyJump ofeliya-jump
+            StrictHostKeyChecking accept-new
+          EOF
+          chmod 600 ~/.ssh/config
+          ssh -o BatchMode=yes -o ConnectTimeout=6 ofeliya-prod 'echo HISTORICAL_KEY_OK && hostname'
 
       - name: Fetch immutable Ofeliya deploy script
         run: |
@@ -84,12 +98,12 @@ jobs:
       - name: Deploy exact Ofeliya main SHA
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/id_recovery "$TARGET_USER@$TARGET_HOST" \
+          ssh ofeliya-prod \
             "OFELIYA_RELEASE='$RELEASE_SHA' OFELIYA_APP_DIR='/opt/ofeliya' bash -s" \
             < /tmp/deploy-cloudru.sh
 
       - name: Verify release on host
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/id_recovery "$TARGET_USER@$TARGET_HOST" \
+          ssh ofeliya-prod \
             "set -e; cd /opt/ofeliya; if [ -d .git ]; then git rev-parse HEAD; else cd current; git rev-parse HEAD; fi; docker compose -p ofeliya --env-file /opt/hub/.env --env-file /opt/ofeliya/.env -f deploy/compose.production.yml ps"
