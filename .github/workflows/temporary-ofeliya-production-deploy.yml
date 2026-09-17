@@ -46,22 +46,23 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "$RECOVERY_KEY" > ~/.ssh/id_recovery
           chmod 600 ~/.ssh/id_recovery
-          ssh-keyscan -T 5 -t ed25519 -H "$TARGET_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          chmod 600 ~/.ssh/known_hosts
 
-      - name: Wait for temporary network access
+      - name: Wait for temporary network access and verify historical key
         run: |
           set -euo pipefail
+          network_ok=false
           for attempt in $(seq 1 90); do
-            if ssh -i ~/.ssh/id_recovery -o BatchMode=yes -o ConnectTimeout=4 "$TARGET_USER@$TARGET_HOST" 'echo HISTORICAL_KEY_OK' >/dev/null 2>&1; then
-              echo 'SSH_AUTH_OK'
-              exit 0
+            if nc -z -w 3 "$TARGET_HOST" 22; then
+              network_ok=true
+              break
             fi
-            echo "waiting for SSH access: attempt $attempt"
+            echo "waiting for SSH network access: attempt $attempt"
             sleep 5
           done
-          echo 'Historical VM_SSH_KEY did not authenticate to shared production host' >&2
-          exit 3
+          [[ "$network_ok" == true ]] || { echo 'SSH network access did not open' >&2; exit 3; }
+          ssh-keyscan -T 5 -t ed25519 -H "$TARGET_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_recovery -o BatchMode=yes -o ConnectTimeout=5 "$TARGET_USER@$TARGET_HOST" 'echo HISTORICAL_KEY_OK'
 
       - name: Fetch immutable Ofeliya deploy script
         run: |
