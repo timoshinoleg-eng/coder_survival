@@ -3,10 +3,13 @@ import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useGameState } from '../hooks/useGameState.js';
 import { useTelegram } from '../hooks/useTelegram.js';
 import { useTelegramStories } from '../hooks/useTelegramStories.js';
-import { apiRequest } from '../utils/api.js';
+import { apiRequest, resolveApiBaseUrl } from '../utils/api.js';
 import { audioManager } from '../utils/AudioManager.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+// Shares utils/api.js's resolver so a trailing slash in VITE_API_BASE_URL cannot
+// produce `//api/meme`, and an explicit API origin is honoured on every host
+// (Vercel, Cloudflare Pages, local dev) rather than only some of them.
+const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 const MEME_TEMPLATES = [
   { id: 'works_on_my_machine', label: 'Works on my machine', accentColor: '#facc15' },
