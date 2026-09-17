@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: temporary-ofeliya-production-deploy
@@ -26,7 +26,9 @@ jobs:
           set -euo pipefail
           [[ -n "$RECOVERY_KEY" ]] || { echo 'VM_SSH_KEY is missing'; exit 2; }
 
-      - name: Publish runner CIDR
+      - name: Publish runner CIDR handshake
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           runner_ip="$(curl --fail --silent --show-error --ipv4 https://checkip.amazonaws.com | tr -d '[:space:]')"
@@ -35,7 +37,14 @@ jobs:
           ip = ipaddress.ip_address(sys.argv[1])
           assert ip.version == 4 and ip.is_global
           PY
-          echo "RUNNER_CIDR=${runner_ip}/32"
+          runner_cidr="${runner_ip}/32"
+          encoded="$(printf '%s\n' "$runner_cidr" | base64 -w0)"
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/contents/.github/recovery-runner-${GITHUB_RUN_ID}.txt" \
+            -f message="ops: publish temporary runner CIDR ${GITHUB_RUN_ID}" \
+            -f content="$encoded" \
+            -f branch="$GITHUB_REF_NAME" >/dev/null
+          echo "RUNNER_CIDR=$runner_cidr"
 
       - name: Configure historical key
         env:
