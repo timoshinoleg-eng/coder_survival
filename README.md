@@ -2,6 +2,18 @@
 
 **Coder Survival** is a Telegram Mini App clicker game where players take on the role of a software developer trying to survive deadlines, legacy code, and production alerts. The core loop combines tapping for LOC (lines of code), managing energy and depression, upgrading generators, and participating in weekly squads and battle passes.
 
+## Current status
+
+The project is an actively maintained production-oriented MVP with separated frontend, bot and server-side state:
+
+- **Frontend / Mini App:** Preact + Phaser, deployed independently from the backend.
+- **Bot:** Grammy-based Telegram entry point with its own deployment lifecycle.
+- **Backend + PostgreSQL:** Dockerized and hosted on a dedicated Cloud.ru Evolution VM.
+- **Trust boundary:** gameplay mutations that affect persisted state are validated server-side; Telegram identity must come from verified `initData`, not client-asserted IDs.
+- **Operations:** migrations, release scripts, smoke checks and audit logging are kept in the repository; production secrets stay outside Git.
+
+The repository is intentionally explicit about current MVP limits and release gates. Features that are not yet production-ready are listed below instead of being presented as completed.
+
 ## Tech Stack
 
 | Layer | Technology |
