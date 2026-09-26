@@ -1,5 +1,11 @@
 # Coder Survival — Telegram Mini App
 
+<!-- product-snapshot:start -->
+> **Product:** a Telegram Mini App game that turns developer life into a progression loop, backed by Preact + Phaser, Node.js, PostgreSQL, squads and live-product infrastructure.
+>
+> **Stage:** active product · **Platform:** Telegram · **Product focus:** retention, social loops and monetization experiments.
+<!-- product-snapshot:end -->
+
 **Coder Survival** is a Telegram Mini App clicker game where players take on the role of a software developer trying to survive deadlines, legacy code, and production alerts. The core loop combines tapping for LOC (lines of code), managing energy and depression, upgrading generators, and participating in weekly squads and battle passes.
 
 ## Tech Stack
